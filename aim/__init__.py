@@ -13,27 +13,24 @@
 # limitations under the License.
 
 
+import aim.infrastructure.rdbms as rdbms
 from aim.domain import init as init_domains
-from aim.infrastructure.rdbms import (
-    OrganizationRepository,
-    ProjectRepository,
-    UserRepository,
-)
 
 __all__ = ["init"]
 
 
-def init():
+def init(machine_id: int):
     """Initialize all application domains with their repositories."""
 
     # Initialize repository instances
-    org_repo = OrganizationRepository()
-    project_repo = ProjectRepository()
-    user_repo = UserRepository()
+    org_repo = rdbms.OrganizationRepository()
+    project_repo = rdbms.ProjectRepository()
+    user_repo = rdbms.UserRepository()
 
     # Initialize domains
     init_domains(
         repo_organization=org_repo,
         repo_project=project_repo,
         repo_user=user_repo,
+        machine_id=machine_id,
     )

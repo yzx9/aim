@@ -12,6 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Self
+
+from aim.domain.user.config import generate_id
+
 
 class User:
-    id: int
+    def __init__(self, id: int) -> None:
+        self.id = id
+
+    @classmethod
+    async def new(cls) -> Self:
+        global id_generator
+        return cls(await generate_id())

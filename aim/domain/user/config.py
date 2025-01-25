@@ -13,15 +13,18 @@
 # limitations under the License.
 
 
-import aim.domain.project.config as config
-import aim.domain.project.repository as repo
-from aim.domain.project.project import Project
-from aim.domain.project.repository import Repository
 from aim.util import IdGenerator
 
-__all__ = ["Project", "Repository", "init"]
+__init__ = ["init", "generate_id"]
+
+_id_generator: IdGenerator[int]
 
 
-def init(*, repository: Repository, id_generator: IdGenerator[int]):
-    repo.init(repository)
-    config.init(id_generator)
+def init(id_generator: IdGenerator[int]) -> None:
+    global _id_generator
+    _id_generator = id_generator
+
+
+async def generate_id() -> int:
+    global _id_generator
+    return _id_generator.generate()

@@ -13,12 +13,21 @@
 # limitations under the License.
 
 
+import datetime
+
 from aim.domain import organization, project, user
 from aim.domain.organization import Organization
 from aim.domain.project import Project
 from aim.domain.user import User
+from aim.util.id_generator import SnowflakeGenerator
 
 __all__ = ["Organization", "Project", "User"]
+
+# Epoch for Snowflake IDs, default: 2025-01-01 00:00:00 UTC in milliseconds
+_EPOCH = int(
+    (datetime.datetime(2025, 1, 1) - datetime.datetime(1970, 1, 1)).total_seconds()
+    * 1000
+)
 
 
 def init(
@@ -26,7 +35,11 @@ def init(
     repo_organization: organization.Repository,
     repo_project: project.Repository,
     repo_user: user.Repository,
+    machine_id: int,
 ):
-    organization.init(repo_organization)
-    project.init(repo_project)
-    user.init(repo_user)
+    def _new_id_generator():
+        return SnowflakeGenerator(machine_id, epoch=_EPOCH)
+
+    organization.init(repository=repo_organization, id_generator=_new_id_generator())
+    project.init(repository=repo_project, id_generator=_new_id_generator())
+    user.init(repository=repo_user, id_generator=_new_id_generator())

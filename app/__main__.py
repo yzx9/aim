@@ -20,9 +20,10 @@ from aim import init
 from app import new_app
 
 
-def run(host: str, port: int) -> None:
+def run(host: str, port: int, machine_id: int) -> None:
     click.echo("🚦Initializing application.")
-    init()
+    # TODO: Load config
+    init(machine_id)
 
     click.echo(f"🚀Starting server on {host}:{port}.")
     app = new_app()
@@ -39,9 +40,11 @@ def cli():
 @cli.command()
 @click.option("--host", default="127.0.0.1", help="Host to bind to")
 @click.option("--port", default=8080, help="Port to listen on")
-def serve(host: str, port: int):
+@click.option("--machine-id", default=0, help="Unique ID for this machine (0-1023)")
+def serve(host: str, port: int, machine_id: int):
     """Start the AIM web application"""
-    run(host, port)
+
+    run(host, port, machine_id)
 
 
 if __name__ == "__main__":
