@@ -12,28 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from app.app import new_app
 
-from aim.domain import init as init_domains
-from aim.infrastructure.rdbms import (
-    OrganizationRepository,
-    ProjectRepository,
-    UserRepository,
-)
-
-__all__ = ["init"]
-
-
-def init():
-    """Initialize all application domains with their repositories."""
-
-    # Initialize repository instances
-    org_repo = OrganizationRepository()
-    project_repo = ProjectRepository()
-    user_repo = UserRepository()
-
-    # Initialize domains
-    init_domains(
-        repo_organization=org_repo,
-        repo_project=project_repo,
-        repo_user=user_repo,
-    )
+__all__ = ["new_app"]

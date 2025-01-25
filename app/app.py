@@ -11,3 +11,36 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
+from aiohttp import web
+
+from app.api import ping
+
+__all__ = ["new_app"]
+
+
+def new_app() -> web.Application:
+    app = web.Application()
+
+    try:
+        import aiohttp_debugtoolbar
+
+        aiohttp_debugtoolbar.setup(app)
+    except ImportError:
+        pass
+
+    _init_routes(app)
+    return app
+
+
+# PROJECT_PATH = pathlib.Path(__file__).parent
+
+
+def _init_routes(app: web.Application) -> None:
+    r = app.router
+
+    r.add_get("/api/ping", ping, name="ping")
+
+    # added static dir
+    # r.add_static("/static/", path=(PROJECT_PATH / "static"), name="static")

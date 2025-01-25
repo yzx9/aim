@@ -13,27 +13,10 @@
 # limitations under the License.
 
 
-from aim.domain import init as init_domains
-from aim.infrastructure.rdbms import (
-    OrganizationRepository,
-    ProjectRepository,
-    UserRepository,
-)
+from aiohttp import web
 
-__all__ = ["init"]
+__all__ = ["ping"]
 
 
-def init():
-    """Initialize all application domains with their repositories."""
-
-    # Initialize repository instances
-    org_repo = OrganizationRepository()
-    project_repo = ProjectRepository()
-    user_repo = UserRepository()
-
-    # Initialize domains
-    init_domains(
-        repo_organization=org_repo,
-        repo_project=project_repo,
-        repo_user=user_repo,
-    )
+async def ping(request: web.Request) -> web.Response:
+    return web.json_response("pong")
