@@ -14,8 +14,7 @@ test-cov:
   uv run --with pytest --with pytest-cov \
     pytest \
       --doctest-modules \
-      --junitxml=junit/test-results.xml \
-      --cov=aim --cov-report=xml --cov-report=html
+      --cov=aim --cov=app --cov-report=xml --cov-report=html
 
 clean:
   rm -rf `find . -name __pycache__`
