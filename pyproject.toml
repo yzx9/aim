@@ -3,7 +3,7 @@ name = "aim"
 version = "0.0.1"
 description = "New project"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{ name = "yzx9", email = "pypi@yzx9.xyz" }]
 keywords = []
 license = { text = "Apache-2.0" }
