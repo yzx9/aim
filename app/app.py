@@ -13,28 +13,84 @@
 # limitations under the License.
 
 
+import os
+import threading
+import warnings
+from dataclasses import dataclass
+
 from aiohttp import web
 
+import aim
 from app.api import ping
+from app.util import ConfigParser
 
-__all__ = ["new_app"]
+__all__ = ["App"]
 
 
-def new_app() -> web.Application:
+class App:
+    """App is a singleton class that represents the AIM web application."""
+
+    _instance_lock = threading.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(App, "_instance"):
+            with App._instance_lock:
+                if not hasattr(App, "_instance"):
+                    App._instance = object.__new__(cls)
+
+        return App._instance
+
+    def __init__(self, root: str, **kwargs: str | int | float | bool):
+        super().__init__()
+
+        config = _load_config(root, **kwargs)
+        aim.init(config.aim_config)  # This is safely since App is a singleton
+
+        self.config = config
+        self.app = _new_app(config)
+
+    def run(self):
+        web.run_app(self.app, host=self.config.host, port=self.config.port)
+
+
+@dataclass
+class Config:
+    host: str
+    port: int
+
+    aim_config: aim.Config
+
+
+def _load_config(root: str, **kwargs: str | int | float | bool) -> Config:
+    parser = ConfigParser(
+        cli_args=kwargs,
+        env_prefix=str(kwargs["env_prefix"] or "AIM"),
+        env_files=[os.path.join(root, p) for p in [".env.local", ".env"]],
+    )
+
+    return Config(
+        host=parser.parse_str("APP_HOST", default="127.0.0.1"),
+        port=parser.parse_int("APP_PORT", default=8080),
+        aim_config=aim.Config(
+            dev=parser.parse_bool("dev", default=False),
+            machine_id=parser.parse_int("machine_id", default=0),
+        ),
+    )
+
+
+def _new_app(config: Config) -> web.Application:
     app = web.Application()
 
-    try:
-        import aiohttp_debugtoolbar
+    if config.aim_config.dev:
+        try:
+            import aiohttp_debugtoolbar
 
-        aiohttp_debugtoolbar.setup(app)
-    except ImportError:
-        pass
+            aiohttp_debugtoolbar.setup(app)
+        except ImportError:
+            warnings.warn("aiohttp_debugtoolbar not installed.", ImportWarning)
 
     _init_routes(app)
     return app
-
-
-# PROJECT_PATH = pathlib.Path(__file__).parent
 
 
 def _init_routes(app: web.Application) -> None:

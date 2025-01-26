@@ -14,12 +14,13 @@
 
 
 import aim.infrastructure.rdbms as rdbms
+from aim.config import Config
 from aim.domain import init as init_domains
 
-__all__ = ["init"]
+__all__ = ["Config", "init"]
 
 
-def init(machine_id: int):
+def init(config: Config):
     """Initialize all application domains with their repositories."""
 
     # Initialize repository instances
@@ -32,5 +33,5 @@ def init(machine_id: int):
         repo_organization=org_repo,
         repo_project=project_repo,
         repo_user=user_repo,
-        machine_id=machine_id,
+        machine_id=config.machine_id,
     )

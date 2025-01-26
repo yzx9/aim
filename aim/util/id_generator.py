@@ -62,8 +62,8 @@ class SnowflakeGenerator(IdGenerator[int]):
         ----------
         machine_id : int
             Unique ID for this machine/process (0-1023)
-        epoch : int, optional
-            Custom epoch in milliseconds, by default DEFAULT_EPOCH (2025-01-01 00:00:00 UTC)
+        epoch : int, default to 2025-01-01 00:00:00 UTC
+            Custom epoch in milliseconds
 
         Raises
         ------
@@ -71,7 +71,7 @@ class SnowflakeGenerator(IdGenerator[int]):
             If machine_id is not between 0 and 1023
         """
 
-        assert 0 < machine_id < 1023, "Machine ID must be between 0 and 1023"
+        assert 0 <= machine_id < 1024, "Machine ID must be between 0 and 1023"
 
         self._machine_id = machine_id
         self._epoch = epoch

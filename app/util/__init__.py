@@ -12,6 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from app.app import App
 
-__all__ = ["App"]
+from app.util.config_parser import *  # noqa: F403

@@ -3,6 +3,9 @@
 default:
   @just --list
 
+dev:
+  uv run python -m app serve --dev
+
 serve:
   uv run python -m app serve
 

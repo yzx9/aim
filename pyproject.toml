@@ -11,6 +11,7 @@ dependencies = [
     "aiohttp[speedups]>=3.11.11",
     "alembic>=1.14.1",
     "click>=8.1.8",
+    "python-dotenv>=1.0.1",
     "sqlalchemy>=2.0.37",
 ]
 

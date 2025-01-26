@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from app.app import App
+from dataclasses import dataclass
 
-__all__ = ["App"]
+__all__ = ["Config"]
+
+
+@dataclass
+class Config:
+    dev: bool = False
+    machine_id: int = 0

@@ -13,38 +13,33 @@
 # limitations under the License.
 
 
+import pathlib
+
 import click
-from aiohttp import web
 
-from aim import init
-from app import new_app
+from app import App
 
-
-def run(host: str, port: int, machine_id: int) -> None:
-    click.echo("🚦Initializing application.")
-    # TODO: Load config
-    init(machine_id)
-
-    click.echo(f"🚀Starting server on {host}:{port}.")
-    app = new_app()
-    web.run_app(app, host=host, port=port)
-
-    click.echo("🛑Server stopped.")
+PROJECT_ROOT = pathlib.Path(__file__).parent.parent
 
 
 @click.group()
-def cli():
-    pass
+def cli(): ...
 
 
 @cli.command()
-@click.option("--host", default="127.0.0.1", help="Host to bind to")
-@click.option("--port", default=8080, help="Port to listen on")
-@click.option("--machine-id", default=0, help="Unique ID for this machine (0-1023)")
-def serve(host: str, port: int, machine_id: int):
+@click.option("--dev", is_flag=True, help="Enable development")
+@click.option(
+    "--env-prefix", type=str, default="AIM", help="Environment variable prefix"
+)
+def serve(dev: bool, env_prefix: str):
     """Start the AIM web application"""
+    click.echo("🚦Initializing AIM.")
+    app = App(str(PROJECT_ROOT.absolute()), dev=dev, env_prefix=env_prefix)
 
-    run(host, port, machine_id)
+    click.echo(f"🚀Starting server on {app.config.host}:{app.config.port}.")
+    app.run()
+
+    click.echo("🛑Server stopped.")
 
 
 if __name__ == "__main__":
