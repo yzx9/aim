@@ -15,8 +15,47 @@
 
 from aiohttp import web
 
-__all__ = ["ping"]
+from aim.domain import Organization
+
+__all__ = ["setup_apis"]
 
 
-async def ping(request: web.Request) -> web.Response:
+def setup_apis(r: web.UrlDispatcher) -> None:
+    r.add_get("/api/ping", _ping, name="get_ping")
+    r.add_post("/api/ping", _ping, name="post_ping")
+
+    r.add_post("/api/organizations", _post_organizations, name="post_organizations")
+    r.add_get("/api/organizations/{id}", _get_organization, name="get_organization")
+
+
+async def _ping(request: web.Request) -> web.Response:
     return web.json_response("pong")
+
+
+async def _post_organizations(request: web.Request) -> web.Response:
+    """Create a new organization.
+
+    Example request body:
+    {
+        "name": "My Organization"
+    }
+    """
+    data = await request.json()
+    name = data["name"]
+    if not name:
+        raise web.HTTPBadRequest(reason="Organization name cannot be empty")
+
+    organization = await Organization.new(name)
+    return web.json_response(
+        {"id": organization._id, "name": organization._name}, status=201
+    )
+
+
+async def _get_organization(request: web.Request) -> web.Response:
+    """Get an organization by ID."""
+    org_id = int(request.match_info["id"])
+    organization = await Organization.find(org_id)
+    if not organization:
+        raise web.HTTPNotFound()
+
+    return web.json_response({"id": organization._id, "name": organization._name})

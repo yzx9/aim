@@ -13,11 +13,12 @@
 # limitations under the License.
 
 
+import aim.domain as domain
 import aim.infrastructure.rdbms as rdbms
 from aim.config import Config
-from aim.domain import init as init_domains
+from aim.domain import Organization, Project, User
 
-__all__ = ["Config", "init"]
+__all__ = ["Config", "Organization", "Project", "User", "init"]
 
 
 def init(config: Config):
@@ -29,7 +30,7 @@ def init(config: Config):
     user_repo = rdbms.UserRepository()
 
     # Initialize domains
-    init_domains(
+    domain.init(
         repo_organization=org_repo,
         repo_project=project_repo,
         repo_user=user_repo,

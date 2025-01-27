@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from aiohttp import web
 
 import aim
-from app.api import ping
+from app.api import setup_apis
 from app.util import ConfigParser
 
 __all__ = ["App"]
@@ -44,7 +44,7 @@ class App:
         super().__init__()
 
         config = _load_config(root, **kwargs)
-        aim.init(config.aim_config)  # This is safely since App is a singleton
+        aim.init(config.aim)  # This is safely since App is a singleton
 
         self.config = config
         self.app = _new_app(config)
@@ -55,10 +55,10 @@ class App:
 
 @dataclass
 class Config:
+    aim: aim.Config
+
     host: str
     port: int
-
-    aim_config: aim.Config
 
 
 def _load_config(root: str, **kwargs: str | int | float | bool) -> Config:
@@ -71,7 +71,7 @@ def _load_config(root: str, **kwargs: str | int | float | bool) -> Config:
     return Config(
         host=parser.parse_str("APP_HOST", default="127.0.0.1"),
         port=parser.parse_int("APP_PORT", default=8080),
-        aim_config=aim.Config(
+        aim=aim.Config(
             dev=parser.parse_bool("dev", default=False),
             machine_id=parser.parse_int("machine_id", default=0),
         ),
@@ -81,7 +81,7 @@ def _load_config(root: str, **kwargs: str | int | float | bool) -> Config:
 def _new_app(config: Config) -> web.Application:
     app = web.Application()
 
-    if config.aim_config.dev:
+    if config.aim.dev:
         try:
             import aiohttp_debugtoolbar
 
@@ -89,14 +89,13 @@ def _new_app(config: Config) -> web.Application:
         except ImportError:
             warnings.warn("aiohttp_debugtoolbar not installed.", ImportWarning)
 
-    _init_routes(app)
+    _setup_routes(app)
     return app
 
 
-def _init_routes(app: web.Application) -> None:
+def _setup_routes(app: web.Application) -> None:
     r = app.router
-
-    r.add_get("/api/ping", ping, name="ping")
+    setup_apis(app)
 
     # added static dir
     # r.add_static("/static/", path=(PROJECT_PATH / "static"), name="static")

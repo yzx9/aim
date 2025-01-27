@@ -13,25 +13,17 @@
 # limitations under the License.
 
 
-from typing import Self
+from aiohttp import web
 
-from aim.domain.project.config import generate_id
+from app.api import _ping
+
+__all__ = ["setup_routes"]
 
 
-class Project:
-    def __init__(self, id: int, organization_id: int, name: str):
-        self.id = id
-        self.organization_id = organization_id
-        self.name = name
+def setup_routes(app: web.Application) -> None:
+    r = app.router
 
-    async def save(self):
-        raise NotImplementedError()
+    r.add_get("/api/ping", _ping, name="ping")
 
-    @classmethod
-    async def new(cls, organization_id: int, name: str) -> Self:
-        id = await generate_id()
-        return cls(id, organization_id, name)
-
-    @classmethod
-    async def find(cls, id: int) -> Self:
-        raise NotImplementedError()
+    # added static dir
+    # r.add_static("/static/", path=(PROJECT_PATH / "static"), name="static")

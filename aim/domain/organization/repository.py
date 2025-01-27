@@ -15,9 +15,40 @@
 
 from typing import Protocol
 
+from aim.domain.organization.organization import Organization
+
 
 class Repository(Protocol):
-    pass
+    """Protocol for organization repository implementations.
+
+    This protocol defines the interface that all organization repository
+    implementations must follow.
+    """
+
+    async def save(self, organization: Organization) -> None:
+        """Save an organization to the repository.
+
+        Parameters
+        ----------
+        organization : Organization
+            The organization to save
+        """
+        ...
+
+    async def find(self, id: int) -> Organization | None:
+        """Find an organization by its ID.
+
+        Parameters
+        ----------
+        id : int
+            The organization ID to find
+
+        Returns
+        -------
+        Organization | None
+            The found organization, or None if not found
+        """
+        ...
 
 
 repository: Repository
