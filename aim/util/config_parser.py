@@ -540,7 +540,8 @@ class ConfigParser:
         return self._get_cli_value(key) or self._get_env_value(key)
 
     def _get_cli_value(self, key: str) -> str | int | float | bool | None:
-        return self._cli_args.get(key)
+        cli_key = key.lower().replace("_", "-")
+        return self._cli_args.get(cli_key)
 
     def _get_env_value(self, key: str) -> str | None:
         env_key = self._env_prefix + key.upper()
