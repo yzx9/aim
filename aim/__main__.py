@@ -17,7 +17,7 @@ import pathlib
 
 import click
 
-from app import App
+from aim.interface import WebInterface
 
 PROJECT_ROOT = pathlib.Path(__file__).parent.parent
 
@@ -34,9 +34,9 @@ def cli(): ...
 def serve(dev: bool, env_prefix: str):
     """Start the AIM web application"""
     click.echo("🚦Initializing AIM.")
-    app = App(str(PROJECT_ROOT.absolute()), dev=dev, env_prefix=env_prefix)
+    app = WebInterface(str(PROJECT_ROOT.absolute()), dev=dev, env_prefix=env_prefix)
 
-    click.echo(f"🚀Starting server on {app.config.host}:{app.config.port}.")
+    click.echo(f"🚀Starting server on {app._config.host}:{app._config.port}.")
     app.run()
 
     click.echo("🛑Server stopped.")

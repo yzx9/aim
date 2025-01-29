@@ -13,9 +13,12 @@
 # limitations under the License.
 
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from aim.domain.organization.organization import Organization
+if TYPE_CHECKING:
+    from aim.domain.organization.organization import Organization
+
+__all__ = ["Repository"]
 
 
 class Repository(Protocol):
@@ -25,35 +28,10 @@ class Repository(Protocol):
     implementations must follow.
     """
 
-    async def save(self, organization: Organization) -> None:
-        """Save an organization to the repository.
-
-        Parameters
-        ----------
-        organization : Organization
-            The organization to save
-        """
+    async def save(self, organization: "Organization") -> None:
+        """Save an organization to the repository."""
         ...
 
-    async def find(self, id: int) -> Organization | None:
-        """Find an organization by its ID.
-
-        Parameters
-        ----------
-        id : int
-            The organization ID to find
-
-        Returns
-        -------
-        Organization | None
-            The found organization, or None if not found
-        """
+    async def find(self, id: int) -> "Organization | None":
+        """Find an organization by its ID."""
         ...
-
-
-repository: Repository
-
-
-def init(_repository: Repository):
-    global repository
-    repository = _repository

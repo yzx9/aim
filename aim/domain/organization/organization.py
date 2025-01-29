@@ -13,14 +13,14 @@
 # limitations under the License.
 
 
-from typing import Self
+from aim.domain.organization.repository import Repository
+from aim.util import Entity
 
-from aim.domain.organization.config import generate_id
-from aim.domain.organization.repository import repository
+__all__ = ["Organization"]
 
 
-class Organization:
-    def __init__(self, id: int, name: str) -> None:
+class Organization(Entity[int]):
+    def __init__(self, id: int, name: str, *, repository: Repository) -> None:
         """Initialize an Organization instance.
 
         Parameters
@@ -30,47 +30,13 @@ class Organization:
         name : str
             The organization's name
         """
-        self._id = id
-        self._name = name
+        super().__init__(id)
+        self.name = name
+        self._repository = repository
 
     async def save(self) -> None:
         """Save the organization to the repository.
 
-        This persists the organization instance using the configured repository.
+        This persists the organization using the configured repository.
         """
-        await repository.save(self)
-
-    @classmethod
-    async def new(cls, name: str) -> Self:
-        """Create and save a new organization.
-
-        Parameters
-        ----------
-        name : str
-            The name of the new organization
-
-        Returns
-        -------
-        Self
-            A new Organization instance that has been persisted
-        """
-        id = await generate_id()
-        organization = cls(id, name)
-        await organization.save()
-        return organization
-
-    @classmethod
-    async def find(cls, id: int) -> "Organization | None":
-        """Find an organization by its ID.
-
-        Parameters
-        ----------
-        id : int
-            The ID of the organization to find
-
-        Returns
-        -------
-        Organization | None
-            The found organization, or None if not found
-        """
-        return await repository.find(id)
+        await self._repository.save(self)

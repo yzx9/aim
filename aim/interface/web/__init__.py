@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
 
-__all__ = ["Config"]
+from aim.interface.web.interface import WebInterface
 
-
-@dataclass
-class Config:
-    dev: bool = False
-    machine_id: int = 0
+__all__ = ["WebInterface"]

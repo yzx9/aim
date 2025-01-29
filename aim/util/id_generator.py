@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import datetime
 import threading
 import time
@@ -20,7 +21,7 @@ from typing import Generic, TypeVar
 
 __all__ = ["IdGenerator", "SnowflakeGenerator"]
 
-T = TypeVar("T", bound=int)
+T = TypeVar("T", bound=int | str)
 
 
 class IdGenerator(ABC, Generic[T]):

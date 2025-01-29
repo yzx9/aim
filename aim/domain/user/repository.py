@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Protocol
+
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from aim.domain.user.user import User
+
+__all__ = ["UserRepository"]
 
 
-class Repository(Protocol):
-    pass
+class UserRepository(Protocol):
+    async def save(self, user: "User") -> None:
+        """Save an user to the repository."""
+        ...
 
-
-repository: Repository
-
-
-def init(_repository: Repository):
-    global repository
-    repository = _repository
+    async def find(self, id: int) -> "User | None":
+        """Find an user by its ID."""
+        ...

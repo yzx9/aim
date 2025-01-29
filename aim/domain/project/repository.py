@@ -13,16 +13,19 @@
 # limitations under the License.
 
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from aim.domain.project.project import Project
+
+__all__ = ["Repository"]
 
 
 class Repository(Protocol):
-    pass
+    async def save(self, project: "Project") -> None:
+        """Save an organization to the repository."""
+        ...
 
-
-repository: Repository
-
-
-def init(_repository: Repository):
-    global repository
-    repository = _repository
+    async def find(self, id: int) -> "Project | None":
+        """Find an organization by its ID."""
+        ...

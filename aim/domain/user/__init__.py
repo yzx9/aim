@@ -13,15 +13,7 @@
 # limitations under the License.
 
 
-import aim.domain.user.config as config
-import aim.domain.user.repository as repo
-from aim.domain.user.repository import Repository
 from aim.domain.user.user import User
-from aim.util.id_generator import IdGenerator
+from aim.domain.user.users import Users
 
-__all__ = ["User", "Repository", "init"]
-
-
-def init(*, repository: Repository, id_generator: IdGenerator[int]):
-    config.init(id_generator)
-    repo.init(repository)
+__all__ = ["Users", "User"]

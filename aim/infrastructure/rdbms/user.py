@@ -15,5 +15,14 @@
 __all__ = ["UserRepository"]
 
 
+from aim.domain.user import User
+
+
 class UserRepository:
-    pass
+    async def save(self, user: User) -> None:
+        """Save an user to the repository."""
+        raise NotImplementedError()
+
+    async def find(self, id: int) -> User | None:
+        """Find an user by its ID."""
+        raise NotImplementedError()

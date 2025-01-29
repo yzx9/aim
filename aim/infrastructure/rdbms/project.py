@@ -15,5 +15,14 @@
 __all__ = ["ProjectRepository"]
 
 
+from aim.domain.project import Project
+
+
 class ProjectRepository:
-    pass
+    async def save(self, project: Project) -> None:
+        """Save an project to the repository."""
+        raise NotImplementedError()
+
+    async def find(self, id: int) -> Project | None:
+        """Find an project by its ID."""
+        raise NotImplementedError()

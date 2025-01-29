@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Self
 
-from aim.domain.user.config import generate_id
+from aim.domain.user.repository import UserRepository
+from aim.util import Entity
+
+__all__ = ["User"]
 
 
-class User:
-    def __init__(self, id: int) -> None:
+class User(Entity[int]):
+    def __init__(self, id: int, name: str, *, repository: UserRepository) -> None:
+        super().__init__(id)
         self.id = id
+        self.name = name
 
-    @classmethod
-    async def new(cls) -> Self:
-        global id_generator
-        return cls(await generate_id())
+        self._repository = repository
+
+    async def save(self) -> None:
+        await self._repository.save(self)

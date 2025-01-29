@@ -13,25 +13,21 @@
 # limitations under the License.
 
 
-from typing import Self
+from aim.domain.project.repository import Repository
+from aim.util import Entity
 
-from aim.domain.project.config import generate_id
+__all__ = ["Project"]
 
 
-class Project:
-    def __init__(self, id: int, organization_id: int, name: str):
-        self.id = id
+class Project(Entity[int]):
+    def __init__(
+        self, id: int, organization_id: int, name: str, *, repository: Repository
+    ):
+        super().__init__(id)
+
         self.organization_id = organization_id
         self.name = name
+        self._repository = repository
 
     async def save(self):
-        raise NotImplementedError()
-
-    @classmethod
-    async def new(cls, organization_id: int, name: str) -> Self:
-        id = await generate_id()
-        return cls(id, organization_id, name)
-
-    @classmethod
-    async def find(cls, id: int) -> Self:
-        raise NotImplementedError()
+        await self._repository.save(self)

@@ -13,4 +13,4 @@
 # limitations under the License.
 
 
-from app.util.config_parser import *  # noqa: F403
+from aim.interface.web import *  # noqa: F403

@@ -15,5 +15,14 @@
 __all__ = ["OrganizationRepository"]
 
 
+from aim.domain.organization.organization import Organization
+
+
 class OrganizationRepository:
-    pass
+    async def save(self, organization: Organization) -> None:
+        """Save an organization to the repository."""
+        raise NotImplementedError()
+
+    async def find(self, id: int) -> Organization | None:
+        """Find an organization by its ID."""
+        raise NotImplementedError()

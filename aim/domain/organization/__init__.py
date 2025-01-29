@@ -13,15 +13,7 @@
 # limitations under the License.
 
 
-import aim.domain.organization.config as config
-import aim.domain.organization.repository as repo
 from aim.domain.organization.organization import Organization
-from aim.domain.organization.repository import Repository
-from aim.util import IdGenerator
+from aim.domain.organization.organizations import Organizations
 
-__all__ = ["Organization", "Repository", "init"]
-
-
-def init(*, repository: Repository, id_generator: IdGenerator[int]):
-    repo.init(repository)
-    config.init(id_generator)
+__all__ = ["Organizations", "Organization"]

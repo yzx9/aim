@@ -4,10 +4,10 @@ default:
   @just --list
 
 dev:
-  uv run python -m app serve --dev
+  uv run python -m aim serve --dev
 
 serve:
-  uv run python -m app serve
+  uv run python -m aim serve
 
 test:
   uv run --with pytest \
