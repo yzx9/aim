@@ -1,4 +1,4 @@
-# AIM - An Information system
+# AIM - An Information Management
 
 ## LICENSE
 
