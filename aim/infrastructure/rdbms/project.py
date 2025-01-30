@@ -12,17 +12,80 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__all__ = ["ProjectRepository"]
 
+from typing import Optional
+
+import sqlalchemy as sa
+from sqlalchemy.orm import mapped_column
 
 from aim.domain.project import Project
+from aim.infrastructure.rdbms._base import Base, BaseRepository
+from aim.util import AsyncSession, AsyncSessionHandler
+
+__all__ = ["ProjectModel", "ProjectRepository"]
 
 
-class ProjectRepository:
-    async def save(self, project: Project) -> None:
-        """Save an project to the repository."""
-        raise NotImplementedError()
+class ProjectModel(Base):
+    """SQLAlchemy model representing the project table."""
 
-    async def find(self, id: int) -> Project | None:
-        """Find an project by its ID."""
-        raise NotImplementedError()
+    __tablename__ = "projects"
+
+    id = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
+    organization_id = mapped_column(sa.Integer, nullable=False)
+    name = mapped_column(sa.String(64), nullable=False)
+
+
+class ProjectRepository(BaseRepository):
+    def __init__(self, session_handler: AsyncSessionHandler) -> None:
+        super().__init__(session_handler)
+        self.save = self._register(self._save)
+        self.find = self._register(self._find)
+        self.list_by_organization = self._register(self._list_by_organization)
+
+    async def _save(self, session: AsyncSession, project: Project) -> None:
+        """Save a project to the repository."""
+        # Check if model exists
+        existing = await session.get(ProjectModel, project.id)
+        model = self._to_model(project, model=existing)
+        if not existing:
+            session.add(model)  # Add new model if it doesn't exist
+
+    async def _find(self, session: AsyncSession, id: int) -> Project | None:
+        """Find a project by its ID."""
+        result = await session.get(ProjectModel, id)
+        if not result:
+            return None
+
+        return self._to_entity(result)
+
+    async def _list_by_organization(
+        self, session: AsyncSession, organization_id: int, offset: int, limit: int
+    ) -> list[Project]:
+        """Find all projects for a given organization."""
+        stmt = (
+            sa.select(ProjectModel)
+            .where(ProjectModel.organization_id == organization_id)
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return [self._to_entity(project) for project in result.scalars()]
+
+    def _to_model(
+        self, entity: Project, model: Optional[ProjectModel] = None
+    ) -> ProjectModel:
+        if model is None:
+            model = ProjectModel()
+
+        model.id = entity.id
+        model.organization_id = entity.organization_id
+        model.name = entity.name
+        return model
+
+    def _to_entity(self, model: ProjectModel) -> Project:
+        return Project(
+            id=model.id,
+            organization_id=model.organization_id,
+            name=model.name,
+            repository=self,
+        )

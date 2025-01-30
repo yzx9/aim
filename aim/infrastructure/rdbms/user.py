@@ -12,17 +12,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__all__ = ["UserRepository"]
 
+from typing import Optional
+
+import sqlalchemy as sa
+from sqlalchemy.orm import mapped_column
 
 from aim.domain.user import User
+from aim.infrastructure.rdbms._base import Base, BaseRepository
+from aim.util import AsyncSession, AsyncSessionHandler
+
+__all__ = ["UserModel", "UserRepository"]
 
 
-class UserRepository:
-    async def save(self, user: User) -> None:
+class UserModel(Base):
+    """SQLAlchemy model representing the organization table."""
+
+    __tablename__ = "users"
+
+    id = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
+    name = mapped_column(sa.String(64), nullable=False)
+
+
+class UserRepository(BaseRepository):
+    def __init__(self, session_handler: AsyncSessionHandler) -> None:
+        super().__init__(session_handler)
+        self.save = self._register(self._save)
+        self.find = self._register(self._find)
+
+    async def _save(self, session: AsyncSession, user: User) -> None:
         """Save an user to the repository."""
-        raise NotImplementedError()
+        # Check if model exists
+        existing = await session.get(UserModel, user.id)
+        model = self._to_model(user, model=existing)
+        if not existing:
+            session.add(model)  # Add new model if it doesn't exist
 
-    async def find(self, id: int) -> User | None:
+    async def _find(self, session: AsyncSession, id: int) -> User | None:
         """Find an user by its ID."""
-        raise NotImplementedError()
+        result = await session.get(UserModel, id)
+        if not result:
+            return None
+
+        return self._to_entity(result)
+
+    def _to_model(self, entity: User, model: Optional[UserModel] = None) -> UserModel:
+        if model is None:
+            model = UserModel()
+
+        model.id = entity.id
+        model.name = entity.name
+        return model
+
+    def _to_entity(self, model: UserModel) -> User:
+        return User(id=model.id, name=model.name, repository=self)

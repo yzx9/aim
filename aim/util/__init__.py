@@ -16,3 +16,4 @@
 from aim.util.config_parser import *  # noqa: F403
 from aim.util.ddd import *  # noqa: F403
 from aim.util.id_generator import *  # noqa: F403
+from aim.util.session_handler import *  # noqa: F403
