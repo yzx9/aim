@@ -27,5 +27,5 @@ class User(Entity[int]):
 
         self._repository = repository
 
-    async def save(self) -> None:
-        await self._repository.save(self)
+    async def save(self, **kwargs) -> None:
+        await self._repository.save(self, **kwargs)

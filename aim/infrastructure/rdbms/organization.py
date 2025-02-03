@@ -19,42 +19,25 @@ import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
 from aim.domain.organization import Organization
-from aim.infrastructure.rdbms._base import Base, BaseRepository
-from aim.util import AsyncSession, AsyncSessionHandler
+from aim.infrastructure.rdbms._base import BaseModel, BaseRepository
+from aim.util import AsyncSessionHandler
 
 __all__ = ["OrganizationModel", "OrganizationRepository"]
 
 
-class OrganizationModel(Base):
+class OrganizationModel(BaseModel):
     """SQLAlchemy model representing the organization table."""
 
     __tablename__ = "organizations"
 
-    id = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     name = mapped_column(sa.String(64), nullable=False)
 
 
-class OrganizationRepository(BaseRepository):
+class OrganizationRepository(BaseRepository[Organization, OrganizationModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
-        super().__init__(session_handler)
+        super().__init__(OrganizationModel, session_handler)
         self.save = self._register(self._save)
         self.find = self._register(self._find)
-
-    async def _save(self, session: AsyncSession, organization: Organization) -> None:
-        """Save an organization to the repository."""
-        # Check if model exists
-        existing = await session.get(OrganizationModel, organization.id)
-        model = self._to_model(organization, model=existing)
-        if not existing:
-            session.add(model)  # Add new model if it doesn't exist
-
-    async def _find(self, session: AsyncSession, id: int) -> Organization | None:
-        """Find an organization by its ID."""
-        result = await session.get(OrganizationModel, id)
-        if not result:
-            return None
-
-        return self._to_entity(result)
 
     def _to_model(
         self, entity: Organization, model: Optional[OrganizationModel] = None

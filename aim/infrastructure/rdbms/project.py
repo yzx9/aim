@@ -19,44 +19,25 @@ import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
 from aim.domain.project import Project
-from aim.infrastructure.rdbms._base import Base, BaseRepository
+from aim.infrastructure.rdbms._base import BaseModel, BaseRepository
 from aim.util import AsyncSession, AsyncSessionHandler
 
 __all__ = ["ProjectModel", "ProjectRepository"]
 
 
-class ProjectModel(Base):
+class ProjectModel(BaseModel):
     """SQLAlchemy model representing the project table."""
 
     __tablename__ = "projects"
 
-    id = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     organization_id = mapped_column(sa.Integer, nullable=False)
     name = mapped_column(sa.String(64), nullable=False)
 
 
-class ProjectRepository(BaseRepository):
+class ProjectRepository(BaseRepository[Project, ProjectModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
-        super().__init__(session_handler)
-        self.save = self._register(self._save)
-        self.find = self._register(self._find)
+        super().__init__(ProjectModel, session_handler)
         self.list_by_organization = self._register(self._list_by_organization)
-
-    async def _save(self, session: AsyncSession, project: Project) -> None:
-        """Save a project to the repository."""
-        # Check if model exists
-        existing = await session.get(ProjectModel, project.id)
-        model = self._to_model(project, model=existing)
-        if not existing:
-            session.add(model)  # Add new model if it doesn't exist
-
-    async def _find(self, session: AsyncSession, id: int) -> Project | None:
-        """Find a project by its ID."""
-        result = await session.get(ProjectModel, id)
-        if not result:
-            return None
-
-        return self._to_entity(result)
 
     async def _list_by_organization(
         self, session: AsyncSession, organization_id: int, offset: int, limit: int

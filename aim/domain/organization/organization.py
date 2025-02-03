@@ -34,9 +34,9 @@ class Organization(Entity[int]):
         self.name = name
         self._repository = repository
 
-    async def save(self) -> None:
+    async def save(self, **kwargs) -> None:
         """Save the organization to the repository.
 
         This persists the organization using the configured repository.
         """
-        await self._repository.save(self)
+        await self._repository.save(self, **kwargs)

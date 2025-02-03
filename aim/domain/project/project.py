@@ -13,10 +13,8 @@
 # limitations under the License.
 
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from aim.domain.project.repository import Repository
 from aim.util import Entity
-from aim.util.session_handler import session_handler
 
 __all__ = ["Project"]
 
@@ -26,16 +24,10 @@ class Project(Entity[int]):
         self, id: int, organization_id: int, name: str, *, repository: Repository
     ):
         super().__init__(id)
-
         self.organization_id = organization_id
         self.name = name
         self._repository = repository
 
-    async def save(self, session: Optional[AsyncSession] = None):
-        """Save the project using a session handler for proper transaction management.
-        
-        Args:
-            session: Optional AsyncSession. If None, a new session will be created and managed.
-        """
-        async with session_handler(session) as s:
-            await self._repository.save(self, session=s)
+    async def save(self, **kwargs):
+        """Save the project."""
+        await self._repository.save(self, **kwargs)

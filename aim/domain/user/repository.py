@@ -22,7 +22,7 @@ __all__ = ["UserRepository"]
 
 
 class UserRepository(Protocol):
-    async def save(self, user: "User") -> None:
+    async def save(self, user: "User", /) -> None:
         """Save an user to the repository."""
         ...
 

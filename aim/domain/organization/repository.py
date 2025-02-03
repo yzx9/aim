@@ -28,7 +28,7 @@ class Repository(Protocol):
     implementations must follow.
     """
 
-    async def save(self, organization: "Organization") -> None:
+    async def save(self, organization: "Organization", /) -> None:
         """Save an organization to the repository."""
         ...
 
