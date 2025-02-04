@@ -13,10 +13,21 @@
 # limitations under the License.
 
 
-from aim.domain.user.repository import UserRepository
+from typing import Protocol
+
 from aim.util import Entity
 
-__all__ = ["User"]
+__all__ = ["User", "UserRepository"]
+
+
+class UserRepository(Protocol):
+    async def save(self, user: "User", /) -> None:
+        """Save an user to the repository."""
+        ...
+
+    async def find(self, id: int) -> "User | None":
+        """Find an user by its ID."""
+        ...
 
 
 class User(Entity[int]):

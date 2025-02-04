@@ -13,15 +13,21 @@
 # limitations under the License.
 
 
-from aim.domain.user.repository import UserRepository
-from aim.domain.user.user import User
+from typing import Protocol
+
+from aim.domain.user.user import User, UserRepository
 from aim.util import Aggregate, IdGenerator
 
-__all__ = ["Users"]
+__all__ = ["Users", "Repository"]
+
+
+class Repository(Protocol):
+    @property
+    def users(self) -> UserRepository: ...
 
 
 class Users(Aggregate[User, int]):
-    def __init__(self, *, repository: UserRepository, id_generator: IdGenerator[int]):
+    def __init__(self, *, repository: Repository, id_generator: IdGenerator[int]):
         super().__init__(id_generator=id_generator)
 
         self.repository = repository
@@ -40,7 +46,7 @@ class Users(Aggregate[User, int]):
             A new project that has been persisted
         """
         id = self._id_generator.generate()
-        user = User(id, name, repository=self.repository)
+        user = User(id, name, repository=self.repository.users)
         await user.save()
         return user
 
@@ -57,4 +63,4 @@ class Users(Aggregate[User, int]):
         User | None
             The found user, or None if not found
         """
-        return await self.repository.find(id)
+        return await self.repository.users.find(id)

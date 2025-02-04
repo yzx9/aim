@@ -13,11 +13,17 @@
 # limitations under the License.
 
 
-from aim.domain.organization.organization import Organization
-from aim.domain.organization.repository import Repository
+from typing import Protocol
+
+from aim.domain.organization.organization import Organization, OrganizationRepository
 from aim.util import Aggregate, IdGenerator
 
-__all__ = ["Organizations"]
+__all__ = ["Organizations", "Repository"]
+
+
+class Repository(Protocol):
+    @property
+    def organizations(self) -> OrganizationRepository: ...
 
 
 class Organizations(Aggregate[Organization, int]):
@@ -39,7 +45,7 @@ class Organizations(Aggregate[Organization, int]):
             A new Organization instance that has been persisted
         """
         id = self._id_generator.generate()
-        organization = Organization(id, name, repository=self._repository)
+        organization = Organization(id, name, repository=self._repository.organizations)
         await organization.save()
         return organization
 
@@ -56,4 +62,4 @@ class Organizations(Aggregate[Organization, int]):
         Organization | None
             The found organization, or None if not found
         """
-        return await self._repository.find(id)
+        return await self._repository.organizations.find(id)

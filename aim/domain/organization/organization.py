@@ -13,14 +13,33 @@
 # limitations under the License.
 
 
-from aim.domain.organization.repository import Repository
+from typing import Protocol
+
 from aim.util import Entity
 
-__all__ = ["Organization"]
+__all__ = ["Organization", "OrganizationRepository"]
+
+
+class OrganizationRepository(Protocol):
+    """Protocol for organization repository implementations.
+
+    This protocol defines the interface that all organization repository
+    implementations must follow.
+    """
+
+    async def save(self, organization: "Organization", /) -> None:
+        """Save an organization to the repository."""
+        ...
+
+    async def find(self, id: int) -> "Organization | None":
+        """Find an organization by its ID."""
+        ...
 
 
 class Organization(Entity[int]):
-    def __init__(self, id: int, name: str, *, repository: Repository) -> None:
+    def __init__(
+        self, id: int, name: str, *, repository: OrganizationRepository
+    ) -> None:
         """Initialize an Organization instance.
 
         Parameters
@@ -29,6 +48,8 @@ class Organization(Entity[int]):
             The organization's unique identifier
         name : str
             The organization's name
+        repository : Repository
+            The repository used to persist the organization
         """
         super().__init__(id)
         self.name = name

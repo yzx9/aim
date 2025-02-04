@@ -13,11 +13,17 @@
 # limitations under the License.
 
 
-from aim.domain.project.project import Project
-from aim.domain.project.repository import Repository
+from typing import Protocol
+
+from aim.domain.project.project import Project, ProjectRepository
 from aim.util import Aggregate, IdGenerator
 
-__all__ = ["Projects"]
+__all__ = ["Projects", "Repository"]
+
+
+class Repository(Protocol):
+    @property
+    def projects(self) -> ProjectRepository: ...
 
 
 class Projects(Aggregate[Project, int]):
@@ -42,7 +48,9 @@ class Projects(Aggregate[Project, int]):
             A new project that has been persisted
         """
         id = self._id_generator.generate()
-        project = Project(id, organization_id, name, repository=self.repository)
+        project = Project(
+            id, organization_id, name, repository=self.repository.projects
+        )
         await project.save()
         return project
 
@@ -59,4 +67,4 @@ class Projects(Aggregate[Project, int]):
         Organization | None
             The found project, or None if not found
         """
-        return await self.repository.find(id)
+        return await self.repository.projects.find(id)

@@ -13,15 +13,30 @@
 # limitations under the License.
 
 
-from aim.domain.project.repository import Repository
+from typing import Protocol
+
 from aim.util import Entity
 
-__all__ = ["Project"]
+__all__ = ["Project", "ProjectRepository"]
+
+
+class ProjectRepository(Protocol):
+    async def save(self, project: "Project", /) -> None:
+        """Save an organization to the repository."""
+        ...
+
+    async def delete(self, id: int) -> "Project | None":
+        """Delete an organization by its ID."""
+        ...
+
+    async def find(self, id: int) -> "Project | None":
+        """Find an organization by its ID."""
+        ...
 
 
 class Project(Entity[int]):
     def __init__(
-        self, id: int, organization_id: int, name: str, *, repository: Repository
+        self, id: int, organization_id: int, name: str, *, repository: ProjectRepository
     ):
         super().__init__(id)
         self.organization_id = organization_id
@@ -31,3 +46,7 @@ class Project(Entity[int]):
     async def save(self, **kwargs):
         """Save the project."""
         await self._repository.save(self, **kwargs)
+
+    async def delete(self):
+        """Delete the project."""
+        await self._repository.delete(self.id)
