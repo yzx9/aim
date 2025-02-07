@@ -1,4 +1,13 @@
 .direnv/
 __pycache__/
+node_modules
+dist
+dist-ssr
+.DS_Store
 .aider*
 *.local
+
+# Logs
+logs
+*.log
+pnpm-debug.log*

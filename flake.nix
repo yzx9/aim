@@ -136,8 +136,15 @@
           # This devShell simply adds Python and undoes the dependency leakage done by Nixpkgs Python infrastructure.
           impure = pkgs.mkShell {
             packages = [
+              # python
               python
               pkgs.uv
+
+              # web
+              pkgs.nodejs
+              pkgs.pnpm
+
+              # misc
               pkgs.just
             ];
             env =
@@ -185,8 +192,15 @@
             in
             pkgs.mkShell {
               packages = [
+                # python
                 virtualenv
                 pkgs.uv
+
+                # web
+                pkgs.nodejs
+                pkgs.pnpm
+
+                # misc
                 pkgs.just
               ];
 

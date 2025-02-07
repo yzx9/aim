@@ -4,7 +4,7 @@ default:
   @just --list
 
 dev:
-  uv run python -m aim serve --dev
+  cd web && pnpm dev
 
 serve:
   uv run python -m aim serve
