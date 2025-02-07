@@ -15,6 +15,8 @@
 
 from typing import Protocol
 
+from aim.domain.project.field import FieldRepository
+from aim.domain.project.item import ItemRepository
 from aim.domain.project.project import Project, ProjectRepository
 from aim.util import Aggregate, IdGenerator
 
@@ -24,6 +26,10 @@ __all__ = ["Projects", "Repository"]
 class Repository(Protocol):
     @property
     def projects(self) -> ProjectRepository: ...
+    @property
+    def fields(self) -> FieldRepository: ...
+    @property
+    def items(self) -> ItemRepository: ...
 
 
 class Projects(Aggregate[Project, int]):
@@ -49,7 +55,12 @@ class Projects(Aggregate[Project, int]):
         """
         id = self._id_generator.generate()
         project = Project(
-            id, organization_id, name, repository=self.repository.projects
+            id,
+            organization_id,
+            name,
+            repo_project=self.repository.projects,
+            repo_field=self.repository.fields,
+            repo_item=self.repository.items,
         )
         await project.save()
         return project

@@ -15,38 +15,49 @@
 
 from typing import Protocol
 
+from aim.domain.project.field import Field, FieldRepository
+from aim.domain.project.item import Item, ItemRepository
 from aim.util import Entity
 
 __all__ = ["Project", "ProjectRepository"]
 
 
 class ProjectRepository(Protocol):
-    async def save(self, project: "Project", /) -> None:
-        """Save an organization to the repository."""
-        ...
-
-    async def delete(self, id: int) -> "Project | None":
-        """Delete an organization by its ID."""
-        ...
-
-    async def find(self, id: int) -> "Project | None":
-        """Find an organization by its ID."""
-        ...
+    async def save(self, project: "Project", /) -> None: ...
+    async def delete(self, id: int) -> "Project | None": ...
+    async def find(self, id: int) -> "Project | None": ...
 
 
 class Project(Entity[int]):
     def __init__(
-        self, id: int, organization_id: int, name: str, *, repository: ProjectRepository
+        self,
+        id: int,
+        organization_id: int,
+        name: str,
+        *,
+        repo_project: ProjectRepository,
+        repo_item: ItemRepository,
+        repo_field: FieldRepository,
     ):
         super().__init__(id)
         self.organization_id = organization_id
         self.name = name
-        self._repository = repository
+        self._repo_project = repo_project
+        self._repo_item = repo_item
+        self._repo_field = repo_field
 
     async def save(self, **kwargs):
         """Save the project."""
-        await self._repository.save(self, **kwargs)
+        await self._repo_project.save(self, **kwargs)
 
     async def delete(self):
         """Delete the project."""
-        await self._repository.delete(self.id)
+        await self._repo_project.delete(self.id)
+
+    async def get_fields(self) -> list[Field]:
+        """Get all fields of the project."""
+        return await self._repo_field.list_by_project(self.id)
+
+    async def list(self, offset: int, limit: int) -> list[Item]:
+        """Get items of the project."""
+        return await self._repo_item.list_by_project(self.id, offset, limit)
