@@ -19,13 +19,13 @@ import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
 from aim.domain.project import Project
-from aim.infrastructure.rdbms._base import BaseModel, BaseRepository
+from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
 from aim.util import AsyncSession, AsyncSessionHandler
 
 __all__ = ["ProjectModel", "ProjectRepository"]
 
 
-class ProjectModel(BaseModel):
+class ProjectModel(BaseMixin, Base):
     """SQLAlchemy model representing the project table."""
 
     __tablename__ = "projects"
@@ -34,9 +34,9 @@ class ProjectModel(BaseModel):
     name = mapped_column(sa.String(64), nullable=False)
 
 
-class ProjectRepository(BaseRepository[Project, ProjectModel]):
+class ProjectRepository(BaseRepositoryPlus[Project, ProjectModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
-        super().__init__(ProjectModel, session_handler)
+        super().__init__(session_handler, ProjectModel)
         self.list_by_organization = self._register(self._list_by_organization)
 
     async def _list_by_organization(
@@ -68,5 +68,5 @@ class ProjectRepository(BaseRepository[Project, ProjectModel]):
             id=model.id,
             organization_id=model.organization_id,
             name=model.name,
-            repository=self,
+            repo_project=self,
         )

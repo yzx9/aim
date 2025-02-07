@@ -19,13 +19,13 @@ import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
 from aim.domain.user import User
-from aim.infrastructure.rdbms._base import BaseModel, BaseRepository
+from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
 from aim.util import AsyncSessionHandler
 
 __all__ = ["UserModel", "UserRepository"]
 
 
-class UserModel(BaseModel):
+class UserModel(BaseMixin, Base):
     """SQLAlchemy model representing the organization table."""
 
     __tablename__ = "users"
@@ -33,11 +33,9 @@ class UserModel(BaseModel):
     name = mapped_column(sa.String(64), nullable=False)
 
 
-class UserRepository(BaseRepository[User, UserModel]):
+class UserRepository(BaseRepositoryPlus[User, UserModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
-        super().__init__(UserModel, session_handler)
-        self.save = self._register(self._save)
-        self.find = self._register(self._find)
+        super().__init__(session_handler, UserModel)
 
     def _to_model(self, entity: User, model: Optional[UserModel] = None) -> UserModel:
         if model is None:

@@ -19,13 +19,13 @@ import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
 from aim.domain.organization import Organization
-from aim.infrastructure.rdbms._base import BaseModel, BaseRepository
+from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
 from aim.util import AsyncSessionHandler
 
 __all__ = ["OrganizationModel", "OrganizationRepository"]
 
 
-class OrganizationModel(BaseModel):
+class OrganizationModel(BaseMixin, Base):
     """SQLAlchemy model representing the organization table."""
 
     __tablename__ = "organizations"
@@ -33,11 +33,9 @@ class OrganizationModel(BaseModel):
     name = mapped_column(sa.String(64), nullable=False)
 
 
-class OrganizationRepository(BaseRepository[Organization, OrganizationModel]):
+class OrganizationRepository(BaseRepositoryPlus[Organization, OrganizationModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
-        super().__init__(OrganizationModel, session_handler)
-        self.save = self._register(self._save)
-        self.find = self._register(self._find)
+        super().__init__(session_handler, OrganizationModel)
 
     def _to_model(
         self, entity: Organization, model: Optional[OrganizationModel] = None

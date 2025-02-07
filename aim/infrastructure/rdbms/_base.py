@@ -35,7 +35,7 @@ from sqlalchemy.orm import DeclarativeBase, mapped_column
 
 from aim.util import AsyncSessionHandler
 
-__all__ = ["Base", "BaseRepository", "BaseModel", "BaseRepository"]
+__all__ = ["Base", "BaseMixin", "BaseRepository", "BaseRepositoryPlus"]
 
 
 class Base(DeclarativeBase):
@@ -53,7 +53,7 @@ class BaseEntity(Protocol):
     id: int
 
 
-class BaseModel:
+class BaseMixin:
     """SQLAlchemy model representing the table."""
 
     id = mapped_column(sa.Integer, primary_key=True)
@@ -73,13 +73,45 @@ class BaseModel:
 
 
 E = TypeVar("E", bound=BaseEntity)
-M = TypeVar("M", bound=BaseModel)
+M = TypeVar("M", bound=BaseMixin)
 
 RV = TypeVar("RV")
 P = ParamSpec("P")
 
 
-class BaseRepository(ABC, Generic[E, M]):
+class BaseRepository(ABC):
+    """Base repository class providing session utilities."""
+
+    def __init__(self, session_handler: AsyncSessionHandler) -> None:
+        super().__init__()
+        self._session_handler = session_handler
+
+    def _register(
+        self, func: Callable[Concatenate[AsyncSession, P], Coroutine[Any, Any, RV]]
+    ) -> Callable[P, Coroutine[Any, Any, RV]]:
+        """Decorator to handle session management for repository methods.
+
+        Parameters
+        ----------
+        func : The repository method to wrap with session handling
+
+        Returns
+        -------
+        fn : Wrapped async function that handles session management
+        """
+
+        async def fn(*args: P.args, **kwargs: P.kwargs) -> RV:
+            session = cast(AsyncSession | None, kwargs.pop("session", None))
+            async with self._session_handler.session_handler(session) as s:
+                return await func(s, *args, **kwargs)
+
+        fn.__name__ = func.__name__
+        fn.__doc__ = func.__doc__
+        fn.__annotations__ = func.__annotations__
+        return fn
+
+
+class BaseRepositoryPlus(BaseRepository, Generic[E, M]):
     """Base repository class providing common CR operations and utilities.
 
     This class provides a foundation for repository implementations, handling:
@@ -107,10 +139,9 @@ class BaseRepository(ABC, Generic[E, M]):
     ```
     """
 
-    def __init__(self, model: Type[M], session_handler: AsyncSessionHandler) -> None:
-        super().__init__()
+    def __init__(self, session_handler: AsyncSessionHandler, model: Type[M]) -> None:
+        super().__init__(session_handler)
         self._model = model
-        self._session_handler = session_handler
         self.save = self._register(self._save)
         self.delete = self._register(self._delete)
         self.find = self._register(self._find)
@@ -149,30 +180,6 @@ class BaseRepository(ABC, Generic[E, M]):
         stmt = sa.select(self._model).offset(offset).limit(limit)
         result = await session.execute(stmt)
         return [self._to_entity(row) for row in result.scalars()]
-
-    def _register(
-        self, func: Callable[Concatenate[AsyncSession, P], Coroutine[Any, Any, RV]]
-    ) -> Callable[P, Coroutine[Any, Any, RV]]:
-        """Decorator to handle session management for repository methods.
-
-        Parameters
-        ----------
-        func : The repository method to wrap with session handling
-
-        Returns
-        -------
-        fn : Wrapped async function that handles session management
-        """
-
-        async def fn(*args: P.args, **kwargs: P.kwargs) -> RV:
-            session = cast(AsyncSession | None, kwargs.pop("session", None))
-            async with self._session_handler.session_handler(session) as s:
-                return await func(s, *args, **kwargs)
-
-        fn.__name__ = func.__name__
-        fn.__doc__ = func.__doc__
-        fn.__annotations__ = func.__annotations__
-        return fn
 
     @abstractmethod
     def _to_model(self, entity: E, model: Optional[M] = None) -> M: ...
