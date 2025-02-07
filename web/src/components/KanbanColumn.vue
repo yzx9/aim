@@ -14,8 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
+<script lang="ts" setup>
+import { defineProps } from "vue";
+import KanbanCard from "./KanbanCard.vue";
+
+const props = defineProps<{
+  title: string;
+  items: { id: number; title: string; description: string }[];
+}>();
+</script>
+
 <template>
-  <main>
-    <RouterView />
-  </main>
+  <section
+    class="flex flex-col p-2 w-full max-w-sm border border-gray-100 rounded-md bg-white"
+  >
+    <h2 class="m-2 text-lg font-semibold">{{ title }}</h2>
+
+    <div class="p-2 overflow-y-auto">
+      <KanbanCard v-for="item in props.items" :key="item.id" :item="item" />
+    </div>
+  </section>
 </template>

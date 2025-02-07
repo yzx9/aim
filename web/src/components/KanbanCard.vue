@@ -14,8 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
+<script lang="ts" setup>
+import { defineProps } from "vue";
+
+const props = defineProps<{
+  item: { title: string; description: string };
+}>();
+</script>
+
 <template>
-  <main>
-    <RouterView />
-  </main>
+  <div class="bg-white rounded-md border border-gray-200 p-3 mb-2">
+    <h3 class="text-md font-medium">{{ props.item.title }}</h3>
+
+    <p class="text-sm text-gray-500">{{ props.item.description }}</p>
+  </div>
 </template>
