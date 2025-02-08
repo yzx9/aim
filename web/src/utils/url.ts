@@ -12,24 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createApp } from "vue";
-import { createRouter, createWebHistory } from "vue-router";
-import { createAPIs } from "./apis";
-import App from "./App.vue";
-import Home from "./views/Home.vue";
-import Project from "./views/Project.vue";
-import "./style.css";
+export function joinPath(base: string, path: string): string {
+  if (base.endsWith("/") && path.startsWith("/")) {
+    return base + path.slice(1);
+  } else if (!base.endsWith("/") && !path.startsWith("/")) {
+    return base + "/" + path;
+  } else {
+    return base + path;
+  }
+}
 
-const routes = [
-  { path: "/", component: Home },
-  { path: "/project", component: Project },
-];
+const EXTERNAL_URL_RE = /^https?:/i;
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes,
-});
-
-const apis = createAPIs(import.meta.env.VITE_URL_BASE);
-
-createApp(App).use(router).use(apis).mount("#app");
+export function startsWithProtocol(url: string): boolean {
+  return EXTERNAL_URL_RE.test(url);
+}

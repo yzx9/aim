@@ -12,24 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createApp } from "vue";
-import { createRouter, createWebHistory } from "vue-router";
-import { createAPIs } from "./apis";
-import App from "./App.vue";
-import Home from "./views/Home.vue";
-import Project from "./views/Project.vue";
-import "./style.css";
-
-const routes = [
-  { path: "/", component: Home },
-  { path: "/project", component: Project },
-];
-
-const router = createRouter({
-  history: createWebHistory(),
-  routes,
-});
-
-const apis = createAPIs(import.meta.env.VITE_URL_BASE);
-
-createApp(App).use(router).use(apis).mount("#app");
+export * from "./url.ts";
