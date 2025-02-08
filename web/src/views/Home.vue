@@ -16,15 +16,19 @@ limitations under the License.
 
 <template>
   <div
-    class="home flex justify-center items-center min-h-screen bg-gradient-to-r from-purple-500 to-blue-500"
+    class="home flex justify-center min-h-screen bg-gradient-to-r from-purple-300 to-blue-200"
   >
-    <h1 class="home-title text-5xl font-bold text-white text-center">
-      AIM - An Information Management system
-    </h1>
+    <div class="home_title mt-32 flex flex-col items-center gap-6">
+      <img class="h-40" src="/logo.svg" />
+
+      <h1 class="text-6xl font-bold text-white">AIM</h1>
+
+      <h2 class="text-2xl font-bold text-white">An Information Management</h2>
+    </div>
   </div>
 </template>
 
-<style scoped>
+<style>
 .home .home_title {
   animation: fadeIn 2s ease-in-out;
 }
