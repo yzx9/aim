@@ -12,6 +12,7 @@ serve:
 test:
   uv run --with pytest \
     pytest --doctest-modules
+  cd web && pnpm run test --run
 
 test-cov:
   uv run --with pytest --with pytest-cov \
