@@ -13,10 +13,11 @@
 # limitations under the License.
 
 
+import dataclasses
 from typing import Protocol
 
-from aim.domain.user.user import User, UserRepository
-from aim.util import Aggregate, IdGenerator
+from aim.domain.user.user import User, UserData, UserRepository
+from aim.util import IdGenerator, aggregate
 
 __all__ = ["Users", "Repository"]
 
@@ -26,19 +27,15 @@ class Repository(Protocol):
     def users(self) -> UserRepository: ...
 
 
-class Users(Aggregate[User, int]):
+@aggregate
+class Users:
     def __init__(self, *, repository: Repository, id_generator: IdGenerator[int]):
-        super().__init__(id_generator=id_generator)
-
-        self.repository = repository
+        super().__init__()
+        self._repository = repository
+        self._id_generator = id_generator
 
     async def new(self, name: str) -> User:
         """Create and save a new user.
-
-        Parameters
-        ----------
-        name : str
-            The name of the new user
 
         Returns
         -------
@@ -46,7 +43,8 @@ class Users(Aggregate[User, int]):
             A new project that has been persisted
         """
         id = self._id_generator.generate()
-        user = User(id, name, repository=self.repository.users)
+        data = UserData(id=id, name=name)
+        user = User(data, repository=self._repository.users)
         await user.save()
         return user
 
@@ -63,4 +61,8 @@ class Users(Aggregate[User, int]):
         User | None
             The found user, or None if not found
         """
-        return await self.repository.users.find(id)
+        data = await self._repository.users.find(id)
+        if data is None:
+            return None
+
+        return User(**dataclasses.asdict(data), repository=self._repository.users)

@@ -13,29 +13,29 @@
 # limitations under the License.
 
 
+import dataclasses
 from typing import Protocol
 
-from aim.util import Entity
+from aim.util import entity
 
 __all__ = ["User", "UserRepository"]
 
 
+@dataclasses.dataclass
+class UserData:
+    id: int
+    name: str
+
+
 class UserRepository(Protocol):
-    async def save(self, user: "User", /) -> None:
-        """Save an user to the repository."""
-        ...
-
-    async def find(self, id: int) -> "User | None":
-        """Find an user by its ID."""
-        ...
+    async def save(self, user: UserData, /) -> None: ...
+    async def find(self, id: int) -> UserData | None: ...
 
 
-class User(Entity[int]):
-    def __init__(self, id: int, name: str, *, repository: UserRepository) -> None:
-        super().__init__(id)
-        self.id = id
-        self.name = name
-
+@entity
+class User(UserData):
+    def __init__(self, data: UserData, *, repository: UserRepository) -> None:
+        super().__init__(**dataclasses.asdict(data))
         self._repository = repository
 
     async def save(self, **kwargs) -> None:

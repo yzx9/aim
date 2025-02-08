@@ -18,7 +18,7 @@ from typing import Optional
 import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
-from aim.domain.organization import Organization
+from aim.domain.organization.organization import OrganizationData
 from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
 from aim.util import AsyncSessionHandler
 
@@ -33,12 +33,12 @@ class OrganizationModel(BaseMixin, Base):
     name = mapped_column(sa.String(64), nullable=False)
 
 
-class OrganizationRepository(BaseRepositoryPlus[Organization, OrganizationModel]):
+class OrganizationRepository(BaseRepositoryPlus[OrganizationData, OrganizationModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
         super().__init__(session_handler, OrganizationModel)
 
     def _to_model(
-        self, entity: Organization, model: Optional[OrganizationModel] = None
+        self, entity: OrganizationData, model: Optional[OrganizationModel] = None
     ) -> OrganizationModel:
         if model is None:
             model = OrganizationModel()
@@ -47,5 +47,5 @@ class OrganizationRepository(BaseRepositoryPlus[Organization, OrganizationModel]
         model.name = entity.name
         return model
 
-    def _to_entity(self, model: OrganizationModel) -> Organization:
-        return Organization(id=model.id, name=model.name, repository=self)
+    def _to_entity(self, model: OrganizationModel) -> OrganizationData:
+        return OrganizationData(id=model.id, name=model.name)

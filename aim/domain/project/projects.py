@@ -17,8 +17,8 @@ from typing import Protocol
 
 from aim.domain.project.field import FieldRepository
 from aim.domain.project.item import ItemRepository
-from aim.domain.project.project import Project, ProjectRepository
-from aim.util import Aggregate, IdGenerator
+from aim.domain.project.project import Project, ProjectData, ProjectRepository
+from aim.util import IdGenerator, aggregate
 
 __all__ = ["Projects", "Repository"]
 
@@ -32,11 +32,12 @@ class Repository(Protocol):
     def items(self) -> ItemRepository: ...
 
 
-class Projects(Aggregate[Project, int]):
+@aggregate
+class Projects:
     def __init__(self, *, repository: Repository, id_generator: IdGenerator[int]):
-        super().__init__(id_generator=id_generator)
-
-        self.repository = repository
+        super().__init__()
+        self._repository = repository
+        self._id_generator = id_generator
 
     async def new(self, organization_id: int, name: str) -> Project:
         """Create and save a new project.
@@ -54,13 +55,16 @@ class Projects(Aggregate[Project, int]):
             A new project that has been persisted
         """
         id = self._id_generator.generate()
+        data = ProjectData(
+            id=id,
+            organization_id=organization_id,
+            name=name,
+        )
         project = Project(
-            id,
-            organization_id,
-            name,
-            repo_project=self.repository.projects,
-            repo_field=self.repository.fields,
-            repo_item=self.repository.items,
+            data,
+            repo_project=self._repository.projects,
+            repo_field=self._repository.fields,
+            repo_item=self._repository.items,
         )
         await project.save()
         return project
@@ -75,7 +79,16 @@ class Projects(Aggregate[Project, int]):
 
         Returns
         -------
-        Organization | None
+        Project | None
             The found project, or None if not found
         """
-        return await self.repository.projects.find(id)
+        data = await self._repository.projects.find(id)
+        if data is None:
+            return None
+
+        return Project(
+            data,
+            repo_project=self._repository.projects,
+            repo_field=self._repository.fields,
+            repo_item=self._repository.items,
+        )

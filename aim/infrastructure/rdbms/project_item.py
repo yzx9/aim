@@ -18,7 +18,7 @@ from collections import defaultdict
 import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
-from aim.domain.project.item import Item
+from aim.domain.project.item import ItemData
 from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepository
 from aim.util import AsyncSession, AsyncSessionHandler
 
@@ -86,7 +86,7 @@ class ProjectItemRepository(BaseRepository):
 
     async def _list_by_project(
         self, session: AsyncSession, project_id: int, offset: int, limit: int
-    ) -> list[Item]:
+    ) -> list[ItemData]:
         """Find all items for a given project."""
         stmt = (
             sa.select(ProjectItemModel)
@@ -101,5 +101,5 @@ class ProjectItemRepository(BaseRepository):
 
     def _to_entity(
         self, item: ProjectItemModel, values: list[ProjectItemValueModel]
-    ) -> Item:
+    ) -> ItemData:
         raise NotImplementedError()

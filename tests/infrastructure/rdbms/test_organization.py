@@ -15,10 +15,8 @@
 
 import pytest
 
-from aim.domain.organization import Organization
-from aim.infrastructure.rdbms.organization import (
-    OrganizationRepository,
-)
+from aim.domain.organization.organization import OrganizationData
+from aim.infrastructure.rdbms.organization import OrganizationRepository
 from aim.util import AsyncSessionHandler
 
 
@@ -33,9 +31,7 @@ def organization_repository(session_handler: AsyncSessionHandler):
 async def test_organization_repository_save(
     organization_repository: OrganizationRepository,
 ):
-    organization = Organization(
-        id=1, name="Test Organization", repository=organization_repository
-    )
+    organization = OrganizationData(id=1, name="Test Organization")
     await organization_repository.save(organization)
 
     retrieved_organization = await organization_repository.find(1)
@@ -50,9 +46,7 @@ async def test_organization_repository_find(
     organization_repository: OrganizationRepository,
 ):
     # First, save an organization
-    organization = Organization(
-        id=2, name="Another Organization", repository=organization_repository
-    )
+    organization = OrganizationData(id=2, name="Another Organization")
     await organization_repository.save(organization)
 
     # Now, try to find it

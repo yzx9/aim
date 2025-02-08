@@ -18,7 +18,7 @@ from typing import Optional
 import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
-from aim.domain.user import User
+from aim.domain.user.user import UserData
 from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
 from aim.util import AsyncSessionHandler
 
@@ -33,11 +33,13 @@ class UserModel(BaseMixin, Base):
     name = mapped_column(sa.String(64), nullable=False)
 
 
-class UserRepository(BaseRepositoryPlus[User, UserModel]):
+class UserRepository(BaseRepositoryPlus[UserData, UserModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
         super().__init__(session_handler, UserModel)
 
-    def _to_model(self, entity: User, model: Optional[UserModel] = None) -> UserModel:
+    def _to_model(
+        self, entity: UserData, model: Optional[UserModel] = None
+    ) -> UserModel:
         if model is None:
             model = UserModel()
 
@@ -45,5 +47,5 @@ class UserRepository(BaseRepositoryPlus[User, UserModel]):
         model.name = entity.name
         return model
 
-    def _to_entity(self, model: UserModel) -> User:
-        return User(id=model.id, name=model.name, repository=self)
+    def _to_entity(self, model: UserModel) -> UserData:
+        return UserData(id=model.id, name=model.name)

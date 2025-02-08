@@ -13,11 +13,12 @@
 # limitations under the License.
 
 
+import dataclasses
 from datetime import datetime
 from enum import Enum
 from typing import Protocol
 
-from aim.util import Entity
+from aim.util import entity
 
 __all__ = ["Field", "FieldRepository"]
 
@@ -37,37 +38,34 @@ class EnumFieldRepository(Protocol):
     async def list_by_project(self, project_id: int, /) -> "list[Field]": ...
 
 
+@dataclasses.dataclass
 class EnumField:
-    def __init__(self, id: str, value: str, sort: int):
-        super().__init__()
-        self.id = id
-        self.value = value
-        self.sort = sort
+    id: str
+    value: str
+    sort: int
 
 
 FieldValue = int | float | str | datetime
 
 
+@dataclasses.dataclass
+class FieldData:
+    id: int
+    project_id: int
+    kind: FieldKind
+    default_value: FieldValue
+
+
 class FieldRepository(Protocol):
-    async def save(self, project: "Field", /) -> None: ...
-    async def delete(self, id: int) -> "Field | None": ...
-    async def list_by_project(self, project_id: int, /) -> "list[Field]": ...
+    async def save(self, data: FieldData, /) -> None: ...
+    async def delete(self, id: int) -> FieldData | None: ...
+    async def list_by_project(self, project_id: int, /) -> list[FieldData]: ...
 
 
-class Field(Entity[int]):
-    def __init__(
-        self,
-        id: int,
-        project_id: int,
-        kind: FieldKind,
-        default_value: FieldValue,
-        *,
-        repository: FieldRepository,
-    ):
-        super().__init__(id)
-        self.project_id = project_id
-        self.kind = kind
-        self.default_value = default_value
+@entity
+class Field(FieldData):
+    def __init__(self, data: FieldData, *, repository: FieldRepository):
+        super().__init__(**dataclasses.asdict(data))
         self._repository = repository
 
     async def _save(self, **kwargs):

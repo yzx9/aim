@@ -18,7 +18,7 @@ from typing import Optional
 import sqlalchemy as sa
 from sqlalchemy.orm import mapped_column
 
-from aim.domain.project import Project
+from aim.domain.project.project import ProjectData
 from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
 from aim.util import AsyncSession, AsyncSessionHandler
 
@@ -34,14 +34,14 @@ class ProjectModel(BaseMixin, Base):
     name = mapped_column(sa.String(64), nullable=False)
 
 
-class ProjectRepository(BaseRepositoryPlus[Project, ProjectModel]):
+class ProjectRepository(BaseRepositoryPlus[ProjectData, ProjectModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
         super().__init__(session_handler, ProjectModel)
         self.list_by_organization = self._register(self._list_by_organization)
 
     async def _list_by_organization(
         self, session: AsyncSession, organization_id: int, offset: int, limit: int
-    ) -> list[Project]:
+    ) -> list[ProjectData]:
         """Find all projects for a given organization."""
         stmt = (
             sa.select(ProjectModel)
@@ -53,7 +53,7 @@ class ProjectRepository(BaseRepositoryPlus[Project, ProjectModel]):
         return [self._to_entity(project) for project in result.scalars()]
 
     def _to_model(
-        self, entity: Project, model: Optional[ProjectModel] = None
+        self, entity: ProjectData, model: Optional[ProjectModel] = None
     ) -> ProjectModel:
         if model is None:
             model = ProjectModel()
@@ -63,10 +63,9 @@ class ProjectRepository(BaseRepositoryPlus[Project, ProjectModel]):
         model.name = entity.name
         return model
 
-    def _to_entity(self, model: ProjectModel) -> Project:
-        return Project(
+    def _to_entity(self, model: ProjectModel) -> ProjectData:
+        return ProjectData(
             id=model.id,
             organization_id=model.organization_id,
             name=model.name,
-            repo_project=self,
         )

@@ -12,37 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
 
-from aim.util.id_generator import IdGenerator
-
-__all__ = ["Aggregate", "Entity", "ValueObject"]
+__all__ = ["aggregate", "entity", "value_object"]
 
 
-class ValueObject:
-    pass
+def aggregate(orig_cls):
+    # noop
+    return orig_cls
 
 
-T_id = TypeVar("T_id", bound=int | str)
+def entity(orig_cls):
+    # noop
+    return orig_cls
 
 
-class Entity(ABC, Generic[T_id]):
-    def __init__(self, id: T_id):
-        super().__init__()
-        self.id = id
-
-    @abstractmethod
-    async def save(self) -> None: ...
-
-
-T_aggregate_root = TypeVar("T_aggregate_root", bound=Entity[Any], covariant=True)
-
-
-class Aggregate(ABC, Generic[T_aggregate_root, T_id]):
-    def __init__(self, *, id_generator: IdGenerator[T_id]) -> None:
-        super().__init__()
-        self._id_generator = id_generator
-
-    @abstractmethod
-    async def find(self, id: T_id) -> T_aggregate_root | None: ...
+def value_object(orig_cls):
+    # noop
+    return orig_cls

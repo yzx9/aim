@@ -15,7 +15,7 @@
 
 import pytest
 
-from aim.domain.user import User
+from aim.domain.user.user import UserData
 from aim.infrastructure.rdbms.user import UserRepository
 from aim.util import AsyncSessionHandler
 
@@ -29,7 +29,7 @@ def user_repository(session_handler: AsyncSessionHandler):
 # Test case for saving a user
 @pytest.mark.asyncio
 async def test_user_repository_save(user_repository: UserRepository):
-    user = User(id=1, name="Test User", repository=user_repository)
+    user = UserData(id=1, name="Test User")
     await user_repository.save(user)
 
     retrieved_user = await user_repository.find(1)
@@ -42,7 +42,7 @@ async def test_user_repository_save(user_repository: UserRepository):
 @pytest.mark.asyncio
 async def test_user_repository_find(user_repository: UserRepository):
     # First, save a user
-    user = User(id=2, name="Another User", repository=user_repository)
+    user = UserData(id=2, name="Another User")
     await user_repository.save(user)
 
     # Now, try to find it

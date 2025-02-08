@@ -13,11 +13,18 @@
 # limitations under the License.
 
 
+import dataclasses
 from typing import Protocol
 
-from aim.util import Entity
+from aim.util import entity
 
 __all__ = ["Organization", "OrganizationRepository"]
+
+
+@dataclasses.dataclass
+class OrganizationData:
+    id: int
+    name: str
 
 
 class OrganizationRepository(Protocol):
@@ -27,32 +34,17 @@ class OrganizationRepository(Protocol):
     implementations must follow.
     """
 
-    async def save(self, organization: "Organization", /) -> None:
-        """Save an organization to the repository."""
-        ...
-
-    async def find(self, id: int) -> "Organization | None":
-        """Find an organization by its ID."""
-        ...
+    async def save(self, organization: OrganizationData, /) -> None: ...
+    async def find(self, id: int) -> OrganizationData | None: ...
 
 
-class Organization(Entity[int]):
+@entity
+class Organization(OrganizationData):
     def __init__(
-        self, id: int, name: str, *, repository: OrganizationRepository
+        self, data: OrganizationData, *, repository: OrganizationRepository
     ) -> None:
-        """Initialize an Organization instance.
-
-        Parameters
-        ----------
-        id : int
-            The organization's unique identifier
-        name : str
-            The organization's name
-        repository : Repository
-            The repository used to persist the organization
-        """
-        super().__init__(id)
-        self.name = name
+        """Initialize an Organization instance."""
+        super().__init__(**dataclasses.asdict(data))
         self._repository = repository
 
     async def save(self, **kwargs) -> None:

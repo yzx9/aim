@@ -15,8 +15,12 @@
 
 from typing import Protocol
 
-from aim.domain.organization.organization import Organization, OrganizationRepository
-from aim.util import Aggregate, IdGenerator
+from aim.domain.organization.organization import (
+    Organization,
+    OrganizationData,
+    OrganizationRepository,
+)
+from aim.util import IdGenerator, aggregate
 
 __all__ = ["Organizations", "Repository"]
 
@@ -26,18 +30,15 @@ class Repository(Protocol):
     def organizations(self) -> OrganizationRepository: ...
 
 
-class Organizations(Aggregate[Organization, int]):
+@aggregate
+class Organizations:
     def __init__(self, *, repository: Repository, id_generator: IdGenerator[int]):
-        super().__init__(id_generator=id_generator)
+        super().__init__()
         self._repository = repository
+        self._id_generator = id_generator
 
     async def new(self, name: str) -> Organization:
         """Create and save a new organization.
-
-        Parameters
-        ----------
-        name : str
-            The name of the new organization
 
         Returns
         -------
@@ -45,7 +46,8 @@ class Organizations(Aggregate[Organization, int]):
             A new Organization instance that has been persisted
         """
         id = self._id_generator.generate()
-        organization = Organization(id, name, repository=self._repository.organizations)
+        data = OrganizationData(id=id, name=name)
+        organization = Organization(data, repository=self._repository.organizations)
         await organization.save()
         return organization
 
@@ -62,4 +64,8 @@ class Organizations(Aggregate[Organization, int]):
         Organization | None
             The found organization, or None if not found
         """
-        return await self._repository.organizations.find(id)
+        data = await self._repository.organizations.find(id)
+        if data is None:
+            return None
+
+        return Organization(data, repository=self._repository.organizations)
