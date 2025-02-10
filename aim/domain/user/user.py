@@ -25,6 +25,7 @@ __all__ = ["User", "UserRepository"]
 
 class _PasswordTypes(enum.StrEnum):
     MD5 = "md5"
+    NONE = "none"
 
 
 @dataclasses.dataclass
@@ -59,6 +60,9 @@ class User(UserData):
                 hashed_password = hashlib.md5(password.encode("utf-8")).hexdigest()
                 return hashed_password == self.password
 
+            case _PasswordTypes.NONE:
+                return False
+
             case _:
                 raise ValueError(f"Unsupported password type: {self.password_type}")
 
@@ -69,18 +73,13 @@ class User(UserData):
 
         self.password_type = _PasswordTypes.MD5
         self.password = hashlib.md5(new_password.encode("utf-8")).hexdigest()
-
         await self._save()
         return True
 
     async def reset_password(self, new_password: str) -> None:
         """Resets the password to a new password."""
-        match self.password_type:
-            case _PasswordTypes.MD5:
-                self.password = hashlib.md5(new_password.encode("utf-8")).hexdigest()
-
-            case _:
-                raise ValueError(f"Unsupported password type: {self.password_type}")
+        self.password_type = _PasswordTypes.MD5
+        self.password = hashlib.md5(new_password.encode("utf-8")).hexdigest()
         await self._save()
 
     # -----------------------

@@ -15,27 +15,23 @@
 
 import dataclasses
 import warnings
-from dataclasses import dataclass
 
 from aiohttp import web
 
 from aim.interface._interface import BaseConfig, BaseInterface
 from aim.interface.web.handler_organization import OrganizationsHandler
+from aim.interface.web.handler_session import SessionHandler
 
 __all__ = ["WebInterface"]
 
 
-@dataclass
+@dataclasses.dataclass
 class WebConfig(BaseConfig):
     host: str
     port: int
 
 
 class WebInterface(BaseInterface):
-    def __init__(self, root: str, **kwargs: str | int | float | bool):
-        super().__init__(root, **kwargs)
-        self._setup_app()
-
     def run(self) -> None:
         web.run_app(self._app, host=self._config.host, port=self._config.port)
 
@@ -50,6 +46,9 @@ class WebInterface(BaseInterface):
 
     def _setup_app(self) -> None:
         self._app = web.Application()
+
+        # Store the Users domain service in the application
+        self._app["users"] = self._users
 
         if self._config.dev:
             try:
@@ -70,9 +69,15 @@ class WebInterface(BaseInterface):
         r.add_get("/api/ping", _ping, name="get_ping")
         r.add_post("/api/ping", _ping, name="post_ping")
 
+        h = SessionHandler(self._application)
+        r.add_post("/api/sessions", h._post, name="post_sessions")
+
         h = OrganizationsHandler(self._organizations)
         r.add_post("/api/organizations", h._post, name="post_organizations")
         r.add_get("/api/organizations/{id}", h._get, name="get_organization")
+
+    def _get_token(self, request: web.Request) -> str | None:
+        return request.headers.get("Authorization")
 
 
 async def _ping(request: web.Request) -> web.Response:

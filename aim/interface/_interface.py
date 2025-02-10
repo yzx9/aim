@@ -22,6 +22,7 @@ from typing import Generic, TypeVar
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import aim.infrastructure.rdbms as rdbms
+from aim.application.application import Application
 from aim.domain import Organizations, Projects, Users
 from aim.util import ConfigParser, SnowflakeGenerator, SQLAlchemyAsyncSessionHandler
 
@@ -129,4 +130,4 @@ class BaseInterface(ABC, Generic[T]):
         self._users = Users(repository=repository, id_generator=id_generator())
 
     def _setup_application(self) -> None:
-        pass  # do nothing
+        self._application = Application(users=self._users)

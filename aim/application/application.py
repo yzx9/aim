@@ -12,5 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from aim.application.application import *  # noqa: F403
-from aim.application.exceptions import *  # noqa: F403
+
+from aim.application.authorization import AccessTokenPayload, make_authorization
+from aim.domain.user import Users
+
+__all__ = ["Application"]
+
+
+class Application:
+    def __init__(self, *, users: Users) -> None:
+        super().__init__()
+
+        jwt_secret = ""
+        session, auth_required = make_authorization(users, jwt_secret)
+
+        self.session = session
+
+        @auth_required
+        def test(payload: AccessTokenPayload) -> str:
+            return ""
+
+        test("")

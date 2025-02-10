@@ -13,6 +13,7 @@ dependencies = [
     "alembic>=1.14.1",
     "asyncpg>=0.30.0",
     "click>=8.1.8",
+    "pyjwt>=2.10.1",
     "python-dotenv>=1.0.1",
     "sqlalchemy[asyncio]>=2.0.37",
 ]

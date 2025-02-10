@@ -16,7 +16,7 @@
 import dataclasses
 from typing import Protocol
 
-from aim.domain.user.user import User, UserData, UserRepository
+from aim.domain.user.user import User, UserData, UserRepository, _PasswordTypes
 from aim.util import IdGenerator, aggregate
 
 __all__ = ["Users", "Repository"]
@@ -43,7 +43,9 @@ class Users:
             A new project that has been persisted
         """
         id = self._id_generator.generate()
-        data = UserData(id=id, name=name)
+        data = UserData(
+            id=id, name=name, password_type=_PasswordTypes.NONE, password=""
+        )
         user = User(data, repository=self._repository.users)
         await user._save()
         return user
