@@ -45,7 +45,7 @@ class Users:
         id = self._id_generator.generate()
         data = UserData(id=id, name=name)
         user = User(data, repository=self._repository.users)
-        await user.save()
+        await user._save()
         return user
 
     async def find(self, id: int) -> User | None:

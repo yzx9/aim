@@ -29,7 +29,7 @@ def user_repository(session_handler: AsyncSessionHandler):
 # Test case for saving a user
 @pytest.mark.asyncio
 async def test_user_repository_save(user_repository: UserRepository):
-    user = UserData(id=1, name="Test User")
+    user = UserData(id=1, name="Test User", password_type="md5", password="placeholder")
     await user_repository.save(user)
 
     retrieved_user = await user_repository.find(1)
@@ -42,7 +42,9 @@ async def test_user_repository_save(user_repository: UserRepository):
 @pytest.mark.asyncio
 async def test_user_repository_find(user_repository: UserRepository):
     # First, save a user
-    user = UserData(id=2, name="Another User")
+    user = UserData(
+        id=2, name="Another User", password_type="md5", password="placeholder"
+    )
     await user_repository.save(user)
 
     # Now, try to find it
