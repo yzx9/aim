@@ -11,3 +11,4 @@ dist-ssr
 logs
 *.log
 pnpm-debug.log*
+coverage

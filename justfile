@@ -19,6 +19,7 @@ test-cov:
     pytest \
       --doctest-modules \
       --cov=aim --cov=app --cov-report=xml --cov-report=html
+  cd web && pnpm run test --run --coverage.enabled true 
 
 clean:
   rm -rf `find . -name __pycache__`

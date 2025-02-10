@@ -1,4 +1,4 @@
-name: Run tests
+name: Run python tests
 on: [push]
 jobs:
   test:
