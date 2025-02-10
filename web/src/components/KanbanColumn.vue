@@ -15,7 +15,6 @@ limitations under the License.
 -->
 
 <script lang="ts" setup>
-import { defineProps } from "vue";
 import KanbanCard from "./KanbanCard.vue";
 
 const props = defineProps<{
