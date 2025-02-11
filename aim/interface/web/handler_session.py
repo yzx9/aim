@@ -16,24 +16,25 @@
 from aiohttp import web
 
 from aim.application import Application
+from aim.domain.user.users import Users
 
 __all__ = ["SessionHandler"]
 
 
 class SessionHandler:
-    def __init__(self, application: Application) -> None:
+    def __init__(self, application: Application, users: Users):
         super().__init__()
         self._application = application
+        self._users = users
 
-    async def _post(self, request: web.Request) -> web.Response:
+    async def post(self, request: web.Request) -> web.Response:
         data = await request.json()
-
         userid = data.get("user_id")
         password = data.get("password")
         if not userid or not password:
             raise web.HTTPBadRequest(reason="Missing user_id or password")
 
-        session = await self._application.session.new_session(userid, password)
+        session = await self._application.session.login_by_password(userid, password)
         return web.json_response(
             {
                 "access_token": session.access_token,
@@ -41,3 +42,9 @@ class SessionHandler:
                 "refresh_token": session.refresh_token,
             }
         )
+
+    async def get(self, request: web.Request) -> web.Response:
+        session = self._application.session.login_by_access_token(
+            request.headers.get("Authorization")
+        )
+        return web.json_response("Hello, " + session.access_payload.username)

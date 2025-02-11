@@ -32,6 +32,10 @@ class WebConfig(BaseConfig):
 
 
 class WebInterface(BaseInterface):
+    def __init__(self, root: str, **kwargs: str | int | float | bool):
+        super().__init__(root, **kwargs)
+        self._setup_app()
+
     def run(self) -> None:
         web.run_app(self._app, host=self._config.host, port=self._config.port)
 
@@ -69,8 +73,9 @@ class WebInterface(BaseInterface):
         r.add_get("/api/ping", _ping, name="get_ping")
         r.add_post("/api/ping", _ping, name="post_ping")
 
-        h = SessionHandler(self._application)
-        r.add_post("/api/sessions", h._post, name="post_sessions")
+        h = SessionHandler(self._application, self._users)
+        r.add_post("/api/sessions", h.post, name="post_sessions")
+        r.add_get("/api/sessions", h.post, name="post_sessions")
 
         h = OrganizationsHandler(self._organizations)
         r.add_post("/api/organizations", h._post, name="post_organizations")

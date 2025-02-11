@@ -13,9 +13,10 @@
 # limitations under the License.
 
 
-import dataclasses
 from typing import Protocol
 
+from aim.domain.user.config import Config
+from aim.domain.user.session import Session
 from aim.domain.user.user import User, UserData, UserRepository, _PasswordTypes
 from aim.util import IdGenerator, aggregate
 
@@ -34,6 +35,12 @@ class Users:
         self._repository = repository
         self._id_generator = id_generator
 
+        self._config = Config(
+            jwt_secret="",
+            exp_access_token=5 * 60,  # 5 min
+            exp_refresh_token=30 * 24 * 60 * 60,  # 30 days
+        )
+
     async def new(self, name: str) -> User:
         """Create and save a new user.
 
@@ -46,25 +53,24 @@ class Users:
         data = UserData(
             id=id, name=name, password_type=_PasswordTypes.NONE, password=""
         )
-        user = User(data, repository=self._repository.users)
+        user = User(data, repository=self._repository.users, config=self._config)
         await user._save()
         return user
 
     async def find(self, id: int) -> User | None:
-        """Find an user by its ID.
-
-        Parameters
-        ----------
-        id : int
-            The ID of the user to find
-
-        Returns
-        -------
-        User | None
-            The found user, or None if not found
-        """
+        """Find an user by its ID."""
         data = await self._repository.users.find(id)
         if data is None:
             return None
 
-        return User(**dataclasses.asdict(data), repository=self._repository.users)
+        return User(data, repository=self._repository.users, config=self._config)
+
+    def recovery_session(self, access_token: str) -> Session | None:
+        """Recovery a session from an access token."""
+        return Session._from_access_token(access_token, config=self._config)
+
+    async def refresh_session(self, refresh_token: str) -> Session | None:
+        """Refresh the access token using the refresh token."""
+        return await Session._from_refresh_token(
+            refresh_token, config=self._config, users=self
+        )

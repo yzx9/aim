@@ -13,7 +13,8 @@
 # limitations under the License.
 
 
-from aim.application.authorization import AccessTokenPayload, make_authorization
+from aim.application.authorization import AuthorizationMiddleware
+from aim.application.session import make_session
 from aim.domain.user import Users
 
 __all__ = ["Application"]
@@ -22,14 +23,5 @@ __all__ = ["Application"]
 class Application:
     def __init__(self, *, users: Users) -> None:
         super().__init__()
-
-        jwt_secret = ""
-        session, auth_required = make_authorization(users, jwt_secret)
-
-        self.session = session
-
-        @auth_required
-        def test(payload: AccessTokenPayload) -> str:
-            return ""
-
-        test("")
+        auth = AuthorizationMiddleware(users)
+        self.session = make_session(users, auth)

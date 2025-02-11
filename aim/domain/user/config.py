@@ -13,8 +13,13 @@
 # limitations under the License.
 
 
-from aim.domain.user.session import AccessTokenPayload, Session
-from aim.domain.user.user import User
-from aim.domain.user.users import Users
+import dataclasses
 
-__all__ = ["Users", "User", "Session", "AccessTokenPayload"]
+__all__ = ["Config"]
+
+
+@dataclasses.dataclass
+class Config:
+    jwt_secret: str
+    exp_access_token: int
+    exp_refresh_token: int

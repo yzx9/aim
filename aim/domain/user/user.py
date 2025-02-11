@@ -18,6 +18,8 @@ import enum
 import hashlib
 from typing import Protocol
 
+from aim.domain.user.config import Config
+from aim.domain.user.session import Session
 from aim.util import entity
 
 __all__ = ["User", "UserRepository"]
@@ -43,9 +45,23 @@ class UserRepository(Protocol):
 
 @entity
 class User(UserData):
-    def __init__(self, data: UserData, *, repository: UserRepository) -> None:
+    def __init__(
+        self, data: UserData, *, repository: UserRepository, config: Config
+    ) -> None:
         super().__init__(**dataclasses.asdict(data))
         self._repository = repository
+        self._config = config
+
+    async def login(self, password: str) -> "Session | None":
+        """Login with the given password."""
+        if not self._validate_password(password):
+            return None
+
+        return Session.new(
+            self,
+            # repo_user=self._repository,
+            config=self._config,
+        )
 
     # -----------------------
     #        Password
@@ -53,7 +69,7 @@ class User(UserData):
     # TODO: add salt
     # TODO: use ECC to encrypt the password
 
-    def validate_password(self, password: str) -> bool:
+    def _validate_password(self, password: str) -> bool:
         """Validates the given password against the stored password hash."""
         match self.password_type:
             case _PasswordTypes.MD5:
@@ -68,7 +84,7 @@ class User(UserData):
 
     async def update_password(self, old_password: str, new_password: str) -> bool:
         """Updates the password if the old password is correct."""
-        if not self.validate_password(old_password):
+        if not self._validate_password(old_password):
             return False
 
         self.password_type = _PasswordTypes.MD5
