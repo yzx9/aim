@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from typing import Protocol
 
 from aim.application.authorization import AuthorizationMiddleware
@@ -27,6 +28,12 @@ class SessionApplication(Protocol):
 
     @staticmethod
     def login_by_access_token(token: str | None, /) -> Session: ...
+
+    @staticmethod
+    def logout(token: str | None, /) -> None: ...
+
+    @staticmethod
+    async def try_refresh_access_token(token: str | None, /) -> Session: ...
 
 
 def make_session(users: Users, auth: AuthorizationMiddleware) -> SessionApplication:
@@ -46,6 +53,17 @@ def make_session(users: Users, auth: AuthorizationMiddleware) -> SessionApplicat
         @auth.required
         @staticmethod
         def login_by_access_token(session: Session) -> Session:
+            return session
+
+        @auth.required
+        @staticmethod
+        def logout(session: Session) -> None:
+            pass  # do nothing
+
+        @auth.required
+        @staticmethod
+        async def try_refresh_access_token(session: Session) -> Session:
+            await session.try_refresh_access_token()
             return session
 
     return Application()

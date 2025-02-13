@@ -73,13 +73,19 @@ class WebInterface(BaseInterface):
         r.add_get("/api/ping", _ping, name="get_ping")
         r.add_post("/api/ping", _ping, name="post_ping")
 
-        h = SessionHandler(self._application, self._users)
-        r.add_post("/api/sessions", h.post, name="post_sessions")
-        r.add_get("/api/sessions", h.post, name="post_sessions")
+        hs = SessionHandler(self._application, self._users)
+        r.add_post("/api/sessions", hs.post, name="post_sessions")
+        r.add_post(
+            "/api/sessions/current", hs.post_current, name="post_sessions_current"
+        )
+        r.add_get("/api/sessions/current", hs.get_current, name="get_sessions_current")
+        r.add_delete(
+            "/api/sessions/current", hs.del_current, name="del_sessions_current"
+        )
 
-        h = OrganizationsHandler(self._organizations)
-        r.add_post("/api/organizations", h._post, name="post_organizations")
-        r.add_get("/api/organizations/{id}", h._get, name="get_organization")
+        ho = OrganizationsHandler(self._organizations)
+        r.add_post("/api/organizations", ho._post, name="post_organizations")
+        r.add_get("/api/organizations/{id}", ho._get, name="get_organization")
 
     def _get_token(self, request: web.Request) -> str | None:
         return request.headers.get("Authorization")
