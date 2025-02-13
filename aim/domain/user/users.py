@@ -15,7 +15,7 @@
 
 from typing import Protocol
 
-from aim.domain.user.config import Config
+from aim.domain.user.config import Config, PathOrTextIO
 from aim.domain.user.session import Session
 from aim.domain.user.user import User, UserData, UserRepository, _PasswordTypes
 from aim.util import IdGenerator, aggregate
@@ -30,16 +30,17 @@ class Repository(Protocol):
 
 @aggregate
 class Users:
-    def __init__(self, *, repository: Repository, id_generator: IdGenerator[int]):
+    def __init__(
+        self,
+        *,
+        repository: Repository,
+        id_generator: IdGenerator[int],
+        cert_sign: PathOrTextIO,
+    ):
         super().__init__()
         self._repository = repository
         self._id_generator = id_generator
-
-        self._config = Config(
-            jwt_secret="",
-            exp_access_token=5 * 60,  # 5 min
-            exp_refresh_token=30 * 24 * 60 * 60,  # 30 days
-        )
+        self._config = Config.new(cert_sign)
 
     async def new(self, name: str) -> User:
         """Create and save a new user.

@@ -39,6 +39,7 @@ _EPOCH = int(
 class BaseConfig:
     dev: bool
     machine_id: int
+    cert_sign: str
 
     rdbms_type: str
     rdbms_connect_string: str
@@ -107,6 +108,7 @@ class BaseInterface(ABC, Generic[T]):
         config = BaseConfig(
             dev=parser.parse_bool("DEV", default=False),
             machine_id=parser.parse_int("MACHINE_ID", default=0),
+            cert_sign=parser.parse_str("CERT_SIGN", default=""),
             rdbms_type=parser.parse_str("RDBMS_TYPE", default="sqlite"),
             rdbms_connect_string=parser.parse_str(
                 "RDBMS_CONNECT_STRING", default=":memory:"
@@ -127,7 +129,11 @@ class BaseInterface(ABC, Generic[T]):
             repository=repository, id_generator=id_generator()
         )
         self._projects = Projects(repository=repository, id_generator=id_generator())
-        self._users = Users(repository=repository, id_generator=id_generator())
+        self._users = Users(
+            repository=repository,
+            id_generator=id_generator(),
+            cert_sign=self._config.cert_sign,
+        )
 
     def _setup_application(self) -> None:
         self._application = Application(users=self._users)

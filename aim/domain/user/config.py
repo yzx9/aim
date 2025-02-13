@@ -14,8 +14,13 @@
 
 
 import dataclasses
+from pathlib import Path
+from typing import Self, TextIO
 
 __all__ = ["Config"]
+
+
+PathOrTextIO = str | Path | TextIO
 
 
 @dataclasses.dataclass
@@ -23,3 +28,20 @@ class Config:
     jwt_secret: str
     exp_access_token: int
     exp_refresh_token: int
+
+    @classmethod
+    def new(cls, cert_sign: PathOrTextIO) -> Self:
+        # TODO: watch cert file
+        if isinstance(cert_sign, str):
+            with open(cert_sign, "r") as f:
+                jwt_secret = f.read()
+        elif isinstance(cert_sign, Path):
+            jwt_secret = cert_sign.read_text()
+        else:
+            jwt_secret = cert_sign.read()
+
+        return cls(
+            jwt_secret=jwt_secret,
+            exp_access_token=5 * 60,  # 5 min
+            exp_refresh_token=30 * 24 * 60 * 60,  # 30 days
+        )
