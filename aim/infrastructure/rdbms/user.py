@@ -32,7 +32,7 @@ class UserModel(BaseMixin, Base):
 
     name = mapped_column(sa.String(64), nullable=False)
     password_type = mapped_column(sa.String(16), nullable=False)
-    password = mapped_column(sa.String(128), nullable=False)
+    password_hash = mapped_column(sa.String(None), nullable=False)
 
 
 class UserRepository(BaseRepositoryPlus[UserData, UserModel]):
@@ -48,7 +48,7 @@ class UserRepository(BaseRepositoryPlus[UserData, UserModel]):
         model.id = entity.id
         model.name = entity.name
         model.password_type = entity.password_type
-        model.password = entity.password
+        model.password_hash = entity.password_hash
         return model
 
     def _to_entity(self, model: UserModel) -> UserData:
@@ -56,5 +56,5 @@ class UserRepository(BaseRepositoryPlus[UserData, UserModel]):
             id=model.id,
             name=model.name,
             password_type=model.password_type,
-            password=model.password,
+            password_hash=model.password_hash,
         )

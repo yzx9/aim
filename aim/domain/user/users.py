@@ -51,7 +51,7 @@ class Users:
         """
         id = self._id_generator.generate()
         data = UserData(
-            id=id, name=name, password_type=_PasswordTypes.NONE, password=""
+            id=id, name=name, password_type=_PasswordTypes.NONE, password_hash=""
         )
         user = User(data, repository=self._repository.users, config=self._config)
         await user._save()
