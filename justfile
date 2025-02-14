@@ -21,6 +21,9 @@ test-cov:
       --cov=aim --cov=app --cov-report=xml --cov-report=html
   cd web && pnpm run test --run --coverage.enabled true 
 
+type-check:
+  uv run --with pyright pyright
+
 clean:
   rm -rf `find . -name __pycache__`
   find . -type f -name '*.py[co]'  -delete
