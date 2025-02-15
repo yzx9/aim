@@ -16,7 +16,7 @@
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 from aim.domain.organization.organization import OrganizationData
 from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
@@ -30,7 +30,7 @@ class OrganizationModel(BaseMixin, Base):
 
     __tablename__ = "organizations"
 
-    name = mapped_column(sa.String(64), nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(64), nullable=False)
 
 
 class OrganizationRepository(BaseRepositoryPlus[OrganizationData, OrganizationModel]):

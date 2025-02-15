@@ -16,7 +16,7 @@
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 from aim.domain.user.user import UserData
 from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
@@ -30,9 +30,9 @@ class UserModel(BaseMixin, Base):
 
     __tablename__ = "users"
 
-    name = mapped_column(sa.String(64), nullable=False)
-    password_type = mapped_column(sa.String(16), nullable=False)
-    password_hash = mapped_column(sa.String(None), nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    password_type: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    password_hash: Mapped[str] = mapped_column(nullable=False)
 
 
 class UserRepository(BaseRepositoryPlus[UserData, UserModel]):

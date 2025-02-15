@@ -14,8 +14,8 @@
 
 
 import dataclasses
+import enum
 from datetime import datetime
-from enum import Enum
 from typing import Protocol
 
 from aim.util import entity
@@ -23,35 +23,43 @@ from aim.util import entity
 __all__ = ["Field", "FieldRepository"]
 
 
-class FieldKind(Enum):
+class FieldKind(enum.StrEnum):
     """Value object"""
 
-    Number = "number"
-    Datetime = "datetime"
-    Enum = "enum"
-    String = "string"
-
-
-class EnumFieldRepository(Protocol):
-    async def save(self, project: "Field", /) -> None: ...
-    async def delete(self, id: int) -> "Field | None": ...
-    async def list_by_project(self, project_id: int, /) -> "list[Field]": ...
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    DATETIME = "datetime"
+    ENUM = "enum"
+    STRING = "string"
 
 
 @dataclasses.dataclass
-class EnumField:
+class FieldEnumData:
     id: str
     value: str
     sort: int
 
 
-FieldValue = int | float | str | datetime
+class FieldEnumRepository(Protocol):
+    async def save(self, field: FieldEnumData, /) -> None: ...
+    async def delete(self, id: int) -> FieldEnumData | None: ...
+    async def list_by_item(self, item_id: int, /) -> list[FieldEnumData]: ...
+
+
+class FieldEnum(FieldEnumData):
+    def __init__(self, data: FieldEnumData, *, repository: FieldEnumRepository):
+        super().__init__(**dataclasses.asdict(data))
+        self._repository = repository
+
+
+FieldValue = float | bool | str | datetime
 
 
 @dataclasses.dataclass
 class FieldData:
     id: int
     project_id: int
+    name: str
     kind: FieldKind
     default_value: FieldValue
 

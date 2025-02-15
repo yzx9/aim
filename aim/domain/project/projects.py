@@ -27,9 +27,9 @@ class Repository(Protocol):
     @property
     def projects(self) -> ProjectRepository: ...
     @property
-    def fields(self) -> FieldRepository: ...
+    def project_fields(self) -> FieldRepository: ...
     @property
-    def items(self) -> ItemRepository: ...
+    def project_items(self) -> ItemRepository: ...
 
 
 @aggregate
@@ -63,8 +63,8 @@ class Projects:
         project = Project(
             data,
             repo_project=self._repository.projects,
-            repo_field=self._repository.fields,
-            repo_item=self._repository.items,
+            repo_field=self._repository.project_fields,
+            repo_item=self._repository.project_items,
         )
         await project.save()
         return project
@@ -89,6 +89,6 @@ class Projects:
         return Project(
             data,
             repo_project=self._repository.projects,
-            repo_field=self._repository.fields,
-            repo_item=self._repository.items,
+            repo_field=self._repository.project_fields,
+            repo_item=self._repository.project_items,
         )

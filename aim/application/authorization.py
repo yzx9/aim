@@ -28,6 +28,8 @@ __all__ = ["AuthorizationMiddleware"]
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 
+AccessToken = str | None
+
 
 class AuthorizationMiddleware:
     def __init__(self, users: Users):
@@ -36,17 +38,17 @@ class AuthorizationMiddleware:
         @overload
         def required(
             handler: Callable[Concatenate[Session, _P], _R],
-        ) -> Callable[Concatenate[str | None, _P], _R]: ...
+        ) -> Callable[Concatenate[AccessToken, _P], _R]: ...
 
         @overload
         def required(
             handler: Callable[Concatenate[AccessTokenPayload, _P], _R],
-        ) -> Callable[Concatenate[str | None, _P], _R]: ...
+        ) -> Callable[Concatenate[AccessToken, _P], _R]: ...
 
         @overload
         def required(
             handler: Callable[_P, _R],
-        ) -> Callable[Concatenate[str | None, _P], _R]: ...
+        ) -> Callable[Concatenate[AccessToken, _P], _R]: ...
 
         def required(handler: Callable) -> Callable:
             """Authentication middleware as a function wrapper."""

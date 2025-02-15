@@ -13,9 +13,10 @@
 # limitations under the License.
 
 
-import datetime
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import (
+    Annotated,
     Any,
     Callable,
     Concatenate,
@@ -31,11 +32,11 @@ from typing import (
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import DeclarativeBase, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from aim.util import AsyncSessionHandler
 
-__all__ = ["Base", "BaseMixin", "BaseRepository", "BaseRepositoryPlus"]
+__all__ = ["Base", "BaseMixin", "IntId", "BaseRepository", "BaseRepositoryPlus"]
 
 
 class Base(DeclarativeBase):
@@ -53,23 +54,21 @@ class BaseEntity(Protocol):
     id: int
 
 
+IntId = Annotated[int, mapped_column(sa.BigInteger, nullable=False)]
+
+
 class BaseMixin:
     """SQLAlchemy model representing the table."""
 
-    id = mapped_column(sa.Integer, primary_key=True)
-    utc_created = mapped_column(
-        sa.DateTime,
-        nullable=False,
-        default=datetime.datetime.now,
-        index=True,
+    id: Mapped[IntId] = mapped_column(primary_key=True)
+    utc_created: Mapped[datetime] = mapped_column(
+        nullable=False, default=datetime.now, index=True
     )
-    utc_updated = mapped_column(
-        sa.DateTime,
-        nullable=False,
-        default=datetime.datetime.now,
-        onupdate=datetime.datetime.now,
+    utc_updated: Mapped[datetime] = mapped_column(
+        nullable=False, default=datetime.now, onupdate=datetime.now
     )
-    utc_deleted = mapped_column(sa.DateTime, index=True)  # soft delete if not null
+    # soft delete if not null
+    utc_deleted: Mapped[datetime] = mapped_column(nullable=True, index=True)
 
 
 E = TypeVar("E", bound=BaseEntity)
@@ -161,7 +160,7 @@ class BaseRepositoryPlus(BaseRepository, Generic[E, M]):
             sa.update(self._model)
             .where(self._model.id == id)
             .where(self._model.utc_deleted.is_(None))
-            .values(utc_deleted=datetime.datetime.now())
+            .values(utc_deleted=datetime.now())
         )
         result = await session.execute(stmt)
         if result.rowcount == 0:

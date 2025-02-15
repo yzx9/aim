@@ -13,9 +13,11 @@
 # limitations under the License.
 
 
+import ctypes
 import datetime
 import threading
 import time
+import uuid
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
@@ -38,6 +40,12 @@ class IdGenerator(ABC, Generic[T]):
         """
         # TODO: change to async func
         raise NotImplementedError
+
+
+class UUIDInt64Genearator(IdGenerator[int]):
+    def generate(self) -> int:
+        uuid_128 = uuid.uuid4().int
+        return ctypes.c_int64(uuid_128).value
 
 
 # Epoch for Snowflake IDs, default: 2025-01-01 00:00:00 UTC in milliseconds

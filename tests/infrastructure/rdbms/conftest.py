@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from aim.infrastructure.rdbms._base import Base
 from aim.util import SQLAlchemyAsyncSessionHandler
+from aim.util.id_generator import UUIDInt64Genearator
 
 # Define database URL for testing (in-memory SQLite)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -43,3 +44,8 @@ async def engine():
 @pytest.fixture
 def session_handler(engine):
     return SQLAlchemyAsyncSessionHandler(engine)
+
+
+@pytest.fixture
+def id_generator():
+    return UUIDInt64Genearator()

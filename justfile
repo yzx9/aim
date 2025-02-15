@@ -9,20 +9,36 @@ dev:
 serve:
   uv run python -m aim serve
 
-test:
+
+test: py-test js-test
+
+py-test:
   uv run --with pytest \
     pytest --doctest-modules
+
+js-test:
   cd web && pnpm run test --run
 
-test-cov:
+
+test-cov: py-test-cov js-test-cov
+
+py-test-cov:
+  uv run --with pytest --with pytest-cov \
+    pytest \
+      --doctest-modules \
+      --cov=aim --cov=app --cov-report=xml --cov-report=html
+
+js-test-cov:
   uv run --with pytest --with pytest-cov \
     pytest \
       --doctest-modules \
       --cov=aim --cov=app --cov-report=xml --cov-report=html
   cd web && pnpm run test --run --coverage.enabled true 
 
+
 type-check:
   uv run --with pyright pyright
+
 
 clean:
   rm -rf `find . -name __pycache__`

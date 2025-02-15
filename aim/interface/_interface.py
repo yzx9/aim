@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pyright: strict
 
 import datetime
 import os
@@ -78,6 +79,7 @@ class _Repository(Generic[T]):
 
         self.organizations = rdbms.OrganizationRepository(session_manager)
         self.projects = rdbms.ProjectRepository(session_manager)
+        self.project_items = rdbms.ProjectItemRepository(session_manager)
         self.users = rdbms.UserRepository(session_manager)
 
 

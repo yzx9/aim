@@ -16,10 +16,10 @@
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 from aim.domain.project.project import ProjectData
-from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus
+from aim.infrastructure.rdbms._base import Base, BaseMixin, BaseRepositoryPlus, IntId
 from aim.util import AsyncSession, AsyncSessionHandler
 
 __all__ = ["ProjectModel", "ProjectRepository"]
@@ -30,8 +30,8 @@ class ProjectModel(BaseMixin, Base):
 
     __tablename__ = "projects"
 
-    organization_id = mapped_column(sa.Integer, nullable=False)
-    name = mapped_column(sa.String(64), nullable=False)
+    organization_id: Mapped[IntId]
+    name: Mapped[str] = mapped_column(sa.String(64), nullable=False)
 
 
 class ProjectRepository(BaseRepositoryPlus[ProjectData, ProjectModel]):

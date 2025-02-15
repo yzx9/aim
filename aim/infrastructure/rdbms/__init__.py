@@ -15,4 +15,5 @@
 
 from aim.infrastructure.rdbms.organization import *  # noqa: F403
 from aim.infrastructure.rdbms.project import *  # noqa: F403
+from aim.infrastructure.rdbms.project_item import *  # noqa: F403
 from aim.infrastructure.rdbms.user import *  # noqa: F403
