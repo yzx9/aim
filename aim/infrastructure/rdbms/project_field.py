@@ -48,11 +48,8 @@ class ProjectItemRepository(BaseRepositoryPlus[FieldData, ProjectFieldModel]):
         self, session: AsyncSession, project_id: int, offset: int, limit: int
     ) -> list[FieldData]:
         """Find all projects for a given organization."""
-        stmt = (
-            sa.select(ProjectFieldModel)
-            .where(ProjectFieldModel.project_id == project_id)
-            .offset(offset)
-            .limit(limit)
+        stmt = self._list_stmt(offset, limit).where(
+            ProjectFieldModel.project_id == project_id
         )
         result = await session.execute(stmt)
         return [self._to_entity(project) for project in result.scalars()]

@@ -168,17 +168,32 @@ class BaseRepositoryPlus(BaseRepository, Generic[E, M]):
 
     async def _find(self, session: AsyncSession, id: int) -> E | None:
         """Find an entity by its ID."""
-        result = await session.get(self._model, id)
-        if not result:
+        stmt = (
+            sa.select(self._model)
+            .where(self._model.id == id)
+            .where(self._model.utc_deleted.is_(None))
+        )
+        result = await session.execute(stmt)
+        entity = result.scalars().first()
+        if not entity:
             return None
 
-        return self._to_entity(result)
+        return self._to_entity(entity)
 
     async def _list(self, session: AsyncSession, offset: int, limit: int) -> list[E]:
         """List all entities in the repository."""
-        stmt = sa.select(self._model).offset(offset).limit(limit)
+        stmt = self._list_stmt(offset, limit)
         result = await session.execute(stmt)
         return [self._to_entity(row) for row in result.scalars()]
+
+    def _list_stmt(self, offset: int, limit: int):
+        """List all entities in the repository."""
+        return (
+            sa.select(self._model)
+            .where(self._model.utc_deleted.is_(None))
+            .offset(offset)
+            .limit(limit)
+        )
 
     @abstractmethod
     def _to_model(self, entity: E, model: Optional[M] = None) -> M: ...

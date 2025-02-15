@@ -75,3 +75,8 @@ async def test_project_field_repository_curd(
     assert updated_retrieved_field.name == "Updated Field"
     assert updated_retrieved_field.kind == FieldKind.NUMBER
     assert updated_retrieved_field.default_value == 20.5
+
+    # Delete the project field
+    await project_field_repository.delete(field_id)
+    deleted_field = await project_field_repository.find(field_id)
+    assert deleted_field is None

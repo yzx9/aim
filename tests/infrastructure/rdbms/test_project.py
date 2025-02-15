@@ -56,6 +56,11 @@ async def test_project_repository_curd(
     assert updated_retrieved_project is not None
     assert updated_retrieved_project.name == "Updated Project"
 
+    # Delete the project field
+    await project_repository.delete(project_id)
+    deleted_project = await project_repository.find(project_id)
+    assert deleted_project is None
+
 
 # Test case for listing projects by organization
 @pytest.mark.asyncio

@@ -67,3 +67,8 @@ async def test_user_repository_curd(
     assert updated_retrieved_user.name == "Updated User"
     assert updated_retrieved_user.password_type == "sha256"
     assert updated_retrieved_user.password_hash == "updated_hash"
+
+    # Delete the project field
+    await user_repository.delete(user_id)
+    deleted_user = await user_repository.find(user_id)
+    assert deleted_user is None

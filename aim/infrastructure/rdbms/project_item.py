@@ -196,7 +196,12 @@ class ProjectItemRepository(BaseRepository):
         self, session: AsyncSession, offset: int, limit: int
     ) -> list[ItemData]:
         """List all entities in the repository."""
-        stmt = sa.select(ProjectItemModel).offset(offset).limit(limit)
+        stmt = (
+            sa.select(ProjectItemModel)
+            .where(ProjectItemModel.utc_deleted.is_(None))
+            .offset(offset)
+            .limit(limit)
+        )
         result = await session.execute(stmt)
         rows = result.scalars()
         values = await self._values.list_by_items(session, [row.id for row in rows])
@@ -209,6 +214,7 @@ class ProjectItemRepository(BaseRepository):
         stmt = (
             sa.select(ProjectItemModel)
             .where(ProjectItemModel.peoject_id == project_id)
+            .where(ProjectItemModel.utc_deleted.is_(None))
             .offset(offset)
             .limit(limit)
         )
@@ -227,4 +233,8 @@ class ProjectItemRepository(BaseRepository):
     def _to_entity(
         self, item: ProjectItemModel, values: list[ProjectItemValueModel]
     ) -> ItemData:
-        raise NotImplementedError()
+        return ItemData(
+            id=item.id,
+            project_id=item.peoject_id,
+            values=[a.to_entity(item.kind) for a in values],
+        )

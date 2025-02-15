@@ -55,9 +55,12 @@ async def test_organization_repository_curd(
     await organization_repository.save(updated_organization)
 
     # Retrieve the organization again to check if the changes were applied
-    updated_retrieved_organization = await organization_repository.find(
-        organization_id
-    )
+    updated_retrieved_organization = await organization_repository.find(organization_id)
     assert updated_retrieved_organization is not None
     assert updated_retrieved_organization.id == organization_id
     assert updated_retrieved_organization.name == "Updated Organization"
+
+    # Delete the project field
+    await organization_repository.delete(organization_id)
+    deleted_organization = await organization_repository.find(organization_id)
+    assert deleted_organization is None
