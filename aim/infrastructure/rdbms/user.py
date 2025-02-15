@@ -13,8 +13,6 @@
 # limitations under the License.
 
 
-from typing import Optional
-
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,9 +37,7 @@ class UserRepository(BaseRepositoryPlus[UserData, UserModel]):
     def __init__(self, session_handler: AsyncSessionHandler) -> None:
         super().__init__(session_handler, UserModel)
 
-    def _to_model(
-        self, entity: UserData, model: Optional[UserModel] = None
-    ) -> UserModel:
+    def _to_model(self, entity: UserData, model: UserModel | None = None) -> UserModel:
         if model is None:
             model = UserModel()
 

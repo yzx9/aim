@@ -18,7 +18,6 @@ import datetime
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Generic, TypeVar
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -46,10 +45,7 @@ class BaseConfig:
     rdbms_connect_string: str
 
 
-T = TypeVar("T", bound=BaseConfig)
-
-
-class _Repository(Generic[T]):
+class _Repository[T: BaseConfig]:
     def __init__(self, config: T) -> None:
         super().__init__()
 
@@ -83,7 +79,7 @@ class _Repository(Generic[T]):
         self.users = rdbms.UserRepository(session_manager)
 
 
-class BaseInterface(ABC, Generic[T]):
+class BaseInterface[T: BaseConfig](ABC):
     _organizations: Organizations
     _projects: Projects
     _users: Users

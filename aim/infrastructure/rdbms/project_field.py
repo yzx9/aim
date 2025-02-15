@@ -13,8 +13,6 @@
 # limitations under the License.
 
 
-from typing import Optional
-
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -55,7 +53,7 @@ class ProjectItemRepository(BaseRepositoryPlus[FieldData, ProjectFieldModel]):
         return [self._to_entity(project) for project in result.scalars()]
 
     def _to_model(
-        self, entity: FieldData, model: Optional[ProjectFieldModel] = None
+        self, entity: FieldData, model: ProjectFieldModel | None = None
     ) -> ProjectFieldModel:
         if model is None:
             model = ProjectFieldModel()

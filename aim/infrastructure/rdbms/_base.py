@@ -14,21 +14,9 @@
 
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Coroutine
 from datetime import datetime
-from typing import (
-    Annotated,
-    Any,
-    Callable,
-    Concatenate,
-    Coroutine,
-    Generic,
-    Optional,
-    ParamSpec,
-    Protocol,
-    Type,
-    TypeVar,
-    cast,
-)
+from typing import Annotated, Any, Concatenate, Protocol, Type, cast
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,13 +59,6 @@ class BaseMixin:
     utc_deleted: Mapped[datetime] = mapped_column(nullable=True, index=True)
 
 
-E = TypeVar("E", bound=BaseEntity)
-M = TypeVar("M", bound=BaseMixin)
-
-RV = TypeVar("RV")
-P = ParamSpec("P")
-
-
 class BaseRepository(ABC):
     """Base repository class providing session utilities."""
 
@@ -85,9 +66,9 @@ class BaseRepository(ABC):
         super().__init__()
         self._session_handler = session_handler
 
-    def _register(
-        self, func: Callable[Concatenate[AsyncSession, P], Coroutine[Any, Any, RV]]
-    ) -> Callable[P, Coroutine[Any, Any, RV]]:
+    def _register[R, **P](
+        self, func: Callable[Concatenate[AsyncSession, P], Coroutine[Any, Any, R]]
+    ) -> Callable[P, Coroutine[Any, Any, R]]:
         """Decorator to handle session management for repository methods.
 
         Parameters
@@ -99,7 +80,7 @@ class BaseRepository(ABC):
         fn : Wrapped async function that handles session management
         """
 
-        async def fn(*args: P.args, **kwargs: P.kwargs) -> RV:
+        async def fn(*args: P.args, **kwargs: P.kwargs) -> R:
             session = cast(AsyncSession | None, kwargs.pop("session", None))
             async with self._session_handler.session_handler(session) as s:
                 return await func(s, *args, **kwargs)
@@ -110,7 +91,7 @@ class BaseRepository(ABC):
         return fn
 
 
-class BaseRepositoryPlus(BaseRepository, Generic[E, M]):
+class BaseRepositoryPlus[E: BaseEntity, M: BaseMixin](BaseRepository):
     """Base repository class providing common CR operations and utilities.
 
     This class provides a foundation for repository implementations, handling:
@@ -131,7 +112,7 @@ class BaseRepositoryPlus(BaseRepository, Generic[E, M]):
     Example:
     ```python
     class MyRepository(BaseRepository[MyEntity, MyModel]):
-      def _to_model(self, entity: MyEntity model: Optional[MyModel] = None) -> MyModel:
+      def _to_model(self, entity: MyEntity model: MyModel | None = None) -> MyModel:
         # Implementation here
       def _to_entity(self, model: MyModel) -> MyEntity:
         # Implementation here
@@ -196,7 +177,7 @@ class BaseRepositoryPlus(BaseRepository, Generic[E, M]):
         )
 
     @abstractmethod
-    def _to_model(self, entity: E, model: Optional[M] = None) -> M: ...
+    def _to_model(self, entity: E, model: M | None = None) -> M: ...
 
     @abstractmethod
     def _to_entity(self, model: M) -> E: ...

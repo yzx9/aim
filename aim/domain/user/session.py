@@ -17,7 +17,7 @@ import dataclasses
 import time
 import uuid
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Optional, Self, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Self, Type
 
 import jwt
 
@@ -83,9 +83,6 @@ class RefershTokenPayload(TokenPayload):
         )
 
 
-_P = TypeVar("_P", bound=TokenPayload)
-
-
 @entity
 class Session:
     def __init__(
@@ -93,7 +90,7 @@ class Session:
         id: str,
         access_token: str,
         access_payload: AccessTokenPayload,
-        refresh_token: Optional[str] = None,
+        refresh_token: str | None = None,
         *,
         config: Config,
     ) -> None:
@@ -182,7 +179,9 @@ def _new_refresh_token(config: Config, session_id: str, user: "User") -> str:
     return token
 
 
-def _decode_token(config: Config, payload: Type[_P], token: str) -> _P | None:
+def _decode_token[T: TokenPayload](
+    config: Config, payload: Type[T], token: str
+) -> T | None:
     try:
         claims = jwt.decode(token, config.jwt_secret, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:

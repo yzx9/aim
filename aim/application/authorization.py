@@ -14,7 +14,8 @@
 
 
 import inspect
-from typing import Callable, Concatenate, ParamSpec, TypeVar, overload
+from collections.abc import Callable
+from typing import Concatenate, overload
 
 from aim.application.exceptions import (
     InvalidAuthorizationToken,
@@ -25,10 +26,7 @@ from aim.domain.user import AccessTokenPayload, Session, Users
 __all__ = ["AuthorizationMiddleware"]
 
 
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
-
-AccessToken = str | None
+type AccessToken = str | None
 
 
 class AuthorizationMiddleware:
@@ -36,19 +34,19 @@ class AuthorizationMiddleware:
         super().__init__()
 
         @overload
-        def required(
-            handler: Callable[Concatenate[Session, _P], _R],
-        ) -> Callable[Concatenate[AccessToken, _P], _R]: ...
+        def required[R, **P](
+            handler: Callable[Concatenate[Session, P], R],
+        ) -> Callable[Concatenate[AccessToken, P], R]: ...
 
         @overload
-        def required(
-            handler: Callable[Concatenate[AccessTokenPayload, _P], _R],
-        ) -> Callable[Concatenate[AccessToken, _P], _R]: ...
+        def required[R, **P](
+            handler: Callable[Concatenate[AccessTokenPayload, P], R],
+        ) -> Callable[Concatenate[AccessToken, P], R]: ...
 
         @overload
-        def required(
-            handler: Callable[_P, _R],
-        ) -> Callable[Concatenate[AccessToken, _P], _R]: ...
+        def required[R, **P](
+            handler: Callable[P, R],
+        ) -> Callable[Concatenate[AccessToken, P], R]: ...
 
         def required(handler: Callable) -> Callable:
             """Authentication middleware as a function wrapper."""

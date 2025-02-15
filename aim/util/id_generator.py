@@ -19,14 +19,11 @@ import threading
 import time
 import uuid
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
 
 __all__ = ["IdGenerator", "SnowflakeGenerator"]
 
-T = TypeVar("T", bound=int | str)
 
-
-class IdGenerator(ABC, Generic[T]):
+class IdGenerator[T: int | str](ABC):
     """Abstract base class for ID generators."""
 
     @abstractmethod

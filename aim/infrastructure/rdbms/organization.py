@@ -13,8 +13,6 @@
 # limitations under the License.
 
 
-from typing import Optional
-
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,7 +36,7 @@ class OrganizationRepository(BaseRepositoryPlus[OrganizationData, OrganizationMo
         super().__init__(session_handler, OrganizationModel)
 
     def _to_model(
-        self, entity: OrganizationData, model: Optional[OrganizationModel] = None
+        self, entity: OrganizationData, model: OrganizationModel | None = None
     ) -> OrganizationModel:
         if model is None:
             model = OrganizationModel()

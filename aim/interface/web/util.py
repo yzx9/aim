@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import Optional, Self
+from typing import Self
 
 import pydantic
 from aiohttp import web
@@ -46,8 +46,8 @@ class ResponseModel(pydantic.BaseModel):
         self,
         *,
         status: int = 200,
-        reason: Optional[str] = None,
-        headers: Optional[LooseHeaders] = None,
+        reason: str | None = None,
+        headers: LooseHeaders | None = None,
         content_type: str = "application/json",
     ) -> web.Response:
         return web.Response(

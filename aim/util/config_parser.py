@@ -14,8 +14,9 @@
 
 
 import os
+from collections.abc import Callable
 from io import StringIO
-from typing import Any, Callable, Optional, overload
+from typing import Any, overload
 
 from dotenv import dotenv_values
 
@@ -35,9 +36,9 @@ class ConfigParser:
     def __init__(
         self,
         *,
-        cli_args: Optional[dict[str, str | int | float | bool]] = None,
-        env_files: Optional[list[str | StringIO]] = None,
-        env_prefix: Optional[str] = None,
+        cli_args: dict[str, str | int | float | bool] | None = None,
+        env_files: list[str | StringIO] | None = None,
+        env_prefix: str | None = None,
     ):
         self._cli_args = cli_args or {}
         self._env_prefix = f"{env_prefix.upper()}_" if env_prefix else ""
@@ -48,8 +49,8 @@ class ConfigParser:
         self,
         key: str,
         *,
-        min_value: Optional[int] = ...,
-        max_value: Optional[int] = ...,
+        min_value: int | None = ...,
+        max_value: int | None = ...,
     ) -> int | None: ...
 
     @overload
@@ -58,17 +59,17 @@ class ConfigParser:
         key: str,
         default: int,
         *,
-        min_value: Optional[int] = ...,
-        max_value: Optional[int] = ...,
+        min_value: int | None = ...,
+        max_value: int | None = ...,
     ) -> int: ...
 
     def parse_int(
         self,
         key: str,
-        default: Optional[int] = None,
+        default: int | None = None,
         *,
-        min_value: Optional[int] = None,
-        max_value: Optional[int] = None,
+        min_value: int | None = None,
+        max_value: int | None = None,
     ) -> int | None:
         """Parse an integer value with optional range validation.
 
@@ -117,8 +118,8 @@ class ConfigParser:
         self,
         key: str,
         *,
-        min_value: Optional[float] = ...,
-        max_value: Optional[float] = ...,
+        min_value: float | None = ...,
+        max_value: float | None = ...,
     ) -> float | None: ...
 
     @overload
@@ -127,17 +128,17 @@ class ConfigParser:
         key: str,
         default: float,
         *,
-        min_value: Optional[float] = ...,
-        max_value: Optional[float] = ...,
+        min_value: float | None = ...,
+        max_value: float | None = ...,
     ) -> float: ...
 
     def parse_float(
         self,
         key: str,
-        default: Optional[float] = None,
+        default: float | None = None,
         *,
-        min_value: Optional[float] = None,
-        max_value: Optional[float] = None,
+        min_value: float | None = None,
+        max_value: float | None = None,
     ) -> float | None:
         """Parse a float value with optional range validation.
 
@@ -184,19 +185,19 @@ class ConfigParser:
 
     @overload
     def parse_str(
-        self, key: str, *, allowed_values: Optional[list[str]] = ...
+        self, key: str, *, allowed_values: list[str] | None = ...
     ) -> str | None: ...
     @overload
     def parse_str(
-        self, key: str, default: str, *, allowed_values: Optional[list[str]] = ...
+        self, key: str, default: str, *, allowed_values: list[str] | None = ...
     ) -> str: ...
 
     def parse_str(
         self,
         key: str,
-        default: Optional[str] = None,
+        default: str | None = None,
         *,
-        allowed_values: Optional[list[str]] = None,
+        allowed_values: list[str] | None = None,
     ) -> str | None:
         """Parse a string value with optional allowed values validation.
 
@@ -241,7 +242,7 @@ class ConfigParser:
     @overload
     def parse_bool(self, key: str, default: bool) -> bool: ...
 
-    def parse_bool(self, key: str, default: Optional[bool] = None) -> bool | None:
+    def parse_bool(self, key: str, default: bool | None = None) -> bool | None:
         """Parse a boolean value.
 
         Parameters
@@ -291,8 +292,8 @@ class ConfigParser:
         key: str,
         *,
         separator: str = ...,
-        min_value: Optional[int] = ...,
-        max_value: Optional[int] = ...,
+        min_value: int | None = ...,
+        max_value: int | None = ...,
     ) -> list[int] | None: ...
 
     @overload
@@ -302,18 +303,18 @@ class ConfigParser:
         default: list[int],
         *,
         separator: str = ...,
-        min_value: Optional[int] = ...,
-        max_value: Optional[int] = ...,
+        min_value: int | None = ...,
+        max_value: int | None = ...,
     ) -> list[int]: ...
 
     def parse_ints(
         self,
         key: str,
-        default: Optional[list[int]] = None,
+        default: list[int] | None = None,
         *,
         separator: str = ",",
-        min_value: Optional[int] = None,
-        max_value: Optional[int] = None,
+        min_value: int | None = None,
+        max_value: int | None = None,
     ) -> list[int] | None:
         """Parse a list of integers with optional range validation.
 
@@ -374,8 +375,8 @@ class ConfigParser:
         key: str,
         *,
         separator: str = ...,
-        min_value: Optional[float] = ...,
-        max_value: Optional[float] = ...,
+        min_value: float | None = ...,
+        max_value: float | None = ...,
     ) -> list[float] | None: ...
 
     @overload
@@ -385,18 +386,18 @@ class ConfigParser:
         default: list[float],
         *,
         separator: str = ...,
-        min_value: Optional[float] = ...,
-        max_value: Optional[float] = ...,
+        min_value: float | None = ...,
+        max_value: float | None = ...,
     ) -> list[float]: ...
 
     def parse_floats(
         self,
         key: str,
-        default: Optional[list[float]] = None,
+        default: list[float] | None = None,
         *,
         separator: str = ",",
-        min_value: Optional[float] = None,
-        max_value: Optional[float] = None,
+        min_value: float | None = None,
+        max_value: float | None = None,
     ) -> list[float] | None:
         """Parse a list of floats with optional range validation.
 
@@ -458,7 +459,7 @@ class ConfigParser:
         key: str,
         *,
         separator: str = ...,
-        allowed_values: Optional[list[str]] = ...,
+        allowed_values: list[str] | None = ...,
     ) -> list[str] | None: ...
 
     @overload
@@ -468,16 +469,16 @@ class ConfigParser:
         default: list[str],
         *,
         separator: str = ...,
-        allowed_values: Optional[list[str]] = ...,
+        allowed_values: list[str] | None = ...,
     ) -> list[str]: ...
 
     def parse_strings(
         self,
         key: str,
-        default: Optional[list[str]] = None,
+        default: list[str] | None = None,
         *,
         separator: str = ",",
-        allowed_values: Optional[list[str]] = None,
+        allowed_values: list[str] | None = None,
     ) -> list[str] | None:
         """Parse a list of strings with optional allowed values validation.
 
@@ -522,7 +523,7 @@ class ConfigParser:
         except (ValueError, TypeError):
             return default
 
-    def _load_env_files(self, files: list[str | StringIO]) -> dict[str, str]:
+    def _load_env_files(self, files: list[str | StringIO]) -> dict[str, str | None]:
         env_vars = {}
 
         # Load in reverse order so .env.local overrides .env

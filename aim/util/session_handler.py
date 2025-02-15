@@ -14,8 +14,8 @@
 
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
-from typing import AsyncIterator, Optional
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -25,7 +25,7 @@ __all__ = ["AsyncSession", "AsyncSessionHandler", "SQLAlchemyAsyncSessionHandler
 class AsyncSessionHandler(ABC):
     @abstractmethod
     def session_handler(
-        self, session: Optional[AsyncSession] = None
+        self, session: AsyncSession | None = None
     ) -> _AsyncGeneratorContextManager[AsyncSession]: ...
 
 
@@ -38,7 +38,7 @@ class SQLAlchemyAsyncSessionHandler(AsyncSessionHandler):
 
     @asynccontextmanager
     async def session_handler(
-        self, session: Optional[AsyncSession] = None
+        self, session: AsyncSession | None = None
     ) -> AsyncIterator[AsyncSession]:
         """Context manager for handling SQLAlchemy async sessions.
 
