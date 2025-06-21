@@ -1,0 +1,15 @@
+.direnv/
+__pycache__/
+dist
+.DS_Store
+.aider*
+*.local
+
+# Logs
+logs
+*.log
+
+
+# Added by cargo
+
+/target
