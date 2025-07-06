@@ -1,11 +1,10 @@
-mod database;
-
+use aim_core::Database;
 use clap::Parser;
 use log::debug;
 
 #[derive(Parser)]
-#[command(name = "cal-aggregator")]
-#[command(about = "An iCal aggregator", long_about = None)]
+#[command(name = "aim")]
+#[command(about = "An Information Management tool", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -30,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::List { path } => {
             debug!("Scanning directory: {}", path);
 
-            let db = database::Database::new(path).await?;
+            let db = Database::new(path).await?;
 
             // Query and print results to verify
             println!("\n--- {} events found ---", db.count_events().await?);
