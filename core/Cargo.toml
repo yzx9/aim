@@ -8,4 +8,4 @@ env_logger = "0.11"
 icalendar = "0.16"
 log = "0.4.27"
 sqlx = { version = "0.8", features = [ "runtime-tokio", "sqlite" ] }
-tokio = { version = "1", features = ["fs", "macros"] }
+tokio = { version = "1", features = ["fs"] }

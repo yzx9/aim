@@ -1,22 +1,22 @@
 use crate::{Event, Todo};
 use icalendar::{
-    CalendarComponent, CalendarDateTime, Component, DatePerhapsTime, EventStatus, TodoStatus,
+    Calendar, CalendarComponent, CalendarDateTime, Component, DatePerhapsTime, EventStatus,
+    TodoStatus,
 };
 use sqlx::sqlite::SqlitePool;
-use std::path::Path;
-use tokio::fs;
+use std::path::{Path, PathBuf};
 
 pub struct SqliteCache {
     pool: SqlitePool,
 }
 
 impl SqliteCache {
-    pub async fn new(dir_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(calendar_path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         let pool = new_db()
             .await
             .map_err(|e| format!("Failed to initialize database: {}", e.to_string()))?;
 
-        let mut reader = fs::read_dir(dir_path)
+        let mut reader = tokio::fs::read_dir(calendar_path)
             .await
             .map_err(|e| format!("Failed to read directory: {}", e.to_string()))?;
 
@@ -211,11 +211,11 @@ async fn process_ics_file(
 ) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("Parsing file: {}", path.display());
 
-    let content = fs::read_to_string(path)
+    let content = tokio::fs::read_to_string(path)
         .await
         .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?;
 
-    let calendar: icalendar::Calendar = content.parse()?;
+    let calendar: Calendar = content.parse()?;
     log::debug!(
         "Found {} components in {}.",
         calendar.components.len(),

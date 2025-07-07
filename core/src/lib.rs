@@ -1,4 +1,4 @@
-mod calendar;
+mod aim;
 mod sqlite_cache;
 
-pub use crate::calendar::{Calendar, Event, Todo};
+pub use crate::aim::{Aim, Config, Event, Todo};

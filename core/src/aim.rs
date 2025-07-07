@@ -1,12 +1,13 @@
 use crate::sqlite_cache::SqliteCache;
+use std::path::PathBuf;
 
-pub struct Calendar {
+pub struct Aim {
     cache: SqliteCache,
 }
 
-impl Calendar {
-    pub async fn new(dir_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let cache = SqliteCache::new(dir_path)
+impl Aim {
+    pub async fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
+        let cache = SqliteCache::new(&config.calendar_path)
             .await
             .map_err(|e| format!("Failed to initialize cache: {}", e.to_string()))?;
 
@@ -50,4 +51,14 @@ pub trait Todo {
     fn completed(&self) -> Option<&str>;
     fn percent_complete(&self) -> Option<i64>;
     fn status(&self) -> Option<&str>;
+}
+
+pub struct Config {
+    calendar_path: PathBuf,
+}
+
+impl Config {
+    pub fn new(calendar_path: PathBuf) -> Self {
+        Self { calendar_path }
+    }
 }
