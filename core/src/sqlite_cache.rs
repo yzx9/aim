@@ -1,17 +1,16 @@
+use crate::{Event, Todo};
 use icalendar::{
-    Calendar, CalendarComponent, CalendarDateTime, Component, DatePerhapsTime, Event, EventStatus,
-    Todo, TodoStatus,
+    CalendarComponent, CalendarDateTime, Component, DatePerhapsTime, EventStatus, TodoStatus,
 };
-use log::{debug, error, warn};
 use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 use tokio::fs;
 
-pub struct Database {
+pub struct SqliteCache {
     pool: SqlitePool,
 }
 
-impl Database {
+impl SqliteCache {
     pub async fn new(dir_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let pool = new_db()
             .await
@@ -32,7 +31,7 @@ impl Database {
                     let pool_clone = pool.clone();
                     handles.push(tokio::spawn(async move {
                         if let Err(e) = process_ics_file(&path, &pool_clone).await {
-                            error!("Failed to process file {}: {}", path.display(), e);
+                            log::error!("Failed to process file {}: {}", path.display(), e);
                         }
                     }));
                 }
@@ -44,8 +43,14 @@ impl Database {
             handle.await?;
         }
 
-        debug!("Total .ics files processed: {}", count_ics);
-        Ok(Database { pool })
+        log::debug!("Total .ics files processed: {}", count_ics);
+        Ok(SqliteCache { pool })
+    }
+
+    pub async fn list_events(&self) -> Result<Vec<EventRecord>, sqlx::Error> {
+        sqlx::query_as("SELECT * FROM events WHERE summary IS NOT NULL")
+            .fetch_all(&self.pool)
+            .await
     }
 
     pub async fn count_events(&self) -> Result<i64, sqlx::Error> {
@@ -55,23 +60,17 @@ impl Database {
         Ok(row.0)
     }
 
+    pub async fn list_todos(&self) -> Result<Vec<TodoRecord>, sqlx::Error> {
+        sqlx::query_as("SELECT * FROM todos WHERE summary IS NOT NULL")
+            .fetch_all(&self.pool)
+            .await
+    }
+
     pub async fn count_todos(&self) -> Result<i64, sqlx::Error> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM todos")
             .fetch_one(&self.pool)
             .await?;
         Ok(row.0)
-    }
-
-    pub async fn list_events(&self) -> Result<Vec<EventRecord>, sqlx::Error> {
-        sqlx::query_as("SELECT * FROM events WHERE summary IS NOT NULL")
-            .fetch_all(&self.pool)
-            .await
-    }
-
-    pub async fn list_todos(&self) -> Result<Vec<TodoRecord>, sqlx::Error> {
-        sqlx::query_as("SELECT * FROM todos WHERE summary IS NOT NULL")
-            .fetch_all(&self.pool)
-            .await
     }
 }
 
@@ -104,15 +103,30 @@ CREATE TABLE events (
     }
 }
 
-impl std::fmt::Display for EventRecord {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Event #{}: {} (Starts: {})",
-            self.id,
-            self.summary,
-            self.start_at.as_deref().unwrap_or("N/A")
-        )
+impl Event for EventRecord {
+    fn id(&self) -> i64 {
+        self.id
+    }
+    fn summary(&self) -> &str {
+        &self.summary
+    }
+    fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+    fn start_at(&self) -> Option<&str> {
+        self.start_at.as_deref()
+    }
+    fn start_has_time(&self) -> bool {
+        self.start_has_time
+    }
+    fn end_at(&self) -> Option<&str> {
+        self.end_at.as_deref()
+    }
+    fn end_has_time(&self) -> bool {
+        self.end_has_time
+    }
+    fn status(&self) -> Option<&str> {
+        self.status.as_deref()
     }
 }
 
@@ -145,22 +159,37 @@ CREATE TABLE todos (
     }
 }
 
-impl std::fmt::Display for TodoRecord {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Todo #{}: {} (Due: {})",
-            self.id,
-            self.summary,
-            self.due_at.as_deref().unwrap_or("N/A")
-        )
+impl Todo for TodoRecord {
+    fn id(&self) -> i64 {
+        self.id
+    }
+    fn summary(&self) -> &str {
+        &self.summary
+    }
+    fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+    fn due_at(&self) -> Option<&str> {
+        self.due_at.as_deref()
+    }
+    fn due_has_time(&self) -> bool {
+        self.due_has_time
+    }
+    fn completed(&self) -> Option<&str> {
+        self.completed.as_deref()
+    }
+    fn percent_complete(&self) -> Option<i64> {
+        self.percent_complete
+    }
+    fn status(&self) -> Option<&str> {
+        self.status.as_deref()
     }
 }
 
 async fn new_db() -> Result<SqlitePool, sqlx::Error> {
     // Open an in-memory SQLite database connection pool
     let pool = SqlitePool::connect("sqlite::memory:").await?;
-    debug!("In-memory SQLite DB opened.");
+    log::debug!("In-memory SQLite DB opened.");
     let mut tx = pool.begin().await?;
 
     sqlx::query(EventRecord::sql_create_table())
@@ -172,7 +201,7 @@ async fn new_db() -> Result<SqlitePool, sqlx::Error> {
         .await?;
 
     tx.commit().await?;
-    debug!("Tables created.");
+    log::debug!("Tables created.");
     Ok(pool)
 }
 
@@ -180,50 +209,41 @@ async fn process_ics_file(
     path: &Path,
     pool: &SqlitePool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("Processing file: {}", path.display());
+    log::debug!("Parsing file: {}", path.display());
 
-    let contents = fs::read_to_string(path)
+    let content = fs::read_to_string(path)
         .await
         .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?;
 
-    debug!("Parsing calendar...");
-    let parsed_calendar: Calendar = match contents.parse() {
-        Ok(c) => c,
-        Err(e) => {
-            error!("Failed to parse calendar from {}: {}", path.display(), e);
-            return Ok(()); // Continue with next file
-        }
-    };
-    debug!("Calendar parsed successfully.");
-    debug!(
+    let calendar: icalendar::Calendar = content.parse()?;
+    log::debug!(
         "Found {} components in {}.",
-        parsed_calendar.components.len(),
+        calendar.components.len(),
         path.display()
     );
 
-    for component in parsed_calendar.components {
+    for component in calendar.components {
         match component {
-            CalendarComponent::Event(event) => add_event(pool, &event).await?,
-            CalendarComponent::Todo(todo) => add_todo(pool, &todo).await?,
-            _ => warn!("Component is not an event or to-do item"),
+            CalendarComponent::Event(event) => insert_event(pool, &event).await?,
+            CalendarComponent::Todo(todo) => insert_todo(pool, &todo).await?,
+            _ => log::warn!("Ignoring unsupported component type: {:?}", component),
         }
     }
+
     Ok(())
 }
 
-async fn add_event(pool: &SqlitePool, event: &Event) -> Result<(), sqlx::Error> {
-    debug!("Found event, inserting into DB.");
-    let summary = event.get_summary();
-    let description = event.get_description();
-
-    let (start_at, start_has_time) = to_db_time(event.get_start());
-    let (end_at, end_has_time) = to_db_time(event.get_end());
+async fn insert_event(pool: &SqlitePool, event: &icalendar::Event) -> Result<(), sqlx::Error> {
+    log::debug!("Found event, inserting into DB.");
 
     let status = event.get_status().map(|s| match s {
-        EventStatus::Tentative => Some("TENTATIVE".to_string()),
-        EventStatus::Confirmed => Some("CONFIRMED".to_string()),
-        EventStatus::Cancelled => Some("CANCELLED".to_string()),
+        EventStatus::Tentative => "TENTATIVE",
+        EventStatus::Confirmed => "CONFIRMED",
+        EventStatus::Cancelled => "CANCELLED",
     });
+
+    let (start_at, start_has_time) = to_db_time(event.get_start());
+    let (end_at, end_has_time) = to_db_time(event.get_start());
 
     sqlx::query(
         "
@@ -231,8 +251,8 @@ INSERT INTO events (summary, description, start_at, start_has_time, end_at, end_
 VALUES (?, ?, ?, ?, ?, ?, ?);
         ",
     )
-    .bind(summary)
-    .bind(description)
+    .bind(event.get_summary())
+    .bind(event.get_description())
     .bind(start_at)
     .bind(start_has_time)
     .bind(end_at)
@@ -244,20 +264,15 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
     Ok(())
 }
 
-async fn add_todo(pool: &SqlitePool, todo: &Todo) -> Result<(), sqlx::Error> {
-    debug!("Found todo, inserting into DB.");
-    let summary = todo.get_summary();
-    let description = todo.get_description();
+async fn insert_todo(pool: &SqlitePool, todo: &icalendar::Todo) -> Result<(), sqlx::Error> {
+    log::debug!("Found todo, inserting into DB.");
 
-    let (due_date, due_has_time) = to_db_time(todo.get_due());
-
-    let completed = todo.get_completed().map(|d| d.to_rfc3339());
-    let percent_complete = todo.get_percent_complete();
+    let (due_at, due_has_time) = to_db_time(todo.get_due());
     let status = todo.get_status().map(|s| match s {
-        TodoStatus::NeedsAction => "NEEDS-ACTION".to_string(),
-        TodoStatus::InProcess => "IN-PROCESS".to_string(),
-        TodoStatus::Completed => "COMPLETED".to_string(),
-        TodoStatus::Cancelled => "CANCELLED".to_string(),
+        TodoStatus::NeedsAction => "NEEDS-ACTION",
+        TodoStatus::InProcess => "IN-PROCESS",
+        TodoStatus::Completed => "COMPLETED",
+        TodoStatus::Cancelled => "CANCELLED",
     });
 
     sqlx::query(
@@ -266,12 +281,12 @@ INSERT INTO todos (summary, description, due_at, due_has_time, completed, percen
 VALUES (?, ?, ?, ?, ?, ?, ?);
         ",
     )
-    .bind(summary)
-    .bind(description)
-    .bind(due_date)
+    .bind(todo.get_summary().unwrap_or(""))
+    .bind(todo.get_description())
+    .bind(due_at)
     .bind(due_has_time)
-    .bind(completed)
-    .bind(percent_complete)
+    .bind(todo.get_completed().map(|d| d.to_rfc3339()))
+    .bind(todo.get_percent_complete().map(i64::from))
     .bind(status)
     .execute(pool)
     .await?;

@@ -1,6 +1,5 @@
-use aim_core::Database;
+use aim_core::{Calendar, Event, Todo};
 use clap::Parser;
-use log::debug;
 
 #[derive(Parser)]
 #[command(name = "aim")]
@@ -27,22 +26,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match &cli.command {
         Commands::List { path } => {
-            debug!("Scanning directory: {}", path);
+            log::debug!("Scanning directory: {}", path);
 
-            let db = Database::new(path).await?;
+            let db = Calendar::new(path).await?;
 
             // Query and print results to verify
             println!("\n--- {} events found ---", db.count_events().await?);
             for event in db.list_events().await? {
-                println!("- {}", event,);
+                print_event(&event);
             }
 
             println!("\n--- {} todos found ---", db.count_todos().await?);
             for todo in db.list_todos().await? {
-                println!("- {}", todo);
+                print_todo(&todo);
             }
         }
     }
 
     Ok(())
+}
+
+fn print_event<E: Event>(event: &E) {
+    println!(
+        "- Event #{}: {} (Starts: {})",
+        event.id(),
+        event.summary(),
+        event.start_at().unwrap_or("N/A")
+    )
+}
+
+fn print_todo<T: Todo>(todo: &T) {
+    println!(
+        "- Todo #{}: {} (Due: {})",
+        todo.id(),
+        todo.summary(),
+        todo.due_at().unwrap_or("N/A")
+    )
 }
