@@ -1,7 +1,9 @@
-use crate::{Event, Todo};
+use crate::{
+    Event, Todo, TodoStatus,
+    aim::{EventQuery, Pager, TodoQuery},
+};
 use icalendar::{
     Calendar, CalendarComponent, CalendarDateTime, Component, DatePerhapsTime, EventStatus,
-    TodoStatus,
 };
 use sqlx::sqlite::SqlitePool;
 use std::path::{Path, PathBuf};
@@ -47,29 +49,88 @@ impl SqliteCache {
         Ok(SqliteCache { pool })
     }
 
-    pub async fn list_events(&self) -> Result<Vec<EventRecord>, sqlx::Error> {
-        sqlx::query_as("SELECT * FROM events WHERE summary IS NOT NULL")
+    pub async fn list_events(
+        &self,
+        query: &EventQuery,
+        pager: &Pager,
+    ) -> Result<Vec<EventRecord>, sqlx::Error> {
+        sqlx::query_as("SELECT * FROM events ORDER BY id LIMIT ? OFFSET ?")
+            .bind(pager.limit)
+            .bind(pager.offset)
             .fetch_all(&self.pool)
             .await
     }
 
-    pub async fn count_events(&self) -> Result<i64, sqlx::Error> {
+    pub async fn count_events(&self, query: &EventQuery) -> Result<i64, sqlx::Error> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM events")
             .fetch_one(&self.pool)
             .await?;
         Ok(row.0)
     }
 
-    pub async fn list_todos(&self) -> Result<Vec<TodoRecord>, sqlx::Error> {
-        sqlx::query_as("SELECT * FROM todos WHERE summary IS NOT NULL")
+    pub async fn list_todos(
+        &self,
+        query: &TodoQuery,
+        pager: &Pager,
+    ) -> Result<Vec<TodoRecord>, sqlx::Error> {
+        let mut sql = "SELECT * FROM todos".to_string();
+        let mut where_clauses: Vec<&str> = Vec::new();
+
+        if query.status().is_some() {
+            where_clauses.push("status = ?");
+        }
+        if query.due().is_some() {
+            where_clauses.push("due_at <= ?");
+        }
+
+        if !where_clauses.is_empty() {
+            sql += " WHERE ";
+            sql += &where_clauses.join(" AND ");
+        }
+
+        sql += " ORDER BY id LIMIT ? OFFSET ?";
+
+        let mut executable = sqlx::query_as(&sql);
+        if let Some(s) = query.status() {
+            let status: &str = s.into();
+            executable = executable.bind(status);
+        }
+        if let Some(due_at) = query.due() {
+            executable = executable.bind(due_at.to_rfc3339());
+        }
+
+        executable
+            .bind(pager.limit)
+            .bind(pager.offset)
             .fetch_all(&self.pool)
             .await
     }
 
-    pub async fn count_todos(&self) -> Result<i64, sqlx::Error> {
-        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM todos")
-            .fetch_one(&self.pool)
-            .await?;
+    pub async fn count_todos(&self, query: &TodoQuery) -> Result<i64, sqlx::Error> {
+        let mut sql = "SELECT COUNT(*) FROM todos".to_string();
+        let mut where_clauses: Vec<&str> = Vec::new();
+
+        if query.status().is_some() {
+            where_clauses.push("status = ?");
+        }
+        if query.due().is_some() {
+            where_clauses.push("due_at <= ?");
+        }
+
+        if !where_clauses.is_empty() {
+            sql += " WHERE ";
+            sql += &where_clauses.join(" AND ");
+        }
+
+        let mut executable = sqlx::query_as(&sql);
+        if let Some(s) = query.status() {
+            let status: &str = s.into();
+            executable = executable.bind(status);
+        }
+        if let Some(due_at) = query.due() {
+            executable = executable.bind(due_at.to_rfc3339());
+        }
+        let row: (i64,) = executable.fetch_one(&self.pool).await?;
         Ok(row.0)
     }
 }
@@ -107,24 +168,31 @@ impl Event for EventRecord {
     fn id(&self) -> i64 {
         self.id
     }
+
     fn summary(&self) -> &str {
         &self.summary
     }
+
     fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
+
     fn start_at(&self) -> Option<&str> {
         self.start_at.as_deref()
     }
+
     fn start_has_time(&self) -> bool {
         self.start_has_time
     }
+
     fn end_at(&self) -> Option<&str> {
         self.end_at.as_deref()
     }
+
     fn end_has_time(&self) -> bool {
         self.end_has_time
     }
+
     fn status(&self) -> Option<&str> {
         self.status.as_deref()
     }
@@ -163,28 +231,39 @@ impl Todo for TodoRecord {
     fn id(&self) -> i64 {
         self.id
     }
+
     fn summary(&self) -> &str {
         &self.summary
     }
+
     fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
+
     fn due_at(&self) -> Option<&str> {
         self.due_at.as_deref()
     }
+
     fn due_has_time(&self) -> bool {
         self.due_has_time
     }
+
     fn completed(&self) -> Option<&str> {
         self.completed.as_deref()
     }
+
     fn percent_complete(&self) -> Option<i64> {
         self.percent_complete
     }
-    fn status(&self) -> Option<&str> {
-        self.status.as_deref()
+
+    fn status(&self) -> Option<TodoStatus> {
+        self.status.as_ref()?.as_str().try_into().ok()
     }
 }
+
+/**
+ * Database
+ */
 
 async fn new_db() -> Result<SqlitePool, sqlx::Error> {
     // Open an in-memory SQLite database connection pool
@@ -268,12 +347,7 @@ async fn insert_todo(pool: &SqlitePool, todo: &icalendar::Todo) -> Result<(), sq
     log::debug!("Found todo, inserting into DB.");
 
     let (due_at, due_has_time) = to_db_time(todo.get_due());
-    let status = todo.get_status().map(|s| match s {
-        TodoStatus::NeedsAction => "NEEDS-ACTION",
-        TodoStatus::InProcess => "IN-PROCESS",
-        TodoStatus::Completed => "COMPLETED",
-        TodoStatus::Cancelled => "CANCELLED",
-    });
+    let status: Option<&str> = todo.get_status().map(|s| TodoStatus::from(&s).into());
 
     sqlx::query(
         "
@@ -293,6 +367,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 
     Ok(())
 }
+
+/**
+* Help functions
+ */
 
 fn to_db_time(date: Option<DatePerhapsTime>) -> (Option<String>, bool) {
     match date {

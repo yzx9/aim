@@ -1,4 +1,5 @@
-use aim_core::{Aim, Event, Todo};
+use aim_core::{Aim, Event, EventQuery, Pager, Todo, TodoQuery, TodoStatus};
+use chrono::Duration;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -7,13 +8,16 @@ use std::path::PathBuf;
 #[command(about = "An Information Management tool", long_about = None)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(clap::Subcommand)]
 enum Commands {
-    /// List events and todos from a directory of .ics files
-    List,
+    /// List events from a directory of .ics files
+    Events,
+
+    /// List todos from a directory of .ics files
+    Todos,
 }
 
 #[tokio::main]
@@ -21,44 +25,73 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     let cli = Cli::parse();
+
     let config = parse_config().await?;
+    let aim = Aim::new(&config).await?;
 
-    match &cli.command {
-        Commands::List => {
-            let calendar = Aim::new(&config).await?;
+    match cli.command {
+        Some(Commands::Events) => print_events(&aim).await?,
+        Some(Commands::Todos) => print_todos(&aim).await?,
+        None => {
+            println!("--- Events ---");
+            print_events(&aim).await?;
 
-            // Query and print results to verify
-            println!("\n--- {} events found ---", calendar.count_events().await?);
-            for event in calendar.list_events().await? {
-                print_event(&event);
-            }
-
-            println!("\n--- {} todos found ---", calendar.count_todos().await?);
-            for todo in calendar.list_todos().await? {
-                print_todo(&todo);
-            }
+            println!("\n--- Todos ---");
+            print_todos(&aim).await?;
         }
     }
 
     Ok(())
 }
 
-fn print_event<E: Event>(event: &E) {
-    println!(
-        "- Event #{}: {} (Starts: {})",
-        event.id(),
-        event.summary(),
-        event.start_at().unwrap_or("N/A")
-    )
+async fn print_events(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
+    log::debug!("Listing events...");
+    const MAX: i64 = 100;
+
+    let query = EventQuery::new();
+    if aim.count_events(&query).await? > MAX {
+        println!("Displaying only the first {} todos", MAX);
+    }
+
+    let pager: Pager = (MAX, 0).into();
+    let mut todos = aim.list_events(&query, &pager).await?;
+    todos.reverse();
+    for event in todos {
+        println!(
+            "- Event #{}: {} (Starts: {})",
+            event.id(),
+            event.summary(),
+            event.start_at().unwrap_or("N/A")
+        );
+    }
+
+    Ok(())
 }
 
-fn print_todo<T: Todo>(todo: &T) {
-    println!(
-        "- Todo #{}: {} (Due: {})",
-        todo.id(),
-        todo.summary(),
-        todo.due_at().unwrap_or("N/A")
-    )
+async fn print_todos(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
+    log::debug!("Listing todos...");
+    const MAX: i64 = 100;
+
+    let query = TodoQuery::new()
+        .with_status(TodoStatus::NeedsAction)
+        .with_due(Duration::days(2));
+    if aim.count_todos(&query).await? > MAX {
+        println!("Displaying only the first {} todos", MAX);
+    }
+
+    let pager: Pager = (MAX, 0).into();
+    let mut todos = aim.list_todos(&query, &pager).await?;
+    todos.reverse();
+    for todo in todos {
+        println!(
+            "[ ] {} {} {} ",
+            todo.id(),
+            todo.due_at().unwrap_or("N/A"),
+            todo.summary(),
+        );
+    }
+
+    Ok(())
 }
 
 async fn parse_config() -> Result<aim_core::Config, Box<dyn std::error::Error>> {

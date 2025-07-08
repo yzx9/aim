@@ -31,6 +31,7 @@ name = "aim-cli"
 version = "0.1.0"
 dependencies = [
  "aim-core",
+ "chrono",
  "clap",
  "env_logger",
  "home",
@@ -44,6 +45,7 @@ dependencies = [
 name = "aim-core"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "env_logger",
  "icalendar",
  "log",
