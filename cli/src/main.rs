@@ -1,4 +1,7 @@
-use aim_core::{Aim, Event, EventQuery, Pager, Todo, TodoQuery, TodoStatus};
+mod todo_formatter;
+
+use crate::todo_formatter::TodoFormatter;
+use aim_core::{Aim, Event, EventQuery, Pager, TodoQuery, TodoStatus};
 use chrono::Duration;
 use clap::Parser;
 use std::path::PathBuf;
@@ -13,10 +16,10 @@ struct Cli {
 
 #[derive(clap::Subcommand)]
 enum Commands {
-    /// List events from a directory of .ics files
+    /// List events
     Events,
 
-    /// List todos from a directory of .ics files
+    /// List todos
     Todos,
 }
 
@@ -68,27 +71,28 @@ async fn print_events(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn print_todos(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn print_todos(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("Listing todos...");
     const MAX: i64 = 100;
+    let now = chrono::Utc::now();
 
-    let query = TodoQuery::new()
+    let query = TodoQuery::new(now)
         .with_status(TodoStatus::NeedsAction)
         .with_due(Duration::days(2));
-    if aim.count_todos(&query).await? > MAX {
+
+    let pager: Pager = (MAX, 0).into();
+    let todos = aim.list_todos(&query, &pager).await?;
+
+    let formatter = TodoFormatter::new(now);
+    let mut rows = formatter.format(&todos);
+    rows.reverse();
+
+    if todos.len() == (MAX as usize) && aim.count_todos(&query).await? > MAX {
         println!("Displaying only the first {} todos", MAX);
     }
 
-    let pager: Pager = (MAX, 0).into();
-    let mut todos = aim.list_todos(&query, &pager).await?;
-    todos.reverse();
-    for todo in todos {
-        println!(
-            "[ ] {} {} {} ",
-            todo.id(),
-            todo.due_at().unwrap_or("N/A"),
-            todo.summary(),
-        );
+    for row in rows.iter() {
+        println!("{}", row);
     }
 
     Ok(())

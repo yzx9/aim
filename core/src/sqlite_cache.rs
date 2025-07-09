@@ -2,6 +2,7 @@ use crate::{
     Event, Todo, TodoStatus,
     aim::{EventQuery, Pager, TodoQuery},
 };
+use chrono::DateTime;
 use icalendar::{
     Calendar, CalendarComponent, CalendarDateTime, Component, DatePerhapsTime, EventStatus,
 };
@@ -240,8 +241,13 @@ impl Todo for TodoRecord {
         self.description.as_deref()
     }
 
-    fn due_at(&self) -> Option<&str> {
-        self.due_at.as_deref()
+    fn due_at(&self) -> Option<DateTime<chrono::Utc>> {
+        match &self.due_at {
+            Some(s) => DateTime::parse_from_rfc3339(s)
+                .ok()
+                .map(|dt| dt.with_timezone(&chrono::Utc)),
+            None => None,
+        }
     }
 
     fn due_has_time(&self) -> bool {

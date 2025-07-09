@@ -11,6 +11,7 @@ path = "src/main.rs"
 aim-core = { version = "0.1.0", path = "../core" }
 chrono = "0.4.41"
 clap = { version = "4.5", features = ["derive"] }
+colored = "3.0.0"
 env_logger = "0.11"
 home = "0.5.11"
 log = "0.4.27"

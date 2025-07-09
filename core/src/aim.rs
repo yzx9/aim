@@ -75,7 +75,7 @@ pub trait Todo {
     fn id(&self) -> i64;
     fn summary(&self) -> &str;
     fn description(&self) -> Option<&str>;
-    fn due_at(&self) -> Option<&str>;
+    fn due_at(&self) -> Option<DateTime<Utc>>;
     fn due_has_time(&self) -> bool;
     fn completed(&self) -> Option<&str>;
     fn percent_complete(&self) -> Option<i64>;
@@ -144,9 +144,9 @@ pub struct TodoQuery {
 }
 
 impl TodoQuery {
-    pub fn new() -> Self {
+    pub fn new(now: DateTime<Utc>) -> Self {
         Self {
-            now: Utc::now(),
+            now: now,
             status: None,
             due: None,
         }
