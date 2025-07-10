@@ -5,10 +5,11 @@
 mod todo_formatter;
 
 use crate::todo_formatter::TodoFormatter;
-use aim_core::{Aim, Event, EventQuery, Pager, TodoQuery, TodoStatus};
+use aim_core::{Aim, Config, Event, EventQuery, Pager, TodoQuery, TodoStatus};
 use chrono::Duration;
 use clap::Parser;
-use std::path::PathBuf;
+use std::{error::Error, io, path::PathBuf};
+use xdg::BaseDirectories;
 
 #[derive(Parser)]
 #[command(name = "aim")]
@@ -28,7 +29,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
     let cli = Cli::parse();
@@ -37,21 +38,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let aim = Aim::new(&config).await?;
 
     match cli.command {
-        Some(Commands::Events) => print_events(&aim).await?,
-        Some(Commands::Todos) => print_todos(&aim).await?,
+        Some(Commands::Events) => list_events(&aim).await?,
+        Some(Commands::Todos) => list_todos(&aim).await?,
         None => {
             println!("--- Events ---");
-            print_events(&aim).await?;
+            list_events(&aim).await?;
 
             println!("\n--- Todos ---");
-            print_todos(&aim).await?;
+            list_todos(&aim).await?;
         }
     }
 
     Ok(())
 }
 
-async fn print_events(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
+async fn list_events(aim: &Aim) -> Result<(), Box<dyn Error>> {
     log::debug!("Listing events...");
     const MAX: i64 = 100;
 
@@ -75,7 +76,7 @@ async fn print_events(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub async fn print_todos(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn list_todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
     log::debug!("Listing todos...");
     const MAX: i64 = 100;
     let now = chrono::Utc::now();
@@ -85,25 +86,20 @@ pub async fn print_todos(aim: &Aim) -> Result<(), Box<dyn std::error::Error>> {
         .with_due(Duration::days(2));
 
     let pager: Pager = (MAX, 0).into();
-    let todos = aim.list_todos(&query, &pager).await?;
-
-    let formatter = TodoFormatter::new(now);
-    let mut rows = formatter.format(&todos);
-    rows.reverse();
+    let mut todos = aim.list_todos(&query, &pager).await?;
+    todos.reverse();
 
     if todos.len() == (MAX as usize) && aim.count_todos(&query).await? > MAX {
         println!("Displaying only the first {} todos", MAX);
     }
-
-    for row in rows.iter() {
-        println!("{}", row);
-    }
+    let formatter = TodoFormatter::new(now);
+    formatter.write(&mut io::stdout(), &todos)?;
 
     Ok(())
 }
 
-async fn parse_config() -> Result<aim_core::Config, Box<dyn std::error::Error>> {
-    let path = xdg::BaseDirectories::with_prefix("aim")
+async fn parse_config() -> Result<Config, Box<dyn Error>> {
+    let path = BaseDirectories::with_prefix("aim")
         .get_config_home()
         .ok_or("Failed to get user-specific config directory")?;
 
@@ -127,14 +123,17 @@ async fn parse_config() -> Result<aim_core::Config, Box<dyn std::error::Error>> 
 
     let calendar_path = expand_path(calendar_path);
 
-    Ok(aim_core::Config::new(calendar_path))
+    Ok(Config::new(calendar_path))
 }
 
 fn expand_path(path: &str) -> PathBuf {
     if path.starts_with("~/") {
-        let home = home::home_dir().expect("Failed to get home directory");
-        home.join(&path[2..])
-    } else {
-        path.into()
+        if let Some(home) = home::home_dir() {
+            return home.join(&path[2..]);
+        }
+
+        log::warn!("Home directory not found");
     }
+
+    path.into()
 }
