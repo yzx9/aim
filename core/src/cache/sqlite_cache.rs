@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{event::EventRecord, todo::TodoRecord};
-use crate::{aim::EventQuery, todo::TodoQuery, types::Pager};
+use crate::{TodoSort, aim::EventQuery, todo::TodoQuery, types::Pager};
 use icalendar::{Calendar, CalendarComponent};
 use sqlx::sqlite::SqlitePool;
 use std::path::{Path, PathBuf};
@@ -24,6 +24,7 @@ impl SqliteCache {
         EventRecord::create_table(&pool)
             .await
             .map_err(|e| format!("Failed to create events table: {}", e.to_string()))?;
+
         TodoRecord::create_table(&pool)
             .await
             .map_err(|e| format!("Failed to create todos table: {}", e.to_string()))?;
@@ -81,9 +82,10 @@ impl SqliteCache {
     pub async fn list_todos(
         &self,
         query: &TodoQuery,
+        sort: &Vec<TodoSort>,
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
-        TodoRecord::list(&self.pool, query, pager).await
+        TodoRecord::list(&self.pool, query, sort, pager).await
     }
 
     pub async fn count_todos(&self, query: &TodoQuery) -> Result<i64, sqlx::Error> {

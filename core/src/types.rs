@@ -73,6 +73,12 @@ impl From<icalendar::DatePerhapsTime> for DatePerhapsTime {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum SortOrder {
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Pager {
     pub limit: i64,
     pub offset: i64,

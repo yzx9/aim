@@ -5,8 +5,10 @@
 mod todo_formatter;
 
 use crate::todo_formatter::TodoFormatter;
-use aim_core::{Aim, Config, Event, EventQuery, Pager, TodoQuery, TodoSort, TodoStatus};
-use chrono::Duration;
+use aim_core::{
+    Aim, Config, Event, EventQuery, Pager, SortOrder, TodoQuery, TodoSortKey, TodoStatus,
+};
+use chrono::{Duration, Local};
 use clap::Parser;
 use std::{error::Error, io, path::PathBuf};
 use xdg::BaseDirectories;
@@ -62,9 +64,9 @@ async fn list_events(aim: &Aim) -> Result<(), Box<dyn Error>> {
     }
 
     let pager: Pager = (MAX, 0).into();
-    let mut todos = aim.list_events(&query, &pager).await?;
-    todos.reverse();
-    for event in todos {
+    let mut events = aim.list_events(&query, &pager).await?;
+    events.reverse();
+    for event in events {
         println!(
             "- Event #{}: {} (Starts: {})",
             event.id(),
@@ -79,17 +81,20 @@ async fn list_events(aim: &Aim) -> Result<(), Box<dyn Error>> {
 pub async fn list_todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
     log::debug!("Listing todos...");
     const MAX: i64 = 100;
-    let now = chrono::Utc::now();
+    let now = Local::now().naive_local();
 
     let query = TodoQuery {
         now,
         status: Some(TodoStatus::NeedsAction),
         due: Some(Duration::days(2)),
-        sort: TodoSort::DueDesc,
     };
 
-    let pager: Pager = (MAX, 0).into();
-    let todos = aim.list_todos(&query, &pager).await?;
+    let pager = (MAX, 0).into();
+    let sort = vec![
+        (TodoSortKey::Priority, SortOrder::Desc).into(),
+        (TodoSortKey::Due, SortOrder::Desc).into(),
+    ];
+    let todos = aim.list_todos(&query, &sort, &pager).await?;
 
     if todos.len() == (MAX as usize) && aim.count_todos(&query).await? > MAX {
         println!("Displaying only the first {} todos", MAX);

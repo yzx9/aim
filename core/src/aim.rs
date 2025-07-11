@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{Pager, Todo, TodoQuery, cache::SqliteCache};
+use crate::{Pager, Todo, TodoQuery, TodoSort, cache::SqliteCache};
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 
@@ -40,9 +40,10 @@ impl Aim {
     pub async fn list_todos(
         &self,
         query: &TodoQuery,
+        sort: &Vec<TodoSort>,
         pager: &Pager,
     ) -> Result<Vec<impl Todo>, sqlx::Error> {
-        self.cache.list_todos(query, pager).await
+        self.cache.list_todos(query, sort, pager).await
     }
 
     pub async fn count_todos(&self, query: &TodoQuery) -> Result<i64, sqlx::Error> {

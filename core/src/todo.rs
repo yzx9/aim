@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{DatePerhapsTime, Priority};
-use chrono::{DateTime, Duration, FixedOffset, Utc};
+use crate::{DatePerhapsTime, Priority, SortOrder};
+use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime};
 
 pub trait Todo {
     fn id(&self) -> i64;
@@ -87,25 +87,31 @@ impl From<&icalendar::TodoStatus> for TodoStatus {
 
 #[derive(Debug)]
 pub struct TodoQuery {
-    pub now: DateTime<Utc>,
+    pub now: NaiveDateTime,
     pub status: Option<TodoStatus>,
     pub due: Option<Duration>,
-    pub sort: TodoSort,
 }
 
 impl TodoQuery {
-    pub fn due_before(&self) -> Option<DateTime<Utc>> {
-        match self.due {
-            Some(duration) => Some(self.now + duration),
-            None => None,
-        }
+    pub fn due_before(&self) -> Option<NaiveDateTime> {
+        self.due.map(|a| self.now + a)
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum TodoSort {
-    IdAsc,
-    IdDesc,
-    DueAsc,
-    DueDesc,
+pub enum TodoSortKey {
+    Id,
+    Due,
+    Priority,
+}
+
+pub struct TodoSort {
+    pub key: TodoSortKey,
+    pub order: SortOrder,
+}
+
+impl From<(TodoSortKey, SortOrder)> for TodoSort {
+    fn from((key, order): (TodoSortKey, SortOrder)) -> Self {
+        Self { key, order }
+    }
 }

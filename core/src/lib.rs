@@ -8,5 +8,5 @@ mod todo;
 mod types;
 
 pub use crate::aim::{Aim, Config, Event, EventQuery};
-pub use crate::todo::{Todo, TodoQuery, TodoSort, TodoStatus};
-pub use crate::types::{DatePerhapsTime, Pager, Priority};
+pub use crate::todo::{Todo, TodoQuery, TodoSort, TodoSortKey, TodoStatus};
+pub use crate::types::{DatePerhapsTime, Pager, Priority, SortOrder};

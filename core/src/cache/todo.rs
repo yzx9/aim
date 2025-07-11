@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{DatePerhapsTime, Pager, Priority, Todo, TodoQuery, TodoSort, TodoStatus};
+use crate::{
+    DatePerhapsTime, Pager, Priority, SortOrder, Todo, TodoQuery, TodoSort, TodoSortKey, TodoStatus,
+};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 use chrono_tz::Tz;
 use icalendar::Component;
@@ -75,9 +77,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     pub async fn list(
         pool: &SqlitePool,
         query: &TodoQuery,
+        sort: &Vec<TodoSort>,
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
-        let due_before = query.due_before().map(|d| d.to_rfc3339());
+        let due_before = query.due_before();
 
         let mut where_clauses: Vec<&str> = Vec::new();
         if query.status.is_some() {
@@ -93,12 +96,23 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             sql += &where_clauses.join(" AND ");
         }
 
-        match query.sort {
-            TodoSort::IdAsc => sql += " ORDER BY id ASC",
-            TodoSort::IdDesc => sql += " ORDER BY id DESC",
-            TodoSort::DueAsc => sql += " ORDER BY due_at ASC",
-            TodoSort::DueDesc => sql += " ORDER BY due_at DESC",
-        };
+        if sort.len() > 0 {
+            sql += " ORDER BY ";
+            for (i, s) in sort.iter().enumerate() {
+                sql += match s.key {
+                    TodoSortKey::Id => "id",
+                    TodoSortKey::Due => "due_at",
+                    TodoSortKey::Priority => "priority",
+                };
+                sql += match s.order {
+                    SortOrder::Asc => " ASC",
+                    SortOrder::Desc => " DESC",
+                };
+                if i < sort.len() - 1 {
+                    sql += ", ";
+                }
+            }
+        }
         sql += " LIMIT ? OFFSET ?";
 
         let mut executable = sqlx::query_as(&sql);
@@ -107,7 +121,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             executable = executable.bind(status);
         }
         if let Some(due_at) = due_before {
-            executable = executable.bind(due_at);
+            executable = executable.bind(format_dt(due_at));
         }
 
         executable
@@ -118,16 +132,16 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     }
 
     pub async fn count(pool: &SqlitePool, query: &TodoQuery) -> Result<i64, sqlx::Error> {
-        let mut sql = "SELECT COUNT(*) FROM todos".to_string();
-        let mut where_clauses: Vec<&str> = Vec::new();
-
+        let due_before = query.due_before();
+        let mut where_clauses = Vec::new();
         if query.status.is_some() {
             where_clauses.push("status = ?");
         }
-        if query.due_before().is_some() {
+        if due_before.is_some() {
             where_clauses.push("due_at <= ?");
         }
 
+        let mut sql = "SELECT COUNT(*) FROM todos".to_string();
         if !where_clauses.is_empty() {
             sql += " WHERE ";
             sql += &where_clauses.join(" AND ");
@@ -139,7 +153,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             executable = executable.bind(status);
         }
         if let Some(due_at) = query.due_before() {
-            executable = executable.bind(due_at.to_rfc3339());
+            executable = executable.bind(format_dt(due_at));
         }
         let row: (i64,) = executable.fetch_one(pool).await?;
         Ok(row.0)
@@ -217,6 +231,10 @@ impl From<icalendar::Todo> for TodoRecord {
 
 const DATE_FORMAT: &str = "%Y-%m-%d";
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
+
+fn format_dt(dt: NaiveDateTime) -> String {
+    dt.format(DATETIME_FORMAT).to_string()
+}
 
 fn to_dt_tz(dt: Option<icalendar::DatePerhapsTime>) -> (String, String) {
     match dt {

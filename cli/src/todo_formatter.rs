@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use aim_core::{Priority, Todo, TodoStatus};
+use chrono::NaiveDateTime;
 use colored::{Color, Colorize};
 use std::io;
 use unicode_width::UnicodeWidthStr;
@@ -12,16 +13,16 @@ pub struct TodoFormatter {
     pub columns: Vec<ColumnConfig>,
     pub separator: String,
     pub padding: bool,
-    pub now: chrono::DateTime<chrono::Utc>,
+    pub now: NaiveDateTime,
 }
 
 impl TodoFormatter {
-    pub fn new(now: chrono::DateTime<chrono::Utc>) -> Self {
+    pub fn new(now: NaiveDateTime) -> Self {
         Self {
             columns: vec![
                 ColumnConfig::Status,
-                ColumnConfig::Priority,
                 ColumnConfig::Id,
+                ColumnConfig::Priority,
                 ColumnConfig::DueAt,
                 ColumnConfig::Summary,
             ],
@@ -87,7 +88,7 @@ impl TodoFormatter {
         let mut columns = Vec::with_capacity(self.columns.len());
         for (i, col) in self.columns.iter().enumerate() {
             let padding_direction = match col {
-                ColumnConfig::Id => PaddingDirection::Right,
+                ColumnConfig::Id | ColumnConfig::Priority => PaddingDirection::Right,
                 _ => PaddingDirection::Left,
             };
 
@@ -117,7 +118,7 @@ impl TodoFormatter {
         let Some(due) = todo.due() else { return None };
 
         let due_date = due.date;
-        let now_date = self.now.date_naive();
+        let now_date = self.now.date();
         if due_date > now_date {
             None
         } else if due_date < now_date {
