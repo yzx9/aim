@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use aim_core::{Todo, TodoStatus};
-use chrono::{DateTime, Utc};
 use colored::{Color, Colorize};
 use std::io;
 
@@ -69,7 +68,7 @@ impl TodoFormatter {
             .map(|col| match col {
                 ColumnConfig::Id => todo.id().to_string(),
                 ColumnConfig::Status => format_status(todo),
-                ColumnConfig::DueAt => todo.due_at().map_or("".to_string(), |a| format_time(&a)),
+                ColumnConfig::DueAt => todo.due().map_or("".to_string(), |a| a.format()),
                 ColumnConfig::Summary => todo.summary().to_string(),
             })
             .collect()
@@ -103,14 +102,32 @@ impl TodoFormatter {
     }
 
     fn compute_row(&self, todo: &impl Todo) -> Row {
-        let color = match todo.due_at() {
-            Some(due_at) if due_at < self.now => Some(colored::Color::Red),
-            Some(due_at) if due_at.date_naive() == self.now.date_naive() => {
-                Some(colored::Color::Yellow)
+        Row {
+            color: self.compute_row_color(todo),
+        }
+    }
+
+    fn compute_row_color(&self, todo: &impl Todo) -> Option<Color> {
+        const COLOR_OVERDUE: Option<Color> = Some(Color::Red);
+        const COLOR_TODAY: Option<Color> = Some(Color::Yellow);
+
+        let Some(due) = todo.due() else { return None };
+
+        let due_date = due.date;
+        let now_date = self.now.date_naive();
+        if due_date > now_date {
+            None
+        } else if due_date < now_date {
+            COLOR_OVERDUE
+        } else if let Some(due_time) = due.time {
+            if due_time < self.now.time() {
+                COLOR_OVERDUE
+            } else {
+                COLOR_TODAY
             }
-            _ => None,
-        };
-        Row { color }
+        } else {
+            COLOR_TODAY
+        }
     }
 }
 
@@ -155,17 +172,18 @@ enum PaddingDirection {
 
 fn format_status<T: Todo>(todo: &T) -> String {
     match todo.status() {
-        Some(TodoStatus::NeedsAction) => "[ ]",
-        Some(TodoStatus::Completed) => "[x]",
-        Some(TodoStatus::Cancelled) => " ✗ ",
-        Some(TodoStatus::InProcess) => "[ ]", // TODO: xx%
-        None => "",
+        Some(TodoStatus::NeedsAction) => "[ ]".to_string(),
+        Some(TodoStatus::Completed) => "[x]".to_string(),
+        Some(TodoStatus::Cancelled) => " ✗ ".to_string(),
+        Some(TodoStatus::InProcess) => {
+            if let Some(percent) = todo.percent() {
+                format!("{:<2}%", percent)
+            } else {
+                "[ ]".to_string()
+            }
+        }
+        None => "".to_string(),
     }
-    .to_string()
-}
-
-fn format_time(time: &DateTime<Utc>) -> String {
-    time.format("%Y-%m-%d %H:%M").to_string()
 }
 
 fn compute_column_max_length(table: &Vec<Vec<String>>) -> Vec<usize> {

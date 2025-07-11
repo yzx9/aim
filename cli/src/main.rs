@@ -5,7 +5,7 @@
 mod todo_formatter;
 
 use crate::todo_formatter::TodoFormatter;
-use aim_core::{Aim, Config, Event, EventQuery, Pager, TodoQuery, TodoStatus};
+use aim_core::{Aim, Config, Event, EventQuery, Pager, TodoQuery, TodoSort, TodoStatus};
 use chrono::Duration;
 use clap::Parser;
 use std::{error::Error, io, path::PathBuf};
@@ -81,13 +81,15 @@ pub async fn list_todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
     const MAX: i64 = 100;
     let now = chrono::Utc::now();
 
-    let query = TodoQuery::new(now)
-        .with_status(TodoStatus::NeedsAction)
-        .with_due(Duration::days(2));
+    let query = TodoQuery {
+        now,
+        status: Some(TodoStatus::NeedsAction),
+        due: Some(Duration::days(2)),
+        sort: TodoSort::DueDesc,
+    };
 
     let pager: Pager = (MAX, 0).into();
-    let mut todos = aim.list_todos(&query, &pager).await?;
-    todos.reverse();
+    let todos = aim.list_todos(&query, &pager).await?;
 
     if todos.len() == (MAX as usize) && aim.count_todos(&query).await? > MAX {
         println!("Displaying only the first {} todos", MAX);
