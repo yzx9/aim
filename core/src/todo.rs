@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::types::DatePerhapsTime;
+use crate::{DatePerhapsTime, Priority};
 use chrono::{DateTime, Duration, FixedOffset, Utc};
-use std::num::NonZero;
 
 pub trait Todo {
     fn id(&self) -> i64;
@@ -14,7 +13,7 @@ pub trait Todo {
     /// The percent complete, from 0 to 100.
     fn percent(&self) -> Option<u8>;
     /// The priority from 1 to 9, where 1 is the highest priority.
-    fn priority(&self) -> Option<NonZero<u8>>;
+    fn priority(&self) -> Priority;
     fn status(&self) -> Option<TodoStatus>;
     fn summary(&self) -> &str;
 }

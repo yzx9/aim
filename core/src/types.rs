@@ -5,21 +5,7 @@
 use chrono::{Local, NaiveDate, NaiveTime, TimeZone};
 use chrono_tz::Tz;
 
-#[derive(Debug, Clone, Copy)]
-pub struct Pager {
-    pub limit: i64,
-    pub offset: i64,
-}
-
-impl Into<Pager> for (i64, i64) {
-    fn into(self) -> Pager {
-        Pager {
-            limit: self.0,
-            offset: self.1,
-        }
-    }
-}
-
+#[derive(Debug, Clone)]
 pub struct DatePerhapsTime {
     pub date: NaiveDate,
     pub time: Option<NaiveTime>,
@@ -83,5 +69,57 @@ impl From<icalendar::DatePerhapsTime> for DatePerhapsTime {
                 tz: None,
             },
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Pager {
+    pub limit: i64,
+    pub offset: i64,
+}
+
+impl Into<Pager> for (i64, i64) {
+    fn into(self) -> Pager {
+        Pager {
+            limit: self.0,
+            offset: self.1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Priority {
+    P1,
+    P2,
+    P3,
+    P4,
+    P5,
+    P6,
+    P7,
+    P8,
+    P9,
+    None,
+}
+
+impl From<u32> for Priority {
+    fn from(value: u32) -> Self {
+        match value {
+            1 => Priority::P1,
+            2 => Priority::P2,
+            3 => Priority::P3,
+            4 => Priority::P4,
+            5 => Priority::P5,
+            6 => Priority::P6,
+            7 => Priority::P7,
+            8 => Priority::P8,
+            9 => Priority::P9,
+            _ => Priority::None,
+        }
+    }
+}
+
+impl From<u8> for Priority {
+    fn from(value: u8) -> Self {
+        (value as u32).into()
     }
 }

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use aim_core::{Todo, TodoStatus};
+use aim_core::{Priority, Todo, TodoStatus};
 use colored::{Color, Colorize};
 use std::io;
 
@@ -19,6 +19,7 @@ impl TodoFormatter {
         Self {
             columns: vec![
                 ColumnConfig::Status,
+                ColumnConfig::Priority,
                 ColumnConfig::Id,
                 ColumnConfig::DueAt,
                 ColumnConfig::Summary,
@@ -66,9 +67,10 @@ impl TodoFormatter {
         self.columns
             .iter()
             .map(|col| match col {
-                ColumnConfig::Id => todo.id().to_string(),
-                ColumnConfig::Status => format_status(todo),
                 ColumnConfig::DueAt => todo.due().map_or("".to_string(), |a| a.format()),
+                ColumnConfig::Id => todo.id().to_string(),
+                ColumnConfig::Priority => format_priority(todo).to_string(),
+                ColumnConfig::Status => format_status(todo),
                 ColumnConfig::Summary => todo.summary().to_string(),
             })
             .collect()
@@ -133,9 +135,10 @@ impl TodoFormatter {
 
 #[derive(Debug, Clone)]
 pub enum ColumnConfig {
-    Id,
-    Status,
     DueAt,
+    Id,
+    Priority,
+    Status,
     Summary,
 }
 
@@ -168,6 +171,16 @@ struct Row {
 enum PaddingDirection {
     Left,
     Right,
+}
+
+fn format_priority<T: Todo>(todo: &T) -> &str {
+    match todo.priority() {
+        // TODO: Use a more sophisticated mapping for priority to string
+        Priority::P1 | Priority::P2 | Priority::P3 => "!!!",
+        Priority::P4 | Priority::P5 | Priority::P6 => "!!",
+        Priority::P7 | Priority::P8 | Priority::P9 => "!",
+        _ => "",
+    }
 }
 
 fn format_status<T: Todo>(todo: &T) -> String {

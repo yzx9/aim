@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{DatePerhapsTime, Pager, Todo, TodoQuery, TodoSort, TodoStatus};
+use crate::{DatePerhapsTime, Pager, Priority, Todo, TodoQuery, TodoSort, TodoStatus};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 use chrono_tz::Tz;
 use icalendar::Component;
 use sqlx::sqlite::SqlitePool;
-use std::num::NonZero;
 
 #[derive(sqlx::FromRow)]
 pub struct TodoRecord {
@@ -176,11 +175,8 @@ impl Todo for TodoRecord {
         self.percent
     }
 
-    fn priority(&self) -> Option<NonZero<u8>> {
-        match self.priority {
-            1..9 => NonZero::new(self.priority as u8),
-            _ => None,
-        }
+    fn priority(&self) -> Priority {
+        self.priority.into()
     }
 
     fn status(&self) -> Option<TodoStatus> {
