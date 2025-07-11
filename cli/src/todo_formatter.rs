@@ -5,6 +5,7 @@
 use aim_core::{Priority, Todo, TodoStatus};
 use colored::{Color, Colorize};
 use std::io;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug)]
 pub struct TodoFormatter {
@@ -78,7 +79,7 @@ impl TodoFormatter {
 
     fn compute_columns(&self, table: &Vec<Vec<String>>) -> Vec<Column> {
         let max_lengths = if self.padding {
-            Some(compute_column_max_length(table))
+            Some(compute_column_max_width(table))
         } else {
             None
         };
@@ -91,7 +92,7 @@ impl TodoFormatter {
             };
 
             let padding = if max_lengths.is_none()
-                || (i == self.columns.len() - 1 && padding_direction != PaddingDirection::Left)
+                || (i == self.columns.len() - 1 && padding_direction == PaddingDirection::Left)
             {
                 None // Last column does not need padding if it's left-aligned
             } else {
@@ -199,14 +200,15 @@ fn format_status<T: Todo>(todo: &T) -> String {
     }
 }
 
-fn compute_column_max_length(table: &Vec<Vec<String>>) -> Vec<usize> {
-    let mut max_lengths = vec![0; table[0].len()];
+fn compute_column_max_width(table: &Vec<Vec<String>>) -> Vec<usize> {
+    let mut max_width = vec![0; table[0].len()];
     for row in table {
         for (i, cell) in row.iter().enumerate() {
-            if cell.len() > max_lengths[i] {
-                max_lengths[i] = cell.len();
+            let width = cell.width();
+            if width > max_width[i] {
+                max_width[i] = width;
             }
         }
     }
-    max_lengths
+    max_width
 }
