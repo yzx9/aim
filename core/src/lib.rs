@@ -4,9 +4,11 @@
 
 mod aim;
 mod cache;
+mod event;
 mod todo;
 mod types;
 
-pub use crate::aim::{Aim, Config, Event, EventQuery};
-pub use crate::todo::{Todo, TodoQuery, TodoSort, TodoSortKey, TodoStatus};
+pub use crate::aim::{Aim, Config};
+pub use crate::event::{Event, EventConditions};
+pub use crate::todo::{Todo, TodoConditions, TodoSort, TodoSortKey, TodoStatus};
 pub use crate::types::{DatePerhapsTime, Pager, Priority, SortOrder};

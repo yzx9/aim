@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{Event, EventQuery, Pager};
-use icalendar::{CalendarDateTime, Component, DatePerhapsTime, EventStatus};
+use crate::{DatePerhapsTime, Event, EventConditions, Pager};
+use icalendar::{Component, EventStatus};
 use sqlx::SqlitePool;
 
 #[derive(sqlx::FromRow)]
@@ -11,14 +11,21 @@ pub struct EventRecord {
     id: i64,
     summary: String,
     description: Option<String>,
-    start_at: Option<String>,
-    start_has_time: bool,
-    end_at: Option<String>,
-    end_has_time: bool,
+    start_at: String,
+    start_tz: String,
+    end_at: String,
+    end_tz: String,
     status: Option<String>,
 }
 
 impl EventRecord {
+    /// See RFC-5545 Sect. 3.6.1
+    ///
+    /// ## max lengths
+    /// - completed/due_at (25): 2023-10-01T12:00:00+14:00
+    /// - status (12): needs-action
+    /// - start_at/end_at (19): 2023-10-01T12:00:00
+    /// - start_tz/end_tz (32): America/Argentina/ComodRivadavia
     pub async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
@@ -26,11 +33,11 @@ CREATE TABLE events (
     id INTEGER PRIMARY KEY,
     summary TEXT NOT NULL,
     description TEXT,
-    start_at TEXT,
-    start_has_time BOOLEAN,
-    end_at TEXT,
-    end_has_time BOOLEAN,
-    status TEXT
+    status TEXT,
+    start_at CHAR(19) NOT NULL,
+    start_tz CHAR(32) NOT NULL,
+    end_at CHAR(19) NOT NULL,
+    end_tz CHAR(32) NOT NULL
 );
         ",
         )
@@ -43,25 +50,26 @@ CREATE TABLE events (
     pub async fn insert(self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
-INSERT INTO events (summary, description, start_at, start_has_time, end_at, end_has_time, status)
+INSERT INTO events (summary, description, status, start_at, start_tz, end_at, end_tz)
 VALUES (?, ?, ?, ?, ?, ?, ?);
         ",
         )
         .bind(self.summary)
         .bind(self.description)
-        .bind(self.start_at)
-        .bind(self.start_has_time)
-        .bind(self.end_at)
-        .bind(self.end_has_time)
         .bind(self.status)
+        .bind(self.start_at)
+        .bind(self.start_tz)
+        .bind(self.end_at)
+        .bind(self.end_tz)
         .execute(pool)
         .await?;
 
         Ok(())
     }
+
     pub async fn list(
         pool: &SqlitePool,
-        _query: &EventQuery,
+        _conds: &EventConditions,
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
         sqlx::query_as("SELECT * FROM events ORDER BY id LIMIT ? OFFSET ?")
@@ -71,7 +79,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
             .await
     }
 
-    pub async fn count(pool: &SqlitePool, _query: &EventQuery) -> Result<i64, sqlx::Error> {
+    pub async fn count(pool: &SqlitePool, _conds: &EventConditions) -> Result<i64, sqlx::Error> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM events")
             .fetch_one(pool)
             .await?;
@@ -92,20 +100,12 @@ impl Event for EventRecord {
         self.description.as_deref()
     }
 
-    fn start_at(&self) -> Option<&str> {
-        self.start_at.as_deref()
+    fn start(&self) -> Option<DatePerhapsTime> {
+        from_dt_tz(&self.start_at, &self.start_tz)
     }
 
-    fn start_has_time(&self) -> bool {
-        self.start_has_time
-    }
-
-    fn end_at(&self) -> Option<&str> {
-        self.end_at.as_deref()
-    }
-
-    fn end_has_time(&self) -> bool {
-        self.end_has_time
+    fn end(&self) -> Option<DatePerhapsTime> {
+        from_dt_tz(&self.end_at, &self.end_tz)
     }
 
     fn status(&self) -> Option<&str> {
@@ -120,35 +120,32 @@ impl From<icalendar::Event> for EventRecord {
             EventStatus::Confirmed => "CONFIRMED".to_string(),
             EventStatus::Cancelled => "CANCELLED".to_string(),
         });
-        let (start_at, start_has_time) = to_db_time(event.get_start());
-        let (end_at, end_has_time) = to_db_time(event.get_start());
+        let (start_at, start_tz) = to_dt_tz(event.get_start());
+        let (end_at, end_tz) = to_dt_tz(event.get_start());
 
         Self {
             id: 0, // Placeholder, will be set by the database
             summary: event.get_summary().unwrap_or("").to_string(),
             description: event.get_description().map(|s| s.to_string()),
             start_at,
-            start_has_time,
+            start_tz,
             end_at,
-            end_has_time,
+            end_tz,
             status,
         }
     }
 }
 
-fn to_db_time(date: Option<DatePerhapsTime>) -> (Option<String>, bool) {
-    match date {
-        Some(DatePerhapsTime::DateTime(dt)) => match dt {
-            CalendarDateTime::Floating(dt) => {
-                (Some(dt.format("%Y-%m-%dT%H:%M:%S").to_string()), true)
-            }
-            CalendarDateTime::Utc(dt) => (Some(dt.to_rfc3339()), true),
-            CalendarDateTime::WithTimezone { date_time, tzid: _ } => (
-                Some(date_time.format("%Y-%m-%dT%H:%M:%S").to_string()),
-                true,
-            ),
-        },
-        Some(DatePerhapsTime::Date(d)) => (Some(d.to_string()), false),
-        None => (None, false),
+const DATE_FORMAT: &str = "%Y-%m-%d";
+const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
+
+fn to_dt_tz(dt: Option<icalendar::DatePerhapsTime>) -> (String, String) {
+    match dt {
+        Some(dt) => DatePerhapsTime::to_dt_tz(&dt.into(), DATE_FORMAT, DATETIME_FORMAT),
+        None => ("".to_string(), "".to_string()),
     }
+}
+
+fn from_dt_tz(dt: &str, tz: &str) -> Option<DatePerhapsTime> {
+    DatePerhapsTime::from_dt_tz(dt, tz, DATE_FORMAT, DATETIME_FORMAT)
 }

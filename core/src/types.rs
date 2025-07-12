@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use chrono::{Local, NaiveDate, NaiveTime, TimeZone};
+use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 use chrono_tz::Tz;
 
 #[derive(Debug, Clone)]
@@ -18,6 +18,46 @@ impl DatePerhapsTime {
             format!("{} {}", self.date.format("%Y-%m-%d"), time.format("%H:%M"))
         } else {
             self.date.format("%Y-%m-%d").to_string()
+        }
+    }
+
+    pub fn to_dt_tz(&self, date_format: &str, datetime_format: &str) -> (String, String) {
+        let t = if let Some(t) = self.time {
+            let dt = NaiveDateTime::new(self.date, t);
+            dt.format(datetime_format).to_string()
+        } else {
+            self.date.format(date_format).to_string()
+        };
+        (t, self.tz.map_or("", |tz| tz.name()).to_string())
+    }
+
+    pub fn from_dt_tz(
+        dt: &str,
+        tz: &str,
+        date_format: &str,
+        datetime_format: &str,
+    ) -> Option<DatePerhapsTime> {
+        if dt.is_empty() {
+            return None;
+        }
+
+        let tz: Option<Tz> = tz.parse().ok();
+        match dt.len() {
+            10 => NaiveDate::parse_from_str(dt, date_format)
+                .ok()
+                .map(|d| DatePerhapsTime {
+                    date: d,
+                    time: None,
+                    tz,
+                }),
+            19 => NaiveDateTime::parse_from_str(dt, datetime_format)
+                .ok()
+                .map(|d| DatePerhapsTime {
+                    date: d.date(),
+                    time: Some(d.time()),
+                    tz,
+                }),
+            _ => None,
         }
     }
 }

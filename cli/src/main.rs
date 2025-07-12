@@ -2,14 +2,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+mod event_formatter;
+mod table;
 mod todo_formatter;
 
-use crate::todo_formatter::TodoFormatter;
+use crate::{event_formatter::EventFormatter, todo_formatter::TodoFormatter};
 use aim_core::{
-    Aim, Config, Event, EventQuery, Pager, SortOrder, TodoQuery, TodoSortKey, TodoStatus,
+    Aim, Config, EventConditions, Pager, SortOrder, TodoConditions, TodoSortKey, TodoStatus,
 };
 use chrono::{Duration, Local};
 use clap::Parser;
+use colored::Colorize;
 use std::{error::Error, io, path::PathBuf};
 use xdg::BaseDirectories;
 
@@ -40,68 +43,86 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let aim = Aim::new(&config).await?;
 
     match cli.command {
-        Some(Commands::Events) => list_events(&aim).await?,
-        Some(Commands::Todos) => list_todos(&aim).await?,
-        None => {
-            println!("--- Events ---");
-            list_events(&aim).await?;
-
-            println!("\n--- Todos ---");
-            list_todos(&aim).await?;
-        }
+        Some(Commands::Events) => events(&aim).await?,
+        Some(Commands::Todos) => todos(&aim).await?,
+        None => dashboard(&aim).await?,
     }
 
     Ok(())
 }
 
-async fn list_events(aim: &Aim) -> Result<(), Box<dyn Error>> {
+pub async fn events(aim: &Aim) -> Result<(), Box<dyn Error>> {
     log::debug!("Listing events...");
-    const MAX: i64 = 100;
-
-    let query = EventQuery::new();
-    if aim.count_events(&query).await? > MAX {
-        println!("Displaying only the first {} todos", MAX);
-    }
-
-    let pager: Pager = (MAX, 0).into();
-    let mut events = aim.list_events(&query, &pager).await?;
-    events.reverse();
-    for event in events {
-        println!(
-            "- Event #{}: {} (Starts: {})",
-            event.id(),
-            event.summary(),
-            event.start_at().unwrap_or("N/A")
-        );
-    }
-
-    Ok(())
+    let now = Local::now().naive_local();
+    let conds = EventConditions { now };
+    list_events(aim, &conds).await
 }
 
-pub async fn list_todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
+pub async fn todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
     log::debug!("Listing todos...");
-    const MAX: i64 = 100;
     let now = Local::now().naive_local();
-
-    let query = TodoQuery {
+    let conds = TodoConditions {
         now,
         status: Some(TodoStatus::NeedsAction),
         due: Some(Duration::days(2)),
     };
+    list_todos(aim, &conds).await
+}
 
+pub async fn dashboard(aim: &Aim) -> Result<(), Box<dyn Error>> {
+    log::debug!("Generating dashboard...");
+
+    println!("🗓️ {}", "Events".bold());
+    let now = Local::now().naive_local();
+    let conds = EventConditions { now };
+    list_events(aim, &conds).await?;
+
+    println!();
+    println!("✅ {}", "Todos".bold());
+
+    let conds = TodoConditions {
+        now,
+        status: Some(TodoStatus::NeedsAction),
+        due: Some(Duration::days(2)),
+    };
+    list_todos(&aim, &conds).await?;
+
+    Ok(())
+}
+
+async fn list_events(aim: &Aim, conds: &EventConditions) -> Result<(), Box<dyn Error>> {
+    const MAX: i64 = 16;
+    let pager: Pager = (MAX, 0).into();
+    let events = aim.list_events(&conds, &pager).await?;
+    if events.len() == (MAX as usize) {
+        let total = aim.count_events(&conds).await?;
+        if total > MAX {
+            println!("Displaying the {}/{} events", total, MAX);
+        }
+    }
+
+    let formatter = EventFormatter::new(conds.now);
+    formatter.write_to(&mut io::stdout(), &events)?;
+    Ok(())
+}
+
+async fn list_todos(aim: &Aim, conds: &TodoConditions) -> Result<(), Box<dyn Error>> {
+    const MAX: i64 = 16;
     let pager = (MAX, 0).into();
     let sort = vec![
         (TodoSortKey::Priority, SortOrder::Desc).into(),
         (TodoSortKey::Due, SortOrder::Desc).into(),
     ];
-    let todos = aim.list_todos(&query, &sort, &pager).await?;
-
-    if todos.len() == (MAX as usize) && aim.count_todos(&query).await? > MAX {
-        println!("Displaying only the first {} todos", MAX);
+    let todos = aim.list_todos(&conds, &sort, &pager).await?;
+    if todos.len() == (MAX as usize) {
+        let total = aim.count_todos(&conds).await?;
+        if total > MAX {
+            println!("Displaying the {}/{} todos", total, MAX);
+        }
     }
-    let formatter = TodoFormatter::new(now);
-    formatter.write(&mut io::stdout(), &todos)?;
 
+    let formatter = TodoFormatter::new(conds.now);
+    formatter.write(&mut io::stdout(), &todos)?;
     Ok(())
 }
 

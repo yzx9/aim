@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{event::EventRecord, todo::TodoRecord};
-use crate::{TodoSort, aim::EventQuery, todo::TodoQuery, types::Pager};
+use crate::{EventConditions, Pager, TodoConditions, TodoSort};
 use icalendar::{Calendar, CalendarComponent};
 use sqlx::sqlite::SqlitePool;
 use std::path::{Path, PathBuf};
@@ -69,26 +69,26 @@ impl SqliteCache {
 
     pub async fn list_events(
         &self,
-        query: &EventQuery,
+        query: &EventConditions,
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
         EventRecord::list(&self.pool, query, pager).await
     }
 
-    pub async fn count_events(&self, query: &EventQuery) -> Result<i64, sqlx::Error> {
+    pub async fn count_events(&self, query: &EventConditions) -> Result<i64, sqlx::Error> {
         EventRecord::count(&self.pool, query).await
     }
 
     pub async fn list_todos(
         &self,
-        query: &TodoQuery,
+        query: &TodoConditions,
         sort: &Vec<TodoSort>,
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
         TodoRecord::list(&self.pool, query, sort, pager).await
     }
 
-    pub async fn count_todos(&self, query: &TodoQuery) -> Result<i64, sqlx::Error> {
+    pub async fn count_todos(&self, query: &TodoConditions) -> Result<i64, sqlx::Error> {
         TodoRecord::count(&self.pool, query).await
     }
 }

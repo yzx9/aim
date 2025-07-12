@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::{fmt::Display, str::FromStr};
+
 use crate::{DatePerhapsTime, Priority, SortOrder};
 use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime};
 
@@ -31,9 +33,9 @@ const STATUS_COMPLETED: &str = "COMPLETED";
 const STATUS_IN_PROCESS: &str = "IN-PROGRESS";
 const STATUS_CANCELLED: &str = "CANCELLED";
 
-impl From<TodoStatus> for &str {
-    fn from(item: TodoStatus) -> &'static str {
-        match item {
+impl AsRef<str> for TodoStatus {
+    fn as_ref(&self) -> &str {
+        match self {
             TodoStatus::NeedsAction => STATUS_NEEDS_ACTION,
             TodoStatus::Completed => STATUS_COMPLETED,
             TodoStatus::InProcess => STATUS_IN_PROCESS,
@@ -42,23 +44,22 @@ impl From<TodoStatus> for &str {
     }
 }
 
-impl From<TodoStatus> for String {
-    fn from(item: TodoStatus) -> String {
-        let s: &str = item.into();
-        s.to_string()
+impl Display for TodoStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }
 
-impl TryFrom<&str> for TodoStatus {
-    type Error = String;
+impl FromStr for TodoStatus {
+    type Err = ();
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             STATUS_NEEDS_ACTION => Ok(TodoStatus::NeedsAction),
             STATUS_COMPLETED => Ok(TodoStatus::Completed),
             STATUS_IN_PROCESS => Ok(TodoStatus::InProcess),
             STATUS_CANCELLED => Ok(TodoStatus::Cancelled),
-            _ => Err(format!("Unknown TodoStatus: {}", value)),
+            _ => Err(()),
         }
     }
 }
@@ -86,13 +87,13 @@ impl From<&icalendar::TodoStatus> for TodoStatus {
 }
 
 #[derive(Debug)]
-pub struct TodoQuery {
+pub struct TodoConditions {
     pub now: NaiveDateTime,
     pub status: Option<TodoStatus>,
     pub due: Option<Duration>,
 }
 
-impl TodoQuery {
+impl TodoConditions {
     pub fn due_before(&self) -> Option<NaiveDateTime> {
         self.due.map(|a| self.now + a)
     }

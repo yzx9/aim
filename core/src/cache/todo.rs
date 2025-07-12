@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    DatePerhapsTime, Pager, Priority, SortOrder, Todo, TodoQuery, TodoSort, TodoSortKey, TodoStatus,
+    DatePerhapsTime, Pager, Priority, SortOrder, Todo, TodoConditions, TodoSort, TodoSortKey,
+    TodoStatus,
 };
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
-use chrono_tz::Tz;
+use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, Utc};
 use icalendar::Component;
 use sqlx::sqlite::SqlitePool;
 
@@ -27,7 +27,7 @@ impl TodoRecord {
     /// See RFC-5545 Sect. 3.6.2
     ///
     /// ## max lengths
-    /// - completed/due_at (25): 2023-10-01T12:00:00+14:00
+    /// - completed (25): 2023-10-01T12:00:00+14:00
     /// - status (12): needs-action
     /// - due_at (19): 2023-10-01T12:00:00
     /// - due_tz (32): America/Argentina/ComodRivadavia
@@ -76,7 +76,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
     pub async fn list(
         pool: &SqlitePool,
-        query: &TodoQuery,
+        query: &TodoConditions,
         sort: &Vec<TodoSort>,
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
@@ -116,12 +116,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         sql += " LIMIT ? OFFSET ?";
 
         let mut executable = sqlx::query_as(&sql);
-        if let Some(s) = query.status {
-            let status: &str = s.into();
+        if let Some(status) = &query.status {
+            let status: &str = status.as_ref();
             executable = executable.bind(status);
         }
         if let Some(due_at) = due_before {
-            executable = executable.bind(format_dt(due_at));
+            executable = executable.bind(format_ndt(due_at));
         }
 
         executable
@@ -131,7 +131,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             .await
     }
 
-    pub async fn count(pool: &SqlitePool, query: &TodoQuery) -> Result<i64, sqlx::Error> {
+    pub async fn count(pool: &SqlitePool, query: &TodoConditions) -> Result<i64, sqlx::Error> {
         let due_before = query.due_before();
         let mut where_clauses = Vec::new();
         if query.status.is_some() {
@@ -148,12 +148,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         }
 
         let mut executable = sqlx::query_as(&sql);
-        if let Some(status) = query.status {
-            let status: &str = status.into();
+        if let Some(status) = &query.status {
+            let status: &str = status.as_ref();
             executable = executable.bind(status);
         }
         if let Some(due_at) = query.due_before() {
-            executable = executable.bind(format_dt(due_at));
+            executable = executable.bind(format_ndt(due_at));
         }
         let row: (i64,) = executable.fetch_one(pool).await?;
         Ok(row.0)
@@ -194,7 +194,7 @@ impl Todo for TodoRecord {
     }
 
     fn status(&self) -> Option<TodoStatus> {
-        self.status.as_str().try_into().ok()
+        self.status.as_str().parse().ok()
     }
 
     fn summary(&self) -> &str {
@@ -213,7 +213,7 @@ impl From<icalendar::Todo> for TodoRecord {
             due_tz,
             completed: todo
                 .get_completed()
-                .map(|d| d.to_rfc3339())
+                .map(format_dt)
                 .unwrap_or("".to_string()),
             percent: todo.get_percent_complete(),
             priority: todo.get_priority().map(|v| v as u8).unwrap_or(0),
@@ -222,7 +222,7 @@ impl From<icalendar::Todo> for TodoRecord {
                 .as_ref()
                 .map(|s| {
                     let s: TodoStatus = s.into();
-                    s.into()
+                    s.to_string()
                 })
                 .unwrap_or("".to_string()),
         }
@@ -232,47 +232,21 @@ impl From<icalendar::Todo> for TodoRecord {
 const DATE_FORMAT: &str = "%Y-%m-%d";
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 
-fn format_dt(dt: NaiveDateTime) -> String {
-    dt.format(DATETIME_FORMAT).to_string()
+fn format_ndt(ndt: NaiveDateTime) -> String {
+    ndt.format(DATETIME_FORMAT).to_string()
+}
+
+fn format_dt(dt: DateTime<Utc>) -> String {
+    dt.with_timezone(&Local).format(DATETIME_FORMAT).to_string()
 }
 
 fn to_dt_tz(dt: Option<icalendar::DatePerhapsTime>) -> (String, String) {
     match dt {
-        Some(dt) => {
-            let data: DatePerhapsTime = dt.into();
-            let t = if let Some(t) = data.time {
-                let dt = NaiveDateTime::new(data.date, t);
-                dt.format(DATETIME_FORMAT).to_string()
-            } else {
-                data.date.format(DATE_FORMAT).to_string()
-            };
-            (t, data.tz.map_or("", |tz| tz.name()).to_string())
-        }
+        Some(dt) => DatePerhapsTime::to_dt_tz(&dt.into(), DATE_FORMAT, DATETIME_FORMAT),
         None => ("".to_string(), "".to_string()),
     }
 }
 
 fn from_dt_tz(dt: &str, tz: &str) -> Option<DatePerhapsTime> {
-    if dt.is_empty() {
-        return None;
-    }
-
-    let tz: Option<Tz> = tz.parse().ok();
-    match dt.len() {
-        10 => NaiveDate::parse_from_str(dt, DATE_FORMAT)
-            .ok()
-            .map(|d| DatePerhapsTime {
-                date: d,
-                time: None,
-                tz,
-            }),
-        19 => NaiveDateTime::parse_from_str(dt, DATETIME_FORMAT)
-            .ok()
-            .map(|d| DatePerhapsTime {
-                date: d.date(),
-                time: Some(d.time()),
-                tz,
-            }),
-        _ => None,
-    }
+    DatePerhapsTime::from_dt_tz(dt, tz, DATE_FORMAT, DATETIME_FORMAT)
 }
