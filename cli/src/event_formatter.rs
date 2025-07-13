@@ -7,8 +7,6 @@ use std::io;
 #[derive(Debug)]
 pub struct EventFormatter {
     pub columns: Vec<EventColumn>,
-    pub separator: String,
-    pub padding: bool,
     pub now: NaiveDateTime,
 }
 
@@ -20,8 +18,6 @@ impl EventFormatter {
                 EventColumn::TimeRange(EventColumnTimeRange),
                 EventColumn::Summary(EventColumnSummary),
             ],
-            separator: " ".to_string(),
-            padding: true,
             now,
         }
     }
@@ -31,14 +27,7 @@ impl EventFormatter {
         w: &mut impl io::Write,
         events: &Vec<impl Event>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        Table {
-            columns: self.columns.clone(),
-            separator: self.separator.clone(),
-            padding: self.padding,
-            now: self.now,
-            data: events,
-        }
-        .write_to(w)
+        Table::new(&self.columns, &events, &(self.now,)).write_to(w)
     }
 }
 
@@ -49,8 +38,10 @@ pub enum EventColumn {
     TimeRange(EventColumnTimeRange),
 }
 
-impl<T: Event> Column<T> for EventColumn {
-    fn format(&self, data: &T) -> String {
+type Prior = (NaiveDateTime,);
+
+impl<T: Event> Column<T, Prior> for EventColumn {
+    fn format(&self, _prior: &Prior, data: &T) -> String {
         match self {
             EventColumn::Id(a) => a.format(data),
             EventColumn::Summary(a) => a.format(data),
@@ -58,14 +49,14 @@ impl<T: Event> Column<T> for EventColumn {
         }
     }
 
-    fn padding_direction(&self) -> PaddingDirection {
+    fn padding_direction(&self, _prior: &Prior, _data: &T) -> PaddingDirection {
         match self {
             EventColumn::Id(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
 
-    fn get_color(&self, _now: &NaiveDateTime, _data: &T) -> Option<Color> {
+    fn get_color(&self, _prior: &Prior, _data: &T) -> Option<Color> {
         None
     }
 }

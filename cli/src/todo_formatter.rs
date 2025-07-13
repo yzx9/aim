@@ -11,8 +11,6 @@ use std::io;
 #[derive(Debug)]
 pub struct TodoFormatter {
     pub columns: Vec<TodoColumn>,
-    pub separator: String,
-    pub padding: bool,
     pub now: NaiveDateTime,
 }
 
@@ -26,8 +24,6 @@ impl TodoFormatter {
                 TodoColumn::Due(TodoColumnDue),
                 TodoColumn::Summary(TodoColumnSummary),
             ],
-            separator: " ".to_string(),
-            padding: true,
             now,
         }
     }
@@ -37,14 +33,7 @@ impl TodoFormatter {
         w: &mut impl io::Write,
         todos: &Vec<impl Todo>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        Table {
-            columns: self.columns.clone(),
-            separator: self.separator.clone(),
-            padding: self.padding,
-            now: self.now,
-            data: todos,
-        }
-        .write_to(w)
+        Table::new(&self.columns, &todos, &(self.now,)).write_to(w)
     }
 }
 
@@ -57,8 +46,10 @@ pub enum TodoColumn {
     Summary(TodoColumnSummary),
 }
 
-impl<T: Todo> Column<T> for TodoColumn {
-    fn format(&self, data: &T) -> String {
+type Prior = (NaiveDateTime,);
+
+impl<T: Todo> Column<T, Prior> for TodoColumn {
+    fn format(&self, _prior: &Prior, data: &T) -> String {
         match self {
             TodoColumn::Due(a) => a.format(data),
             TodoColumn::Id(a) => a.format(data),
@@ -68,16 +59,16 @@ impl<T: Todo> Column<T> for TodoColumn {
         }
     }
 
-    fn padding_direction(&self) -> PaddingDirection {
+    fn padding_direction(&self, _prior: &Prior, _data: &T) -> PaddingDirection {
         match self {
             TodoColumn::Id(_) | TodoColumn::Priority(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
 
-    fn get_color(&self, now: &NaiveDateTime, data: &T) -> Option<Color> {
+    fn get_color(&self, prior: &Prior, data: &T) -> Option<Color> {
         match self {
-            TodoColumn::Due(v) => v.get_color(now, data),
+            TodoColumn::Due(v) => v.get_color(data, &prior.0),
             TodoColumn::Priority(v) => v.get_color(),
             _ => None,
         }
@@ -92,7 +83,7 @@ impl TodoColumnDue {
         todo.due().map_or("".to_string(), |a| a.format())
     }
 
-    fn get_color(&self, now: &NaiveDateTime, todo: &impl Todo) -> Option<Color> {
+    fn get_color(&self, todo: &impl Todo, now: &NaiveDateTime) -> Option<Color> {
         const COLOR_OVERDUE: Option<Color> = Some(Color::Red);
         const COLOR_TODAY: Option<Color> = Some(Color::Yellow);
 

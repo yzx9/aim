@@ -2,25 +2,49 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use chrono::NaiveDateTime;
 use colored::{Color, Colorize};
 use std::{io, marker::PhantomData};
 use unicode_width::UnicodeWidthStr;
 
-pub struct Table<'a, T, C: Column<T>> {
-    pub columns: Vec<C>,
-    pub separator: String,
-    pub padding: bool,
-    pub now: NaiveDateTime,
-    pub data: &'a Vec<T>,
+pub struct Table<'a, T, P, C: Column<T, P>> {
+    columns: &'a Vec<C>,
+    data: &'a Vec<T>,
+    prior: &'a P,
+    separator: String,
+    padding: bool,
 }
 
-impl<'a, T, C: Column<T>> Table<'a, T, C> {
+impl<'a, T, K, C: Column<T, K>> Table<'a, T, K, C> {
+    pub fn new(columns: &'a Vec<C>, data: &'a Vec<T>, prior: &'a K) -> Self {
+        Self {
+            columns,
+            data,
+            prior,
+            separator: " ".to_string(),
+            padding: true,
+        }
+    }
+
+    // pub fn set_separator<S: Into<String>>(mut self, separator: S) -> Self {
+    //     self.separator = separator.into();
+    //     self
+    // }
+    //
+    // pub fn set_padding(mut self, padding: bool) -> Self {
+    //     self.padding = padding;
+    //     self
+    // }
+
     pub fn write_to(&self, w: &mut impl io::Write) -> Result<(), Box<dyn std::error::Error>> {
         let table = self
             .data
             .iter()
-            .map(|todo| self.columns.iter().map(|col| col.format(todo)).collect())
+            .map(|data| {
+                self.columns
+                    .iter()
+                    .map(|col| col.format(self.prior, data))
+                    .collect()
+            })
             .collect();
 
         let columns = self.compute_columns(&table);
@@ -41,12 +65,12 @@ impl<'a, T, C: Column<T>> Table<'a, T, C> {
         Ok(())
     }
 
-    fn compute_columns(&self, table: &Vec<Vec<String>>) -> Vec<ColumnStylizer<T, C>> {
+    fn compute_columns(&self, table: &Vec<Vec<String>>) -> Vec<ColumnStylizer<T, K, C>> {
         let max_lengths = self.padding.then(|| get_column_max_width(table));
 
         let mut columns = Vec::with_capacity(self.columns.len());
-        for (i, col) in self.columns.iter().enumerate() {
-            let padding_direction = col.padding_direction();
+        for (i, (col, data)) in self.columns.iter().zip(self.data).enumerate() {
+            let padding_direction = col.padding_direction(self.prior, data);
 
             let padding = if max_lengths.is_none()
                 || (i == self.columns.len() - 1 && padding_direction == PaddingDirection::Left)
@@ -58,7 +82,7 @@ impl<'a, T, C: Column<T>> Table<'a, T, C> {
 
             columns.push(ColumnStylizer {
                 config: col,
-                now: &self.now,
+                prior: self.prior,
                 padding,
                 _marker: PhantomData,
             });
@@ -67,22 +91,25 @@ impl<'a, T, C: Column<T>> Table<'a, T, C> {
     }
 }
 
-pub trait Column<T> {
-    fn format(&self, data: &T) -> String;
-    fn padding_direction(&self) -> PaddingDirection;
-    fn get_color(&self, now: &NaiveDateTime, data: &T) -> Option<Color>;
+pub trait Column<T, P> {
+    /// Format the data for the column.
+    fn format(&self, prior: &P, data: &T) -> String;
+    /// Determine the padding direction for the column.
+    fn padding_direction(&self, prior: &P, data: &T) -> PaddingDirection;
+    /// Get the color for the column based on the data and prior.
+    fn get_color(&self, prior: &P, data: &T) -> Option<Color>;
 }
 
 #[derive(Debug, Clone)]
-struct ColumnStylizer<'a, T, C: Column<T>> {
+struct ColumnStylizer<'a, T, P, C: Column<T, P>> {
     config: &'a C,
-    now: &'a NaiveDateTime, // TODO: remove
+    prior: &'a P,
     /// padding width and direction
     padding: Option<(usize, PaddingDirection)>,
     _marker: PhantomData<T>,
 }
 
-impl<'a, T, C: Column<T>> ColumnStylizer<'a, T, C> {
+impl<'a, T, K, C: Column<T, K>> ColumnStylizer<'a, T, K, C> {
     pub fn stylize_cell(&self, data: &T, cell: String) -> String {
         let cell = match self.padding {
             Some((width, PaddingDirection::Left)) => format!("{:<width$}", cell, width = width),
@@ -94,7 +121,7 @@ impl<'a, T, C: Column<T>> ColumnStylizer<'a, T, C> {
     }
 
     fn colorize_cell(&self, data: &T, cell: String) -> String {
-        match self.config.get_color(self.now, data) {
+        match self.config.get_color(self.prior, data) {
             Some(color) => cell.color(color).to_string(),
             _ => cell,
         }
