@@ -33,6 +33,8 @@ dependencies = [
  "aim-core",
  "chrono",
  "clap",
+ "clap_complete",
+ "clap_complete_nushell",
  "colored",
  "env_logger",
  "home",
@@ -262,7 +264,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40b6887a1d8685cebccf115538db5c0efe625ccac9696ad45c409d96566e910f"
 dependencies = [
  "clap_builder",
- "clap_derive",
 ]
 
 [[package]]
@@ -278,15 +279,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap_derive"
-version = "4.5.40"
+name = "clap_complete"
+version = "4.5.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2c7947ae4cc3d851207c1adb5b5e260ff0cca11446b1d6d1423788e442257ce"
+checksum = "a5abde44486daf70c5be8b8f8f1b66c49f86236edf6fa2abadb4d961c4c6229a"
 dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn",
+ "clap",
+]
+
+[[package]]
+name = "clap_complete_nushell"
+version = "4.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a0c951694691e65bf9d421d597d68416c22de9632e884c28412cb8cd8b73dce"
+dependencies = [
+ "clap",
+ "clap_complete",
 ]
 
 [[package]]
