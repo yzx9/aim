@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="377.95276"
+   height="377.95276"
+   viewBox="0 0 377.95277 377.95276"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="aim-logo.svg"
+   inkscape:export-filename="git/aim/web/public/logo.svg"
+   inkscape:export-xdpi="300"
+   inkscape:export-ydpi="300"
+   inkscape:version="1.4 (e7c3feb1, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.5842829"
+     inkscape:cx="117.40327"
+     inkscape:cy="194.09412"
+     inkscape:window-width="1904"
+     inkscape:window-height="948"
+     inkscape:window-x="1520"
+     inkscape:window-y="457"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="logo" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="logo"
+     inkscape:groupmode="layer"
+     id="logo"
+     transform="translate(5.5378931,-4.4106458)">
+    <rect
+       style="fill:#ff5599;fill-opacity:0.5;stroke-width:0.605042"
+       id="c"
+       width="71.370949"
+       height="266.67889"
+       x="184.43716"
+       y="68.810989"
+       rx="0"
+       ry="0"
+       transform="matrix(1,0,0.29124309,0.95664908,0,2.7519396e-8)"
+       inkscape:label="c" />
+    <rect
+       style="fill:#b380ff;fill-opacity:0.5;stroke-width:0.605042"
+       id="b"
+       width="71.370949"
+       height="266.67889"
+       x="70.982056"
+       y="68.810989"
+       rx="0"
+       ry="0"
+       transform="matrix(1,0,0.29124309,0.95664908,0,2.7519396e-8)"
+       inkscape:label="b" />
+    <rect
+       style="fill:#5599ff;fill-opacity:0.5;stroke-width:0.605042"
+       id="a"
+       width="71.370949"
+       height="266.67889"
+       x="-182.4398"
+       y="68.810989"
+       rx="0"
+       ry="0"
+       transform="matrix(-1,0,-0.29124309,0.95664908,0,0)"
+       inkscape:label="a" />
+  </g>
+</svg>
