@@ -14,7 +14,7 @@ impl EventFormatter {
     pub fn new(now: NaiveDateTime) -> Self {
         Self {
             columns: vec![
-                EventColumn::Id(EventColumnId),
+                EventColumn::Uid(EventColumnUid),
                 EventColumn::TimeRange(EventColumnTimeRange),
                 EventColumn::Summary(EventColumnSummary),
             ],
@@ -33,9 +33,9 @@ impl EventFormatter {
 
 #[derive(Debug, Clone)]
 pub enum EventColumn {
-    Id(EventColumnId),
     Summary(EventColumnSummary),
     TimeRange(EventColumnTimeRange),
+    Uid(EventColumnUid),
 }
 
 type Prior = (NaiveDateTime,);
@@ -43,15 +43,15 @@ type Prior = (NaiveDateTime,);
 impl<T: Event> Column<T, Prior> for EventColumn {
     fn format(&self, _prior: &Prior, data: &T) -> String {
         match self {
-            EventColumn::Id(a) => a.format(data),
             EventColumn::Summary(a) => a.format(data),
             EventColumn::TimeRange(a) => a.format(data),
+            EventColumn::Uid(a) => a.format(data),
         }
     }
 
     fn padding_direction(&self, _prior: &Prior, _data: &T) -> PaddingDirection {
         match self {
-            EventColumn::Id(_) => PaddingDirection::Right,
+            EventColumn::Uid(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
@@ -62,11 +62,11 @@ impl<T: Event> Column<T, Prior> for EventColumn {
 }
 
 #[derive(Debug, Clone)]
-pub struct EventColumnId;
+pub struct EventColumnUid;
 
-impl EventColumnId {
+impl EventColumnUid {
     fn format(&self, event: &impl Event) -> String {
-        format!("#{}", event.id())
+        format!("#{}", event.uid())
     }
 }
 

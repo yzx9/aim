@@ -13,6 +13,7 @@ use sqlx::sqlite::SqlitePool;
 #[derive(sqlx::FromRow)]
 pub struct TodoRecord {
     id: i64,
+    uid: String,
     completed: String,
     description: String,
     percent: Option<u8>,
@@ -36,6 +37,7 @@ impl TodoRecord {
             "
 CREATE TABLE todos (
     id INTEGER PRIMARY KEY,
+    uid TEXT NOT NULL UNIQUE,
     completed CHAR(25) NOT NULL,
     description TEXT NOT NULL,
     percent INTEGER,
@@ -50,16 +52,25 @@ CREATE TABLE todos (
         .execute(pool)
         .await?;
 
+        sqlx::query(
+            "
+CREATE UNIQUE INDEX idx_todos_uid ON todos (uid);
+            ",
+        )
+        .execute(pool)
+        .await?;
+
         Ok(())
     }
 
     pub async fn insert(self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
-INSERT INTO todos (completed, description, percent, priority, status, summary, due_at, due_tz)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO todos (uid, completed, description, percent, priority, status, summary, due_at, due_tz)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         ",
         )
+        .bind(self.uid)
         .bind(self.completed)
         .bind(self.description)
         .bind(self.percent)
@@ -100,7 +111,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             sql += " ORDER BY ";
             for (i, s) in sort.iter().enumerate() {
                 sql += match s.key {
-                    TodoSortKey::Id => "id",
                     TodoSortKey::Due => "due_at",
                     TodoSortKey::Priority => "priority",
                 };
@@ -161,8 +171,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 }
 
 impl Todo for TodoRecord {
-    fn id(&self) -> i64 {
-        self.id
+    fn uid(&self) -> &str {
+        &self.uid
     }
 
     fn completed(&self) -> Option<DateTime<FixedOffset>> {
@@ -206,7 +216,8 @@ impl From<icalendar::Todo> for TodoRecord {
     fn from(todo: icalendar::Todo) -> Self {
         let (due_at, due_tz) = to_dt_tz(todo.get_due());
         Self {
-            id: 0, // Placeholder, will be set by the database
+            id: 0,                                         // Placeholder, will be set by the database
+            uid: todo.get_uid().unwrap_or("").to_string(), // TODO: Handle missing UID
             summary: todo.get_summary().unwrap_or("").to_string(),
             description: todo.get_description().unwrap_or("").to_string(),
             due_at,

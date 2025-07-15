@@ -9,6 +9,7 @@ use sqlx::SqlitePool;
 #[derive(sqlx::FromRow)]
 pub struct EventRecord {
     id: i64,
+    uid: String,
     summary: String,
     description: Option<String>,
     start_at: String,
@@ -31,6 +32,7 @@ impl EventRecord {
             "
 CREATE TABLE events (
     id INTEGER PRIMARY KEY,
+    uid TEXT NOT NULL UNIQUE,
     summary TEXT NOT NULL,
     description TEXT,
     status TEXT,
@@ -44,16 +46,25 @@ CREATE TABLE events (
         .execute(pool)
         .await?;
 
+        sqlx::query(
+            "
+CREATE UNIQUE INDEX idx_events_uid ON events (uid);
+        ",
+        )
+        .execute(pool)
+        .await?;
+
         Ok(())
     }
 
     pub async fn insert(self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
-INSERT INTO events (summary, description, status, start_at, start_tz, end_at, end_tz)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO events (uid, summary, description, status, start_at, start_tz, end_at, end_tz)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         ",
         )
+        .bind(self.uid)
         .bind(self.summary)
         .bind(self.description)
         .bind(self.status)
@@ -88,8 +99,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 }
 
 impl Event for EventRecord {
-    fn id(&self) -> i64 {
-        self.id
+    fn uid(&self) -> &str {
+        &self.uid
     }
 
     fn summary(&self) -> &str {
@@ -124,7 +135,8 @@ impl From<icalendar::Event> for EventRecord {
         let (end_at, end_tz) = to_dt_tz(event.get_start());
 
         Self {
-            id: 0, // Placeholder, will be set by the database
+            id: 0,                                          // Placeholder, will be set by the database
+            uid: event.get_uid().unwrap_or("").to_string(), // TODO: Handle missing UID
             summary: event.get_summary().unwrap_or("").to_string(),
             description: event.get_description().map(|s| s.to_string()),
             start_at,

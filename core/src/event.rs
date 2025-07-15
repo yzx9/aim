@@ -7,7 +7,7 @@ use chrono::NaiveDateTime;
 use std::{fmt::Display, str::FromStr};
 
 pub trait Event {
-    fn id(&self) -> i64;
+    fn uid(&self) -> &str;
     fn summary(&self) -> &str;
     fn description(&self) -> Option<&str>;
     fn start(&self) -> Option<DatePerhapsTime>;

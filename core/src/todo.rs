@@ -8,7 +8,7 @@ use crate::{DatePerhapsTime, Priority, SortOrder};
 use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime};
 
 pub trait Todo {
-    fn id(&self) -> i64;
+    fn uid(&self) -> &str;
     fn completed(&self) -> Option<DateTime<FixedOffset>>;
     fn description(&self) -> Option<&str>;
     fn due(&self) -> Option<DatePerhapsTime>;
@@ -101,7 +101,6 @@ impl TodoConditions {
 
 #[derive(Debug, Clone, Copy)]
 pub enum TodoSortKey {
-    Id,
     Due,
     Priority,
 }

@@ -19,7 +19,7 @@ impl TodoFormatter {
         Self {
             columns: vec![
                 TodoColumn::Status(TodoColumnStatus),
-                TodoColumn::Id(TodoColumnId),
+                TodoColumn::Uid(TodoColumnUid),
                 TodoColumn::Priority(TodoColumnPriority),
                 TodoColumn::Due(TodoColumnDue),
                 TodoColumn::Summary(TodoColumnSummary),
@@ -40,10 +40,10 @@ impl TodoFormatter {
 #[derive(Debug, Clone)]
 pub enum TodoColumn {
     Due(TodoColumnDue),
-    Id(TodoColumnId),
     Priority(TodoColumnPriority),
     Status(TodoColumnStatus),
     Summary(TodoColumnSummary),
+    Uid(TodoColumnUid),
 }
 
 type Prior = (NaiveDateTime,);
@@ -52,16 +52,16 @@ impl<T: Todo> Column<T, Prior> for TodoColumn {
     fn format(&self, _prior: &Prior, data: &T) -> String {
         match self {
             TodoColumn::Due(a) => a.format(data),
-            TodoColumn::Id(a) => a.format(data),
             TodoColumn::Priority(a) => a.format(data),
             TodoColumn::Status(a) => a.format(data),
             TodoColumn::Summary(a) => a.format(data),
+            TodoColumn::Uid(a) => a.format(data),
         }
     }
 
     fn padding_direction(&self, _prior: &Prior, _data: &T) -> PaddingDirection {
         match self {
-            TodoColumn::Id(_) | TodoColumn::Priority(_) => PaddingDirection::Right,
+            TodoColumn::Uid(_) | TodoColumn::Priority(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
@@ -108,11 +108,11 @@ impl TodoColumnDue {
 }
 
 #[derive(Debug, Clone)]
-pub struct TodoColumnId;
+pub struct TodoColumnUid;
 
-impl TodoColumnId {
+impl TodoColumnUid {
     fn format(&self, todo: &impl Todo) -> String {
-        todo.id().to_string()
+        todo.uid().to_string()
     }
 }
 
