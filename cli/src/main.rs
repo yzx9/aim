@@ -29,9 +29,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config = matches.get_one::<PathBuf>("config");
 
     match matches.subcommand() {
-        Some(("events", _)) => events(config).await?,
-        Some(("todos", _)) => todos(config).await?,
-        Some(("generate", generate_matches)) => match generate_matches.subcommand() {
+        Some(("events", matches)) => {
+            let output_format: OutputFormat = matches.get_one("output_format").cloned().unwrap();
+            events(config, output_format).await?
+        }
+        Some(("todos", matches)) => {
+            let output_format: OutputFormat = matches.get_one("output_format").cloned().unwrap();
+            todos(config, output_format).await?
+        }
+        Some(("generate", matches)) => match matches.subcommand() {
             Some(("completion", matches)) => match matches.get_one::<Shell>("shell").copied() {
                 Some(generator) => generate_completion(generator, &mut cmd),
                 _ => unreachable!(),
@@ -60,8 +66,22 @@ fn build_cli() -> Command {
                 .help("Path to the configuration file")
                 .value_hint(ValueHint::FilePath),
         )
-        .subcommand(Command::new("events").about("List events"))
-        .subcommand(Command::new("todos").about("List todos"))
+        .subcommand(Command::new("events").about("List events").arg(
+            Arg::new("output_format")
+                .long("output-format")
+                .value_name("FORMAT")
+                .value_parser(value_parser!(OutputFormat))
+                .default_value("table")
+                .help("Output format for events (json, table)")
+        ))
+        .subcommand(Command::new("todos").about("List todos").arg(
+            Arg::new("output_format")
+                .long("output-format")
+                .value_name("FORMAT")
+                .value_parser(value_parser!(OutputFormat))
+                .default_value("table")
+                .help("Output format for events (json, table)")
+        ))
         .subcommand(
             Command::new("generate")
                 .about("Generate various outputs")
@@ -80,7 +100,27 @@ fn build_cli() -> Command {
         )
 }
 
-pub async fn events(config: Option<&PathBuf>) -> Result<(), Box<dyn Error>> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputFormat {
+    Json,
+    Table,
+}
+
+impl FromStr for OutputFormat {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "json" => Ok(OutputFormat::Json),
+            "table" => Ok(OutputFormat::Table),
+            _ => Err(format!("Invalid output format: {}", s)),
+        }
+    }
+}
+
+pub async fn events(
+    config: Option<&PathBuf>,
+    output_format: OutputFormat,
+) -> Result<(), Box<dyn Error>> {
     log::debug!("Parsing configuration...");
     let config = parse_config(config).await?;
     let aim = Aim::new(&config).await?;
@@ -88,10 +128,13 @@ pub async fn events(config: Option<&PathBuf>) -> Result<(), Box<dyn Error>> {
     log::debug!("Listing events...");
     let now = Local::now().naive_local();
     let conds = EventConditions { now };
-    list_events(&aim, &conds).await
+    list_events(&aim, &conds, output_format).await
 }
 
-pub async fn todos(config: Option<&PathBuf>) -> Result<(), Box<dyn Error>> {
+pub async fn todos(
+    config: Option<&PathBuf>,
+    output_format: OutputFormat,
+) -> Result<(), Box<dyn Error>> {
     log::debug!("Parsing configuration...");
     let config = parse_config(config).await?;
     let aim = Aim::new(&config).await?;
@@ -103,7 +146,7 @@ pub async fn todos(config: Option<&PathBuf>) -> Result<(), Box<dyn Error>> {
         status: Some(TodoStatus::NeedsAction),
         due: Some(Duration::days(2)),
     };
-    list_todos(&aim, &conds).await
+    list_todos(&aim, &conds, output_format).await
 }
 
 pub async fn dashboard(config: Option<&PathBuf>) -> Result<(), Box<dyn Error>> {
@@ -116,7 +159,7 @@ pub async fn dashboard(config: Option<&PathBuf>) -> Result<(), Box<dyn Error>> {
 
     println!("🗓️ {}", "Events".bold());
     let conds = EventConditions { now };
-    list_events(&aim, &conds).await?;
+    list_events(&aim, &conds, OutputFormat::Table).await?;
     println!();
 
     println!("✅ {}", "Todos".bold());
@@ -125,7 +168,7 @@ pub async fn dashboard(config: Option<&PathBuf>) -> Result<(), Box<dyn Error>> {
         status: Some(TodoStatus::NeedsAction),
         due: Some(Duration::days(2)),
     };
-    list_todos(&aim, &conds).await?;
+    list_todos(&aim, &conds, OutputFormat::Table).await?;
 
     Ok(())
 }
@@ -177,7 +220,11 @@ pub fn generate_completion(shell: Shell, cmd: &mut Command) {
     }
 }
 
-async fn list_events(aim: &Aim, conds: &EventConditions) -> Result<(), Box<dyn Error>> {
+async fn list_events(
+    aim: &Aim,
+    conds: &EventConditions,
+    output_format: OutputFormat,
+) -> Result<(), Box<dyn Error>> {
     const MAX: i64 = 16;
     let pager: Pager = (MAX, 0).into();
     let events = aim.list_events(&conds, &pager).await?;
@@ -188,12 +235,16 @@ async fn list_events(aim: &Aim, conds: &EventConditions) -> Result<(), Box<dyn E
         }
     }
 
-    let formatter = EventFormatter::new(conds.now);
+    let formatter = EventFormatter::new(conds.now).with_format(output_format);
     formatter.write_to(&mut io::stdout(), &events)?;
     Ok(())
 }
 
-async fn list_todos(aim: &Aim, conds: &TodoConditions) -> Result<(), Box<dyn Error>> {
+async fn list_todos(
+    aim: &Aim,
+    conds: &TodoConditions,
+    output_format: OutputFormat,
+) -> Result<(), Box<dyn Error>> {
     const MAX: i64 = 16;
     let pager = (MAX, 0).into();
     let sort = vec![
@@ -208,7 +259,7 @@ async fn list_todos(aim: &Aim, conds: &TodoConditions) -> Result<(), Box<dyn Err
         }
     }
 
-    let formatter = TodoFormatter::new(conds.now);
-    formatter.write(&mut io::stdout(), &todos)?;
+    let formatter = TodoFormatter::new(conds.now).with_format(output_format);
+    formatter.write_to(&mut io::stdout(), &todos)?;
     Ok(())
 }

@@ -3,113 +3,175 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use colored::{Color, Colorize};
-use std::{io, marker::PhantomData};
+use std::{borrow::Cow, io, marker::PhantomData};
 use unicode_width::UnicodeWidthStr;
 
-pub struct Table<'a, T, P, C: Column<T, P>> {
+pub struct Table<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> {
     columns: &'a Vec<C>,
     data: &'a Vec<T>,
-    prior: &'a P,
-    separator: String,
-    padding: bool,
+    style: S,
 }
 
-impl<'a, T, K, C: Column<T, K>> Table<'a, T, K, C> {
-    pub fn new(columns: &'a Vec<C>, data: &'a Vec<T>, prior: &'a K) -> Self {
+impl<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> Table<'a, T, C, S> {
+    pub fn new(style: S, columns: &'a Vec<C>, data: &'a Vec<T>) -> Self {
         Self {
             columns,
             data,
-            prior,
-            separator: " ".to_string(),
-            padding: true,
+            style,
         }
     }
-
-    // pub fn set_separator<S: Into<String>>(mut self, separator: S) -> Self {
-    //     self.separator = separator.into();
-    //     self
-    // }
-    //
-    // pub fn set_padding(mut self, padding: bool) -> Self {
-    //     self.padding = padding;
-    //     self
-    // }
 
     pub fn write_to(&self, w: &mut impl io::Write) -> Result<(), Box<dyn std::error::Error>> {
         let table = self
             .data
             .iter()
-            .map(|data| {
-                self.columns
-                    .iter()
-                    .map(|col| col.format(self.prior, data))
-                    .collect()
-            })
+            .map(|data| self.columns.iter().map(|col| col.format(data)).collect())
             .collect();
 
-        let columns = self.compute_columns(&table);
+        // let columns = self.compute_columns(&table);
+        let columns = self.style.build(&self.columns, &self.data, &table);
 
-        for (cells, todo) in table.into_iter().zip(self.data) {
+        write!(w, "{}", self.style.table_starting(&columns))?;
+        for (i, (cells, data)) in table.into_iter().zip(self.data).enumerate() {
+            write!(w, "{}", self.style.row_starting(&data))?;
             for (j, (col, cell)) in columns.iter().zip(cells.into_iter()).enumerate() {
-                let cell = col.stylize_cell(todo, cell);
-                write!(w, "{}", cell)?;
+                write!(w, "{}", self.style.cell_stylize(data, &col, cell))?;
 
                 if j < columns.len() - 1 {
-                    write!(w, "{}", self.separator)?;
-                } else {
-                    write!(w, "\n")?;
-                }
+                    write!(w, "{}", self.style.cell_separator())?;
+                };
+            }
+
+            write!(w, "{}", self.style.row_ending(&data))?;
+
+            if i < self.data.len() - 1 {
+                write!(w, "{}", self.style.row_separator())?;
             }
         }
+        write!(w, "{}", self.style.table_ending(&columns))?;
 
         Ok(())
     }
+}
 
-    fn compute_columns(&self, table: &Vec<Vec<String>>) -> Vec<ColumnStylizer<T, K, C>> {
-        let max_lengths = self.padding.then(|| get_column_max_width(table));
+pub trait TableStyle<'a, T, C: TableColumn<T>> {
+    type ColumnMeta;
 
-        let mut columns = Vec::with_capacity(self.columns.len());
-        for (i, (col, data)) in self.columns.iter().zip(self.data).enumerate() {
-            let padding_direction = col.padding_direction(self.prior, data);
+    fn build<'b>(
+        &self,
+        columns: &'a Vec<C>,
+        data: &'a Vec<T>,
+        table: &'b Vec<Vec<String>>,
+    ) -> Vec<Self::ColumnMeta>;
 
-            let padding = if max_lengths.is_none()
-                || (i == self.columns.len() - 1 && padding_direction == PaddingDirection::Left)
-            {
-                None // Last column does not need padding if it's left-aligned
-            } else {
-                Some((max_lengths.as_ref().map_or(0, |m| m[i]), padding_direction))
-            };
-
-            columns.push(ColumnStylizer {
-                config: col,
-                prior: self.prior,
-                padding,
-                _marker: PhantomData,
-            });
-        }
-        columns
+    fn table_starting(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
+        ""
+    }
+    fn table_ending(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
+        ""
+    }
+    fn row_starting(&self, _data: &T) -> &str {
+        ""
+    }
+    fn row_ending(&self, _data: &T) -> &str {
+        ""
+    }
+    fn row_separator(&self) -> &str {
+        "\n"
+    }
+    fn cell_stylize(&self, _data: &T, _column: &Self::ColumnMeta, cell: String) -> String {
+        cell
+    }
+    fn cell_separator(&self) -> &str {
+        " "
     }
 }
 
-pub trait Column<T, P> {
+pub trait TableColumn<T> {
+    fn name(&self) -> Cow<'_, str>;
     /// Format the data for the column.
-    fn format(&self, prior: &P, data: &T) -> String;
+    fn format(&self, data: &T) -> String;
     /// Determine the padding direction for the column.
-    fn padding_direction(&self, prior: &P, data: &T) -> PaddingDirection;
-    /// Get the color for the column based on the data and prior.
-    fn get_color(&self, prior: &P, data: &T) -> Option<Color>;
+    fn padding_direction(&self, data: &T) -> PaddingDirection;
+    /// Get the color for the column based on the data.
+    fn get_color(&self, data: &T) -> Option<Color>;
 }
 
 #[derive(Debug, Clone)]
-struct ColumnStylizer<'a, T, P, C: Column<T, P>> {
-    config: &'a C,
-    prior: &'a P,
+pub struct TableStyleBasic {
+    padding: bool,
+}
+
+impl TableStyleBasic {
+    pub fn new() -> Self {
+        Self { padding: true }
+    }
+}
+
+impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleBasic {
+    type ColumnMeta = TodoColumnBasicMeta<'a, T, C>;
+
+    fn build<'b>(
+        &self,
+        columns: &'a Vec<C>,
+        data: &'a Vec<T>,
+        table: &'b Vec<Vec<String>>,
+    ) -> Vec<TodoColumnBasicMeta<'a, T, C>> {
+        let max_lengths = self.padding.then(|| get_column_max_width(table));
+        columns
+            .iter()
+            .zip(data)
+            .enumerate()
+            .map(|(i, (col, data))| {
+                let padding_direction = col.padding_direction(data);
+
+                let padding = if max_lengths.is_none()
+                    || (i == columns.len() - 1 && padding_direction == PaddingDirection::Left)
+                {
+                    None // Last column does not need padding if it's left-aligned
+                } else {
+                    Some((max_lengths.as_ref().map_or(0, |m| m[i]), padding_direction))
+                };
+
+                TodoColumnBasicMeta::new(col, padding)
+            })
+            .collect()
+    }
+
+    fn cell_stylize(
+        &self,
+        data: &T,
+        column: &TodoColumnBasicMeta<'a, T, C>,
+        cell: String,
+    ) -> String {
+        column.stylize_cell(data, cell)
+    }
+}
+
+/// Direction for padding in table cells.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaddingDirection {
+    Left,
+    Right,
+}
+
+#[derive(Debug, Clone)]
+pub struct TodoColumnBasicMeta<'a, T, C: TableColumn<T>> {
+    column: &'a C,
     /// padding width and direction
     padding: Option<(usize, PaddingDirection)>,
     _marker: PhantomData<T>,
 }
 
-impl<'a, T, K, C: Column<T, K>> ColumnStylizer<'a, T, K, C> {
+impl<'a, T, C: TableColumn<T>> TodoColumnBasicMeta<'a, T, C> {
+    pub fn new(column: &'a C, padding: Option<(usize, PaddingDirection)>) -> Self {
+        Self {
+            column,
+            padding,
+            _marker: PhantomData,
+        }
+    }
+
     pub fn stylize_cell(&self, data: &T, cell: String) -> String {
         let cell = match self.padding {
             Some((width, PaddingDirection::Left)) => format!("{:<width$}", cell, width = width),
@@ -121,17 +183,64 @@ impl<'a, T, K, C: Column<T, K>> ColumnStylizer<'a, T, K, C> {
     }
 
     fn colorize_cell(&self, data: &T, cell: String) -> String {
-        match self.config.get_color(self.prior, data) {
+        match self.column.get_color(data) {
             Some(color) => cell.color(color).to_string(),
             _ => cell,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PaddingDirection {
-    Left,
-    Right,
+/// A simple JSON table style implementation, which formats the table as a JSON object of arrays.
+#[derive(Debug, Clone)]
+pub struct TableStyleJson;
+
+impl TableStyleJson {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
+    type ColumnMeta = Cow<'a, str>;
+
+    fn build<'b>(
+        &self,
+        columns: &'a Vec<C>,
+        _data: &'a Vec<T>,
+        _table: &'b Vec<Vec<String>>,
+    ) -> Vec<Self::ColumnMeta> {
+        columns.iter().map(|col| col.name()).collect()
+    }
+
+    fn table_starting(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
+        "["
+    }
+    fn table_ending(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
+        "]"
+    }
+    fn row_starting(&self, _data: &T) -> &str {
+        "{"
+    }
+    fn row_ending(&self, _data: &T) -> &str {
+        "}"
+    }
+    fn row_separator(&self) -> &str {
+        ","
+    }
+    fn cell_stylize(&self, _data: &T, column: &Self::ColumnMeta, cell: String) -> String {
+        // A simple JSON string escaper. This is not fully compliant.
+        let escaped = cell
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+            .replace('\t', "\\t");
+
+        format!("\"{}\": \"{}\"", column, escaped)
+    }
+    fn cell_separator(&self) -> &str {
+        ", "
+    }
 }
 
 fn get_column_max_width(table: &Vec<Vec<String>>) -> Vec<usize> {

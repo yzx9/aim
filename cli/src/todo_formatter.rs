@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::table::{Column, PaddingDirection, Table};
+use crate::{
+    OutputFormat,
+    table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
+};
 use aim_core::{Priority, Todo, TodoStatus};
 use chrono::NaiveDateTime;
 use colored::Color;
@@ -10,8 +13,9 @@ use std::io;
 
 #[derive(Debug)]
 pub struct TodoFormatter {
-    pub columns: Vec<TodoColumn>,
-    pub now: NaiveDateTime,
+    columns: Vec<TodoColumn>,
+    now: NaiveDateTime,
+    format: OutputFormat,
 }
 
 impl TodoFormatter {
@@ -25,15 +29,33 @@ impl TodoFormatter {
                 TodoColumn::Summary(TodoColumnSummary),
             ],
             now,
+            format: OutputFormat::Table,
         }
     }
 
-    pub fn write(
+    pub fn with_format(mut self, format: OutputFormat) -> Self {
+        self.format = format;
+        self
+    }
+
+    pub fn write_to(
         &self,
         w: &mut impl io::Write,
         todos: &Vec<impl Todo>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        Table::new(&self.columns, &todos, &(self.now,)).write_to(w)
+        let columns = self
+            .columns
+            .iter()
+            .map(|col| TodoColumnMeta {
+                column: &col,
+                now: self.now,
+            })
+            .collect::<Vec<_>>();
+
+        match self.format {
+            OutputFormat::Json => Table::new(TableStyleJson::new(), &columns, &todos).write_to(w),
+            OutputFormat::Table => Table::new(TableStyleBasic::new(), &columns, &todos).write_to(w),
+        }
     }
 }
 
@@ -46,11 +68,25 @@ pub enum TodoColumn {
     Uid(TodoColumnUid),
 }
 
-type Prior = (NaiveDateTime,);
+struct TodoColumnMeta<'a> {
+    column: &'a TodoColumn,
+    now: NaiveDateTime,
+}
 
-impl<T: Todo> Column<T, Prior> for TodoColumn {
-    fn format(&self, _prior: &Prior, data: &T) -> String {
-        match self {
+impl<'a, T: Todo> TableColumn<T> for TodoColumnMeta<'a> {
+    fn name(&self) -> std::borrow::Cow<'_, str> {
+        match &self.column {
+            TodoColumn::Due(_) => "Due",
+            TodoColumn::Priority(_) => "Priority",
+            TodoColumn::Status(_) => "Status",
+            TodoColumn::Summary(_) => "Summary",
+            TodoColumn::Uid(_) => "UID",
+        }
+        .into()
+    }
+
+    fn format(&self, data: &T) -> String {
+        match &self.column {
             TodoColumn::Due(a) => a.format(data),
             TodoColumn::Priority(a) => a.format(data),
             TodoColumn::Status(a) => a.format(data),
@@ -59,16 +95,16 @@ impl<T: Todo> Column<T, Prior> for TodoColumn {
         }
     }
 
-    fn padding_direction(&self, _prior: &Prior, _data: &T) -> PaddingDirection {
-        match self {
+    fn padding_direction(&self, _data: &T) -> PaddingDirection {
+        match &self.column {
             TodoColumn::Uid(_) | TodoColumn::Priority(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
 
-    fn get_color(&self, prior: &Prior, data: &T) -> Option<Color> {
-        match self {
-            TodoColumn::Due(v) => v.get_color(data, &prior.0),
+    fn get_color(&self, data: &T) -> Option<Color> {
+        match &self.column {
+            TodoColumn::Due(v) => v.get_color(data, &self.now),
             TodoColumn::Priority(v) => v.get_color(),
             _ => None,
         }

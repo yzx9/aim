@@ -1,4 +1,7 @@
-use crate::table::{Column, PaddingDirection, Table};
+use crate::{
+    OutputFormat,
+    table::{PaddingDirection, Table, TableColumn, TableStyleBasic},
+};
 use aim_core::Event;
 use chrono::NaiveDateTime;
 use colored::Color;
@@ -6,8 +9,9 @@ use std::io;
 
 #[derive(Debug)]
 pub struct EventFormatter {
-    pub columns: Vec<EventColumn>,
-    pub now: NaiveDateTime,
+    columns: Vec<EventColumn>,
+    _now: NaiveDateTime,
+    format: OutputFormat,
 }
 
 impl EventFormatter {
@@ -18,8 +22,14 @@ impl EventFormatter {
                 EventColumn::TimeRange(EventColumnTimeRange),
                 EventColumn::Summary(EventColumnSummary),
             ],
-            now,
+            _now: now,
+            format: OutputFormat::Table,
         }
+    }
+
+    pub fn with_format(mut self, format: OutputFormat) -> Self {
+        self.format = format;
+        self
     }
 
     pub fn write_to(
@@ -27,7 +37,8 @@ impl EventFormatter {
         w: &mut impl io::Write,
         events: &Vec<impl Event>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        Table::new(&self.columns, &events, &(self.now,)).write_to(w)
+        let style = TableStyleBasic::new();
+        Table::new(style, &self.columns, &events).write_to(w)
     }
 }
 
@@ -38,10 +49,17 @@ pub enum EventColumn {
     Uid(EventColumnUid),
 }
 
-type Prior = (NaiveDateTime,);
+impl<T: Event> TableColumn<T> for EventColumn {
+    fn name(&self) -> std::borrow::Cow<'_, str> {
+        match self {
+            EventColumn::Summary(_) => "Summary",
+            EventColumn::TimeRange(_) => "Time Range",
+            EventColumn::Uid(_) => "UID",
+        }
+        .into()
+    }
 
-impl<T: Event> Column<T, Prior> for EventColumn {
-    fn format(&self, _prior: &Prior, data: &T) -> String {
+    fn format(&self, data: &T) -> String {
         match self {
             EventColumn::Summary(a) => a.format(data),
             EventColumn::TimeRange(a) => a.format(data),
@@ -49,14 +67,14 @@ impl<T: Event> Column<T, Prior> for EventColumn {
         }
     }
 
-    fn padding_direction(&self, _prior: &Prior, _data: &T) -> PaddingDirection {
+    fn padding_direction(&self, _data: &T) -> PaddingDirection {
         match self {
             EventColumn::Uid(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
 
-    fn get_color(&self, _prior: &Prior, _data: &T) -> Option<Color> {
+    fn get_color(&self, _data: &T) -> Option<Color> {
         None
     }
 }
