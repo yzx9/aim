@@ -68,7 +68,7 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
         ""
     }
     fn table_ending(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
-        ""
+        "\n"
     }
     fn row_starting(&self, _data: &T) -> &str {
         ""
@@ -216,7 +216,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
         "["
     }
     fn table_ending(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
-        "]"
+        "]\n"
     }
     fn row_starting(&self, _data: &T) -> &str {
         "{"

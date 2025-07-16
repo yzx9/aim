@@ -1,10 +1,14 @@
+// SPDX-FileCopyrightText: 2025 Zexin Yuan <aim@yzx9.xyz>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 use aim_core::Config;
 use std::{error::Error, path::PathBuf};
 use xdg::BaseDirectories;
 
 pub const APP_NAME: &str = "aim";
 
-pub async fn parse_config(path: Option<&PathBuf>) -> Result<Config, Box<dyn Error>> {
+pub async fn parse_config(path: Option<PathBuf>) -> Result<Config, Box<dyn Error>> {
     let path = match path {
         Some(path) if !path.is_absolute() => expand_path(path.to_str().unwrap())?,
         Some(path) => path.to_owned(),

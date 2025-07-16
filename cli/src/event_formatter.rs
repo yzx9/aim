@@ -1,6 +1,6 @@
 use crate::{
     OutputFormat,
-    table::{PaddingDirection, Table, TableColumn, TableStyleBasic},
+    table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
 use aim_core::Event;
 use chrono::NaiveDateTime;
@@ -37,8 +37,14 @@ impl EventFormatter {
         w: &mut impl io::Write,
         events: &Vec<impl Event>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let style = TableStyleBasic::new();
-        Table::new(style, &self.columns, &events).write_to(w)
+        match self.format {
+            OutputFormat::Json => {
+                Table::new(TableStyleJson::new(), &self.columns, &events).write_to(w)
+            }
+            OutputFormat::Table => {
+                Table::new(TableStyleBasic::new(), &self.columns, &events).write_to(w)
+            }
+        }
     }
 }
 
