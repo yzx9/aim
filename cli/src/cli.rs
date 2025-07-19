@@ -51,9 +51,9 @@ impl Cli {
 
 #[derive(Debug, Clone)]
 pub enum Commands {
+    Dashboard,
     Events(ListArgs),
     Todos(ListArgs),
-    Dashboard,
 }
 
 #[derive(Debug, Clone)]
