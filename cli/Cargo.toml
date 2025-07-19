@@ -14,10 +14,12 @@ clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4.5"
 clap_complete_nushell = "4.5"
 colored = "3.0.0"
+dirs = "6.0.0"
 env_logger = "0.11"
-home = "0.5"
 log = "0.4"
 tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread"] }
 toml = "0.8"
 unicode-width = "0.2"
-xdg = "3.0"
+
+[target.'cfg(unix)'.dependencies]
+xdg = "3.0.0"

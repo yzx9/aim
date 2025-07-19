@@ -201,12 +201,8 @@ impl<'a, T, C: TableColumn<T>> TodoColumnBasicMeta<'a, T, C> {
 
     pub fn stylize_cell(&self, data: &T, cell: Cow<'a, str>) -> Cow<'a, str> {
         let cell = match self.padding {
-            Some((width, PaddingDirection::Left)) => {
-                format!("{cell:<width$}").into()
-            }
-            Some((width, PaddingDirection::Right)) => {
-                format!("{cell:>width$}").into()
-            }
+            Some((width, PaddingDirection::Left)) => format!("{cell:<width$}").into(),
+            Some((width, PaddingDirection::Right)) => format!("{cell:>width$}").into(),
             _ => cell,
         };
 

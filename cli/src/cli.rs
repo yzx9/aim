@@ -82,8 +82,12 @@ fn build_cli() -> Command {
                 .long("config")
                 .value_name("CONFIG")
                 .value_parser(value_parser!(PathBuf))
-                .default_value("$XDG_CONFIG_HOME/aim/config.toml")
                 .help("Path to the configuration file")
+                .long_help(
+                    "\
+Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
+%LOCALAPPDATA%/aim/config.toml on Windows.",
+                )
                 .value_hint(ValueHint::FilePath),
         )
         .subcommand(
