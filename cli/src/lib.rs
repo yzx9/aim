@@ -18,7 +18,7 @@ use crate::{
 use aim_core::{Aim, EventConditions, Pager, SortOrder, TodoConditions, TodoSortKey, TodoStatus};
 use chrono::{Duration, Local};
 use colored::Colorize;
-use std::{error::Error, io, path::PathBuf};
+use std::{error::Error, path::PathBuf};
 
 pub async fn cmd_events(config: Option<PathBuf>, args: &ListArgs) -> Result<(), Box<dyn Error>> {
     log::debug!("Parsing configuration...");
@@ -84,15 +84,15 @@ async fn list_events(
     const MAX: i64 = 16;
     let pager: Pager = (MAX, 0).into();
     let events = aim.list_events(conds, &pager).await?;
-    if events.len() == (MAX as usize) {
+    if events.len() >= (MAX as usize) {
         let total = aim.count_events(conds).await?;
         if total > MAX {
             println!("Displaying the {}/{} events", total, MAX);
         }
     }
 
-    let formatter = EventFormatter::new(conds.now).with_format(args.output_format);
-    formatter.write_to(&mut io::stdout(), &events)?;
+    let formatter = EventFormatter::new(conds.now).with_output_format(args.output_format);
+    println!("{}", formatter.format(&events));
     Ok(())
 }
 
@@ -108,14 +108,14 @@ async fn list_todos(
         (TodoSortKey::Due, SortOrder::Desc).into(),
     ];
     let todos = aim.list_todos(conds, &sort, &pager).await?;
-    if todos.len() == (MAX as usize) {
+    if todos.len() >= (MAX as usize) {
         let total = aim.count_todos(conds).await?;
         if total > MAX {
             println!("Displaying the {}/{} todos", total, MAX);
         }
     }
 
-    let formatter = TodoFormatter::new(conds.now).with_format(args.output_format);
-    formatter.write_to(&mut io::stdout(), &todos)?;
+    let formatter = TodoFormatter::new(conds.now).with_output_format(args.output_format);
+    println!("{}", formatter.format(&todos));
     Ok(())
 }

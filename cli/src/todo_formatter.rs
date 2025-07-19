@@ -9,7 +9,7 @@ use crate::{
 use aim_core::{Priority, Todo, TodoStatus};
 use chrono::NaiveDateTime;
 use colored::Color;
-use std::io;
+use std::{borrow::Cow, fmt};
 
 #[derive(Debug)]
 pub struct TodoFormatter {
@@ -33,28 +33,47 @@ impl TodoFormatter {
         }
     }
 
-    pub fn with_format(mut self, format: OutputFormat) -> Self {
+    pub fn with_output_format(mut self, format: OutputFormat) -> Self {
         self.format = format;
         self
     }
 
-    pub fn write_to(
-        &self,
-        w: &mut impl io::Write,
-        todos: &Vec<impl Todo>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn format<'a, T: Todo>(&'a self, todos: &'a [T]) -> Display<'a, T> {
+        Display {
+            todos,
+            formatter: self,
+        }
+    }
+}
+
+pub struct Display<'a, T: Todo> {
+    todos: &'a [T],
+    formatter: &'a TodoFormatter,
+}
+
+impl<'a, T: Todo> fmt::Display for Display<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let columns = self
+            .formatter
             .columns
             .iter()
             .map(|column| TodoColumnMeta {
                 column,
-                now: self.now,
+                now: self.formatter.now,
             })
             .collect::<Vec<_>>();
 
-        match self.format {
-            OutputFormat::Json => Table::new(TableStyleJson::new(), &columns, todos).write_to(w),
-            OutputFormat::Table => Table::new(TableStyleBasic::new(), &columns, todos).write_to(w),
+        match self.formatter.format {
+            OutputFormat::Json => write!(
+                f,
+                "{}",
+                Table::new(TableStyleJson::new(), &columns, self.todos)
+            ),
+            OutputFormat::Table => write!(
+                f,
+                "{}",
+                Table::new(TableStyleBasic::new(), &columns, self.todos)
+            ),
         }
     }
 }
@@ -74,7 +93,7 @@ struct TodoColumnMeta<'a> {
 }
 
 impl<'a, T: Todo> TableColumn<T> for TodoColumnMeta<'a> {
-    fn name(&self) -> std::borrow::Cow<'_, str> {
+    fn name(&self) -> Cow<'_, str> {
         match &self.column {
             TodoColumn::Due(_) => "Due",
             TodoColumn::Priority(_) => "Priority",
@@ -85,7 +104,7 @@ impl<'a, T: Todo> TableColumn<T> for TodoColumnMeta<'a> {
         .into()
     }
 
-    fn format(&self, data: &T) -> String {
+    fn format<'b>(&self, data: &'b T) -> Cow<'b, str> {
         match &self.column {
             TodoColumn::Due(a) => a.format(data),
             TodoColumn::Priority(a) => a.format(data),
@@ -115,8 +134,8 @@ impl<'a, T: Todo> TableColumn<T> for TodoColumnMeta<'a> {
 pub struct TodoColumnDue;
 
 impl TodoColumnDue {
-    pub fn format(&self, todo: &impl Todo) -> String {
-        todo.due().map_or("".to_string(), |a| a.format())
+    pub fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        todo.due().map_or("".into(), |a| a.format().into())
     }
 
     fn get_color(&self, todo: &impl Todo, now: &NaiveDateTime) -> Option<Color> {
@@ -143,19 +162,10 @@ impl TodoColumnDue {
 }
 
 #[derive(Debug, Clone)]
-pub struct TodoColumnUid;
-
-impl TodoColumnUid {
-    fn format(&self, todo: &impl Todo) -> String {
-        todo.uid().to_string()
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct TodoColumnPriority;
 
 impl TodoColumnPriority {
-    fn format(&self, todo: &impl Todo) -> String {
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
         match todo.priority() {
             // TODO: Use a more sophisticated mapping for priority to string
             Priority::P1 | Priority::P2 | Priority::P3 => "!!!",
@@ -163,7 +173,7 @@ impl TodoColumnPriority {
             Priority::P7 | Priority::P8 | Priority::P9 => "!",
             _ => "",
         }
-        .to_string()
+        .into()
     }
 
     fn get_color(&self) -> Option<Color> {
@@ -175,16 +185,18 @@ impl TodoColumnPriority {
 pub struct TodoColumnStatus;
 
 impl TodoColumnStatus {
-    fn format(&self, todo: &impl Todo) -> String {
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
         match todo.status() {
-            Some(TodoStatus::NeedsAction) => "[ ]".to_string(),
-            Some(TodoStatus::Completed) => "[x]".to_string(),
-            Some(TodoStatus::Cancelled) => " ✗ ".to_string(),
+            Some(TodoStatus::NeedsAction) => "[ ]".into(),
+            Some(TodoStatus::Completed) => "[x]".into(),
+            Some(TodoStatus::Cancelled) => " ✗ ".into(),
             Some(TodoStatus::InProcess) => match todo.percent() {
-                Some(percent) if percent > 0 => format!("[{}]", "x".repeat(percent as usize)),
-                _ => "[ ]".to_string(),
+                Some(percent) if percent > 0 => {
+                    format!("[{}]", "x".repeat(percent as usize)).into()
+                }
+                _ => "[ ]".into(),
             },
-            None => "".to_string(),
+            None => "".into(),
         }
     }
 }
@@ -193,7 +205,16 @@ impl TodoColumnStatus {
 pub struct TodoColumnSummary;
 
 impl TodoColumnSummary {
-    fn format(&self, todo: &impl Todo) -> String {
-        todo.summary().to_string()
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        todo.summary().into()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TodoColumnUid;
+
+impl TodoColumnUid {
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        todo.uid().into()
     }
 }

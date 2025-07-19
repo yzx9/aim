@@ -3,53 +3,57 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use colored::{Color, Colorize};
-use std::{borrow::Cow, io, marker::PhantomData};
+use std::{
+    borrow::Cow,
+    fmt::{self, Display},
+    marker::PhantomData,
+};
 use unicode_width::UnicodeWidthStr;
 
 pub struct Table<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> {
-    columns: &'a Vec<C>,
-    data: &'a Vec<T>,
+    columns: &'a [C],
+    data: &'a [T],
     style: S,
 }
 
 impl<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> Table<'a, T, C, S> {
-    pub fn new(style: S, columns: &'a Vec<C>, data: &'a Vec<T>) -> Self {
+    pub fn new(style: S, columns: &'a [C], data: &'a [T]) -> Self {
         Self {
             columns,
             data,
             style,
         }
     }
+}
 
-    pub fn write_to(&self, w: &mut impl io::Write) -> Result<(), Box<dyn std::error::Error>> {
-        let table: Vec<Vec<String>> = self
+impl<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> Display for Table<'a, T, C, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let table = self
             .data
             .iter()
             .map(|data| self.columns.iter().map(|col| col.format(data)).collect())
-            .collect();
+            .collect::<Vec<_>>();
 
         let columns = self.style.build(self.columns, self.data, &table);
 
-        write!(w, "{}", self.style.table_starting(&columns))?;
+        write!(f, "{}", self.style.table_starting(&columns))?;
         for (i, (cells, data)) in table.into_iter().zip(self.data).enumerate() {
-            write!(w, "{}", self.style.row_starting(data))?;
+            write!(f, "{}", self.style.row_starting(data))?;
             for (j, (col, cell)) in columns.iter().zip(cells.into_iter()).enumerate() {
-                write!(w, "{}", self.style.cell_stylize(data, col, cell))?;
+                write!(f, "{}", self.style.cell_stylize(data, col, cell))?;
 
                 if j < columns.len() - 1 {
-                    write!(w, "{}", self.style.cell_separator())?;
+                    write!(f, "{}", self.style.cell_separator())?;
                 };
             }
 
-            write!(w, "{}", self.style.row_ending(data))?;
+            write!(f, "{}", self.style.row_ending(data))?;
 
             if i < self.data.len() - 1 {
-                write!(w, "{}", self.style.row_separator())?;
+                write!(f, "{}", self.style.row_separator())?;
             }
         }
-        write!(w, "{}", self.style.table_ending(&columns))?;
-
-        Ok(())
+        write!(f, "{}", self.style.table_ending(&columns))
     }
 }
 
@@ -60,14 +64,14 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
         &self,
         columns: &'a [C],
         data: &'a [T],
-        table: &'b [Vec<String>],
+        table: &'b [Vec<Cow<'a, str>>],
     ) -> Vec<Self::ColumnMeta>;
 
     fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
     }
     fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
-        "\n"
+        ""
     }
     fn row_starting(&self, _data: &T) -> &str {
         ""
@@ -78,7 +82,12 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
     fn row_separator(&self) -> &str {
         "\n"
     }
-    fn cell_stylize(&self, _data: &T, _column: &Self::ColumnMeta, cell: String) -> String {
+    fn cell_stylize(
+        &self,
+        _data: &'a T,
+        _column: &Self::ColumnMeta,
+        cell: Cow<'a, str>,
+    ) -> Cow<'a, str> {
         cell
     }
     fn cell_separator(&self) -> &str {
@@ -89,18 +98,22 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
 pub trait TableColumn<T> {
     fn name(&self) -> Cow<'_, str>;
     /// Format the data for the column.
-    fn format(&self, data: &T) -> String;
+    fn format<'a>(&self, data: &'a T) -> Cow<'a, str>;
     /// Determine the padding direction for the column.
-    fn padding_direction(&self, data: &T) -> PaddingDirection;
+    fn padding_direction(&self, _data: &T) -> PaddingDirection {
+        PaddingDirection::Left
+    }
     /// Get the color for the column based on the data.
-    fn get_color(&self, data: &T) -> Option<Color>;
+    fn get_color(&self, _data: &T) -> Option<Color> {
+        None
+    }
 }
 
 impl<T, C: TableColumn<T> + ?Sized> TableColumn<T> for Box<C> {
     fn name(&self) -> Cow<'_, str> {
         self.as_ref().name()
     }
-    fn format(&self, data: &T) -> String {
+    fn format<'a>(&self, data: &'a T) -> Cow<'a, str> {
         self.as_ref().format(data)
     }
     fn padding_direction(&self, data: &T) -> PaddingDirection {
@@ -129,7 +142,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleBasic {
         &self,
         columns: &'a [C],
         data: &'a [T],
-        table: &'b [Vec<String>],
+        table: &'b [Vec<Cow<'a, str>>],
     ) -> Vec<TodoColumnBasicMeta<'a, T, C>> {
         let max_lengths = self.padding.then(|| get_column_max_width(table));
         columns
@@ -154,10 +167,10 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleBasic {
 
     fn cell_stylize(
         &self,
-        data: &T,
+        data: &'a T,
         column: &TodoColumnBasicMeta<'a, T, C>,
-        cell: String,
-    ) -> String {
+        cell: Cow<'a, str>,
+    ) -> Cow<'a, str> {
         column.stylize_cell(data, cell)
     }
 }
@@ -186,21 +199,21 @@ impl<'a, T, C: TableColumn<T>> TodoColumnBasicMeta<'a, T, C> {
         }
     }
 
-    pub fn stylize_cell(&self, data: &T, cell: String) -> String {
+    pub fn stylize_cell(&self, data: &T, cell: Cow<'a, str>) -> Cow<'a, str> {
         let cell = match self.padding {
-            Some((width, PaddingDirection::Left)) => format!("{:<width$}", cell, width = width),
-            Some((width, PaddingDirection::Right)) => format!("{:>width$}", cell, width = width),
+            Some((width, PaddingDirection::Left)) => {
+                format!("{:<width$}", cell, width = width).into()
+            }
+            Some((width, PaddingDirection::Right)) => {
+                format!("{:>width$}", cell, width = width).into()
+            }
             _ => cell,
         };
 
-        self.colorize_cell(data, cell)
-    }
-
-    fn colorize_cell(&self, data: &T, cell: String) -> String {
-        match self.column.get_color(data) {
-            Some(color) => cell.color(color).to_string(),
-            _ => cell,
-        }
+        self.column
+            .get_color(data)
+            .map(|color| cell.color(color).to_string().into())
+            .unwrap_or(cell)
     }
 }
 
@@ -221,7 +234,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
         &self,
         columns: &'a [C],
         _data: &'a [T],
-        _table: &'b [Vec<String>],
+        _table: &'b [Vec<Cow<'a, str>>],
     ) -> Vec<Self::ColumnMeta> {
         columns.iter().map(|col| col.name()).collect()
     }
@@ -230,7 +243,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
         "["
     }
     fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
-        "]\n"
+        "]"
     }
     fn row_starting(&self, _data: &T) -> &str {
         "{"
@@ -241,7 +254,12 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
     fn row_separator(&self) -> &str {
         ","
     }
-    fn cell_stylize(&self, _data: &T, column: &Self::ColumnMeta, cell: String) -> String {
+    fn cell_stylize(
+        &self,
+        _data: &T,
+        column: &Self::ColumnMeta,
+        cell: Cow<'a, str>,
+    ) -> Cow<'a, str> {
         // A simple JSON string escaper. This is not fully compliant.
         let escaped = cell
             .replace('\\', "\\\\")
@@ -250,7 +268,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
             .replace('\r', "\\r")
             .replace('\t', "\\t");
 
-        format!(r#""{}":"{}""#, column, escaped)
+        format!(r#""{}":"{}""#, column, escaped).into()
     }
     fn cell_separator(&self) -> &str {
         ","
@@ -258,7 +276,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
 }
 
 /// Computes the maximum display width for each column in a 2D table of strings.
-fn get_column_max_width(table: &[Vec<String>]) -> Vec<usize> {
+fn get_column_max_width(table: &[Vec<Cow<'_, str>>]) -> Vec<usize> {
     if table.is_empty() {
         return vec![];
     }
@@ -299,11 +317,8 @@ mod tests {
         fn name(&self) -> Cow<'_, str> {
             "Name".into()
         }
-        fn format(&self, data: &TestData) -> String {
-            data.name.clone()
-        }
-        fn padding_direction(&self, _data: &TestData) -> PaddingDirection {
-            PaddingDirection::Left
+        fn format<'a>(&self, data: &'a TestData) -> Cow<'a, str> {
+            data.name.clone().into()
         }
         fn get_color(&self, data: &TestData) -> Option<Color> {
             data.active.then_some(Color::Green)
@@ -314,14 +329,11 @@ mod tests {
         fn name(&self) -> Cow<'_, str> {
             "Age".into()
         }
-        fn format(&self, data: &TestData) -> String {
-            data.age.to_string()
+        fn format<'a>(&self, data: &'a TestData) -> Cow<'a, str> {
+            data.age.to_string().into()
         }
         fn padding_direction(&self, _data: &TestData) -> PaddingDirection {
             PaddingDirection::Right
-        }
-        fn get_color(&self, _data: &TestData) -> Option<Color> {
-            None
         }
     }
 
@@ -329,11 +341,8 @@ mod tests {
         fn name(&self) -> Cow<'_, str> {
             "Active".into()
         }
-        fn format(&self, data: &TestData) -> String {
-            if data.active { "Yes" } else { "No" }.to_string()
-        }
-        fn padding_direction(&self, _data: &TestData) -> PaddingDirection {
-            PaddingDirection::Left
+        fn format<'a>(&self, data: &'a TestData) -> Cow<'a, str> {
+            if data.active { "Yes" } else { "No" }.into()
         }
         fn get_color(&self, data: &TestData) -> Option<Color> {
             if !data.active { Some(Color::Red) } else { None }
@@ -373,14 +382,12 @@ mod tests {
         let style = TableStyleBasic::new();
         let table = Table::new(style, &columns, &data);
 
-        let mut output = Vec::new();
-        table.write_to(&mut output).unwrap();
         assert_eq!(
-            String::from_utf8(output).unwrap(),
+            table.to_string(),
             "\
 \u{1b}[32mAlice  \u{1b}[0m 30 Yes
 Bob     25 \u{1b}[31mNo\u{1b}[0m
-\u{1b}[32mCharlie\u{1b}[0m 35 Yes
+\u{1b}[32mCharlie\u{1b}[0m 35 Yes\
 ",
         );
     }
@@ -397,16 +404,13 @@ Bob     25 \u{1b}[31mNo\u{1b}[0m
         style.padding = false;
         let table = Table::new(style, &columns, &data);
 
-        let mut output = Vec::new();
-        table.write_to(&mut output).unwrap();
-
         // Without padding, the output should be more compact
         assert_eq!(
-            String::from_utf8(output).unwrap(),
+            table.to_string(),
             "\
 \u{1b}[32mAlice\u{1b}[0m 30 Yes
 Bob 25 \u{1b}[31mNo\u{1b}[0m
-\u{1b}[32mCharlie\u{1b}[0m 35 Yes
+\u{1b}[32mCharlie\u{1b}[0m 35 Yes\
 ",
         );
     }
@@ -422,16 +426,11 @@ Bob 25 \u{1b}[31mNo\u{1b}[0m
         let style = TableStyleJson::new();
         let table = Table::new(style, &columns, &data);
 
-        let mut output = Vec::new();
-        table.write_to(&mut output).unwrap();
-        let result = String::from_utf8(output).unwrap();
-
         // Check JSON structure
-        println!("{}", result);
         assert_eq!(
-            result,
+            table.to_string(),
             format!(
-                "[{},{},{}]\n",
+                "[{},{},{}]",
                 r#"{"Name":"Alice","Age":"30","Active":"Yes"}"#,
                 r#"{"Name":"Bob","Age":"25","Active":"No"}"#,
                 r#"{"Name":"Charlie","Age":"35","Active":"Yes"}"#
@@ -450,12 +449,8 @@ Bob 25 \u{1b}[31mNo\u{1b}[0m
         let style = TableStyleBasic::new();
         let table = Table::new(style, &columns, &data);
 
-        let mut output = Vec::new();
-        table.write_to(&mut output).unwrap();
-        let result = String::from_utf8(output).unwrap();
-
         // Empty table should produce minimal output
-        assert_eq!(result.trim(), "");
+        assert_eq!(table.to_string().trim(), "");
     }
 
     #[test]
@@ -469,11 +464,7 @@ Bob 25 \u{1b}[31mNo\u{1b}[0m
         let style = TableStyleBasic::new();
         let table = Table::new(style, &columns, &data);
 
-        let mut output = Vec::new();
-        table.write_to(&mut output).unwrap();
-        let result = String::from_utf8(output).unwrap();
-
-        assert!(result.contains("Single"));
+        assert_eq!(table.to_string(), "\u{1b}[32mSingle\u{1b}[0m");
     }
 
     #[test]
@@ -494,11 +485,8 @@ Bob 25 \u{1b}[31mNo\u{1b}[0m
         let style = TableStyleBasic::new();
         let table = Table::new(style, &columns, &data);
 
-        let mut output = Vec::new();
-        table.write_to(&mut output).unwrap();
-        let result = String::from_utf8(output).unwrap();
-
         // Should handle Unicode characters correctly
+        let result = table.to_string();
         assert!(result.contains("你好"));
         assert!(result.contains("🌟"));
     }
@@ -514,20 +502,16 @@ Bob 25 \u{1b}[31mNo\u{1b}[0m
         let style = TableStyleJson::new();
         let table = Table::new(style, &columns, &data);
 
-        let mut output = Vec::new();
-        table.write_to(&mut output).unwrap();
-        let result = String::from_utf8(output).unwrap();
-
         // Check that quotes are properly escaped
-        assert!(result.contains(r#""Name":"Test\"Quote""#));
+        assert_eq!(table.to_string(), r#"[{"Name":"Test\"Quote"}]"#);
     }
 
     #[test]
     fn test_get_column_max_width() {
         let table = vec![
-            vec!["short".to_string(), "medium".to_string()],
-            vec!["very long string".to_string(), "x".to_string()],
-            vec!["".to_string(), "normal".to_string()],
+            vec!["short".into(), "medium".into()],
+            vec!["very long string".into(), "x".into()],
+            vec!["".into(), "normal".into()],
         ];
 
         let widths = get_column_max_width(&table);

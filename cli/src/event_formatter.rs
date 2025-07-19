@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Zexin Yuan <aim@yzx9.xyz>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{
     OutputFormat,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
@@ -5,7 +9,7 @@ use crate::{
 use aim_core::Event;
 use chrono::NaiveDateTime;
 use colored::Color;
-use std::io;
+use std::{borrow::Cow, fmt};
 
 #[derive(Debug)]
 pub struct EventFormatter {
@@ -27,23 +31,37 @@ impl EventFormatter {
         }
     }
 
-    pub fn with_format(mut self, format: OutputFormat) -> Self {
+    pub fn with_output_format(mut self, format: OutputFormat) -> Self {
         self.format = format;
         self
     }
 
-    pub fn write_to(
-        &self,
-        w: &mut impl io::Write,
-        events: &Vec<impl Event>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        match self.format {
-            OutputFormat::Json => {
-                Table::new(TableStyleJson::new(), &self.columns, events).write_to(w)
-            }
-            OutputFormat::Table => {
-                Table::new(TableStyleBasic::new(), &self.columns, events).write_to(w)
-            }
+    pub fn format<'a, E: Event>(&'a self, events: &'a [E]) -> Display<'a, E> {
+        Display {
+            events,
+            formatter: self,
+        }
+    }
+}
+
+pub struct Display<'a, E: Event> {
+    events: &'a [E],
+    formatter: &'a EventFormatter,
+}
+
+impl<'a, E: Event> fmt::Display for Display<'a, E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.formatter.format {
+            OutputFormat::Json => write!(
+                f,
+                "{}",
+                Table::new(TableStyleJson::new(), &self.formatter.columns, self.events)
+            ),
+            OutputFormat::Table => write!(
+                f,
+                "{}",
+                Table::new(TableStyleBasic::new(), &self.formatter.columns, self.events)
+            ),
         }
     }
 }
@@ -65,7 +83,7 @@ impl<T: Event> TableColumn<T> for EventColumn {
         .into()
     }
 
-    fn format(&self, data: &T) -> String {
+    fn format<'a>(&self, data: &'a T) -> Cow<'a, str> {
         match self {
             EventColumn::Summary(a) => a.format(data),
             EventColumn::TimeRange(a) => a.format(data),
@@ -86,20 +104,11 @@ impl<T: Event> TableColumn<T> for EventColumn {
 }
 
 #[derive(Debug, Clone)]
-pub struct EventColumnUid;
-
-impl EventColumnUid {
-    fn format(&self, event: &impl Event) -> String {
-        format!("#{}", event.uid())
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct EventColumnSummary;
 
 impl EventColumnSummary {
-    fn format(&self, event: &impl Event) -> String {
-        event.summary().to_string()
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        event.summary().into()
     }
 }
 
@@ -107,7 +116,7 @@ impl EventColumnSummary {
 pub struct EventColumnTimeRange;
 
 impl EventColumnTimeRange {
-    fn format(&self, event: &impl Event) -> String {
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
         match (event.start(), event.end()) {
             (Some(start), Some(end)) => match start.date == end.date {
                 true => match (start.time, end.time) {
@@ -130,10 +139,20 @@ impl EventColumnTimeRange {
                     (None, None) => start.date.format("%Y-%m-%d").to_string(),
                 },
                 false => format!("{}~{}", start.format(), end.format()),
-            },
-            (Some(start), None) => start.format(),
-            (None, Some(end)) => format!("~{}", end.format()),
-            (None, None) => "".to_string(),
+            }
+            .into(),
+            (Some(start), None) => start.format().into(),
+            (None, Some(end)) => format!("~{}", end.format()).into(),
+            (None, None) => "".to_string().into(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EventColumnUid;
+
+impl EventColumnUid {
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        format!("#{}", event.uid()).into()
     }
 }
