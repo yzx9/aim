@@ -251,10 +251,10 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
             .replace('\r', "\\r")
             .replace('\t', "\\t");
 
-        format!("\"{}\": \"{}\"", column, escaped)
+        format!(r#""{}":"{}""#, column, escaped)
     }
     fn cell_separator(&self) -> &str {
-        ", "
+        ","
     }
 }
 
