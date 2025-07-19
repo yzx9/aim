@@ -94,7 +94,7 @@ impl From<icalendar::DatePerhapsTime> for DatePerhapsTime {
                             tz: Some(tz),
                         }
                     } else {
-                        log::warn!("Unknown timezone, treating as local time: {}", tzid);
+                        log::warn!("Unknown timezone, treating as local time: {tzid}");
                         Self {
                             date: date_time.date(),
                             time: Some(date_time.time()),

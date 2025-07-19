@@ -29,11 +29,11 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<Config, Box<dyn Error
 
     let content = tokio::fs::read_to_string(path)
         .await
-        .map_err(|e| format!("Failed to read config file: {}", e))?;
+        .map_err(|e| format!("Failed to read config file: {e}"))?;
 
     let table: toml::Table = content
         .parse()
-        .map_err(|e| format!("Failed to parse config: {}", e))?;
+        .map_err(|e| format!("Failed to parse config: {e}"))?;
 
     let calendar_path = table
         .get("calendar_path")
@@ -92,7 +92,7 @@ mod tests {
     fn test_expand_path_home_env() {
         let home = home::home_dir().unwrap();
         for prefix in ["~", "$HOME", "${HOME}"] {
-            let result = expand_path(&format!("{}/Documents", prefix)).unwrap();
+            let result = expand_path(&format!("{prefix}/Documents")).unwrap();
             assert!(result.is_absolute());
             assert!(result.to_string_lossy().ends_with("/Documents"));
             assert_eq!(result, home.join("Documents"));
@@ -106,7 +106,7 @@ mod tests {
             .unwrap();
 
         for prefix in ["$XDG_CONFIG_HOME", "${XDG_CONFIG_HOME}"] {
-            let result = expand_path(&format!("{}/{}/config.toml", prefix, APP_NAME)).unwrap();
+            let result = expand_path(&format!("{prefix}/{APP_NAME}/config.toml")).unwrap();
             assert!(result.is_absolute());
             assert!(result.to_string_lossy().ends_with("/config.toml"));
             assert_eq!(result, config_home.join("config.toml"));

@@ -87,7 +87,7 @@ async fn list_events(
     if events.len() >= (MAX as usize) {
         let total = aim.count_events(conds).await?;
         if total > MAX {
-            println!("Displaying the {}/{} events", total, MAX);
+            println!("Displaying the {total}/{MAX} events");
         }
     }
 
@@ -111,7 +111,7 @@ async fn list_todos(
     if todos.len() >= (MAX as usize) {
         let total = aim.count_todos(conds).await?;
         if total > MAX {
-            println!("Displaying the {}/{} todos", total, MAX);
+            println!("Displaying the {total}/{MAX} todos");
         }
     }
 

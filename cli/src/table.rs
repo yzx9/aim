@@ -202,10 +202,10 @@ impl<'a, T, C: TableColumn<T>> TodoColumnBasicMeta<'a, T, C> {
     pub fn stylize_cell(&self, data: &T, cell: Cow<'a, str>) -> Cow<'a, str> {
         let cell = match self.padding {
             Some((width, PaddingDirection::Left)) => {
-                format!("{:<width$}", cell, width = width).into()
+                format!("{cell:<width$}").into()
             }
             Some((width, PaddingDirection::Right)) => {
-                format!("{:>width$}", cell, width = width).into()
+                format!("{cell:>width$}").into()
             }
             _ => cell,
         };
@@ -268,7 +268,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
             .replace('\r', "\\r")
             .replace('\t', "\\t");
 
-        format!(r#""{}":"{}""#, column, escaped).into()
+        format!(r#""{column}":"{escaped}""#).into()
     }
     fn cell_separator(&self) -> &str {
         ","

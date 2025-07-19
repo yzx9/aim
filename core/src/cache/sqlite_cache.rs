@@ -18,16 +18,16 @@ impl SqliteCache {
         log::debug!("Open an in-memory SQLite database connection pool");
         let pool = SqlitePool::connect("sqlite::memory:")
             .await
-            .map_err(|e| format!("Failed to connect to SQLite database: {}", e))?;
+            .map_err(|e| format!("Failed to connect to SQLite database: {e}"))?;
 
         log::debug!("Creating tables in the database");
         EventRecord::create_table(&pool)
             .await
-            .map_err(|e| format!("Failed to create events table: {}", e))?;
+            .map_err(|e| format!("Failed to create events table: {e}"))?;
 
         TodoRecord::create_table(&pool)
             .await
-            .map_err(|e| format!("Failed to create todos table: {}", e))?;
+            .map_err(|e| format!("Failed to create todos table: {e}"))?;
 
         Ok(SqliteCache { pool })
     }
@@ -38,7 +38,7 @@ impl SqliteCache {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut reader = tokio::fs::read_dir(calendar_path)
             .await
-            .map_err(|e| format!("Failed to read directory: {}", e))?;
+            .map_err(|e| format!("Failed to read directory: {e}"))?;
 
         let mut handles = vec![];
         let mut count_ics = 0;
@@ -63,7 +63,7 @@ impl SqliteCache {
             handle.await?;
         }
 
-        log::debug!("Total .ics files processed: {}", count_ics);
+        log::debug!("Total .ics files processed: {count_ics}");
         Ok(())
     }
 
@@ -108,7 +108,7 @@ async fn add_ics(path: &Path, pool: &SqlitePool) -> Result<(), Box<dyn std::erro
     );
 
     for component in calendar.components {
-        log::debug!("Processing component: {:?}", component);
+        log::debug!("Processing component: {component:?}");
         match component {
             CalendarComponent::Event(event) => {
                 log::debug!("Found event, inserting into DB.");
@@ -120,7 +120,7 @@ async fn add_ics(path: &Path, pool: &SqlitePool) -> Result<(), Box<dyn std::erro
                 let record: TodoRecord = todo.into();
                 record.insert(pool).await?
             }
-            _ => log::warn!("Ignoring unsupported component type: {:?}", component),
+            _ => log::warn!("Ignoring unsupported component type: {component:?}"),
         }
     }
 
