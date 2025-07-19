@@ -39,10 +39,10 @@ impl EventFormatter {
     ) -> Result<(), Box<dyn std::error::Error>> {
         match self.format {
             OutputFormat::Json => {
-                Table::new(TableStyleJson::new(), &self.columns, &events).write_to(w)
+                Table::new(TableStyleJson::new(), &self.columns, events).write_to(w)
             }
             OutputFormat::Table => {
-                Table::new(TableStyleBasic::new(), &self.columns, &events).write_to(w)
+                Table::new(TableStyleBasic::new(), &self.columns, events).write_to(w)
             }
         }
     }
@@ -114,24 +114,24 @@ impl EventColumnTimeRange {
                     (Some(stime), Some(etime)) => format!(
                         "{} {}~{}",
                         start.date.format("%Y-%m-%d"),
-                        stime.format("%H:%M").to_string(),
-                        etime.format("%H:%M").to_string()
+                        stime.format("%H:%M"),
+                        etime.format("%H:%M")
                     ),
                     (Some(stime), None) => format!(
                         "{} {}~24:00",
                         start.date.format("%Y-%m-%d"),
-                        stime.format("%H:%M").to_string()
+                        stime.format("%H:%M")
                     ),
                     (None, Some(etime)) => format!(
                         "{} 00:00~{}",
                         start.date.format("%Y-%m-%d"),
-                        etime.format("%H:%M").to_string()
+                        etime.format("%H:%M")
                     ),
                     (None, None) => start.date.format("%Y-%m-%d").to_string(),
                 },
                 false => format!("{}~{}", start.format(), end.format()),
             },
-            (Some(start), None) => format!("{}", start.format()),
+            (Some(start), None) => start.format(),
             (None, Some(end)) => format!("~{}", end.format()),
             (None, None) => "".to_string(),
         }

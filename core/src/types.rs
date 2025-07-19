@@ -124,12 +124,9 @@ pub struct Pager {
     pub offset: i64,
 }
 
-impl Into<Pager> for (i64, i64) {
-    fn into(self) -> Pager {
-        Pager {
-            limit: self.0,
-            offset: self.1,
-        }
+impl From<(i64, i64)> for Pager {
+    fn from((limit, offset): (i64, i64)) -> Self {
+        Pager { limit, offset }
     }
 }
 

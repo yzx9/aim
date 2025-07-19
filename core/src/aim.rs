@@ -14,12 +14,12 @@ impl Aim {
     pub async fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
         let cache = SqliteCache::open()
             .await
-            .map_err(|e| format!("Failed to initialize cache: {}", e.to_string()))?;
+            .map_err(|e| format!("Failed to initialize cache: {}", e))?;
 
         cache
             .add_calendar(&config.calendar_path)
             .await
-            .map_err(|e| format!("Failed to add calendar files: {}", e.to_string()))?;
+            .map_err(|e| format!("Failed to add calendar files: {}", e))?;
 
         Ok(Self { cache })
     }
@@ -39,7 +39,7 @@ impl Aim {
     pub async fn list_todos(
         &self,
         query: &TodoConditions,
-        sort: &Vec<TodoSort>,
+        sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<impl Todo>, sqlx::Error> {
         self.cache.list_todos(query, sort, pager).await

@@ -83,9 +83,9 @@ async fn list_events(
 ) -> Result<(), Box<dyn Error>> {
     const MAX: i64 = 16;
     let pager: Pager = (MAX, 0).into();
-    let events = aim.list_events(&conds, &pager).await?;
+    let events = aim.list_events(conds, &pager).await?;
     if events.len() == (MAX as usize) {
-        let total = aim.count_events(&conds).await?;
+        let total = aim.count_events(conds).await?;
         if total > MAX {
             println!("Displaying the {}/{} events", total, MAX);
         }
@@ -107,9 +107,9 @@ async fn list_todos(
         (TodoSortKey::Priority, SortOrder::Desc).into(),
         (TodoSortKey::Due, SortOrder::Desc).into(),
     ];
-    let todos = aim.list_todos(&conds, &sort, &pager).await?;
+    let todos = aim.list_todos(conds, &sort, &pager).await?;
     if todos.len() == (MAX as usize) {
-        let total = aim.count_todos(&conds).await?;
+        let total = aim.count_todos(conds).await?;
         if total > MAX {
             println!("Displaying the {}/{} todos", total, MAX);
         }

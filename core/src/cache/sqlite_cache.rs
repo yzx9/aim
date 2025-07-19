@@ -18,16 +18,16 @@ impl SqliteCache {
         log::debug!("Open an in-memory SQLite database connection pool");
         let pool = SqlitePool::connect("sqlite::memory:")
             .await
-            .map_err(|e| format!("Failed to connect to SQLite database: {}", e.to_string()))?;
+            .map_err(|e| format!("Failed to connect to SQLite database: {}", e))?;
 
         log::debug!("Creating tables in the database");
         EventRecord::create_table(&pool)
             .await
-            .map_err(|e| format!("Failed to create events table: {}", e.to_string()))?;
+            .map_err(|e| format!("Failed to create events table: {}", e))?;
 
         TodoRecord::create_table(&pool)
             .await
-            .map_err(|e| format!("Failed to create todos table: {}", e.to_string()))?;
+            .map_err(|e| format!("Failed to create todos table: {}", e))?;
 
         Ok(SqliteCache { pool })
     }
@@ -38,7 +38,7 @@ impl SqliteCache {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut reader = tokio::fs::read_dir(calendar_path)
             .await
-            .map_err(|e| format!("Failed to read directory: {}", e.to_string()))?;
+            .map_err(|e| format!("Failed to read directory: {}", e))?;
 
         let mut handles = vec![];
         let mut count_ics = 0;
@@ -82,7 +82,7 @@ impl SqliteCache {
     pub async fn list_todos(
         &self,
         query: &TodoConditions,
-        sort: &Vec<TodoSort>,
+        sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
         TodoRecord::list(&self.pool, query, sort, pager).await

@@ -12,6 +12,7 @@ use sqlx::sqlite::SqlitePool;
 
 #[derive(sqlx::FromRow)]
 pub struct TodoRecord {
+    #[allow(dead_code)]
     id: i64,
     uid: String,
     completed: String,
@@ -88,7 +89,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     pub async fn list(
         pool: &SqlitePool,
         query: &TodoConditions,
-        sort: &Vec<TodoSort>,
+        sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
         let due_before = query.due_before();
@@ -107,7 +108,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
             sql += &where_clauses.join(" AND ");
         }
 
-        if sort.len() > 0 {
+        if !sort.is_empty() {
             sql += " ORDER BY ";
             for (i, s) in sort.iter().enumerate() {
                 sql += match s.key {

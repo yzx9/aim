@@ -46,15 +46,15 @@ impl TodoFormatter {
         let columns = self
             .columns
             .iter()
-            .map(|col| TodoColumnMeta {
-                column: &col,
+            .map(|column| TodoColumnMeta {
+                column,
                 now: self.now,
             })
             .collect::<Vec<_>>();
 
         match self.format {
-            OutputFormat::Json => Table::new(TableStyleJson::new(), &columns, &todos).write_to(w),
-            OutputFormat::Table => Table::new(TableStyleBasic::new(), &columns, &todos).write_to(w),
+            OutputFormat::Json => Table::new(TableStyleJson::new(), &columns, todos).write_to(w),
+            OutputFormat::Table => Table::new(TableStyleBasic::new(), &columns, todos).write_to(w),
         }
     }
 }
@@ -123,8 +123,7 @@ impl TodoColumnDue {
         const COLOR_OVERDUE: Option<Color> = Some(Color::Red);
         const COLOR_TODAY: Option<Color> = Some(Color::Yellow);
 
-        let Some(due) = todo.due() else { return None };
-
+        let due = todo.due()?;
         let due_date = due.date;
         let now_date = now.date();
         if due_date > now_date {

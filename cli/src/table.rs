@@ -22,27 +22,26 @@ impl<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> Table<'a, T, C, S> {
     }
 
     pub fn write_to(&self, w: &mut impl io::Write) -> Result<(), Box<dyn std::error::Error>> {
-        let table = self
+        let table: Vec<Vec<String>> = self
             .data
             .iter()
             .map(|data| self.columns.iter().map(|col| col.format(data)).collect())
             .collect();
 
-        // let columns = self.compute_columns(&table);
-        let columns = self.style.build(&self.columns, &self.data, &table);
+        let columns = self.style.build(self.columns, self.data, &table);
 
         write!(w, "{}", self.style.table_starting(&columns))?;
         for (i, (cells, data)) in table.into_iter().zip(self.data).enumerate() {
-            write!(w, "{}", self.style.row_starting(&data))?;
+            write!(w, "{}", self.style.row_starting(data))?;
             for (j, (col, cell)) in columns.iter().zip(cells.into_iter()).enumerate() {
-                write!(w, "{}", self.style.cell_stylize(data, &col, cell))?;
+                write!(w, "{}", self.style.cell_stylize(data, col, cell))?;
 
                 if j < columns.len() - 1 {
                     write!(w, "{}", self.style.cell_separator())?;
                 };
             }
 
-            write!(w, "{}", self.style.row_ending(&data))?;
+            write!(w, "{}", self.style.row_ending(data))?;
 
             if i < self.data.len() - 1 {
                 write!(w, "{}", self.style.row_separator())?;
@@ -59,15 +58,15 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
 
     fn build<'b>(
         &self,
-        columns: &'a Vec<C>,
-        data: &'a Vec<T>,
-        table: &'b Vec<Vec<String>>,
+        columns: &'a [C],
+        data: &'a [T],
+        table: &'b [Vec<String>],
     ) -> Vec<Self::ColumnMeta>;
 
-    fn table_starting(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
+    fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
     }
-    fn table_ending(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
+    fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
         "\n"
     }
     fn row_starting(&self, _data: &T) -> &str {
@@ -128,9 +127,9 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleBasic {
 
     fn build<'b>(
         &self,
-        columns: &'a Vec<C>,
-        data: &'a Vec<T>,
-        table: &'b Vec<Vec<String>>,
+        columns: &'a [C],
+        data: &'a [T],
+        table: &'b [Vec<String>],
     ) -> Vec<TodoColumnBasicMeta<'a, T, C>> {
         let max_lengths = self.padding.then(|| get_column_max_width(table));
         columns
@@ -220,17 +219,17 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
 
     fn build<'b>(
         &self,
-        columns: &'a Vec<C>,
-        _data: &'a Vec<T>,
-        _table: &'b Vec<Vec<String>>,
+        columns: &'a [C],
+        _data: &'a [T],
+        _table: &'b [Vec<String>],
     ) -> Vec<Self::ColumnMeta> {
         columns.iter().map(|col| col.name()).collect()
     }
 
-    fn table_starting(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
+    fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
         "["
     }
-    fn table_ending(&self, _columns: &Vec<Self::ColumnMeta>) -> &str {
+    fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
         "]\n"
     }
     fn row_starting(&self, _data: &T) -> &str {
@@ -259,7 +258,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
 }
 
 /// Computes the maximum display width for each column in a 2D table of strings.
-fn get_column_max_width(table: &Vec<Vec<String>>) -> Vec<usize> {
+fn get_column_max_width(table: &[Vec<String>]) -> Vec<usize> {
     if table.is_empty() {
         return vec![];
     }

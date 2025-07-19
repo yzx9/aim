@@ -49,27 +49,26 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<Config, Box<dyn Error
 fn expand_path(path: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
     // Handle tilde and home directory
     for prefix in ["~/", "$HOME/", "${HOME}/"] {
-        if path.starts_with(prefix) {
+        if let Some(stripped) = path.strip_prefix(prefix) {
             let home = home::home_dir().ok_or("User-specific home directory not found")?;
-            return Ok(home.join(&path[prefix.len()..]));
+            return Ok(home.join(stripped));
         }
     }
 
     // Handle XDG_CONFIG_HOME
     for prefix in ["$XDG_CONFIG_HOME/", "${XDG_CONFIG_HOME}/"] {
-        if path.starts_with(prefix) {
+        if let Some(stripped) = path.strip_prefix(prefix) {
             let config_home = BaseDirectories::with_prefix(APP_NAME)
                 .get_config_home()
                 .ok_or("User-specific config directory not found")?;
 
-            let rest = &path[prefix.len()..];
             let app_name = APP_NAME.to_string() + "/";
-            if rest.starts_with(&app_name) {
+            if let Some(rest) = stripped.strip_prefix(&app_name) {
                 // If the path starts with app name, we assume it's relative to the config home
-                return Ok(config_home.join(&rest[APP_NAME.len() + 1..]));
+                return Ok(config_home.join(rest));
             }
 
-            return Ok(config_home.join(rest));
+            return Ok(config_home.join(stripped));
         }
     }
 

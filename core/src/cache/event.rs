@@ -8,6 +8,7 @@ use sqlx::SqlitePool;
 
 #[derive(sqlx::FromRow)]
 pub struct EventRecord {
+    #[allow(dead_code)]
     id: i64,
     uid: String,
     summary: String,
