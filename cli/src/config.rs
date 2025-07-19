@@ -8,6 +8,7 @@ use xdg::BaseDirectories;
 
 pub const APP_NAME: &str = "aim";
 
+/// Parse the configuration file.
 pub async fn parse_config(path: Option<PathBuf>) -> Result<Config, Box<dyn Error>> {
     let path = match path {
         Some(path) if !path.is_absolute() => expand_path(path.to_str().unwrap())?,
@@ -44,8 +45,9 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<Config, Box<dyn Error
     Ok(Config::new(calendar_path))
 }
 
+/// Handle tilde (~) and environment variables in the path
 fn expand_path(path: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    // Handle tilde (~) and environment variables in the path
+    // Handle tilde and home directory
     for prefix in ["~/", "$HOME/", "${HOME}/"] {
         if path.starts_with(prefix) {
             let home = home::home_dir().ok_or("User-specific home directory not found")?;
@@ -72,4 +74,57 @@ fn expand_path(path: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
     }
 
     Ok(path.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_expand_path_tilde() {
+        let home = home::home_dir().unwrap();
+        let result = expand_path("~/Documents").unwrap();
+        assert!(result.is_absolute());
+        assert!(result.to_string_lossy().ends_with("/Documents"));
+        assert_eq!(result, home.join("Documents"));
+    }
+
+    #[test]
+    fn test_expand_path_home_env() {
+        let home = home::home_dir().unwrap();
+        for prefix in ["~", "$HOME", "${HOME}"] {
+            let result = expand_path(&format!("{}/Documents", prefix)).unwrap();
+            assert!(result.is_absolute());
+            assert!(result.to_string_lossy().ends_with("/Documents"));
+            assert_eq!(result, home.join("Documents"));
+        }
+    }
+
+    #[test]
+    fn test_expand_path_xdg_config() {
+        let config_home = BaseDirectories::with_prefix(APP_NAME)
+            .get_config_home()
+            .unwrap();
+
+        for prefix in ["$XDG_CONFIG_HOME", "${XDG_CONFIG_HOME}"] {
+            let result = expand_path(&format!("{}/{}/config.toml", prefix, APP_NAME)).unwrap();
+            assert!(result.is_absolute());
+            assert!(result.to_string_lossy().ends_with("/config.toml"));
+            assert_eq!(result, config_home.join("config.toml"));
+        }
+    }
+
+    #[test]
+    fn test_expand_path_absolute() {
+        let absolute_path = "/etc/passwd";
+        let result = expand_path(absolute_path).unwrap();
+        assert_eq!(result, PathBuf::from(absolute_path));
+    }
+
+    #[test]
+    fn test_expand_path_relative() {
+        let relative_path = "relative/path/to/file";
+        let result = expand_path(relative_path).unwrap();
+        assert_eq!(result, PathBuf::from(relative_path));
+    }
 }
