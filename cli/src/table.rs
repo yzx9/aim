@@ -258,7 +258,11 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
     }
 }
 
+/// Computes the maximum display width for each column in a 2D table of strings.
 fn get_column_max_width(table: &Vec<Vec<String>>) -> Vec<usize> {
+    if table.is_empty() {
+        return vec![];
+    }
     let mut max_width = vec![0; table[0].len()];
     for row in table {
         for (i, cell) in row.iter().enumerate() {
@@ -434,6 +438,25 @@ Bob 25 \u{1b}[31mNo\u{1b}[0m
                 r#"{"Name":"Charlie","Age":"35","Active":"Yes"}"#
             )
         );
+    }
+
+    #[test]
+    fn test_empty_table() {
+        let data: Vec<TestData> = vec![];
+        let columns: Vec<DynColumn> = vec![
+            Box::new(NameColumn),
+            Box::new(AgeColumn),
+            Box::new(ActiveColumn),
+        ];
+        let style = TableStyleBasic::new();
+        let table = Table::new(style, &columns, &data);
+
+        let mut output = Vec::new();
+        table.write_to(&mut output).unwrap();
+        let result = String::from_utf8(output).unwrap();
+
+        // Empty table should produce minimal output
+        assert_eq!(result.trim(), "");
     }
 
     #[test]
