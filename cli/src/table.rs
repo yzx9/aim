@@ -97,6 +97,21 @@ pub trait TableColumn<T> {
     fn get_color(&self, data: &T) -> Option<Color>;
 }
 
+impl<T, C: TableColumn<T> + ?Sized> TableColumn<T> for Box<C> {
+    fn name(&self) -> Cow<'_, str> {
+        self.as_ref().name()
+    }
+    fn format(&self, data: &T) -> String {
+        self.as_ref().format(data)
+    }
+    fn padding_direction(&self, data: &T) -> PaddingDirection {
+        self.as_ref().padding_direction(data)
+    }
+    fn get_color(&self, data: &T) -> Option<Color> {
+        self.as_ref().get_color(data)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TableStyleBasic {
     padding: bool,
@@ -254,4 +269,247 @@ fn get_column_max_width(table: &Vec<Vec<String>>) -> Vec<usize> {
         }
     }
     max_width
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use colored::Color;
+
+    /// Test data structure
+    #[derive(Debug, Clone)]
+    struct TestData {
+        name: String,
+        age: u32,
+        active: bool,
+    }
+
+    /// Test column implementations
+    #[derive(Debug)]
+    struct NameColumn;
+    #[derive(Debug)]
+    struct AgeColumn;
+    #[derive(Debug)]
+    struct ActiveColumn;
+
+    impl TableColumn<TestData> for NameColumn {
+        fn name(&self) -> Cow<'_, str> {
+            "Name".into()
+        }
+        fn format(&self, data: &TestData) -> String {
+            data.name.clone()
+        }
+        fn padding_direction(&self, _data: &TestData) -> PaddingDirection {
+            PaddingDirection::Left
+        }
+        fn get_color(&self, data: &TestData) -> Option<Color> {
+            data.active.then_some(Color::Green)
+        }
+    }
+
+    impl TableColumn<TestData> for AgeColumn {
+        fn name(&self) -> Cow<'_, str> {
+            "Age".into()
+        }
+        fn format(&self, data: &TestData) -> String {
+            data.age.to_string()
+        }
+        fn padding_direction(&self, _data: &TestData) -> PaddingDirection {
+            PaddingDirection::Right
+        }
+        fn get_color(&self, _data: &TestData) -> Option<Color> {
+            None
+        }
+    }
+
+    impl TableColumn<TestData> for ActiveColumn {
+        fn name(&self) -> Cow<'_, str> {
+            "Active".into()
+        }
+        fn format(&self, data: &TestData) -> String {
+            if data.active { "Yes" } else { "No" }.to_string()
+        }
+        fn padding_direction(&self, _data: &TestData) -> PaddingDirection {
+            PaddingDirection::Left
+        }
+        fn get_color(&self, data: &TestData) -> Option<Color> {
+            if !data.active { Some(Color::Red) } else { None }
+        }
+    }
+
+    type DynColumn = Box<dyn TableColumn<TestData>>;
+
+    fn create_test_data() -> Vec<TestData> {
+        vec![
+            TestData {
+                name: "Alice".to_string(),
+                age: 30,
+                active: true,
+            },
+            TestData {
+                name: "Bob".to_string(),
+                age: 25,
+                active: false,
+            },
+            TestData {
+                name: "Charlie".to_string(),
+                age: 35,
+                active: true,
+            },
+        ]
+    }
+
+    #[test]
+    fn test_table_style_basic() {
+        let data = create_test_data();
+        let columns: Vec<DynColumn> = vec![
+            Box::new(NameColumn),
+            Box::new(AgeColumn),
+            Box::new(ActiveColumn),
+        ];
+        let style = TableStyleBasic::new();
+        let table = Table::new(style, &columns, &data);
+
+        let mut output = Vec::new();
+        table.write_to(&mut output).unwrap();
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            "\
+\u{1b}[32mAlice  \u{1b}[0m 30 Yes
+Bob     25 \u{1b}[31mNo\u{1b}[0m
+\u{1b}[32mCharlie\u{1b}[0m 35 Yes
+",
+        );
+    }
+
+    #[test]
+    fn test_table_style_basic_no_padding() {
+        let data = create_test_data();
+        let columns: Vec<DynColumn> = vec![
+            Box::new(NameColumn),
+            Box::new(AgeColumn),
+            Box::new(ActiveColumn),
+        ];
+        let mut style = TableStyleBasic::new();
+        style.padding = false;
+        let table = Table::new(style, &columns, &data);
+
+        let mut output = Vec::new();
+        table.write_to(&mut output).unwrap();
+
+        // Without padding, the output should be more compact
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            "\
+\u{1b}[32mAlice\u{1b}[0m 30 Yes
+Bob 25 \u{1b}[31mNo\u{1b}[0m
+\u{1b}[32mCharlie\u{1b}[0m 35 Yes
+",
+        );
+    }
+
+    #[test]
+    fn test_table_style_json() {
+        let data = create_test_data();
+        let columns: Vec<DynColumn> = vec![
+            Box::new(NameColumn),
+            Box::new(AgeColumn),
+            Box::new(ActiveColumn),
+        ];
+        let style = TableStyleJson::new();
+        let table = Table::new(style, &columns, &data);
+
+        let mut output = Vec::new();
+        table.write_to(&mut output).unwrap();
+        let result = String::from_utf8(output).unwrap();
+
+        // Check JSON structure
+        println!("{}", result);
+        assert_eq!(
+            result,
+            format!(
+                "[{},{},{}]\n",
+                r#"{"Name":"Alice","Age":"30","Active":"Yes"}"#,
+                r#"{"Name":"Bob","Age":"25","Active":"No"}"#,
+                r#"{"Name":"Charlie","Age":"35","Active":"Yes"}"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_single_row_table() {
+        let data = vec![TestData {
+            name: "Single".to_string(),
+            age: 42,
+            active: true,
+        }];
+        let columns = vec![NameColumn];
+        let style = TableStyleBasic::new();
+        let table = Table::new(style, &columns, &data);
+
+        let mut output = Vec::new();
+        table.write_to(&mut output).unwrap();
+        let result = String::from_utf8(output).unwrap();
+
+        assert!(result.contains("Single"));
+    }
+
+    #[test]
+    fn test_unicode_width() {
+        let data = vec![
+            TestData {
+                name: "你好".to_string(),
+                age: 25,
+                active: true,
+            },
+            TestData {
+                name: "🌟".to_string(),
+                age: 30,
+                active: false,
+            },
+        ];
+        let columns = vec![NameColumn];
+        let style = TableStyleBasic::new();
+        let table = Table::new(style, &columns, &data);
+
+        let mut output = Vec::new();
+        table.write_to(&mut output).unwrap();
+        let result = String::from_utf8(output).unwrap();
+
+        // Should handle Unicode characters correctly
+        assert!(result.contains("你好"));
+        assert!(result.contains("🌟"));
+    }
+
+    #[test]
+    fn test_json_escaping() {
+        let data = vec![TestData {
+            name: "Test\"Quote".to_string(),
+            age: 25,
+            active: true,
+        }];
+        let columns = vec![NameColumn];
+        let style = TableStyleJson::new();
+        let table = Table::new(style, &columns, &data);
+
+        let mut output = Vec::new();
+        table.write_to(&mut output).unwrap();
+        let result = String::from_utf8(output).unwrap();
+
+        // Check that quotes are properly escaped
+        assert!(result.contains(r#""Name":"Test\"Quote""#));
+    }
+
+    #[test]
+    fn test_get_column_max_width() {
+        let table = vec![
+            vec!["short".to_string(), "medium".to_string()],
+            vec!["very long string".to_string(), "x".to_string()],
+            vec!["".to_string(), "normal".to_string()],
+        ];
+
+        let widths = get_column_max_width(&table);
+        assert_eq!(widths[0], 16); // "very long string"
+        assert_eq!(widths[1], 6); // "medium"
+    }
 }
