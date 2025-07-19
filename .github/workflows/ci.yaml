@@ -3,21 +3,6 @@ name: Continuous integration
 on: [push, pull_request]
 
 jobs:
-  check:
-    name: Check
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: cargo check
-
   test:
     name: Test Suite
     strategy:
@@ -35,10 +20,7 @@ jobs:
 
   fmt:
     name: Rustfmt
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -63,4 +45,4 @@ jobs:
           toolchain: stable
           override: true
       - run: rustup component add clippy
-      - run: cargo clippy -- -D warnings
+      - run: cargo clippy --all-targets --all-features -- -D warnings
