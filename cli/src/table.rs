@@ -296,6 +296,7 @@ fn get_column_max_width(table: &[Vec<Cow<'_, str>>]) -> Vec<usize> {
 mod tests {
     use super::*;
     use colored::Color;
+    use std::sync::{Mutex, OnceLock};
 
     /// Test data structure
     #[derive(Debug, Clone)]
@@ -371,8 +372,41 @@ mod tests {
         ]
     }
 
+    static COLORED_CONTROL_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    fn colored_control() -> &'static Mutex<()> {
+        COLORED_CONTROL_LOCK.get_or_init(|| Mutex::new(()))
+    }
+
     #[test]
-    fn test_table_style_basic() {
+    fn test_table_style_basic_nocolor() {
+        let _guard = colored_control().lock().unwrap();
+        colored::control::set_override(false);
+
+        let data = create_test_data();
+        let columns: Vec<DynColumn> = vec![
+            Box::new(NameColumn),
+            Box::new(AgeColumn),
+            Box::new(ActiveColumn),
+        ];
+        let style = TableStyleBasic::new();
+        let table = Table::new(style, &columns, &data);
+
+        assert_eq!(
+            table.to_string(),
+            "\
+Alice   30 Yes
+Bob     25 No
+Charlie 35 Yes\
+",
+        );
+    }
+
+    #[test]
+    fn test_table_style_basic_colorful() {
+        let _guard = colored_control().lock().unwrap();
+        colored::control::set_override(true);
+
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -394,6 +428,9 @@ Bob     25 \u{1b}[31mNo\u{1b}[0m
 
     #[test]
     fn test_table_style_basic_no_padding() {
+        let _guard = colored_control().lock().unwrap();
+        colored::control::set_override(false);
+
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -408,9 +445,9 @@ Bob     25 \u{1b}[31mNo\u{1b}[0m
         assert_eq!(
             table.to_string(),
             "\
-\u{1b}[32mAlice\u{1b}[0m 30 Yes
-Bob 25 \u{1b}[31mNo\u{1b}[0m
-\u{1b}[32mCharlie\u{1b}[0m 35 Yes\
+Alice 30 Yes
+Bob 25 No
+Charlie 35 Yes\
 ",
         );
     }
@@ -450,11 +487,14 @@ Bob 25 \u{1b}[31mNo\u{1b}[0m
         let table = Table::new(style, &columns, &data);
 
         // Empty table should produce minimal output
-        assert_eq!(table.to_string().trim(), "");
+        assert_eq!(table.to_string(), "");
     }
 
     #[test]
     fn test_single_row_table() {
+        let _guard = colored_control().lock().unwrap();
+        colored::control::set_override(false);
+
         let data = vec![TestData {
             name: "Single".to_string(),
             age: 42,
@@ -464,7 +504,7 @@ Bob 25 \u{1b}[31mNo\u{1b}[0m
         let style = TableStyleBasic::new();
         let table = Table::new(style, &columns, &data);
 
-        assert_eq!(table.to_string(), "\u{1b}[32mSingle\u{1b}[0m");
+        assert_eq!(table.to_string(), "Single");
     }
 
     #[test]
