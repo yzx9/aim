@@ -68,7 +68,7 @@ impl<'a> ShortIdMap {
                     })
                 }
                 Err(e) => {
-                    log::warn!("Failed to parse existing map: {}", e);
+                    log::warn!("Failed to parse existing map: {e}");
                     Ok(Self::new())
                 }
             },
@@ -125,7 +125,7 @@ pub struct EventWithShortId<E: Event> {
 
 impl<E: Event> EventWithShortId<E> {
     pub fn with(map: &ShortIdMap, event: E) -> Self {
-        let short_id = map.get_or_assign(&event.uid());
+        let short_id = map.get_or_assign(event.uid());
         Self {
             inner: event,
             short_id,
@@ -140,7 +140,7 @@ pub struct TodoWithShortId<T: Todo> {
 
 impl<T: Todo> TodoWithShortId<T> {
     pub fn with(map: &ShortIdMap, todo: T) -> Self {
-        let short_id = map.get_or_assign(&todo.uid());
+        let short_id = map.get_or_assign(todo.uid());
         Self {
             inner: todo,
             short_id,

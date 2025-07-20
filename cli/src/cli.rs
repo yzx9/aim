@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::config::APP_NAME;
-use clap::{Arg, Command, ValueEnum, ValueHint, value_parser};
+use clap::{Arg, Command, ValueEnum, ValueHint, arg, crate_version, value_parser};
 use clap_complete::generate;
 use std::{io, path::PathBuf, process};
 
@@ -18,8 +18,8 @@ impl Cli {
 
         fn output_format(matches: &clap::ArgMatches) -> OutputFormat {
             matches
-                .get_one::<OutputFormat>("output_format")
-                .cloned()
+                .get_one::<OutputFormat>("output-format")
+                .copied()
                 .unwrap_or(OutputFormat::Table)
         }
 
@@ -30,14 +30,11 @@ impl Cli {
             Some(("todos", matches)) => Commands::Todos(ListArgs {
                 output_format: output_format(matches),
             }),
-            Some(("generate", matches)) => match matches.subcommand() {
-                Some(("completion", matches)) => match matches.get_one::<Shell>("shell").copied() {
-                    Some(shell) => {
-                        shell.generate_completion();
-                        process::exit(1)
-                    }
-                    _ => unreachable!(),
-                },
+            Some(("generate-completion", matches)) => match matches.get_one::<Shell>("shell") {
+                Some(shell) => {
+                    shell.generate_completion();
+                    process::exit(1)
+                }
                 _ => unreachable!(),
             },
             None => Commands::Dashboard,
@@ -63,31 +60,25 @@ pub struct ListArgs {
 
 fn build_cli() -> Command {
     fn output_format() -> Arg {
-        Arg::new("output_format")
-            .long("output-format")
-            .value_name("FORMAT")
+        arg!(--"output-format" <FORMAT> "Output format")
             .value_parser(value_parser!(OutputFormat))
             .default_value("table")
-            .help("Output format for events")
     }
 
     Command::new(APP_NAME)
         .about("Analyze. Interact. Manage Your Time.")
         .author("Zexin Yuan <aim@yzx9.xyz>")
+        .version(crate_version!())
         .subcommand_required(false) // allow default to dashboard
         .arg_required_else_help(false)
         .arg(
-            Arg::new("config")
-                .short('c')
-                .long("config")
-                .value_name("CONFIG")
-                .value_parser(value_parser!(PathBuf))
-                .help("Path to the configuration file")
+            arg!(-c --config [CONFIG] "Path to the configuration file")
                 .long_help(
                     "\
 Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
 %LOCALAPPDATA%/aim/config.toml on Windows.",
                 )
+                .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
         .subcommand(
@@ -101,19 +92,12 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 .arg(output_format()),
         )
         .subcommand(
-            Command::new("generate")
-                .about("Generate various outputs")
-                .arg_required_else_help(true)
-                .subcommand(
-                    Command::new("completion")
-                        .about("Generate shell completion for the specified shell")
-                        .arg(
-                            Arg::new("shell")
-                                .value_name("SHELL")
-                                .value_parser(value_parser!(Shell))
-                                .required(true)
-                                .help("The shell generator to use"),
-                        ),
+            Command::new("generate-completion")
+                .about("Generate shell completion for the specified shell")
+                .hide(true)
+                .arg(
+                    arg!(shell: <SHELL> "The shell generator to use")
+                        .value_parser(value_parser!(Shell)),
                 ),
         )
 }
