@@ -50,12 +50,7 @@ impl Aim {
     }
 }
 
+#[derive(Debug)]
 pub struct Config {
-    calendar_path: PathBuf,
-}
-
-impl Config {
-    pub fn new(calendar_path: PathBuf) -> Self {
-        Self { calendar_path }
-    }
+    pub calendar_path: PathBuf,
 }

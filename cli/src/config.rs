@@ -2,49 +2,75 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use aim_core::Config;
+use aim_core::Config as CoreConfig;
+use serde::Deserialize;
 use std::{
     error::Error,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 pub const APP_NAME: &str = "aim";
 
-/// Parse the configuration file.
-pub async fn parse_config(path: Option<PathBuf>) -> Result<Config, Box<dyn Error>> {
-    let path = match path {
-        Some(path) => expand_path(&path)?,
-        None => {
-            // TODO: zero config should works
-            // TODO: search config in multiple locations
-            let config = get_config_dir()?.join(format!("{APP_NAME}/config.toml"));
-            if !config.exists() {
-                return Err(format!("No config found at: {}", config.display()).into());
+#[derive(Debug, Deserialize)]
+struct ConfigRaw {
+    calendar_path: PathBuf,
+    state_dir: Option<PathBuf>,
+}
+
+pub struct Config {
+    pub core: CoreConfig,
+    pub state_dir: Option<PathBuf>,
+}
+
+impl TryFrom<ConfigRaw> for Config {
+    type Error = Box<dyn Error>;
+
+    fn try_from(raw: ConfigRaw) -> Result<Self, Self::Error> {
+        let core = CoreConfig {
+            calendar_path: expand_path(&raw.calendar_path)?,
+        };
+        let state_dir = match raw.state_dir {
+            Some(a) => Some(expand_path(&a)?.join(APP_NAME)),
+            None => get_state_dir().ok(),
+        };
+        Ok(Self { core, state_dir })
+    }
+}
+
+impl FromStr for Config {
+    type Err = Box<dyn Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        toml::from_str::<ConfigRaw>(s)?.try_into()
+    }
+}
+
+impl Config {
+    /// Parse the configuration file.
+    pub async fn parse(path: Option<PathBuf>) -> Result<Config, Box<dyn Error>> {
+        let path = match path {
+            Some(path) => expand_path(&path)?,
+            None => {
+                // TODO: zero config should works
+                // TODO: search config in multiple locations
+                let config = get_config_dir()?.join(format!("{APP_NAME}/config.toml"));
+                if !config.exists() {
+                    return Err(format!("No config found at: {}", config.display()).into());
+                }
+                config
             }
-            config
-        }
-    };
+        };
 
-    let content = tokio::fs::read_to_string(path)
-        .await
-        .map_err(|e| format!("Failed to read config file: {e}"))?;
-
-    let table: toml::Table = content
-        .parse()
-        .map_err(|e| format!("Failed to parse config: {e}"))?;
-
-    let calendar_path = table
-        .get("calendar_path")
-        .and_then(|v| v.as_str())
-        .ok_or("Missing or invalid 'calendar_path' in config")?;
-
-    let calendar_path = expand_path(&PathBuf::from(calendar_path))?;
-
-    Ok(Config::new(calendar_path))
+        tokio::fs::read_to_string(path)
+            .await
+            .map_err(|e| format!("Failed to read config file: {e}"))?
+            .parse()
+    }
 }
 
 /// Handle tilde (~) and environment variables in the path
-fn expand_path(path: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn expand_path(path: &Path) -> Result<PathBuf, Box<dyn Error>> {
     if path.is_absolute() {
         return Ok(path.to_owned());
     }
@@ -78,16 +104,24 @@ fn expand_path(path: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(path.into())
 }
 
-fn get_home_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn get_home_dir() -> Result<PathBuf, Box<dyn Error>> {
     dirs::home_dir().ok_or("User-specific home directory not found".into())
 }
 
-fn get_config_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn get_config_dir() -> Result<PathBuf, Box<dyn Error>> {
     #[cfg(unix)]
     let config_dir = xdg::BaseDirectories::new().get_config_home();
     #[cfg(windows)]
     let config_dir = dirs::config_dir();
     config_dir.ok_or("User-specific home directory not found".into())
+}
+
+fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
+    #[cfg(unix)]
+    let state_dir = xdg::BaseDirectories::new().get_state_home();
+    #[cfg(windows)]
+    let state_dir = dirs::data_dir();
+    state_dir.ok_or("User-specific state directory not found".into())
 }
 
 #[cfg(test)]
