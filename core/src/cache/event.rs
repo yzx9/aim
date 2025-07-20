@@ -10,6 +10,7 @@ use sqlx::SqlitePool;
 pub struct EventRecord {
     #[allow(dead_code)]
     id: i64,
+    path: String,
     uid: String,
     summary: String,
     description: Option<String>,
@@ -21,6 +22,30 @@ pub struct EventRecord {
 }
 
 impl EventRecord {
+    pub fn from(path: String, event: icalendar::Event) -> Result<Self, Box<dyn std::error::Error>> {
+        let uid = event.get_uid().ok_or("Event must have a UID")?.to_string();
+        let status = event.get_status().map(|s| match s {
+            EventStatus::Tentative => "TENTATIVE".to_string(),
+            EventStatus::Confirmed => "CONFIRMED".to_string(),
+            EventStatus::Cancelled => "CANCELLED".to_string(),
+        });
+        let (start_at, start_tz) = to_dt_tz(event.get_start());
+        let (end_at, end_tz) = to_dt_tz(event.get_start());
+
+        Ok(Self {
+            id: 0, // Placeholder, will be set by the database
+            path,
+            uid,
+            summary: event.get_summary().unwrap_or("").to_string(),
+            description: event.get_description().map(|s| s.to_string()),
+            start_at,
+            start_tz,
+            end_at,
+            end_tz,
+            status,
+        })
+    }
+
     /// See RFC-5545 Sect. 3.6.1
     ///
     /// ## max lengths
@@ -33,6 +58,7 @@ impl EventRecord {
             "
 CREATE TABLE events (
     id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL,
     uid TEXT NOT NULL UNIQUE,
     summary TEXT NOT NULL,
     description TEXT,
@@ -58,21 +84,22 @@ CREATE UNIQUE INDEX idx_events_uid ON events (uid);
         Ok(())
     }
 
-    pub async fn insert(self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    pub async fn insert(&self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
-INSERT INTO events (uid, summary, description, status, start_at, start_tz, end_at, end_tz)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO events (path, uid, summary, description, status, start_at, start_tz, end_at, end_tz)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         ",
         )
-        .bind(self.uid)
-        .bind(self.summary)
-        .bind(self.description)
-        .bind(self.status)
-        .bind(self.start_at)
-        .bind(self.start_tz)
-        .bind(self.end_at)
-        .bind(self.end_tz)
+        .bind(&self.path)
+        .bind(&self.uid)
+        .bind(&self.summary)
+        .bind(&self.description)
+        .bind(&self.status)
+        .bind(&self.start_at)
+        .bind(&self.start_tz)
+        .bind(&self.end_at)
+        .bind(&self.end_tz)
         .execute(pool)
         .await?;
 
@@ -122,30 +149,6 @@ impl Event for EventRecord {
 
     fn status(&self) -> Option<&str> {
         self.status.as_deref()
-    }
-}
-
-impl From<icalendar::Event> for EventRecord {
-    fn from(event: icalendar::Event) -> Self {
-        let status = event.get_status().map(|s| match s {
-            EventStatus::Tentative => "TENTATIVE".to_string(),
-            EventStatus::Confirmed => "CONFIRMED".to_string(),
-            EventStatus::Cancelled => "CANCELLED".to_string(),
-        });
-        let (start_at, start_tz) = to_dt_tz(event.get_start());
-        let (end_at, end_tz) = to_dt_tz(event.get_start());
-
-        Self {
-            id: 0,                                          // Placeholder, will be set by the database
-            uid: event.get_uid().unwrap_or("").to_string(), // TODO: Handle missing UID
-            summary: event.get_summary().unwrap_or("").to_string(),
-            description: event.get_description().map(|s| s.to_string()),
-            start_at,
-            start_tz,
-            end_at,
-            end_tz,
-            status,
-        }
     }
 }
 

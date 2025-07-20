@@ -14,6 +14,7 @@ use sqlx::sqlite::SqlitePool;
 pub struct TodoRecord {
     #[allow(dead_code)]
     id: i64,
+    path: String,
     uid: String,
     completed: String,
     description: String,
@@ -26,6 +27,34 @@ pub struct TodoRecord {
 }
 
 impl TodoRecord {
+    pub fn from(path: String, todo: icalendar::Todo) -> Result<Self, Box<dyn std::error::Error>> {
+        let uid = todo.get_uid().ok_or("Todo must have a UID")?.to_string();
+        let (due_at, due_tz) = to_dt_tz(todo.get_due());
+        Ok(Self {
+            id: 0, // Placeholder, will be set by the database
+            path,
+            uid,
+            summary: todo.get_summary().unwrap_or("").to_string(),
+            description: todo.get_description().unwrap_or("").to_string(),
+            due_at,
+            due_tz,
+            completed: todo
+                .get_completed()
+                .map(format_dt)
+                .unwrap_or("".to_string()),
+            percent: todo.get_percent_complete(),
+            priority: todo.get_priority().map(|v| v as u8).unwrap_or(0),
+            status: todo
+                .get_status()
+                .as_ref()
+                .map(|s| {
+                    let s: TodoStatus = s.into();
+                    s.to_string()
+                })
+                .unwrap_or("".to_string()),
+        })
+    }
+
     /// See RFC-5545 Sect. 3.6.2
     ///
     /// ## max lengths
@@ -38,6 +67,7 @@ impl TodoRecord {
             "
 CREATE TABLE todos (
     id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL,
     uid TEXT NOT NULL UNIQUE,
     completed CHAR(25) NOT NULL,
     description TEXT NOT NULL,
@@ -64,22 +94,23 @@ CREATE UNIQUE INDEX idx_todos_uid ON todos (uid);
         Ok(())
     }
 
-    pub async fn insert(self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    pub async fn insert(&self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
-INSERT INTO todos (uid, completed, description, percent, priority, status, summary, due_at, due_tz)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO todos (path, uid, completed, description, percent, priority, status, summary, due_at, due_tz)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         ",
         )
-        .bind(self.uid)
-        .bind(self.completed)
-        .bind(self.description)
+        .bind(&self.path)
+        .bind(&self.uid)
+        .bind(&self.completed)
+        .bind(&self.description)
         .bind(self.percent)
         .bind(self.priority)
-        .bind(self.status)
-        .bind(self.summary)
-        .bind(self.due_at)
-        .bind(self.due_tz)
+        .bind(&self.status)
+        .bind(&self.summary)
+        .bind(&self.due_at)
+        .bind(&self.due_tz)
         .execute(pool)
         .await?;
 
@@ -177,19 +208,13 @@ impl Todo for TodoRecord {
     }
 
     fn completed(&self) -> Option<DateTime<FixedOffset>> {
-        if self.completed.is_empty() {
-            None
-        } else {
-            DateTime::parse_from_rfc3339(&self.completed).ok()
-        }
+        (!self.completed.is_empty())
+            .then(|| DateTime::parse_from_rfc3339(&self.completed).ok())
+            .flatten()
     }
 
     fn description(&self) -> Option<&str> {
-        if self.completed.is_empty() {
-            None
-        } else {
-            Some(&self.description)
-        }
+        (!self.description.is_empty()).then_some(self.description.as_str())
     }
 
     fn due(&self) -> Option<DatePerhapsTime> {
@@ -210,34 +235,6 @@ impl Todo for TodoRecord {
 
     fn summary(&self) -> &str {
         &self.summary
-    }
-}
-
-impl From<icalendar::Todo> for TodoRecord {
-    fn from(todo: icalendar::Todo) -> Self {
-        let (due_at, due_tz) = to_dt_tz(todo.get_due());
-        Self {
-            id: 0,                                         // Placeholder, will be set by the database
-            uid: todo.get_uid().unwrap_or("").to_string(), // TODO: Handle missing UID
-            summary: todo.get_summary().unwrap_or("").to_string(),
-            description: todo.get_description().unwrap_or("").to_string(),
-            due_at,
-            due_tz,
-            completed: todo
-                .get_completed()
-                .map(format_dt)
-                .unwrap_or("".to_string()),
-            percent: todo.get_percent_complete(),
-            priority: todo.get_priority().map(|v| v as u8).unwrap_or(0),
-            status: todo
-                .get_status()
-                .as_ref()
-                .map(|s| {
-                    let s: TodoStatus = s.into();
-                    s.to_string()
-                })
-                .unwrap_or("".to_string()),
-        }
     }
 }
 

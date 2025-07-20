@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt::Display, str::FromStr};
-
 use crate::{DatePerhapsTime, Priority, SortOrder};
 use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime};
+use std::{fmt::Display, str::FromStr};
 
 pub trait Todo {
     fn uid(&self) -> &str;

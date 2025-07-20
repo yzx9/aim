@@ -107,18 +107,18 @@ async fn add_ics(path: &Path, pool: &SqlitePool) -> Result<(), Box<dyn std::erro
         path.display()
     );
 
+    let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
     for component in calendar.components {
         log::debug!("Processing component: {component:?}");
         match component {
             CalendarComponent::Event(event) => {
-                log::debug!("Found event, inserting into DB.");
-                let record: EventRecord = event.into();
+                let record = EventRecord::from(path.clone(), event)?;
                 record.insert(pool).await?
             }
+
             CalendarComponent::Todo(todo) => {
-                log::debug!("Found todo, inserting into DB.");
-                let record: TodoRecord = todo.into();
-                record.insert(pool).await?
+                let a = TodoRecord::from(path.clone(), todo)?;
+                a.insert(pool).await?
             }
             _ => log::warn!("Ignoring unsupported component type: {component:?}"),
         }
