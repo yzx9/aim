@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-mod event;
+mod events;
 mod sqlite_cache;
-mod todo;
+mod todos;
 
 pub use sqlite_cache::SqliteCache;

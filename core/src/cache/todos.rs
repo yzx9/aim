@@ -10,49 +10,18 @@ use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, Utc};
 use icalendar::Component;
 use sqlx::sqlite::SqlitePool;
 
-#[derive(sqlx::FromRow)]
-pub struct TodoRecord {
-    #[allow(dead_code)]
-    id: i64,
-    path: String,
-    uid: String,
-    completed: String,
-    description: String,
-    percent: Option<u8>,
-    priority: u8,
-    status: String,
-    summary: String,
-    due_at: String,
-    due_tz: String,
+#[derive(Debug, Clone)]
+pub struct Todos {
+    pool: SqlitePool,
 }
 
-impl TodoRecord {
-    pub fn from(path: String, todo: icalendar::Todo) -> Result<Self, Box<dyn std::error::Error>> {
-        let uid = todo.get_uid().ok_or("Todo must have a UID")?.to_string();
-        let (due_at, due_tz) = to_dt_tz(todo.get_due());
-        Ok(Self {
-            id: 0, // Placeholder, will be set by the database
-            path,
-            uid,
-            summary: todo.get_summary().unwrap_or("").to_string(),
-            description: todo.get_description().unwrap_or("").to_string(),
-            due_at,
-            due_tz,
-            completed: todo
-                .get_completed()
-                .map(format_dt)
-                .unwrap_or("".to_string()),
-            percent: todo.get_percent_complete(),
-            priority: todo.get_priority().map(|v| v as u8).unwrap_or(0),
-            status: todo
-                .get_status()
-                .as_ref()
-                .map(|s| {
-                    let s: TodoStatus = s.into();
-                    s.to_string()
-                })
-                .unwrap_or("".to_string()),
-        })
+impl Todos {
+    pub async fn new(pool: SqlitePool) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::create_table(&pool)
+            .await
+            .map_err(|e| format!("Failed to create todos table: {e}"))?;
+
+        Ok(Self { pool })
     }
 
     /// See RFC-5545 Sect. 3.6.2
@@ -62,7 +31,7 @@ impl TodoRecord {
     /// - status (12): needs-action
     /// - due_at (19): 2023-10-01T12:00:00
     /// - due_tz (32): America/Argentina/ComodRivadavia
-    pub async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
 CREATE TABLE todos (
@@ -94,31 +63,31 @@ CREATE UNIQUE INDEX idx_todos_uid ON todos (uid);
         Ok(())
     }
 
-    pub async fn insert(&self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    pub async fn insert(&self, todo: TodoRecord) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
 INSERT INTO todos (path, uid, completed, description, percent, priority, status, summary, due_at, due_tz)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         ",
         )
-        .bind(&self.path)
-        .bind(&self.uid)
-        .bind(&self.completed)
-        .bind(&self.description)
-        .bind(self.percent)
-        .bind(self.priority)
-        .bind(&self.status)
-        .bind(&self.summary)
-        .bind(&self.due_at)
-        .bind(&self.due_tz)
-        .execute(pool)
+        .bind(&todo.path)
+        .bind(&todo.uid)
+        .bind(&todo.completed)
+        .bind(&todo.description)
+        .bind(todo.percent)
+        .bind(todo.priority)
+        .bind(&todo.status)
+        .bind(&todo.summary)
+        .bind(&todo.due_at)
+        .bind(&todo.due_tz)
+        .execute(&self.pool)
         .await?;
 
         Ok(())
     }
 
     pub async fn list(
-        pool: &SqlitePool,
+        &self,
         query: &TodoConditions,
         sort: &[TodoSort],
         pager: &Pager,
@@ -169,11 +138,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         executable
             .bind(pager.limit)
             .bind(pager.offset)
-            .fetch_all(pool)
+            .fetch_all(&self.pool)
             .await
     }
 
-    pub async fn count(pool: &SqlitePool, query: &TodoConditions) -> Result<i64, sqlx::Error> {
+    pub async fn count(&self, query: &TodoConditions) -> Result<i64, sqlx::Error> {
         let due_before = query.due_before();
         let mut where_clauses = Vec::new();
         if query.status.is_some() {
@@ -197,8 +166,54 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         if let Some(due_at) = query.due_before() {
             executable = executable.bind(format_ndt(due_at));
         }
-        let row: (i64,) = executable.fetch_one(pool).await?;
+        let row: (i64,) = executable.fetch_one(&self.pool).await?;
         Ok(row.0)
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct TodoRecord {
+    #[allow(dead_code)]
+    id: i64,
+    path: String,
+    uid: String,
+    completed: String,
+    description: String,
+    percent: Option<u8>,
+    priority: u8,
+    status: String,
+    summary: String,
+    due_at: String,
+    due_tz: String,
+}
+
+impl TodoRecord {
+    pub fn from(path: String, todo: icalendar::Todo) -> Result<Self, Box<dyn std::error::Error>> {
+        let uid = todo.get_uid().ok_or("Todo must have a UID")?.to_string();
+        let (due_at, due_tz) = to_dt_tz(todo.get_due());
+        Ok(Self {
+            id: 0, // Placeholder, will be set by the database
+            path,
+            uid,
+            summary: todo.get_summary().unwrap_or("").to_string(),
+            description: todo.get_description().unwrap_or("").to_string(),
+            due_at,
+            due_tz,
+            completed: todo
+                .get_completed()
+                .map(format_dt)
+                .unwrap_or("".to_string()),
+            percent: todo.get_percent_complete(),
+            priority: todo.get_priority().map(|v| v as u8).unwrap_or(0),
+            status: todo
+                .get_status()
+                .as_ref()
+                .map(|s| {
+                    let s: TodoStatus = s.into();
+                    s.to_string()
+                })
+                .unwrap_or("".to_string()),
+        })
     }
 }
 

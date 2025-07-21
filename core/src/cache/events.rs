@@ -6,6 +6,100 @@ use crate::{DatePerhapsTime, Event, EventConditions, Pager};
 use icalendar::{Component, EventStatus};
 use sqlx::SqlitePool;
 
+#[derive(Debug, Clone)]
+pub struct Events {
+    pool: SqlitePool,
+}
+
+impl Events {
+    pub async fn new(pool: SqlitePool) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::create_table(&pool)
+            .await
+            .map_err(|e| format!("Failed to create events table: {e}"))?;
+
+        Ok(Self { pool })
+    }
+
+    /// See RFC-5545 Sect. 3.6.1
+    ///
+    /// ## max lengths
+    /// - completed/due_at (25): 2023-10-01T12:00:00+14:00
+    /// - status (12): needs-action
+    /// - start_at/end_at (19): 2023-10-01T12:00:00
+    /// - start_tz/end_tz (32): America/Argentina/ComodRivadavia
+    async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "
+CREATE TABLE events (
+    id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL,
+    uid TEXT NOT NULL UNIQUE,
+    summary TEXT NOT NULL,
+    description TEXT,
+    status TEXT,
+    start_at CHAR(19) NOT NULL,
+    start_tz CHAR(32) NOT NULL,
+    end_at CHAR(19) NOT NULL,
+    end_tz CHAR(32) NOT NULL
+);
+        ",
+        )
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            "
+CREATE UNIQUE INDEX idx_events_uid ON events (uid);
+        ",
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn insert(&self, event: EventRecord) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "
+INSERT INTO events (path, uid, summary, description, status, start_at, start_tz, end_at, end_tz)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ",
+        )
+        .bind(&event.path)
+        .bind(&event.uid)
+        .bind(&event.summary)
+        .bind(&event.description)
+        .bind(&event.status)
+        .bind(&event.start_at)
+        .bind(&event.start_tz)
+        .bind(&event.end_at)
+        .bind(&event.end_tz)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn list(
+        &self,
+        _conds: &EventConditions,
+        pager: &Pager,
+    ) -> Result<Vec<EventRecord>, sqlx::Error> {
+        sqlx::query_as("SELECT * FROM events ORDER BY id LIMIT ? OFFSET ?")
+            .bind(pager.limit)
+            .bind(pager.offset)
+            .fetch_all(&self.pool)
+            .await
+    }
+
+    pub async fn count(&self, _conds: &EventConditions) -> Result<i64, sqlx::Error> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM events")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0)
+    }
+}
+
 #[derive(sqlx::FromRow)]
 pub struct EventRecord {
     #[allow(dead_code)]
@@ -44,85 +138,6 @@ impl EventRecord {
             end_tz,
             status,
         })
-    }
-
-    /// See RFC-5545 Sect. 3.6.1
-    ///
-    /// ## max lengths
-    /// - completed/due_at (25): 2023-10-01T12:00:00+14:00
-    /// - status (12): needs-action
-    /// - start_at/end_at (19): 2023-10-01T12:00:00
-    /// - start_tz/end_tz (32): America/Argentina/ComodRivadavia
-    pub async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "
-CREATE TABLE events (
-    id INTEGER PRIMARY KEY,
-    path TEXT NOT NULL,
-    uid TEXT NOT NULL UNIQUE,
-    summary TEXT NOT NULL,
-    description TEXT,
-    status TEXT,
-    start_at CHAR(19) NOT NULL,
-    start_tz CHAR(32) NOT NULL,
-    end_at CHAR(19) NOT NULL,
-    end_tz CHAR(32) NOT NULL
-);
-        ",
-        )
-        .execute(pool)
-        .await?;
-
-        sqlx::query(
-            "
-CREATE UNIQUE INDEX idx_events_uid ON events (uid);
-        ",
-        )
-        .execute(pool)
-        .await?;
-
-        Ok(())
-    }
-
-    pub async fn insert(&self, pool: &SqlitePool) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "
-INSERT INTO events (path, uid, summary, description, status, start_at, start_tz, end_at, end_tz)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-        ",
-        )
-        .bind(&self.path)
-        .bind(&self.uid)
-        .bind(&self.summary)
-        .bind(&self.description)
-        .bind(&self.status)
-        .bind(&self.start_at)
-        .bind(&self.start_tz)
-        .bind(&self.end_at)
-        .bind(&self.end_tz)
-        .execute(pool)
-        .await?;
-
-        Ok(())
-    }
-
-    pub async fn list(
-        pool: &SqlitePool,
-        _conds: &EventConditions,
-        pager: &Pager,
-    ) -> Result<Vec<EventRecord>, sqlx::Error> {
-        sqlx::query_as("SELECT * FROM events ORDER BY id LIMIT ? OFFSET ?")
-            .bind(pager.limit)
-            .bind(pager.offset)
-            .fetch_all(pool)
-            .await
-    }
-
-    pub async fn count(pool: &SqlitePool, _conds: &EventConditions) -> Result<i64, sqlx::Error> {
-        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM events")
-            .fetch_one(pool)
-            .await?;
-        Ok(row.0)
     }
 }
 
