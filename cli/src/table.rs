@@ -10,6 +10,7 @@ use std::{
 };
 use unicode_width::UnicodeWidthStr;
 
+#[derive(Debug)]
 pub struct Table<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> {
     columns: &'a [C],
     data: &'a [T],

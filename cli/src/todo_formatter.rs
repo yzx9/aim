@@ -47,6 +47,7 @@ impl TodoFormatter {
     }
 }
 
+#[derive(Debug)]
 pub struct Display<'a, T: Todo> {
     todos: &'a [TodoWithShortId<T>],
     formatter: &'a TodoFormatter,

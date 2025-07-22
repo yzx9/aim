@@ -187,7 +187,7 @@ WHERE uid = ?;
     }
 }
 
-#[derive(sqlx::FromRow, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TodoRecord {
     path: String,
     uid: String,

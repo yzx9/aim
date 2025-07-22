@@ -18,6 +18,7 @@ struct ConfigRaw {
     state_dir: Option<PathBuf>,
 }
 
+#[derive(Debug)]
 pub struct Config {
     pub core: CoreConfig,
     pub state_dir: Option<PathBuf>,

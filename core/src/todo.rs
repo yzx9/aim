@@ -174,6 +174,7 @@ pub enum TodoSortKey {
     Priority,
 }
 
+#[derive(Debug)]
 pub struct TodoSort {
     pub key: TodoSortKey,
     pub order: SortOrder,

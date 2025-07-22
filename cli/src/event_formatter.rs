@@ -44,6 +44,7 @@ impl EventFormatter {
     }
 }
 
+#[derive(Debug)]
 pub struct Display<'a, E: Event> {
     events: &'a [EventWithShortId<E>],
     formatter: &'a EventFormatter,

@@ -92,7 +92,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     }
 }
 
-#[derive(sqlx::FromRow, Clone)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct EventRecord {
     #[allow(dead_code)]
     id: i64,

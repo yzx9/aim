@@ -16,12 +16,12 @@ use std::{
 /// A thread-safe structure for mapping UIDs to display numbers.
 ///
 /// If a UID is not found, a new display number (1, 2, 3, ...) is allocated.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ShortIdMap {
     inner: Arc<RwLock<Inner>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Inner {
     map: HashMap<String, i64>,
     next: i64,
