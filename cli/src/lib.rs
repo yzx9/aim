@@ -2,6 +2,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#![warn(
+    trivial_casts,
+    trivial_numeric_casts,
+    unsafe_code,
+    unstable_features,
+    unused_import_braces,
+    unused_qualifications,
+    missing_debug_implementations,
+    clippy::indexing_slicing,
+    clippy::dbg_macro,
+    clippy::doc_markdown,
+    clippy::redundant_closure_for_method_calls
+)]
+
 mod cli;
 mod command;
 mod config;

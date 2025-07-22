@@ -77,7 +77,7 @@ pub enum EventColumn {
 }
 
 impl<E: Event> TableColumn<EventWithShortId<E>> for EventColumn {
-    fn name(&self) -> std::borrow::Cow<'_, str> {
+    fn name(&self) -> Cow<'_, str> {
         match self {
             EventColumn::ShortId(_) => "Display Number",
             EventColumn::Summary(_) => "Summary",

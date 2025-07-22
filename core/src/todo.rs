@@ -155,7 +155,7 @@ impl From<&icalendar::TodoStatus> for TodoStatus {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct TodoConditions {
     pub now: NaiveDateTime,
     pub status: Option<TodoStatus>,
@@ -174,7 +174,7 @@ pub enum TodoSortKey {
     Priority,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct TodoSort {
     pub key: TodoSortKey,
     pub order: SortOrder,

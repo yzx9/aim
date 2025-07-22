@@ -73,7 +73,7 @@ pub enum Commands {
     Undo(TodoEditArgs),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct OutputArgs {
     pub output_format: OutputFormat,
 }

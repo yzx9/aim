@@ -123,7 +123,7 @@ impl EventRecord {
             path,
             uid,
             summary: event.get_summary().unwrap_or("").to_string(),
-            description: event.get_description().map(|s| s.to_string()),
+            description: event.get_description().map(ToString::to_string),
             start_at,
             start_tz,
             end_at,

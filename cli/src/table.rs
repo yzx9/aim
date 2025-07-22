@@ -270,15 +270,14 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
 
 /// Computes the maximum display width for each column in a 2D table of strings.
 fn get_column_max_width(table: &[Vec<Cow<'_, str>>]) -> Vec<usize> {
-    if table.is_empty() {
-        return vec![];
-    }
-    let mut max_width = vec![0; table[0].len()];
+    let mut max_width = vec![0; table.first().map(Vec::len).unwrap_or(0)];
     for row in table {
         for (i, cell) in row.iter().enumerate() {
             let width = cell.width();
-            if width > max_width[i] {
-                max_width[i] = width;
+            if let Some(max_width) = max_width.get_mut(i) {
+                if width > *max_width {
+                    *max_width = width;
+                }
             }
         }
     }
@@ -584,8 +583,8 @@ Charlie 35 Yes\
         let table = vec![row];
 
         let widths = get_column_max_width(&table);
-        assert_eq!(widths[0], 3); // "foo"
-        assert_eq!(widths[1], 14); // "long long long"
+        assert_eq!(widths.first(), Some(&3)); // "foo"
+        assert_eq!(widths.get(1), Some(&14)); // "long long long"
     }
 
     #[test]
@@ -597,7 +596,7 @@ Charlie 35 Yes\
         ];
 
         let widths = get_column_max_width(&table);
-        assert_eq!(widths[0], 16); // "very long string"
-        assert_eq!(widths[1], 6); // "medium"
+        assert_eq!(widths.first(), Some(&16)); // "very long string"
+        assert_eq!(widths.get(1), Some(&6)); // "medium"
     }
 }

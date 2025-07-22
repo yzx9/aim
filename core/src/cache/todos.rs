@@ -204,7 +204,7 @@ pub struct TodoRecord {
 impl TodoRecord {
     pub fn from(path: String, todo: icalendar::Todo) -> Result<Self, Box<dyn std::error::Error>> {
         let uid = todo.get_uid().ok_or("Todo must have a UID")?.to_string();
-        let (due_at, due_tz) = to_dt_tz(todo.get_due().map(|a| a.into()));
+        let (due_at, due_tz) = to_dt_tz(todo.get_due().map(Into::into));
         Ok(Self {
             path,
             uid,

@@ -19,7 +19,7 @@ pub struct Aim {
 }
 
 impl Aim {
-    pub async fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(config: &Config) -> Result<Self, Box<dyn Error>> {
         let cache = SqliteCache::open()
             .await
             .map_err(|e| format!("Failed to initialize cache: {e}"))?;
@@ -89,11 +89,8 @@ impl Aim {
         self.cache.todos.count(conds).await
     }
 
-    async fn add_calendar(
-        &self,
-        calendar_path: &PathBuf,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut reader = tokio::fs::read_dir(calendar_path)
+    async fn add_calendar(&self, calendar_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+        let mut reader = fs::read_dir(calendar_path)
             .await
             .map_err(|e| format!("Failed to read directory: {e}"))?;
 
@@ -124,7 +121,7 @@ impl Aim {
         Ok(())
     }
 
-    async fn add_ics(self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    async fn add_ics(self, path: &Path) -> Result<(), Box<dyn Error>> {
         log::debug!("Parsing file: {}", path.display());
         let calendar = read_calendar_file(path).await?;
         log::debug!(
@@ -151,7 +148,7 @@ pub struct Config {
     pub calendar_path: PathBuf,
 }
 
-async fn read_calendar_file(path: &Path) -> Result<Calendar, Box<dyn std::error::Error>> {
+async fn read_calendar_file(path: &Path) -> Result<Calendar, Box<dyn Error>> {
     fs::read_to_string(path)
         .await
         .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?

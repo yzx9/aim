@@ -15,6 +15,7 @@ pub trait Event {
     fn status(&self) -> Option<&str>;
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum EventStatus {
     Tentative,
     Confirmed,
@@ -74,7 +75,7 @@ impl From<icalendar::EventStatus> for EventStatus {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct EventConditions {
     pub now: NaiveDateTime,
 }
