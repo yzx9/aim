@@ -201,7 +201,6 @@ fn get_uid(map: &ShortIdMap, uid_or_short_id: &str) -> String {
 
 fn print_todo(map: &ShortIdMap, todo: impl Todo) {
     let todo = TodoWithShortId::with(map, todo);
-    let formatter =
-        TodoFormatter::new(Local::now().naive_local()).with_output_format(OutputFormat::Json);
-    println!("{}", formatter.format(&vec![todo]));
+    let formatter = TodoFormatter::new(Local::now().naive_local());
+    println!("{}", formatter.format(&[todo]));
 }

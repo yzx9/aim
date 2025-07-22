@@ -119,7 +119,7 @@ impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for TodoColumnMeta<'a> {
         }
     }
 
-    fn padding_direction(&self, _data: &TodoWithShortId<T>) -> PaddingDirection {
+    fn padding_direction(&self) -> PaddingDirection {
         match &self.column {
             TodoColumn::DisplayNumber(_) | TodoColumn::Priority(_) | TodoColumn::Uid(_) => {
                 PaddingDirection::Right

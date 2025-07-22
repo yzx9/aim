@@ -95,7 +95,7 @@ impl<E: Event> TableColumn<EventWithShortId<E>> for EventColumn {
         }
     }
 
-    fn padding_direction(&self, _data: &EventWithShortId<E>) -> PaddingDirection {
+    fn padding_direction(&self) -> PaddingDirection {
         match self {
             EventColumn::ShortId(_) | EventColumn::Uid(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,

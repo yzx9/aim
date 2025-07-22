@@ -34,7 +34,7 @@ impl<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> Display for Table<'a, T,
             .map(|data| self.columns.iter().map(|col| col.format(data)).collect())
             .collect::<Vec<_>>();
 
-        let columns = self.style.build(self.columns, self.data, &table);
+        let columns = self.style.build(self.columns, &table);
 
         write!(f, "{}", self.style.table_starting(&columns))?;
         for (i, (cells, data)) in table.into_iter().zip(self.data).enumerate() {
@@ -60,12 +60,7 @@ impl<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> Display for Table<'a, T,
 pub trait TableStyle<'a, T, C: TableColumn<T>> {
     type ColumnMeta;
 
-    fn build<'b>(
-        &self,
-        columns: &'a [C],
-        data: &'a [T],
-        table: &'b [Vec<Cow<'a, str>>],
-    ) -> Vec<Self::ColumnMeta>;
+    fn build<'b>(&self, columns: &'a [C], table: &'b [Vec<Cow<'a, str>>]) -> Vec<Self::ColumnMeta>;
 
     fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
@@ -96,13 +91,17 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
 }
 
 pub trait TableColumn<T> {
+    /// Get the name of the column.
     fn name(&self) -> Cow<'_, str>;
+
     /// Format the data for the column.
     fn format<'a>(&self, data: &'a T) -> Cow<'a, str>;
+
     /// Determine the padding direction for the column.
-    fn padding_direction(&self, _data: &T) -> PaddingDirection {
+    fn padding_direction(&self) -> PaddingDirection {
         PaddingDirection::Left
     }
+
     /// Get the color for the column based on the data.
     fn get_color(&self, _data: &T) -> Option<Color> {
         None
@@ -116,8 +115,8 @@ impl<T, C: TableColumn<T> + ?Sized> TableColumn<T> for Box<C> {
     fn format<'a>(&self, data: &'a T) -> Cow<'a, str> {
         self.as_ref().format(data)
     }
-    fn padding_direction(&self, data: &T) -> PaddingDirection {
-        self.as_ref().padding_direction(data)
+    fn padding_direction(&self) -> PaddingDirection {
+        self.as_ref().padding_direction()
     }
     fn get_color(&self, data: &T) -> Option<Color> {
         self.as_ref().get_color(data)
@@ -141,23 +140,21 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleBasic {
     fn build<'b>(
         &self,
         columns: &'a [C],
-        data: &'a [T],
         table: &'b [Vec<Cow<'a, str>>],
     ) -> Vec<TodoColumnBasicMeta<'a, T, C>> {
         let max_lengths = self.padding.then(|| get_column_max_width(table));
         columns
             .iter()
-            .zip(data)
             .enumerate()
-            .map(|(i, (col, data))| {
-                let padding_direction = col.padding_direction(data);
+            .map(|(i, col)| {
+                let padding_direction = col.padding_direction();
 
-                let padding = if max_lengths.is_none()
-                    || (i == columns.len() - 1 && padding_direction == PaddingDirection::Left)
-                {
-                    None // Last column does not need padding if it's left-aligned
-                } else {
-                    Some((max_lengths.as_ref().map_or(0, |m| m[i]), padding_direction))
+                let padding = match &max_lengths {
+                    Some(lengths)
+                        // Last column does not need padding if it's left-aligned
+                        if !(i == columns.len() - 1 && padding_direction == PaddingDirection::Left) =>
+                            Some((*lengths.get(i).unwrap_or(&0), padding_direction)),
+                    _ => None,
                 };
 
                 TodoColumnBasicMeta::new(col, padding)
@@ -229,7 +226,6 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
     fn build<'b>(
         &self,
         columns: &'a [C],
-        _data: &'a [T],
         _table: &'b [Vec<Cow<'a, str>>],
     ) -> Vec<Self::ColumnMeta> {
         columns.iter().map(|col| col.name()).collect()
@@ -329,7 +325,7 @@ mod tests {
         fn format<'a>(&self, data: &'a TestData) -> Cow<'a, str> {
             data.age.to_string().into()
         }
-        fn padding_direction(&self, _data: &TestData) -> PaddingDirection {
+        fn padding_direction(&self) -> PaddingDirection {
             PaddingDirection::Right
         }
     }
@@ -376,9 +372,6 @@ mod tests {
 
     #[test]
     fn test_table_style_basic_nocolor() {
-        let _guard = colored_control().lock().unwrap();
-        colored::control::set_override(false);
-
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -388,21 +381,24 @@ mod tests {
         let style = TableStyleBasic::new();
         let table = Table::new(style, &columns, &data);
 
+        let result = {
+            let _guard = colored_control().lock().unwrap();
+            colored::control::set_override(false);
+            table.to_string()
+        };
+
         assert_eq!(
-            table.to_string(),
+            result,
             "\
 Alice   30 Yes
 Bob     25 No
 Charlie 35 Yes\
-",
+            ",
         );
     }
 
     #[test]
     fn test_table_style_basic_colorful() {
-        let _guard = colored_control().lock().unwrap();
-        colored::control::set_override(true);
-
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -412,8 +408,14 @@ Charlie 35 Yes\
         let style = TableStyleBasic::new();
         let table = Table::new(style, &columns, &data);
 
+        let result = {
+            let _guard = colored_control().lock().unwrap();
+            colored::control::set_override(true);
+            table.to_string()
+        };
+
         assert_eq!(
-            table.to_string(),
+            result,
             "\
 \u{1b}[32mAlice  \u{1b}[0m 30 Yes
 Bob     25 \u{1b}[31mNo\u{1b}[0m
@@ -424,9 +426,6 @@ Bob     25 \u{1b}[31mNo\u{1b}[0m
 
     #[test]
     fn test_table_style_basic_no_padding() {
-        let _guard = colored_control().lock().unwrap();
-        colored::control::set_override(false);
-
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -437,15 +436,42 @@ Bob     25 \u{1b}[31mNo\u{1b}[0m
         style.padding = false;
         let table = Table::new(style, &columns, &data);
 
+        let result = {
+            let _guard = colored_control().lock().unwrap();
+            colored::control::set_override(false);
+            table.to_string()
+        };
+
         // Without padding, the output should be more compact
         assert_eq!(
-            table.to_string(),
+            result,
             "\
 Alice 30 Yes
 Bob 25 No
 Charlie 35 Yes\
 ",
         );
+    }
+
+    #[test]
+    fn test_table_style_basic_empty() {
+        let data: Vec<TestData> = vec![];
+        let columns: Vec<DynColumn> = vec![
+            Box::new(NameColumn),
+            Box::new(AgeColumn),
+            Box::new(ActiveColumn),
+        ];
+        let style = TableStyleBasic::new();
+        let table = Table::new(style, &columns, &data);
+
+        let result = {
+            let _guard = colored_control().lock().unwrap();
+            colored::control::set_override(false);
+            table.to_string()
+        };
+
+        // Empty table should produce minimal output
+        assert_eq!(result, "");
     }
 
     #[test]
@@ -472,35 +498,38 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_empty_table() {
+    fn test_table_style_json_empty() {
         let data: Vec<TestData> = vec![];
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
             Box::new(AgeColumn),
             Box::new(ActiveColumn),
         ];
-        let style = TableStyleBasic::new();
+        let style = TableStyleJson::new();
         let table = Table::new(style, &columns, &data);
 
         // Empty table should produce minimal output
-        assert_eq!(table.to_string(), "");
+        assert_eq!(table.to_string(), "[]");
     }
 
     #[test]
     fn test_single_row_table() {
-        let _guard = colored_control().lock().unwrap();
-        colored::control::set_override(false);
-
         let data = vec![TestData {
             name: "Single".to_string(),
             age: 42,
             active: true,
         }];
-        let columns = vec![NameColumn];
+        let columns = vec![NameColumn, NameColumn];
         let style = TableStyleBasic::new();
         let table = Table::new(style, &columns, &data);
 
-        assert_eq!(table.to_string(), "Single");
+        let result = {
+            let _guard = colored_control().lock().unwrap();
+            colored::control::set_override(false);
+            table.to_string()
+        };
+
+        assert_eq!(result, "Single Single");
     }
 
     #[test]
@@ -543,7 +572,23 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_get_column_max_width() {
+    fn test_get_column_max_width_empty() {
+        let widths = get_column_max_width(&[]);
+        assert_eq!(widths.len(), 0);
+    }
+
+    #[test]
+    fn test_get_column_max_width_single_row() {
+        let row = vec!["foo".into(), "long long long".into()];
+        let table = vec![row];
+
+        let widths = get_column_max_width(&table);
+        assert_eq!(widths[0], 3); // "foo"
+        assert_eq!(widths[1], 14); // "long long long"
+    }
+
+    #[test]
+    fn test_get_column_max_width_multi_rows() {
         let table = vec![
             vec!["short".into(), "medium".into()],
             vec!["very long string".into(), "x".into()],
