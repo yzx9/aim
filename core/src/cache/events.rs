@@ -47,14 +47,6 @@ CREATE TABLE events (
         .execute(pool)
         .await?;
 
-        sqlx::query(
-            "
-CREATE UNIQUE INDEX idx_events_uid ON events (uid);
-        ",
-        )
-        .execute(pool)
-        .await?;
-
         Ok(())
     }
 
@@ -100,7 +92,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     }
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Clone)]
 pub struct EventRecord {
     #[allow(dead_code)]
     id: i64,

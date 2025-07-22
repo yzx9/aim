@@ -3,8 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{DatePerhapsTime, Priority, SortOrder};
-use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime};
+use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime, Utc};
+use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
+
+const KEY_COMPLETED: &str = "COMPLETED";
+const KEY_DESCRIPTION: &str = "DESCRIPTION";
+const KEY_DUE: &str = "DUE";
 
 pub trait Todo {
     fn uid(&self) -> &str;
@@ -17,6 +22,71 @@ pub trait Todo {
     fn priority(&self) -> Priority;
     fn status(&self) -> Option<TodoStatus>;
     fn summary(&self) -> &str;
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct TodoPatch {
+    pub uid: String,
+    pub completed: Option<Option<DateTime<FixedOffset>>>,
+    pub description: Option<Option<String>>,
+    pub due: Option<Option<DatePerhapsTime>>,
+    pub percent: Option<Option<u8>>,
+    pub priority: Option<Priority>,
+    pub status: Option<TodoStatus>,
+    pub summary: Option<String>,
+}
+
+impl TodoPatch {
+    pub fn is_empty(&self) -> bool {
+        self.completed.is_none()
+            && self.description.is_none()
+            && self.due.is_none()
+            && self.percent.is_none()
+            && self.priority.is_none()
+            && self.status.is_none()
+            && self.summary.is_none()
+    }
+
+    pub fn apply_to<'a>(&self, t: &'a mut icalendar::Todo) -> &'a mut icalendar::Todo {
+        if let Some(completed) = self.completed {
+            match completed {
+                Some(dt) => t.completed(dt.with_timezone(&Utc)),
+                None => t.remove_property(KEY_COMPLETED),
+            };
+        }
+
+        if let Some(description) = &self.description {
+            match description {
+                Some(desc) => t.description(desc),
+                None => t.remove_property(KEY_DESCRIPTION),
+            };
+        }
+
+        if let Some(due) = &self.due {
+            match due {
+                Some(d) => t.due(*d),
+                None => t.remove_property(KEY_DUE),
+            };
+        }
+
+        if let Some(percent) = self.percent {
+            t.percent_complete(percent.unwrap_or(0));
+        }
+
+        if let Some(priority) = self.priority {
+            t.priority(priority.into());
+        }
+
+        if let Some(status) = self.status {
+            t.status(status.into());
+        }
+
+        if let Some(summary) = &self.summary {
+            t.summary(summary);
+        }
+
+        t
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -5,7 +5,7 @@
 use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 use chrono_tz::Tz;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct DatePerhapsTime {
     pub date: NaiveDate,
     pub time: Option<NaiveTime>,
@@ -112,6 +112,21 @@ impl From<icalendar::DatePerhapsTime> for DatePerhapsTime {
     }
 }
 
+impl From<DatePerhapsTime> for icalendar::DatePerhapsTime {
+    fn from(date: DatePerhapsTime) -> Self {
+        match date.time {
+            Some(t) => icalendar::DatePerhapsTime::DateTime(match date.tz {
+                Some(tz) => icalendar::CalendarDateTime::WithTimezone {
+                    date_time: NaiveDateTime::new(date.date, t),
+                    tzid: tz.name().to_string(),
+                },
+                None => icalendar::CalendarDateTime::Floating(NaiveDateTime::new(date.date, t)),
+            }),
+            None => icalendar::DatePerhapsTime::Date(date.date),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum SortOrder {
     Asc,
@@ -164,5 +179,28 @@ impl From<u32> for Priority {
 impl From<u8> for Priority {
     fn from(value: u8) -> Self {
         (value as u32).into()
+    }
+}
+
+impl From<Priority> for u8 {
+    fn from(value: Priority) -> Self {
+        match value {
+            Priority::P1 => 1,
+            Priority::P2 => 2,
+            Priority::P3 => 3,
+            Priority::P4 => 4,
+            Priority::P5 => 5,
+            Priority::P6 => 6,
+            Priority::P7 => 7,
+            Priority::P8 => 8,
+            Priority::P9 => 9,
+            Priority::None => 0,
+        }
+    }
+}
+
+impl From<Priority> for u32 {
+    fn from(value: Priority) -> Self {
+        Into::<u8>::into(value).into()
     }
 }

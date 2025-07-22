@@ -30,6 +30,18 @@ impl Cli {
             Some(("todos", matches)) => Commands::Todos(ListArgs {
                 output_format: output_format(matches),
             }),
+            Some(("done", matches)) => Commands::Done {
+                uid_or_short_id: matches
+                    .get_one::<String>("id")
+                    .expect("id is required")
+                    .clone(),
+            },
+            Some(("undo", matches)) => Commands::Undo {
+                uid_or_short_id: matches
+                    .get_one::<String>("id")
+                    .expect("id is required")
+                    .clone(),
+            },
             Some(("generate-completion", matches)) => match matches.get_one::<Shell>("shell") {
                 Some(shell) => {
                     shell.generate_completion();
@@ -51,6 +63,8 @@ pub enum Commands {
     Dashboard,
     Events(ListArgs),
     Todos(ListArgs),
+    Done { uid_or_short_id: String },
+    Undo { uid_or_short_id: String },
 }
 
 #[derive(Debug, Clone)]
@@ -90,6 +104,16 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             Command::new("todos")
                 .about("List todos")
                 .arg(output_format()),
+        )
+        .subcommand(
+            Command::new("done")
+                .about("Mark a todo as done")
+                .arg(arg!(<id> "The short id or uid of the todo to mark as done")),
+        )
+        .subcommand(
+            Command::new("undo")
+                .about("Mark a todo as undone")
+                .arg(arg!(<id> "The short id or uid of the todo to mark as done")),
         )
         .subcommand(
             Command::new("generate-completion")

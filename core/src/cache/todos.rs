@@ -4,7 +4,7 @@
 
 use crate::{
     DatePerhapsTime, Pager, Priority, SortOrder, Todo, TodoConditions, TodoSort, TodoSortKey,
-    TodoStatus,
+    TodoStatus, todo::TodoPatch,
 };
 use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, Utc};
 use icalendar::Component;
@@ -35,27 +35,18 @@ impl Todos {
         sqlx::query(
             "
 CREATE TABLE todos (
-    id INTEGER PRIMARY KEY,
-    path TEXT NOT NULL,
-    uid TEXT NOT NULL UNIQUE,
-    completed CHAR(25) NOT NULL,
+    uid         TEXT PRIMARY KEY,
+    path        TEXT NOT NULL,
+    completed   TEXT NOT NULL,
     description TEXT NOT NULL,
-    percent INTEGER,
-    priority INTEGER NOT NULL,
-    status CHAR(12) NOT NULL,
-    summary TEXT NOT NULL,
-    due_at CHAR(19) NOT NULL,
-    due_tz CHAR(32) NOT NULL
+    percent     INTEGER,
+    priority    INTEGER NOT NULL,
+    status      TEXT NOT NULL,
+    summary     TEXT NOT NULL,
+    due_at      TEXT NOT NULL,
+    due_tz      TEXT NOT NULL
 );
         ",
-        )
-        .execute(pool)
-        .await?;
-
-        sqlx::query(
-            "
-CREATE UNIQUE INDEX idx_todos_uid ON todos (uid);
-            ",
         )
         .execute(pool)
         .await?;
@@ -63,15 +54,25 @@ CREATE UNIQUE INDEX idx_todos_uid ON todos (uid);
         Ok(())
     }
 
-    pub async fn insert(&self, todo: TodoRecord) -> Result<(), sqlx::Error> {
+    pub async fn upsert(&self, todo: &TodoRecord) -> Result<(), sqlx::Error> {
         sqlx::query(
             "
-INSERT INTO todos (path, uid, completed, description, percent, priority, status, summary, due_at, due_tz)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-        ",
+INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due_at, due_tz)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(uid) DO UPDATE SET
+    path = excluded.path,
+    completed = excluded.completed,
+    description = excluded.description,
+    percent = excluded.percent,
+    priority = excluded.priority,
+    status = excluded.status,
+    summary = excluded.summary,
+    due_at = excluded.due_at,
+    due_tz = excluded.due_tz;
+            ",
         )
-        .bind(&todo.path)
         .bind(&todo.uid)
+        .bind(&todo.path)
         .bind(&todo.completed)
         .bind(&todo.description)
         .bind(todo.percent)
@@ -84,6 +85,21 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         .await?;
 
         Ok(())
+    }
+
+    pub async fn get(&self, uid: &str) -> Result<Option<TodoRecord>, sqlx::Error> {
+        let todo: Option<TodoRecord> = sqlx::query_as(
+            "
+SELECT uid, path, completed, description, percent, priority, status, summary, due_at, due_tz
+FROM todos
+WHERE uid = ?;
+            ",
+        )
+        .bind(uid)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(todo)
     }
 
     pub async fn list(
@@ -171,10 +187,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     }
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Clone)]
 pub struct TodoRecord {
-    #[allow(dead_code)]
-    id: i64,
     path: String,
     uid: String,
     completed: String,
@@ -190,9 +204,8 @@ pub struct TodoRecord {
 impl TodoRecord {
     pub fn from(path: String, todo: icalendar::Todo) -> Result<Self, Box<dyn std::error::Error>> {
         let uid = todo.get_uid().ok_or("Todo must have a UID")?.to_string();
-        let (due_at, due_tz) = to_dt_tz(todo.get_due());
+        let (due_at, due_tz) = to_dt_tz(todo.get_due().map(|a| a.into()));
         Ok(Self {
-            id: 0, // Placeholder, will be set by the database
             path,
             uid,
             summary: todo.get_summary().unwrap_or("").to_string(),
@@ -208,12 +221,48 @@ impl TodoRecord {
             status: todo
                 .get_status()
                 .as_ref()
-                .map(|s| {
-                    let s: TodoStatus = s.into();
-                    s.to_string()
-                })
+                .map(|s| TodoStatus::from(s).to_string())
                 .unwrap_or("".to_string()),
         })
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn apply(&mut self, patch: TodoPatch) {
+        if let Some(completed) = patch.completed {
+            self.completed = match completed {
+                Some(dt) => format_dt(dt.with_timezone(&Utc)),
+                None => "".to_string(),
+            };
+        }
+
+        if let Some(description) = patch.description {
+            self.description = description.unwrap_or("".to_string());
+        }
+
+        if let Some(due) = patch.due {
+            let (due_at, due_tz) = to_dt_tz(due);
+            self.due_at = due_at;
+            self.due_tz = due_tz;
+        }
+
+        if let Some(percent) = patch.percent {
+            self.percent = percent;
+        }
+
+        if let Some(priority) = patch.priority {
+            self.priority = priority.into();
+        }
+
+        if let Some(status) = patch.status {
+            self.status = status.to_string();
+        }
+
+        if let Some(summary) = patch.summary {
+            self.summary = summary.clone();
+        }
     }
 }
 
@@ -264,9 +313,9 @@ fn format_dt(dt: DateTime<Utc>) -> String {
     dt.with_timezone(&Local).format(DATETIME_FORMAT).to_string()
 }
 
-fn to_dt_tz(dt: Option<icalendar::DatePerhapsTime>) -> (String, String) {
+fn to_dt_tz(dt: Option<DatePerhapsTime>) -> (String, String) {
     match dt {
-        Some(dt) => DatePerhapsTime::to_dt_tz(&dt.into(), DATE_FORMAT, DATETIME_FORMAT),
+        Some(dt) => DatePerhapsTime::to_dt_tz(&dt, DATE_FORMAT, DATETIME_FORMAT),
         None => ("".to_string(), "".to_string()),
     }
 }

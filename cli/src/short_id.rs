@@ -113,11 +113,22 @@ impl<'a> ShortIdMap {
         id
     }
 
+    pub fn find(&self, short_id: i64) -> Option<String> {
+        // TODO: prefer using a more efficient data structure if performance becomes an issue
+        self.inner
+            .read()
+            .unwrap()
+            .map
+            .iter()
+            .find_map(|(uid, &id)| (id == short_id).then_some(uid.clone()))
+    }
+
     fn get_map_path(config: &Config) -> Option<PathBuf> {
         config.state_dir.as_ref().map(|a| a.join("short_id.json"))
     }
 }
 
+#[derive(Debug)]
 pub struct EventWithShortId<E: Event> {
     pub inner: E,
     pub short_id: i64,
@@ -133,6 +144,7 @@ impl<E: Event> EventWithShortId<E> {
     }
 }
 
+#[derive(Debug)]
 pub struct TodoWithShortId<T: Todo> {
     pub inner: T,
     pub short_id: i64,

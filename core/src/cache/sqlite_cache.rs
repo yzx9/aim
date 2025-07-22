@@ -6,7 +6,6 @@ use super::{
     events::{EventRecord, Events},
     todos::{TodoRecord, Todos},
 };
-use icalendar::{Calendar, CalendarComponent};
 use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 
@@ -29,37 +28,29 @@ impl SqliteCache {
         Ok(SqliteCache { events, todos })
     }
 
-    pub async fn add_ics(self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        log::debug!("Parsing file: {}", path.display());
-
-        let content = tokio::fs::read_to_string(path)
-            .await
-            .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?;
-
-        let calendar: Calendar = content.parse()?;
-        log::debug!(
-            "Found {} components in {}.",
-            calendar.components.len(),
-            path.display()
-        );
-
+    pub async fn upsert_event(
+        &self,
+        path: &Path,
+        event: icalendar::Event,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
-        for component in calendar.components {
-            log::debug!("Processing component: {component:?}");
-            match component {
-                CalendarComponent::Event(event) => {
-                    let record = EventRecord::from(path.clone(), event)?;
-                    self.events.insert(record).await?
-                }
+        let record = EventRecord::from(path.clone(), event)?;
+        self.events
+            .insert(record)
+            .await
+            .map_err(|e| format!("Failed to insert event into cache: {e}").into())
+    }
 
-                CalendarComponent::Todo(todo) => {
-                    let record = TodoRecord::from(path.clone(), todo)?;
-                    self.todos.insert(record).await?
-                }
-                _ => log::warn!("Ignoring unsupported component type: {component:?}"),
-            }
-        }
-
-        Ok(())
+    pub async fn upsert_todo(
+        &self,
+        path: &Path,
+        todo: icalendar::Todo,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
+        let record = TodoRecord::from(path.clone(), todo)?;
+        self.todos
+            .upsert(&record)
+            .await
+            .map_err(|e| format!("Failed to insert todo into cache: {e}").into())
     }
 }
