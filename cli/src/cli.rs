@@ -7,6 +7,7 @@ use clap::{Arg, Command, ValueEnum, ValueHint, arg, crate_version, value_parser}
 use clap_complete::generate;
 use std::{io, path::PathBuf, process};
 
+#[derive(Debug)]
 pub struct Cli {
     pub config: Option<PathBuf>,
     pub command: Commands,
