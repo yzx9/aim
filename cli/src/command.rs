@@ -16,6 +16,7 @@ use chrono::{Duration, Local, Utc};
 use colored::Colorize;
 use std::{error::Error, path::PathBuf};
 
+/// Show the dashboard with events and todos.
 pub async fn command_dashboard(config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     log::debug!("Parsing configuration...");
     let config = Config::parse(config).await?;
@@ -48,6 +49,7 @@ pub async fn command_dashboard(config: Option<PathBuf>) -> Result<(), Box<dyn Er
     Ok(())
 }
 
+/// List all events.
 pub async fn command_events(
     config: Option<PathBuf>,
     args: &OutputArgs,
@@ -66,6 +68,7 @@ pub async fn command_events(
     Ok(())
 }
 
+/// List all todos.
 pub async fn command_todos(
     config: Option<PathBuf>,
     args: &OutputArgs,
@@ -88,6 +91,7 @@ pub async fn command_todos(
     Ok(())
 }
 
+/// Mark a todo as done.
 pub async fn command_done(
     config: Option<PathBuf>,
     args: &TodoEditArgs,
@@ -101,6 +105,7 @@ pub async fn command_done(
     edit_todo(config, args, patch).await
 }
 
+/// Mark a todo as undone.
 pub async fn command_undo(
     config: Option<PathBuf>,
     args: &TodoEditArgs,
@@ -114,6 +119,7 @@ pub async fn command_undo(
     edit_todo(config, args, patch).await
 }
 
+/// List events with the given conditions and output format.
 async fn list_events(
     aim: &Aim,
     map: &ShortIdMap,
@@ -140,6 +146,7 @@ async fn list_events(
     Ok(())
 }
 
+/// List todos with the given conditions and output format.
 async fn list_todos(
     aim: &Aim,
     map: &ShortIdMap,

@@ -5,14 +5,21 @@
 use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 use chrono_tz::Tz;
 
+/// Represents a date that may or may not include a time component, along with an optional timezone.
 #[derive(Debug, Clone, Copy)]
 pub struct DatePerhapsTime {
+    /// The date component.
     pub date: NaiveDate,
+
+    /// The optional time component.
     pub time: Option<NaiveTime>,
+
+    /// The optional timezone.
     pub tz: Option<Tz>,
 }
 
 impl DatePerhapsTime {
+    /// Creates a new `DatePerhapsTime` instance with the given date, optional time, and optional timezone.
     pub fn format(&self) -> String {
         if let Some(time) = self.time {
             format!("{} {}", self.date.format("%Y-%m-%d"), time.format("%H:%M"))
@@ -21,6 +28,7 @@ impl DatePerhapsTime {
         }
     }
 
+    /// Converts the `DatePerhapsTime` to a string representation of date and timezone.
     pub fn to_dt_tz(&self, date_format: &str, datetime_format: &str) -> (String, String) {
         let t = if let Some(t) = self.time {
             let dt = NaiveDateTime::new(self.date, t);
@@ -31,6 +39,7 @@ impl DatePerhapsTime {
         (t, self.tz.map_or("", |tz| tz.name()).to_string())
     }
 
+    /// Parses a date or datetime string with an optional timezone into a `DatePerhapsTime`.
     pub fn from_dt_tz(
         dt: &str,
         tz: &str,
@@ -127,15 +136,23 @@ impl From<DatePerhapsTime> for icalendar::DatePerhapsTime {
     }
 }
 
+/// Sort order, either ascending or descending.
 #[derive(Debug, Clone, Copy)]
 pub enum SortOrder {
+    /// Ascending order.
     Asc,
+
+    /// Descending order.
     Desc,
 }
 
+/// Pagination with a limit and an offset.
 #[derive(Debug, Clone, Copy)]
 pub struct Pager {
+    /// The maximum number of items to return.
     pub limit: i64,
+
+    /// The number of items to skip before starting to collect the result set.
     pub offset: i64,
 }
 
@@ -145,17 +162,28 @@ impl From<(i64, i64)> for Pager {
     }
 }
 
+/// Priority of a task or item, with values ranging from 1 to 9, and None for no priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Priority {
+    /// Priority 1, highest priority.
     P1,
+    /// Priority 2.
     P2,
+    /// Priority 3.
     P3,
+    /// Priority 4.
     P4,
+    /// Priority 5.
     P5,
+    /// Priority 6.
     P6,
+    /// Priority 7.
     P7,
+    /// Priority 8.
     P8,
+    /// Priority 9, lowest priority.
     P9,
+    /// No priority.
     None,
 }
 

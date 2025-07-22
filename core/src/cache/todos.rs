@@ -27,10 +27,10 @@ impl Todos {
     /// See RFC-5545 Sect. 3.6.2
     ///
     /// ## max lengths
-    /// - completed (25): 2023-10-01T12:00:00+14:00
-    /// - status (12): needs-action
-    /// - due_at (19): 2023-10-01T12:00:00
-    /// - due_tz (32): America/Argentina/ComodRivadavia
+    /// - `completed` (25): 2023-10-01T12:00:00+14:00
+    /// - `status` (12): needs-action
+    /// - `due_at` (19): 2023-10-01T12:00:00
+    /// - `due_tz` (32): America/Argentina/ComodRivadavia
     async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "

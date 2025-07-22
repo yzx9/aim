@@ -7,13 +7,18 @@ use clap::{Arg, Command, ValueEnum, ValueHint, arg, crate_version, value_parser}
 use clap_complete::generate;
 use std::{io, path::PathBuf, process};
 
+/// Command-line interface
 #[derive(Debug)]
 pub struct Cli {
+    /// Path to the configuration file
     pub config: Option<PathBuf>,
+
+    /// The command to execute
     pub command: Commands,
 }
 
 impl Cli {
+    /// Parse the command-line arguments
     pub fn parse() -> Cli {
         let matches = build_cli().get_matches();
 
@@ -64,15 +69,26 @@ impl Cli {
     }
 }
 
+/// The commands available in the CLI
 #[derive(Debug, Clone)]
 pub enum Commands {
+    /// Show the dashboard
     Dashboard,
+
+    /// List events
     Events(OutputArgs),
+
+    /// List todos
     Todos(OutputArgs),
+
+    /// Mark a todo as done
     Done(TodoEditArgs),
+
+    /// Mark a todo as undone
     Undo(TodoEditArgs),
 }
 
+/// Arguments for commands that produce output
 #[derive(Debug, Clone, Copy)]
 pub struct OutputArgs {
     pub output_format: OutputFormat,
@@ -145,6 +161,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
         )
 }
 
+/// The output format for commands
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum OutputFormat {
     Json,

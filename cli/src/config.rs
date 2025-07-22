@@ -18,9 +18,13 @@ struct ConfigRaw {
     state_dir: Option<PathBuf>,
 }
 
+/// Configuration for the Aim application.
 #[derive(Debug)]
 pub struct Config {
+    /// Core configuration for the calendar.
     pub core: CoreConfig,
+
+    /// Directory for storing application state.
     pub state_dir: Option<PathBuf>,
 }
 

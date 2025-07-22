@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//! Command-line interface for the AIM calendar application.
+
 #![warn(
+    missing_docs,
+    missing_copy_implementations,
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,

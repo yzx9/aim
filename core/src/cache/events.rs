@@ -23,10 +23,10 @@ impl Events {
     /// See RFC-5545 Sect. 3.6.1
     ///
     /// ## max lengths
-    /// - completed/due_at (25): 2023-10-01T12:00:00+14:00
-    /// - status (12): needs-action
-    /// - start_at/end_at (19): 2023-10-01T12:00:00
-    /// - start_tz/end_tz (32): America/Argentina/ComodRivadavia
+    /// - `completed`/`due_at` (25): 2023-10-01T12:00:00+14:00
+    /// - `status` (12): needs-action
+    /// - `start_at`/`end_at` (19): 2023-10-01T12:00:00
+    /// - `start_tz`/`end_tz` (32): America/Argentina/ComodRivadavia
     async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "

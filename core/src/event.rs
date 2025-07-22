@@ -6,15 +6,23 @@ use crate::DatePerhapsTime;
 use chrono::NaiveDateTime;
 use std::{fmt::Display, str::FromStr};
 
+/// Trait representing a calendar event.
 pub trait Event {
+    /// Returns the unique identifier for the event.
     fn uid(&self) -> &str;
+    /// Returns the summary of the event.
     fn summary(&self) -> &str;
+    /// Returns the description of the event, if available.
     fn description(&self) -> Option<&str>;
+    /// Returns the location of the event, if available.
     fn start(&self) -> Option<DatePerhapsTime>;
+    /// Returns the start date and time of the event, if available.
     fn end(&self) -> Option<DatePerhapsTime>;
+    /// Returns the status of the event, if available.
     fn status(&self) -> Option<&str>;
 }
 
+/// Represents the status of an event, which can be tentative, confirmed, or cancelled.
 #[derive(Debug, Clone, Copy)]
 pub enum EventStatus {
     Tentative,
@@ -75,7 +83,9 @@ impl From<icalendar::EventStatus> for EventStatus {
     }
 }
 
+/// Represents conditions for filtering events in a calendar.
 #[derive(Debug, Clone, Copy)]
 pub struct EventConditions {
+    /// The current time to filter events.
     pub now: NaiveDateTime,
 }

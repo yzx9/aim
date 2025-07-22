@@ -11,32 +11,56 @@ const KEY_COMPLETED: &str = "COMPLETED";
 const KEY_DESCRIPTION: &str = "DESCRIPTION";
 const KEY_DUE: &str = "DUE";
 
+/// Trait representing a todo item.
 pub trait Todo {
+    /// Returns the unique identifier for the todo item.
     fn uid(&self) -> &str;
+    /// Returns the description of the todo item.
     fn completed(&self) -> Option<DateTime<FixedOffset>>;
+    /// Returns the description of the todo item, if available.
     fn description(&self) -> Option<&str>;
+    /// Returns the due date and time of the todo item, if available.
     fn due(&self) -> Option<DatePerhapsTime>;
     /// The percent complete, from 0 to 100.
     fn percent(&self) -> Option<u8>;
     /// The priority from 1 to 9, where 1 is the highest priority.
     fn priority(&self) -> Priority;
+    /// Returns the status of the todo item, if available.
     fn status(&self) -> Option<TodoStatus>;
+    /// Returns the summary of the todo item.
     fn summary(&self) -> &str;
 }
 
+/// Patch for a todo item, allowing partial updates.
 #[derive(Debug, Default, Clone)]
 pub struct TodoPatch {
+    /// The unique identifier for the todo item.
     pub uid: String,
+
+    /// The completion date and time of the todo item, if available.
     pub completed: Option<Option<DateTime<FixedOffset>>>,
+
+    /// The description of the todo item, if available.
     pub description: Option<Option<String>>,
+
+    /// The due date and time of the todo item, if available.
     pub due: Option<Option<DatePerhapsTime>>,
+
+    /// The percent complete, from 0 to 100.
     pub percent: Option<Option<u8>>,
+
+    /// The priority of the todo item, from 1 to 9, where 1 is the highest priority.
     pub priority: Option<Priority>,
+
+    /// The status of the todo item, if available.
     pub status: Option<TodoStatus>,
+
+    /// The summary of the todo item, if available.
     pub summary: Option<String>,
 }
 
 impl TodoPatch {
+    /// Is this patch empty, meaning no fields are set
     pub fn is_empty(&self) -> bool {
         self.completed.is_none()
             && self.description.is_none()
@@ -47,6 +71,7 @@ impl TodoPatch {
             && self.summary.is_none()
     }
 
+    /// Applies the patch to a mutable todo item, modifying it in place.
     pub fn apply_to<'a>(&self, t: &'a mut icalendar::Todo) -> &'a mut icalendar::Todo {
         if let Some(completed) = self.completed {
             match completed {
@@ -89,11 +114,16 @@ impl TodoPatch {
     }
 }
 
+/// The status of a todo item, which can be one of several predefined states.
 #[derive(Debug, Clone, Copy)]
 pub enum TodoStatus {
+    /// The todo item needs action.
     NeedsAction,
+    /// The todo item has been completed.
     Completed,
+    /// The todo item is currently in process.
     InProcess,
+    /// The todo item has been cancelled.
     Cancelled,
 }
 
@@ -155,28 +185,41 @@ impl From<&icalendar::TodoStatus> for TodoStatus {
     }
 }
 
+/// Conditions for filtering todo items, such as current time, status, and due date.
 #[derive(Debug, Clone, Copy)]
 pub struct TodoConditions {
+    /// The current time, used for filtering todos.
     pub now: NaiveDateTime,
+
+    /// The status of the todo item to filter by, if any.
     pub status: Option<TodoStatus>,
+
+    /// The priority of the todo item to filter by, if any.
     pub due: Option<Duration>,
 }
 
 impl TodoConditions {
+    /// The due datetime.
     pub fn due_before(&self) -> Option<NaiveDateTime> {
         self.due.map(|a| self.now + a)
     }
 }
 
+/// The key by which todo items can be sorted.
 #[derive(Debug, Clone, Copy)]
 pub enum TodoSortKey {
+    /// Sort by the due date and time of the todo item.
     Due,
+    /// Sort by the priority of the todo item.
     Priority,
 }
 
+/// The default sort key for todo items, which is by due date.
 #[derive(Debug, Clone, Copy)]
 pub struct TodoSort {
+    /// The key by which to sort the todo items.
     pub key: TodoSortKey,
+    /// The order in which to sort the todo items (ascending or descending).
     pub order: SortOrder,
 }
 

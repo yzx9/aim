@@ -13,12 +13,14 @@ use std::{
 };
 use tokio::fs;
 
+/// AIM calendar application core.
 #[derive(Debug, Clone)]
 pub struct Aim {
     cache: SqliteCache,
 }
 
 impl Aim {
+    /// Creates a new AIM instance with the given configuration.
     pub async fn new(config: &Config) -> Result<Self, Box<dyn Error>> {
         let cache = SqliteCache::open()
             .await
@@ -32,6 +34,7 @@ impl Aim {
         Ok(that)
     }
 
+    /// List events matching the given conditions.
     pub async fn list_events(
         &self,
         conds: &EventConditions,
@@ -40,10 +43,12 @@ impl Aim {
         self.cache.events.list(conds, pager).await
     }
 
+    /// Counts the number of events matching the given conditions.
     pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, sqlx::Error> {
         self.cache.events.count(conds).await
     }
 
+    /// Upsert an event into the calendar.
     pub async fn upsert_todo(&self, patch: TodoPatch) -> Result<impl Todo, Box<dyn Error>> {
         let mut todo = match self.cache.todos.get(&patch.uid).await? {
             Some(todo) => todo,
@@ -76,6 +81,7 @@ impl Aim {
         Ok(todo)
     }
 
+    /// List todos matching the given conditions, sorted and paginated.
     pub async fn list_todos(
         &self,
         conds: &TodoConditions,
@@ -85,6 +91,7 @@ impl Aim {
         self.cache.todos.list(conds, sort, pager).await
     }
 
+    /// Counts the number of todos matching the given conditions.
     pub async fn count_todos(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
         self.cache.todos.count(conds).await
     }
@@ -143,8 +150,10 @@ impl Aim {
     }
 }
 
+/// Configuration for the AIM application.
 #[derive(Debug)]
 pub struct Config {
+    /// Path to the calendar directory.
     pub calendar_path: PathBuf,
 }
 
