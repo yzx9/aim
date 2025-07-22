@@ -24,25 +24,30 @@ impl Cli {
                 .unwrap_or(OutputFormat::Table)
         }
 
+        fn uid_or_short_id(matches: &clap::ArgMatches) -> String {
+            matches
+                .get_one::<String>("id")
+                .expect("id is required")
+                .clone()
+        }
+
+        fn todo_edit_args(matches: &clap::ArgMatches) -> TodoEditArgs {
+            TodoEditArgs {
+                uid_or_short_id: uid_or_short_id(matches),
+                output_format: output_format(matches),
+            }
+        }
+
         let command = match matches.subcommand() {
-            Some(("events", matches)) => Commands::Events(ListArgs {
+            Some(("dashboard", _)) => Commands::Dashboard,
+            Some(("event", matches)) => Commands::Events(OutputArgs {
                 output_format: output_format(matches),
             }),
-            Some(("todos", matches)) => Commands::Todos(ListArgs {
+            Some(("todo", matches)) => Commands::Todos(OutputArgs {
                 output_format: output_format(matches),
             }),
-            Some(("done", matches)) => Commands::Done {
-                uid_or_short_id: matches
-                    .get_one::<String>("id")
-                    .expect("id is required")
-                    .clone(),
-            },
-            Some(("undo", matches)) => Commands::Undo {
-                uid_or_short_id: matches
-                    .get_one::<String>("id")
-                    .expect("id is required")
-                    .clone(),
-            },
+            Some(("done", matches)) => Commands::Done(todo_edit_args(matches)),
+            Some(("undo", matches)) => Commands::Undo(todo_edit_args(matches)),
             Some(("generate-completion", matches)) => match matches.get_one::<Shell>("shell") {
                 Some(shell) => {
                     shell.generate_completion();
@@ -62,14 +67,20 @@ impl Cli {
 #[derive(Debug, Clone)]
 pub enum Commands {
     Dashboard,
-    Events(ListArgs),
-    Todos(ListArgs),
-    Done { uid_or_short_id: String },
-    Undo { uid_or_short_id: String },
+    Events(OutputArgs),
+    Todos(OutputArgs),
+    Done(TodoEditArgs),
+    Undo(TodoEditArgs),
 }
 
 #[derive(Debug, Clone)]
-pub struct ListArgs {
+pub struct OutputArgs {
+    pub output_format: OutputFormat,
+}
+
+#[derive(Debug, Clone)]
+pub struct TodoEditArgs {
+    pub uid_or_short_id: String,
     pub output_format: OutputFormat,
 }
 
@@ -97,24 +108,31 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 .value_hint(ValueHint::FilePath),
         )
         .subcommand(
-            Command::new("events")
+            Command::new("dashboard")
+                .about("Show the dashboard, which includes upcoming events and todos")
+                .arg(output_format()),
+        )
+        .subcommand(
+            Command::new("event")
                 .about("List events")
                 .arg(output_format()),
         )
         .subcommand(
-            Command::new("todos")
+            Command::new("todo")
                 .about("List todos")
                 .arg(output_format()),
         )
         .subcommand(
             Command::new("done")
                 .about("Mark a todo as done")
-                .arg(arg!(<id> "The short id or uid of the todo to mark as done")),
+                .arg(arg!(<id> "The short id or uid of the todo to mark as done"))
+                .arg(output_format()),
         )
         .subcommand(
             Command::new("undo")
                 .about("Mark a todo as undone")
-                .arg(arg!(<id> "The short id or uid of the todo to mark as done")),
+                .arg(arg!(<id> "The short id or uid of the todo to mark as undone"))
+                .arg(output_format()),
         )
         .subcommand(
             Command::new("generate-completion")

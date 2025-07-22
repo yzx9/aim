@@ -16,8 +16,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Commands::Dashboard => command_dashboard(cli.config).await?,
         Commands::Events(args) => command_events(cli.config, &args).await?,
         Commands::Todos(args) => command_todos(cli.config, &args).await?,
-        Commands::Done { uid_or_short_id } => command_done(cli.config, &uid_or_short_id).await?,
-        Commands::Undo { uid_or_short_id } => command_undo(cli.config, &uid_or_short_id).await?,
+        Commands::Done(args) => command_done(cli.config, &args).await?,
+        Commands::Undo(args) => command_undo(cli.config, &args).await?,
     }
     Ok(())
 }

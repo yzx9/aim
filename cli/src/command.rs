@@ -3,15 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    cli::{ListArgs, OutputFormat},
+    cli::{OutputArgs, OutputFormat, TodoEditArgs},
     config::Config,
     event_formatter::EventFormatter,
     short_id::{EventWithShortId, ShortIdMap, TodoWithShortId},
     todo_formatter::TodoFormatter,
 };
 use aim_core::{
-    Aim, EventConditions, Pager, SortOrder, Todo, TodoConditions, TodoPatch, TodoSortKey,
-    TodoStatus,
+    Aim, EventConditions, Pager, SortOrder, TodoConditions, TodoPatch, TodoSortKey, TodoStatus,
 };
 use chrono::{Duration, Local, Utc};
 use colored::Colorize;
@@ -28,7 +27,7 @@ pub async fn command_dashboard(config: Option<PathBuf>) -> Result<(), Box<dyn Er
 
     println!("🗓️ {}", "Events".bold());
     let conds = EventConditions { now };
-    let args = ListArgs {
+    let args = OutputArgs {
         output_format: OutputFormat::Table,
     };
     list_events(&aim, &map, &conds, &args).await?;
@@ -40,7 +39,7 @@ pub async fn command_dashboard(config: Option<PathBuf>) -> Result<(), Box<dyn Er
         status: Some(TodoStatus::NeedsAction),
         due: Some(Duration::days(2)),
     };
-    let args = ListArgs {
+    let args = OutputArgs {
         output_format: OutputFormat::Table,
     };
     list_todos(&aim, &map, &conds, &args).await?;
@@ -51,7 +50,7 @@ pub async fn command_dashboard(config: Option<PathBuf>) -> Result<(), Box<dyn Er
 
 pub async fn command_events(
     config: Option<PathBuf>,
-    args: &ListArgs,
+    args: &OutputArgs,
 ) -> Result<(), Box<dyn Error>> {
     log::debug!("Parsing configuration...");
     let config = Config::parse(config).await?;
@@ -67,7 +66,10 @@ pub async fn command_events(
     Ok(())
 }
 
-pub async fn command_todos(config: Option<PathBuf>, args: &ListArgs) -> Result<(), Box<dyn Error>> {
+pub async fn command_todos(
+    config: Option<PathBuf>,
+    args: &OutputArgs,
+) -> Result<(), Box<dyn Error>> {
     log::debug!("Parsing configuration...");
     let config = Config::parse(config).await?;
     let aim = Aim::new(&config.core).await?;
@@ -88,51 +90,35 @@ pub async fn command_todos(config: Option<PathBuf>, args: &ListArgs) -> Result<(
 
 pub async fn command_done(
     config: Option<PathBuf>,
-    uid_or_short_id: &str,
+    args: &TodoEditArgs,
 ) -> Result<(), Box<dyn Error>> {
-    log::debug!("Parsing configuration...");
-    let config = Config::parse(config).await?;
-    let aim = Aim::new(&config.core).await?;
-    let map = ShortIdMap::load_or_new(&config)?;
-
     log::debug!("Marking todo as done...");
     let patch = TodoPatch {
-        uid: get_uid(&map, uid_or_short_id),
         completed: Some(Some(Utc::now().into())),
         status: Some(TodoStatus::Completed),
         ..Default::default()
     };
-    let todo = aim.upsert_todo(patch.clone()).await?;
-    print_todo(&map, todo);
-    Ok(())
+    edit_todo(config, args, patch).await
 }
 
 pub async fn command_undo(
     config: Option<PathBuf>,
-    uid_or_short_id: &str,
+    args: &TodoEditArgs,
 ) -> Result<(), Box<dyn Error>> {
-    log::debug!("Parsing configuration...");
-    let config = Config::parse(config).await?;
-    let aim = Aim::new(&config.core).await?;
-    let map = ShortIdMap::load_or_new(&config)?;
-
     log::debug!("Marking todo as undone...");
     let patch = TodoPatch {
-        uid: get_uid(&map, uid_or_short_id),
         completed: Some(None),
         status: Some(TodoStatus::NeedsAction),
         ..Default::default()
     };
-    let todo = aim.upsert_todo(patch.clone()).await?;
-    print_todo(&map, todo);
-    Ok(())
+    edit_todo(config, args, patch).await
 }
 
 async fn list_events(
     aim: &Aim,
     map: &ShortIdMap,
     conds: &EventConditions,
-    args: &ListArgs,
+    args: &OutputArgs,
 ) -> Result<(), Box<dyn Error>> {
     const MAX: i64 = 16;
     let pager: Pager = (MAX, 0).into();
@@ -158,7 +144,7 @@ async fn list_todos(
     aim: &Aim,
     map: &ShortIdMap,
     conds: &TodoConditions,
-    args: &ListArgs,
+    args: &OutputArgs,
 ) -> Result<(), Box<dyn Error>> {
     const MAX: i64 = 16;
     let pager = (MAX, 0).into();
@@ -184,16 +170,29 @@ async fn list_todos(
     Ok(())
 }
 
-fn get_uid(map: &ShortIdMap, uid_or_short_id: &str) -> String {
-    uid_or_short_id
+async fn edit_todo(
+    config: Option<PathBuf>,
+    args: &TodoEditArgs,
+    mut patch: TodoPatch,
+) -> Result<(), Box<dyn Error>> {
+    let now = Local::now().naive_local();
+
+    log::debug!("Parsing configuration...");
+    let config = Config::parse(config).await?;
+    let aim = Aim::new(&config.core).await?;
+    let map = ShortIdMap::load_or_new(&config)?;
+
+    log::debug!("Edit todo ...");
+    patch.uid = args
+        .uid_or_short_id
         .parse()
         .ok()
         .and_then(|a| map.find(a))
-        .unwrap_or_else(|| uid_or_short_id.to_string()) // treat it as a UID if is not a short ID
-}
+        .unwrap_or_else(|| args.uid_or_short_id.to_string()); // treat it as a UID if is not a short ID
+    let todo = aim.upsert_todo(patch.clone()).await?;
+    let todo = TodoWithShortId::with(&map, todo);
 
-fn print_todo(map: &ShortIdMap, todo: impl Todo) {
-    let todo = TodoWithShortId::with(map, todo);
-    let formatter = TodoFormatter::new(Local::now().naive_local());
+    let formatter = TodoFormatter::new(now).with_output_format(args.output_format);
     println!("{}", formatter.format(&[todo]));
+    Ok(())
 }
