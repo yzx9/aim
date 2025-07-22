@@ -10,7 +10,7 @@ use crate::{
     todo_formatter::TodoFormatter,
 };
 use aim_core::{
-    Aim, EventConditions, Pager, SortOrder, TodoConditions, TodoPatch, TodoSortKey, TodoStatus,
+    Aim, EventConditions, Pager, SortOrder, TodoConditions, TodoPatch, TodoSort, TodoStatus,
 };
 use chrono::{Duration, Local, Utc};
 use colored::Colorize;
@@ -136,10 +136,10 @@ async fn list_events(
         }
     }
 
-    let events = events
+    let events: Vec<_> = events
         .into_iter()
         .map(|event| EventWithShortId::with(map, event))
-        .collect::<Vec<_>>();
+        .collect();
 
     let formatter = EventFormatter::new(conds.now).with_output_format(args.output_format);
     println!("{}", formatter.format(&events));
@@ -156,8 +156,11 @@ async fn list_todos(
     const MAX: i64 = 16;
     let pager = (MAX, 0).into();
     let sort = vec![
-        (TodoSortKey::Priority, SortOrder::Desc).into(),
-        (TodoSortKey::Due, SortOrder::Desc).into(),
+        TodoSort::Priority {
+            order: SortOrder::Desc,
+            none_first: false, // TODO: add config entry
+        },
+        TodoSort::Due(SortOrder::Desc),
     ];
     let todos = aim.list_todos(conds, &sort, &pager).await?;
     if todos.len() >= (MAX as usize) {
@@ -167,10 +170,10 @@ async fn list_todos(
         }
     }
 
-    let todos = todos
+    let todos: Vec<_> = todos
         .into_iter()
         .map(|todo| TodoWithShortId::with(map, todo))
-        .collect::<Vec<_>>();
+        .collect();
 
     let formatter = TodoFormatter::new(conds.now).with_output_format(args.output_format);
     println!("{}", formatter.format(&todos));

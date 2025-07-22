@@ -206,7 +206,7 @@ impl From<u32> for Priority {
 
 impl From<u8> for Priority {
     fn from(value: u8) -> Self {
-        (value as u32).into()
+        u32::from(value).into()
     }
 }
 
@@ -229,6 +229,6 @@ impl From<Priority> for u8 {
 
 impl From<Priority> for u32 {
     fn from(value: Priority) -> Self {
-        Into::<u8>::into(value).into()
+        u8::from(value).into()
     }
 }

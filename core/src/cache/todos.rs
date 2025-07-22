@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    DatePerhapsTime, Pager, Priority, SortOrder, Todo, TodoConditions, TodoSort, TodoSortKey,
-    TodoStatus, todo::TodoPatch,
+    DatePerhapsTime, Pager, Priority, SortOrder, Todo, TodoConditions, TodoSort, TodoStatus,
+    todo::TodoPatch,
 };
 use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, Utc};
 use icalendar::Component;
@@ -127,14 +127,20 @@ WHERE uid = ?;
         if !sort.is_empty() {
             sql += " ORDER BY ";
             for (i, s) in sort.iter().enumerate() {
-                sql += match s.key {
-                    TodoSortKey::Due => "due_at",
-                    TodoSortKey::Priority => "priority",
-                };
-                sql += match s.order {
-                    SortOrder::Asc => " ASC",
-                    SortOrder::Desc => " DESC",
-                };
+                match s {
+                    TodoSort::Due(order) => {
+                        sql += "due_at";
+                        sql += to_sql_order(order);
+                    }
+                    TodoSort::Priority { order, none_first } => {
+                        sql += match none_first {
+                            true => "priority",
+                            false => "((priority + 9) % 10)",
+                        };
+                        sql += to_sql_order(order);
+                    }
+                }
+
                 if i < sort.len() - 1 {
                     sql += ", ";
                 }
@@ -299,6 +305,13 @@ impl Todo for TodoRecord {
 
     fn summary(&self) -> &str {
         &self.summary
+    }
+}
+
+fn to_sql_order(order: &SortOrder) -> &str {
+    match order {
+        SortOrder::Asc => " ASC",
+        SortOrder::Desc => " DESC",
     }
 }
 

@@ -205,26 +205,18 @@ impl TodoConditions {
     }
 }
 
-/// The key by which todo items can be sorted.
-#[derive(Debug, Clone, Copy)]
-pub enum TodoSortKey {
-    /// Sort by the due date and time of the todo item.
-    Due,
-    /// Sort by the priority of the todo item.
-    Priority,
-}
-
 /// The default sort key for todo items, which is by due date.
 #[derive(Debug, Clone, Copy)]
-pub struct TodoSort {
-    /// The key by which to sort the todo items.
-    pub key: TodoSortKey,
-    /// The order in which to sort the todo items (ascending or descending).
-    pub order: SortOrder,
-}
+pub enum TodoSort {
+    /// Sort by the due date and time of the todo item.
+    Due(SortOrder),
 
-impl From<(TodoSortKey, SortOrder)> for TodoSort {
-    fn from((key, order): (TodoSortKey, SortOrder)) -> Self {
-        Self { key, order }
-    }
+    /// Sort by the priority of the todo item.
+    Priority {
+        /// Sort order, either ascending or descending.
+        order: SortOrder,
+
+        /// Put items with no priority first or last.
+        none_first: bool,
+    },
 }
