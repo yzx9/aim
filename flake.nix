@@ -1,10 +1,18 @@
 {
   description = "aim";
 
-  inputs.nixpkgs.url = "nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    systems.url = "github:nix-systems/default";
+  };
 
   outputs =
-    { self, nixpkgs, ... }:
+    {
+      self,
+      nixpkgs,
+      systems,
+      ...
+    }:
 
     let
       inherit (nixpkgs) lib;
@@ -17,13 +25,7 @@
         in
         lib.genAttrs subkeys (subkey: lib.genAttrs keys (key: attrs.${key}.${subkey}));
 
-      supportedSystems = [
-        "x86_64-linux"
-        "aarch64-linux"
-        "x86_64-darwin"
-        "aarch64-darwin"
-      ];
-      forEachSupportedSystem = f: transposeAttrs (lib.genAttrs supportedSystems f);
+      forEachSupportedSystem = f: transposeAttrs (lib.genAttrs (import systems) f);
 
       aim-package =
         {
@@ -41,6 +43,7 @@
           src = lib.fileset.toSource {
             root = ./.;
             fileset = lib.fileset.unions [
+              ./aimcal
               ./cli
               ./core
               ./Cargo.toml
@@ -71,7 +74,7 @@
           };
 
           meta = {
-            description = " Analyze. Interact. Manage Your Time";
+            description = "Analyze. Interact. Manage Your Time, with calendar support";
             homepage = "https://github.com/yzx9/aim";
             license = lib.licenses.asl20;
             platforms = lib.platforms.all;
