@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-//! AIM - Analyze. Interact. Manage Your Time, with calendar support
-
-use aimcal_cli::run;
+use aimcal::run;
 use std::error::Error;
 
 #[tokio::main]
