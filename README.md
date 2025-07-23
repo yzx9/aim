@@ -29,12 +29,12 @@
       title="Continuous integration"
       src="https://img.shields.io/github/actions/workflow/status/yzx9/aim/ci.yaml?label=CI"
   /></a>
-  <a href=""
+  <a href="https://crates.io/crates/aimcal"
     ><img
       title="Crates.io version"
       src="https://img.shields.io/crates/v/aimcal"
   /></a>
-  <a href=""
+  <a href="https://docs.rs/crate/aimcal/latest"
     ><img
       title="docs.rs"
       src="https://img.shields.io/docsrs/aimcal"
