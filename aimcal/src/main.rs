@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#![doc = include_str!("../../README.md")]
+//! AIM - Analyze. Interact. Manage Your Time, with calendar support
 
 use aimcal_cli::run;
 use std::error::Error;
