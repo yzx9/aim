@@ -27,10 +27,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "aim-cli"
+name = "aimcal"
 version = "0.1.1"
 dependencies = [
- "aim-core",
+ "aimcal-cli",
+ "tokio",
+]
+
+[[package]]
+name = "aimcal-cli"
+version = "0.1.1"
+dependencies = [
+ "aimcal-core",
  "chrono",
  "clap",
  "clap_complete",
@@ -48,7 +56,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "aim-core"
+name = "aimcal-core"
 version = "0.1.1"
 dependencies = [
  "chrono",

@@ -7,7 +7,7 @@ use crate::{
     short_id::EventWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
-use aim_core::Event;
+use aimcal_core::Event;
 use chrono::NaiveDateTime;
 use std::{borrow::Cow, fmt};
 

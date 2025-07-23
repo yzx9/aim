@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#![doc = include_str!("../../README.md")]
+
 use aimcal_cli::run;
 use std::error::Error;
 

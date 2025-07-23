@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = [ "cli","core"]
+members = [ "aimcal", "cli","core"]
 default-members = ["cli"]
 
 [profile.release]

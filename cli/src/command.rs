@@ -9,7 +9,7 @@ use crate::{
     short_id::{EventWithShortId, ShortIdMap, TodoWithShortId},
     todo_formatter::TodoFormatter,
 };
-use aim_core::{
+use aimcal_core::{
     Aim, EventConditions, Pager, SortOrder, TodoConditions, TodoPatch, TodoSort, TodoStatus,
 };
 use chrono::{Duration, Local, Utc};

@@ -1,14 +1,25 @@
 [package]
-name = "aim-cli"
+authors = ["Zexin Yuan <aim@yzx9.xyz>"]
+name = "aimcal-cli"
 version = "0.1.1"
+license = "Apache-2.0"
 edition = "2024"
+
+description = "AIM - Analyze. Interact. Manage Your Time, with calendar support"
+keywords = ["calendar", "time-management", "productivity"]
+categories = ["command-line-interface", "date-and-time"]
+
+documentation = "https://docs.rs/aimcal/"
+homepage = "https://github.com/yzx9/aim"
+repository = "https://github.com/yzx9/aim"
+readme = "../README.md"
 
 [[bin]]
 name = "aim"
 path = "src/main.rs"
 
 [dependencies]
-aim-core = { version = "0.1.0", path = "../core" }
+aimcal-core = { path = "../core" }
 chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5", features = ["cargo", "derive"] }
 clap_complete = "4.5"

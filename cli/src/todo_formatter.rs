@@ -7,7 +7,7 @@ use crate::{
     short_id::TodoWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
-use aim_core::{Priority, Todo, TodoStatus};
+use aimcal_core::{Priority, Todo, TodoStatus};
 use chrono::NaiveDateTime;
 use colored::Color;
 use std::{borrow::Cow, fmt};

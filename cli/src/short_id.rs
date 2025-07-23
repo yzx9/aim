@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::config::Config;
-use aim_core::{Event, Todo};
+use aimcal_core::{Event, Todo};
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::{

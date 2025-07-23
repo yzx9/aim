@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use aim_core::Config as CoreConfig;
+use aimcal_core::Config as CoreConfig;
 use serde::Deserialize;
 use std::{
     error::Error,
