@@ -2,3 +2,7 @@
 resolver = "3"
 members = [ "cli","core"]
 default-members = ["cli"]
+
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+lto = true  # Enable Link Time Optimization (LTO)
