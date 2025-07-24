@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    cli::OutputFormat,
+    cli::ArgOutputFormat,
     short_id::EventWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
@@ -15,7 +15,7 @@ use std::{borrow::Cow, fmt};
 pub struct EventFormatter {
     columns: Vec<EventColumn>,
     _now: NaiveDateTime,
-    format: OutputFormat,
+    format: ArgOutputFormat,
 }
 
 impl EventFormatter {
@@ -27,11 +27,11 @@ impl EventFormatter {
                 EventColumn::Summary(EventColumnSummary),
             ],
             _now: now,
-            format: OutputFormat::Table,
+            format: ArgOutputFormat::Table,
         }
     }
 
-    pub fn with_output_format(mut self, format: OutputFormat) -> Self {
+    pub fn with_output_format(mut self, format: ArgOutputFormat) -> Self {
         self.format = format;
         self
     }
@@ -53,12 +53,12 @@ pub struct Display<'a, E: Event> {
 impl<'a, E: Event> fmt::Display for Display<'a, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.formatter.format {
-            OutputFormat::Json => write!(
+            ArgOutputFormat::Json => write!(
                 f,
                 "{}",
                 Table::new(TableStyleJson::new(), &self.formatter.columns, self.events)
             ),
-            OutputFormat::Table => write!(
+            ArgOutputFormat::Table => write!(
                 f,
                 "{}",
                 Table::new(TableStyleBasic::new(), &self.formatter.columns, self.events)

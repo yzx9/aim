@@ -38,7 +38,7 @@ impl Default for Inner {
     }
 }
 
-impl<'a> ShortIdMap {
+impl ShortIdMap {
     fn new() -> Self {
         Self {
             inner: Arc::new(RwLock::new(Inner::default())),
@@ -48,7 +48,7 @@ impl<'a> ShortIdMap {
     /// Load the map from disk.
     ///
     /// If the file does not exist or is empty, a new map is returned.
-    pub fn load_or_new(config: &'a Config) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_or_new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
         let path = match Self::get_map_path(config) {
             Some(a) => a,
             None => {

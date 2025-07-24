@@ -59,7 +59,7 @@ impl Aim {
             return Err("Todo with this UID already exists".into());
         }
 
-        let path = self.calendar_path.join(format!("{}.ics", uid));
+        let path = self.calendar_path.join(format!("{uid}.ics"));
         if fs::try_exists(&path).await? {
             return Err(format!("File already exists: {}", path.display()).into());
         }
@@ -93,7 +93,7 @@ impl Aim {
                 _ => None,
             })
             .find(|a| a.get_uid() == Some(todo.uid()))
-            .ok_or_else(|| "Todo not found in calendar")?;
+            .ok_or("Todo not found in calendar")?;
 
         patch.apply_to(t);
 

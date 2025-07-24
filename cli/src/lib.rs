@@ -21,35 +21,17 @@
 )]
 
 mod cli;
-mod command;
+mod cmd_dashboard;
+mod cmd_event;
+mod cmd_generate_completion;
+mod cmd_todo;
 mod config;
 mod event_formatter;
 mod short_id;
 mod table;
 mod todo_formatter;
-use std::error::Error;
 
 pub use crate::{
-    cli::{Cli, Commands},
-    command::{
-        command_add_todo, command_dashboard, command_done, command_events, command_todos,
-        command_undo,
-    },
+    cli::{Cli, Commands, run},
     config::Config,
 };
-
-/// Run the AIM command-line interface.
-pub async fn run() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
-
-    let cli = Cli::parse();
-    match cli.command {
-        Commands::Dashboard => command_dashboard(cli.config).await?,
-        Commands::Events(args) => command_events(cli.config, &args).await?,
-        Commands::Todos(args) => command_todos(cli.config, &args).await?,
-        Commands::NewTodo(args) => command_add_todo(cli.config, &args).await?,
-        Commands::Done(args) => command_done(cli.config, &args).await?,
-        Commands::Undo(args) => command_undo(cli.config, &args).await?,
-    }
-    Ok(())
-}

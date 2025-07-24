@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    cli::OutputFormat,
+    cli::ArgOutputFormat,
     short_id::TodoWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
@@ -16,7 +16,7 @@ use std::{borrow::Cow, fmt};
 pub struct TodoFormatter {
     columns: Vec<TodoColumn>,
     now: NaiveDateTime,
-    format: OutputFormat,
+    format: ArgOutputFormat,
 }
 
 impl TodoFormatter {
@@ -30,11 +30,11 @@ impl TodoFormatter {
                 TodoColumn::Summary(TodoColumnSummary),
             ],
             now,
-            format: OutputFormat::Table,
+            format: ArgOutputFormat::Table,
         }
     }
 
-    pub fn with_output_format(mut self, format: OutputFormat) -> Self {
+    pub fn with_output_format(mut self, format: ArgOutputFormat) -> Self {
         self.format = format;
         self
     }
@@ -66,12 +66,12 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
             .collect::<Vec<_>>();
 
         match self.formatter.format {
-            OutputFormat::Json => write!(
+            ArgOutputFormat::Json => write!(
                 f,
                 "{}",
                 Table::new(TableStyleJson::new(), &columns, self.todos)
             ),
-            OutputFormat::Table => write!(
+            ArgOutputFormat::Table => write!(
                 f,
                 "{}",
                 Table::new(TableStyleBasic::new(), &columns, self.todos)
