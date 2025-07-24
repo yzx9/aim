@@ -38,6 +38,42 @@ pub trait Todo {
     fn summary(&self) -> &str;
 }
 
+impl Todo for icalendar::Todo {
+    fn uid(&self) -> &str {
+        self.get_uid().unwrap_or("")
+    }
+
+    fn completed(&self) -> Option<DateTime<FixedOffset>> {
+        self.get_completed()
+            .map(|a| a.with_timezone(&FixedOffset::east_opt(0).unwrap()))
+    }
+
+    fn description(&self) -> Option<&str> {
+        self.get_description()
+    }
+
+    fn due(&self) -> Option<DatePerhapsTime> {
+        self.get_due().map(Into::into)
+    }
+
+    fn percent(&self) -> Option<u8> {
+        self.get_percent_complete()
+    }
+
+    fn priority(&self) -> Priority {
+        self.get_priority()
+            .map_or(Priority::None, |p| Priority::from(p as u8))
+    }
+
+    fn status(&self) -> Option<TodoStatus> {
+        self.get_status().map(|a| TodoStatus::from(&a))
+    }
+
+    fn summary(&self) -> &str {
+        self.get_summary().unwrap_or("")
+    }
+}
+
 /// Darft for a todo item, used for creating new todos.
 #[derive(Debug)]
 pub struct TodoDraft {
@@ -61,13 +97,14 @@ impl TodoDraft {
     /// Converts the draft into a icalendar Todo component.
     pub fn into_todo(self) -> Result<icalendar::Todo, String> {
         let mut todo = icalendar::Todo::with_uid(&self.uid);
-        todo.priority(self.priority.into()).summary(&self.summary);
+        Component::priority(&mut todo, self.priority.into());
+        Component::summary(&mut todo, &self.summary);
 
         if let Some(description) = self.description {
-            todo.description(&description);
+            Component::description(&mut todo, &description);
         }
         if let Some(due) = self.due {
-            todo.due(due);
+            icalendar::Todo::due(&mut todo, due);
         }
 
         Ok(todo)
@@ -151,7 +188,7 @@ impl TodoPatch {
         }
 
         if let Some(status) = self.status {
-            t.status(status.into());
+            t.status((&status).into());
         }
 
         if let Some(summary) = &self.summary {
@@ -214,8 +251,8 @@ impl FromStr for TodoStatus {
     }
 }
 
-impl From<TodoStatus> for icalendar::TodoStatus {
-    fn from(item: TodoStatus) -> icalendar::TodoStatus {
+impl From<&TodoStatus> for icalendar::TodoStatus {
+    fn from(item: &TodoStatus) -> icalendar::TodoStatus {
         match item {
             TodoStatus::NeedsAction => icalendar::TodoStatus::NeedsAction,
             TodoStatus::Completed => icalendar::TodoStatus::Completed,

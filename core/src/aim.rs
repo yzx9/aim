@@ -78,7 +78,7 @@ impl Aim {
 
     /// Upsert an event into the calendar.
     pub async fn update_todo(&self, patch: TodoPatch) -> Result<impl Todo, Box<dyn Error>> {
-        let mut todo = match self.cache.todos.get(&patch.uid).await? {
+        let todo = match self.cache.todos.get(&patch.uid).await? {
             Some(todo) => todo,
             None => return Err("Todo not found".into()),
         };
@@ -96,12 +96,10 @@ impl Aim {
             .ok_or("Todo not found in calendar")?;
 
         patch.apply_to(t);
-
         fs::write(path, calendar.done().to_string())
             .await
             .map_err(|e| format!("Failed to write calendar file: {e}"))?;
 
-        todo.apply(patch);
         self.cache.todos.upsert(&todo).await?;
 
         Ok(todo)

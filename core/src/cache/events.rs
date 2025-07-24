@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{DatePerhapsTime, Event, EventConditions, Pager};
-use icalendar::{Component, EventStatus};
+use crate::{DatePerhapsTime, Event, EventConditions, EventStatus, Pager};
 use sqlx::SqlitePool;
 
 #[derive(Debug, Clone)]
@@ -108,27 +107,21 @@ pub struct EventRecord {
 }
 
 impl EventRecord {
-    pub fn from(path: String, event: icalendar::Event) -> Result<Self, Box<dyn std::error::Error>> {
-        let uid = event.get_uid().ok_or("Event must have a UID")?.to_string();
-        let status = event.get_status().map(|s| match s {
-            EventStatus::Tentative => "TENTATIVE".to_string(),
-            EventStatus::Confirmed => "CONFIRMED".to_string(),
-            EventStatus::Cancelled => "CANCELLED".to_string(),
-        });
-        let (start_at, start_tz) = to_dt_tz(event.get_start());
-        let (end_at, end_tz) = to_dt_tz(event.get_start());
+    pub fn from(path: String, event: impl Event) -> Result<Self, Box<dyn std::error::Error>> {
+        let (start_at, start_tz) = to_dt_tz(event.start());
+        let (end_at, end_tz) = to_dt_tz(event.end());
 
         Ok(Self {
             id: 0, // Placeholder, will be set by the database
             path,
-            uid,
-            summary: event.get_summary().unwrap_or("").to_string(),
-            description: event.get_description().map(ToString::to_string),
+            uid: event.uid().to_string(),
+            summary: event.summary().to_string(),
+            description: event.description().map(ToString::to_string),
             start_at,
             start_tz,
             end_at,
             end_tz,
-            status,
+            status: event.status().map(|s| s.to_string()),
         })
     }
 }
@@ -154,17 +147,17 @@ impl Event for EventRecord {
         from_dt_tz(&self.end_at, &self.end_tz)
     }
 
-    fn status(&self) -> Option<&str> {
-        self.status.as_deref()
+    fn status(&self) -> Option<EventStatus> {
+        self.status.as_ref().and_then(|a| a.as_str().parse().ok())
     }
 }
 
 const DATE_FORMAT: &str = "%Y-%m-%d";
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 
-fn to_dt_tz(dt: Option<icalendar::DatePerhapsTime>) -> (String, String) {
+fn to_dt_tz(dt: Option<DatePerhapsTime>) -> (String, String) {
     match dt {
-        Some(dt) => DatePerhapsTime::to_dt_tz(&dt.into(), DATE_FORMAT, DATETIME_FORMAT),
+        Some(dt) => DatePerhapsTime::to_dt_tz(&dt, DATE_FORMAT, DATETIME_FORMAT),
         None => ("".to_string(), "".to_string()),
     }
 }

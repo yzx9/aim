@@ -4,10 +4,8 @@
 
 use crate::{
     DatePerhapsTime, Pager, Priority, SortOrder, Todo, TodoConditions, TodoSort, TodoStatus,
-    todo::TodoPatch,
 };
-use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, Utc};
-use icalendar::Component;
+use chrono::{DateTime, FixedOffset, Local, NaiveDateTime};
 use sqlx::sqlite::SqlitePool;
 
 #[derive(Debug, Clone)]
@@ -195,8 +193,8 @@ WHERE uid = ?;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TodoRecord {
-    path: String,
     uid: String,
+    path: String,
     completed: String,
     description: String,
     percent: Option<u8>,
@@ -208,67 +206,27 @@ pub struct TodoRecord {
 }
 
 impl TodoRecord {
-    pub fn from(path: String, todo: icalendar::Todo) -> Result<Self, Box<dyn std::error::Error>> {
-        let uid = todo.get_uid().ok_or("Todo must have a UID")?.to_string();
-        let (due_at, due_tz) = to_dt_tz(todo.get_due().map(Into::into));
+    pub fn from(path: String, todo: impl Todo) -> Result<Self, Box<dyn std::error::Error>> {
+        let (due_at, due_tz) = to_dt_tz(todo.due());
         Ok(Self {
+            uid: todo.uid().to_string(),
             path,
-            uid,
-            summary: todo.get_summary().unwrap_or("").to_string(),
-            description: todo.get_description().unwrap_or("").to_string(),
+            summary: todo.summary().to_string(),
+            description: todo.description().unwrap_or("").to_string(),
             due_at,
             due_tz,
-            completed: todo
-                .get_completed()
-                .map(format_dt)
-                .unwrap_or("".to_string()),
-            percent: todo.get_percent_complete(),
-            priority: todo.get_priority().map(|v| v as u8).unwrap_or(0),
+            completed: todo.completed().map(format_dt).unwrap_or("".to_string()),
+            percent: todo.percent(),
+            priority: todo.priority().into(),
             status: todo
-                .get_status()
+                .status()
                 .as_ref()
-                .map(|s| TodoStatus::from(s).to_string())
-                .unwrap_or("".to_string()),
+                .map_or("".to_string(), ToString::to_string),
         })
     }
 
     pub fn path(&self) -> &str {
         &self.path
-    }
-
-    pub fn apply(&mut self, patch: TodoPatch) {
-        if let Some(completed) = patch.completed {
-            self.completed = match completed {
-                Some(dt) => format_dt(dt.with_timezone(&Utc)),
-                None => "".to_string(),
-            };
-        }
-
-        if let Some(description) = patch.description {
-            self.description = description.unwrap_or("".to_string());
-        }
-
-        if let Some(due) = patch.due {
-            let (due_at, due_tz) = to_dt_tz(due);
-            self.due_at = due_at;
-            self.due_tz = due_tz;
-        }
-
-        if let Some(percent) = patch.percent {
-            self.percent = percent;
-        }
-
-        if let Some(priority) = patch.priority {
-            self.priority = priority.into();
-        }
-
-        if let Some(status) = patch.status {
-            self.status = status.to_string();
-        }
-
-        if let Some(summary) = patch.summary {
-            self.summary = summary.clone();
-        }
     }
 }
 
@@ -322,7 +280,7 @@ fn format_ndt(ndt: NaiveDateTime) -> String {
     ndt.format(DATETIME_FORMAT).to_string()
 }
 
-fn format_dt(dt: DateTime<Utc>) -> String {
+fn format_dt(dt: DateTime<FixedOffset>) -> String {
     dt.with_timezone(&Local).format(DATETIME_FORMAT).to_string()
 }
 

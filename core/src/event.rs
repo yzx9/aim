@@ -4,6 +4,7 @@
 
 use crate::DatePerhapsTime;
 use chrono::NaiveDateTime;
+use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
 
 /// Trait representing a calendar event.
@@ -24,14 +25,45 @@ pub trait Event {
     fn end(&self) -> Option<DatePerhapsTime>;
 
     /// The status of the event, if available.
-    fn status(&self) -> Option<&str>;
+    fn status(&self) -> Option<EventStatus>;
+}
+
+impl Event for icalendar::Event {
+    fn uid(&self) -> &str {
+        self.get_uid().unwrap_or("")
+    }
+
+    fn summary(&self) -> &str {
+        self.get_summary().unwrap_or("")
+    }
+
+    fn description(&self) -> Option<&str> {
+        self.get_description()
+    }
+
+    fn start(&self) -> Option<DatePerhapsTime> {
+        self.get_start().map(Into::into)
+    }
+
+    fn end(&self) -> Option<DatePerhapsTime> {
+        self.get_end().map(Into::into)
+    }
+
+    fn status(&self) -> Option<EventStatus> {
+        self.get_status().map(|a| EventStatus::from(&a))
+    }
 }
 
 /// Represents the status of an event, which can be tentative, confirmed, or cancelled.
 #[derive(Debug, Clone, Copy)]
 pub enum EventStatus {
+    /// The event is tentative.
     Tentative,
+
+    /// The event is confirmed.
     Confirmed,
+
+    /// The event is cancelled.
     Cancelled,
 }
 
@@ -68,8 +100,8 @@ impl FromStr for EventStatus {
     }
 }
 
-impl From<EventStatus> for icalendar::EventStatus {
-    fn from(status: EventStatus) -> Self {
+impl From<&EventStatus> for icalendar::EventStatus {
+    fn from(status: &EventStatus) -> Self {
         match status {
             EventStatus::Tentative => icalendar::EventStatus::Tentative,
             EventStatus::Confirmed => icalendar::EventStatus::Confirmed,
@@ -78,8 +110,8 @@ impl From<EventStatus> for icalendar::EventStatus {
     }
 }
 
-impl From<icalendar::EventStatus> for EventStatus {
-    fn from(status: icalendar::EventStatus) -> Self {
+impl From<&icalendar::EventStatus> for EventStatus {
+    fn from(status: &icalendar::EventStatus) -> Self {
         match status {
             icalendar::EventStatus::Tentative => EventStatus::Tentative,
             icalendar::EventStatus::Confirmed => EventStatus::Confirmed,
