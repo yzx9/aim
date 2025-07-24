@@ -29,6 +29,6 @@ mod types;
 pub use crate::{
     aim::{Aim, Config},
     event::{Event, EventConditions},
-    todo::{Todo, TodoConditions, TodoPatch, TodoSort, TodoStatus},
+    todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus},
     types::{DatePerhapsTime, Pager, Priority, SortOrder},
 };

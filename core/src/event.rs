@@ -8,17 +8,22 @@ use std::{fmt::Display, str::FromStr};
 
 /// Trait representing a calendar event.
 pub trait Event {
-    /// Returns the unique identifier for the event.
+    /// The unique identifier for the event.
     fn uid(&self) -> &str;
-    /// Returns the summary of the event.
+
+    /// The summary of the event.
     fn summary(&self) -> &str;
-    /// Returns the description of the event, if available.
+
+    /// The description of the event, if available.
     fn description(&self) -> Option<&str>;
-    /// Returns the location of the event, if available.
+
+    /// The location of the event, if available.
     fn start(&self) -> Option<DatePerhapsTime>;
-    /// Returns the start date and time of the event, if available.
+
+    /// The start date and time of the event, if available.
     fn end(&self) -> Option<DatePerhapsTime>;
-    /// Returns the status of the event, if available.
+
+    /// The status of the event, if available.
     fn status(&self) -> Option<&str>;
 }
 

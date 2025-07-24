@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::config::APP_NAME;
+use aimcal_core::Priority;
 use clap::{Arg, Command, ValueEnum, ValueHint, arg, crate_version, value_parser};
 use clap_complete::generate;
-use std::{io, path::PathBuf, process};
+use std::{io, path::PathBuf, process, str::FromStr};
 
 /// Command-line interface
 #[derive(Debug)]
@@ -43,6 +44,21 @@ impl Cli {
             }
         }
 
+        fn todo_new_args(matches: &clap::ArgMatches) -> TodoNewArgs {
+            TodoNewArgs {
+                summary: matches
+                    .get_one::<String>("summary")
+                    .expect("summary is required")
+                    .clone(),
+                description: matches.get_one::<String>("description").cloned(),
+                due: matches.get_one::<String>("due").cloned(),
+                priority: matches
+                    .get_one::<CliPriority>("priority")
+                    .unwrap_or(&CliPriority::None)
+                    .into(),
+            }
+        }
+
         let command = match matches.subcommand() {
             Some(("dashboard", _)) => Commands::Dashboard,
             Some(("event", matches)) => Commands::Events(OutputArgs {
@@ -53,6 +69,7 @@ impl Cli {
             }),
             Some(("done", matches)) => Commands::Done(todo_edit_args(matches)),
             Some(("undo", matches)) => Commands::Undo(todo_edit_args(matches)),
+            Some(("new", matches)) => Commands::NewTodo(todo_new_args(matches)),
             Some(("generate-completion", matches)) => match matches.get_one::<Shell>("shell") {
                 Some(shell) => {
                     shell.generate_completion();
@@ -86,6 +103,9 @@ pub enum Commands {
 
     /// Mark a todo as undone
     Undo(TodoEditArgs),
+
+    /// Add a new todo
+    NewTodo(TodoNewArgs),
 }
 
 /// Arguments for commands that produce output
@@ -98,6 +118,14 @@ pub struct OutputArgs {
 pub struct TodoEditArgs {
     pub uid_or_short_id: String,
     pub output_format: OutputFormat,
+}
+
+#[derive(Debug, Clone)]
+pub struct TodoNewArgs {
+    pub summary: String,
+    pub description: Option<String>,
+    pub due: Option<String>,
+    pub priority: Priority,
 }
 
 fn build_cli() -> Command {
@@ -139,6 +167,14 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 .arg(output_format()),
         )
         .subcommand(
+            Command::new("new")
+                .about("Add a new todo item")
+                .arg(arg!(summary: <SUMMARY> "Summary of the todo").required(true))
+                .arg(arg!(-d --description <DESCRIPTION> "Description of the todo"))
+                .arg(arg!(-u --due <DUE> "Due date and time of the todo"))
+                .arg(arg!(-p --priority <PRIORITY> "Priority of the todo")),
+        )
+        .subcommand(
             Command::new("done")
                 .about("Mark a todo as done")
                 .arg(arg!(<id> "The short id or uid of the todo to mark as done"))
@@ -168,6 +204,56 @@ pub enum OutputFormat {
     Table,
 }
 
+#[derive(Debug, Clone)]
+enum CliPriority {
+    P1,
+    P2,
+    P3,
+    P4,
+    P5,
+    P6,
+    P7,
+    P8,
+    P9,
+    None,
+}
+
+impl FromStr for CliPriority {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "1" | "high" => Ok(CliPriority::P1),
+            "2" => Ok(CliPriority::P2),
+            "3" => Ok(CliPriority::P3),
+            "4" => Ok(CliPriority::P4),
+            "5" | "middle" => Ok(CliPriority::P5),
+            "6" => Ok(CliPriority::P6),
+            "7" => Ok(CliPriority::P7),
+            "8" => Ok(CliPriority::P8),
+            "9" | "low" => Ok(CliPriority::P9),
+            _ => Err(format!("Invalid priority: {}", s)),
+        }
+    }
+}
+
+impl From<&CliPriority> for Priority {
+    fn from(priority: &CliPriority) -> Self {
+        match priority {
+            CliPriority::P1 => Priority::P1,
+            CliPriority::P2 => Priority::P2,
+            CliPriority::P3 => Priority::P3,
+            CliPriority::P4 => Priority::P4,
+            CliPriority::P5 => Priority::P5,
+            CliPriority::P6 => Priority::P6,
+            CliPriority::P7 => Priority::P7,
+            CliPriority::P8 => Priority::P8,
+            CliPriority::P9 => Priority::P9,
+            CliPriority::None => Priority::None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Shell {
     Bash,
@@ -192,7 +278,6 @@ impl Shell {
             Shell::Fish => generate(ClapShell::Fish, &mut cmd, name, &mut io::stdout()),
             Shell::PowerShell => generate(ClapShell::PowerShell, &mut cmd, name, &mut io::stdout()),
             Shell::Zsh => generate(ClapShell::Zsh, &mut cmd, name, &mut io::stdout()),
-
             Shell::Nushell => generate(
                 clap_complete_nushell::Nushell {},
                 &mut cmd,

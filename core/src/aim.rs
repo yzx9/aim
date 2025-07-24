@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    Event, EventConditions, Pager, Todo, TodoConditions, TodoSort, cache::SqliteCache,
+    Event, EventConditions, Pager, Todo, TodoConditions, TodoDraft, TodoSort, cache::SqliteCache,
     todo::TodoPatch,
 };
 use icalendar::{Calendar, CalendarComponent, Component};
@@ -17,6 +17,7 @@ use tokio::fs;
 #[derive(Debug, Clone)]
 pub struct Aim {
     cache: SqliteCache,
+    calendar_path: PathBuf,
 }
 
 impl Aim {
@@ -26,7 +27,10 @@ impl Aim {
             .await
             .map_err(|e| format!("Failed to initialize cache: {e}"))?;
 
-        let that = Self { cache };
+        let that = Self {
+            cache,
+            calendar_path: config.calendar_path.clone(),
+        };
         that.add_calendar(&config.calendar_path)
             .await
             .map_err(|e| format!("Failed to add calendar files: {e}"))?;
@@ -48,30 +52,52 @@ impl Aim {
         self.cache.events.count(conds).await
     }
 
+    /// Add a new todo from the given draft.
+    pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo, Box<dyn Error>> {
+        let uid = draft.uid.clone();
+        if self.cache.todos.get(&uid).await?.is_some() {
+            return Err("Todo with this UID already exists".into());
+        }
+
+        let path = self.calendar_path.join(format!("{}.ics", uid));
+        if fs::try_exists(&path).await? {
+            return Err(format!("File already exists: {}", path.display()).into());
+        }
+
+        let todo = draft.into_todo()?;
+        let calendar = Calendar::new().push(todo.clone()).done();
+
+        fs::write(&path, calendar.to_string())
+            .await
+            .map_err(|e| format!("Failed to write calendar file: {e}"))?;
+
+        // TODO: perf
+        self.cache.upsert_todo(&path, todo).await?;
+        Ok(self.cache.todos.get(&uid).await?.unwrap())
+    }
+
     /// Upsert an event into the calendar.
-    pub async fn upsert_todo(&self, patch: TodoPatch) -> Result<impl Todo, Box<dyn Error>> {
+    pub async fn update_todo(&self, patch: TodoPatch) -> Result<impl Todo, Box<dyn Error>> {
         let mut todo = match self.cache.todos.get(&patch.uid).await? {
             Some(todo) => todo,
             None => return Err("Todo not found".into()),
         };
 
         let path: PathBuf = todo.path().into();
-        let mut calendar = read_calendar_file(&path).await?;
-        let mut flag = true;
-        for component in &mut calendar.components.iter_mut() {
-            if let CalendarComponent::Todo(t) = component {
-                if t.get_uid() == Some(todo.uid()) {
-                    patch.apply_to(t);
-                    flag = false;
-                    break;
-                }
-            }
-        }
-        if flag {
-            return Err("Todo not found in calendar".into());
-        }
-        let ics = calendar.done();
-        fs::write(path, ics.to_string())
+        let mut calendar = parse_ics(&path).await?;
+        let t = calendar
+            .components
+            .iter_mut()
+            .filter_map(|a| match a {
+                CalendarComponent::Todo(a) => Some(a),
+                _ => None,
+            })
+            .find(|a| a.get_uid() == Some(todo.uid()))
+            .ok_or_else(|| "Todo not found in calendar")?;
+
+        patch.apply_to(t);
+
+        fs::write(path, calendar.done().to_string())
             .await
             .map_err(|e| format!("Failed to write calendar file: {e}"))?;
 
@@ -130,7 +156,7 @@ impl Aim {
 
     async fn add_ics(self, path: &Path) -> Result<(), Box<dyn Error>> {
         log::debug!("Parsing file: {}", path.display());
-        let calendar = read_calendar_file(path).await?;
+        let calendar = parse_ics(path).await?;
         log::debug!(
             "Found {} components in {}.",
             calendar.components.len(),
@@ -157,7 +183,7 @@ pub struct Config {
     pub calendar_path: PathBuf,
 }
 
-async fn read_calendar_file(path: &Path) -> Result<Calendar, Box<dyn Error>> {
+async fn parse_ics(path: &Path) -> Result<Calendar, Box<dyn Error>> {
     fs::read_to_string(path)
         .await
         .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?

@@ -3,18 +3,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    cli::{OutputArgs, OutputFormat, TodoEditArgs},
+    cli::{OutputArgs, OutputFormat, TodoEditArgs, TodoNewArgs},
     config::Config,
     event_formatter::EventFormatter,
     short_id::{EventWithShortId, ShortIdMap, TodoWithShortId},
     todo_formatter::TodoFormatter,
 };
 use aimcal_core::{
-    Aim, EventConditions, Pager, SortOrder, TodoConditions, TodoPatch, TodoSort, TodoStatus,
+    Aim, DatePerhapsTime, EventConditions, Pager, SortOrder, TodoConditions, TodoDraft, TodoPatch,
+    TodoSort, TodoStatus,
 };
-use chrono::{Duration, Local, Utc};
+use chrono::{Duration, Local, NaiveDateTime, Utc};
+use chrono_tz::UTC;
 use colored::Colorize;
 use std::{error::Error, path::PathBuf};
+use uuid::Uuid;
 
 /// Show the dashboard with events and todos.
 pub async fn command_dashboard(config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
@@ -86,6 +89,46 @@ pub async fn command_todos(
         due: Some(Duration::days(2)),
     };
     list_todos(&aim, &map, &conds, args).await?;
+
+    map.dump(&config)?;
+    Ok(())
+}
+
+/// List all todos.
+pub async fn command_add_todo(
+    config: Option<PathBuf>,
+    args: &TodoNewArgs,
+) -> Result<(), Box<dyn Error>> {
+    log::debug!("Parsing configuration...");
+    let config = Config::parse(config).await?;
+    let aim = Aim::new(&config.core).await?;
+    let map = ShortIdMap::load_or_new(&config)?;
+
+    log::debug!("Add todos...");
+    let uid = Uuid::new_v4().to_string(); // TODO: better uid
+    let due = args
+        .due
+        .as_ref()
+        .map(|a| NaiveDateTime::parse_from_str(a, "%Y-%m-%d %H:%M:%S").ok())
+        .flatten()
+        .map(|a| DatePerhapsTime {
+            date: a.date(),
+            time: Some(a.time()),
+            tz: Some(UTC),
+        });
+
+    let draft = TodoDraft {
+        uid,
+        description: args.description.clone(),
+        due,
+        priority: args.priority,
+        summary: args.summary.clone(),
+    };
+    let todo = aim.new_todo(draft).await?;
+
+    let todo = TodoWithShortId::with(&map, todo);
+    let formatter = TodoFormatter::new(Local::now().naive_local());
+    println!("{}", formatter.format(&[todo]));
 
     map.dump(&config)?;
     Ok(())
@@ -199,9 +242,9 @@ async fn edit_todo(
         .ok()
         .and_then(|a| map.find(a))
         .unwrap_or_else(|| args.uid_or_short_id.to_string()); // treat it as a UID if is not a short ID
-    let todo = aim.upsert_todo(patch.clone()).await?;
-    let todo = TodoWithShortId::with(&map, todo);
+    let todo = aim.update_todo(patch.clone()).await?;
 
+    let todo = TodoWithShortId::with(&map, todo);
     let formatter = TodoFormatter::new(now).with_output_format(args.output_format);
     println!("{}", formatter.format(&[todo]));
     Ok(())

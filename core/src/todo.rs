@@ -15,20 +15,68 @@ const KEY_DUE: &str = "DUE";
 pub trait Todo {
     /// Returns the unique identifier for the todo item.
     fn uid(&self) -> &str;
+
     /// Returns the description of the todo item.
     fn completed(&self) -> Option<DateTime<FixedOffset>>;
+
     /// Returns the description of the todo item, if available.
     fn description(&self) -> Option<&str>;
+
     /// Returns the due date and time of the todo item, if available.
     fn due(&self) -> Option<DatePerhapsTime>;
+
     /// The percent complete, from 0 to 100.
     fn percent(&self) -> Option<u8>;
+
     /// The priority from 1 to 9, where 1 is the highest priority.
     fn priority(&self) -> Priority;
+
     /// Returns the status of the todo item, if available.
     fn status(&self) -> Option<TodoStatus>;
+
     /// Returns the summary of the todo item.
     fn summary(&self) -> &str;
+}
+
+/// Darft for a todo item, used for creating new todos.
+#[derive(Debug)]
+pub struct TodoDraft {
+    /// The unique identifier for the todo item.
+    pub uid: String,
+
+    /// The description of the todo item, if available.
+    pub description: Option<String>,
+
+    /// The due date and time of the todo item, if available.
+    pub due: Option<DatePerhapsTime>,
+
+    /// The priority of the todo item.
+    pub priority: Priority,
+
+    /// The summary of the todo item.
+    pub summary: String,
+}
+
+impl TodoDraft {
+    /// Converts the draft into a icalendar Todo component.
+    pub fn into_todo(self) -> Result<icalendar::Todo, String> {
+        let mut todo = icalendar::Todo::with_uid(&self.uid);
+        todo.priority(self.priority.into()).summary(&self.summary);
+
+        if let Some(description) = self.description {
+            todo.description(&description);
+        }
+        if let Some(due) = self.due {
+            todo.due(due);
+        }
+
+        Ok(todo)
+    }
+
+    /// Returns the path where this todo should be stored.
+    pub fn path(&self) -> String {
+        format!("{}.ics", self.uid)
+    }
 }
 
 /// Patch for a todo item, allowing partial updates.
@@ -119,10 +167,13 @@ impl TodoPatch {
 pub enum TodoStatus {
     /// The todo item needs action.
     NeedsAction,
+
     /// The todo item has been completed.
     Completed,
+
     /// The todo item is currently in process.
     InProcess,
+
     /// The todo item has been cancelled.
     Cancelled,
 }
