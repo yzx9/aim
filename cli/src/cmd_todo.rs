@@ -308,3 +308,84 @@ impl From<&ArgPriority> for Priority {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::ArgOutputFormat;
+    use aimcal_core::Priority;
+    use clap::Command;
+
+    #[test]
+    fn test_parse_todo_draft() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoDraft::command());
+
+        let matches = cmd
+            .try_get_matches_from([
+                "test",
+                "new",
+                "Another summary",
+                "--description",
+                "A description",
+                "--due",
+                "2025-01-01 12:00:00",
+                "--priority",
+                "1",
+            ])
+            .unwrap();
+        let sub_matches = matches.subcommand_matches("new").unwrap();
+        let parsed = CmdTodoDraft::parse(sub_matches);
+        assert_eq!(parsed.summary, "Another summary");
+        assert_eq!(parsed.description, Some("A description".to_string()));
+        assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
+        assert_eq!(parsed.priority, Priority::P1);
+    }
+
+    #[test]
+    fn test_parse_todo_done() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoDone::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "done", "abc", "--output-format", "json"])
+            .unwrap();
+        let sub_matches = matches.subcommand_matches("done").unwrap();
+        let parsed = CmdTodoDone::parse(sub_matches);
+        assert_eq!(parsed.0.uid_or_short_id, "abc");
+        assert_eq!(parsed.0.output_format, ArgOutputFormat::Json);
+    }
+
+    #[test]
+    fn test_parse_todo_undo() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoUndo::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "undo", "abc", "--output-format", "json"])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("undo").unwrap();
+        let parsed = CmdTodoUndo::parse(sub_matches);
+        assert_eq!(parsed.0.uid_or_short_id, "abc");
+        assert_eq!(parsed.0.output_format, ArgOutputFormat::Json);
+    }
+
+    #[test]
+    fn test_parse_todo_list() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoList::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "todo", "--output-format", "json"])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("todo").unwrap();
+        let parsed = CmdTodoList::parse(sub_matches);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+    }
+}

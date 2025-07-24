@@ -53,3 +53,15 @@ impl CmdDashboard {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_dashboard() {
+        let cmd = Command::new("test").subcommand(CmdDashboard::command());
+        let _ = cmd.try_get_matches_from(["test", "dashboard"]).unwrap();
+        let _ = CmdDashboard::parse();
+    }
+}

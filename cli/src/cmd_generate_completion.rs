@@ -31,22 +31,21 @@ impl CmdGenerateCompletion {
     }
 
     pub fn run(self) {
+        self.generate(&mut io::stdout())
+    }
+
+    pub fn generate(self, buf: &mut impl io::Write) {
         use clap_complete::Shell as ClapShell;
 
         let mut cmd = Cli::command();
         let name = cmd.get_name().to_string();
         match self.shell {
-            Shell::Bash => generate(ClapShell::Bash, &mut cmd, name, &mut io::stdout()),
-            Shell::Elvish => generate(ClapShell::Elvish, &mut cmd, name, &mut io::stdout()),
-            Shell::Fish => generate(ClapShell::Fish, &mut cmd, name, &mut io::stdout()),
-            Shell::PowerShell => generate(ClapShell::PowerShell, &mut cmd, name, &mut io::stdout()),
-            Shell::Zsh => generate(ClapShell::Zsh, &mut cmd, name, &mut io::stdout()),
-            Shell::Nushell => generate(
-                clap_complete_nushell::Nushell {},
-                &mut cmd,
-                name,
-                &mut io::stdout(),
-            ),
+            Shell::Bash => generate(ClapShell::Bash, &mut cmd, name, buf),
+            Shell::Elvish => generate(ClapShell::Elvish, &mut cmd, name, buf),
+            Shell::Fish => generate(ClapShell::Fish, &mut cmd, name, buf),
+            Shell::PowerShell => generate(ClapShell::PowerShell, &mut cmd, name, buf),
+            Shell::Zsh => generate(ClapShell::Zsh, &mut cmd, name, buf),
+            Shell::Nushell => generate(clap_complete_nushell::Nushell {}, &mut cmd, name, buf),
         }
     }
 }
@@ -61,4 +60,47 @@ pub enum Shell {
     #[allow(clippy::enum_variant_names)]
     PowerShell,
     Zsh,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Command;
+
+    #[test]
+    fn test_parse_generate_completion() {
+        let cmd = Command::new("test").subcommand(CmdGenerateCompletion::command());
+
+        let matches = cmd
+            .try_get_matches_from(["aim", "generate-completion", "bash"])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("generate-completion").unwrap();
+        let parsed = CmdGenerateCompletion::parse(sub_matches);
+        assert_eq!(parsed.shell, Shell::Bash);
+
+        let mut output = vec![];
+        parsed.generate(&mut output);
+        assert!(!output.is_empty())
+    }
+
+    #[test]
+    fn test_parse_shell_variants() {
+        fn test_shell_parsing(shell_str: &str, expected_shell: Shell) {
+            let cmd = Cli::command();
+            let matches = cmd
+                .try_get_matches_from(["aim", "generate-completion", shell_str])
+                .unwrap_or_else(|e| panic!("Failed to parse for shell '{shell_str}': {e}"));
+            let sub_matches = matches.subcommand_matches("generate-completion").unwrap();
+            let parsed = CmdGenerateCompletion::parse(sub_matches);
+            assert_eq!(parsed.shell, expected_shell);
+        }
+
+        test_shell_parsing("bash", Shell::Bash);
+        test_shell_parsing("elvish", Shell::Elvish);
+        test_shell_parsing("fish", Shell::Fish);
+        test_shell_parsing("nushell", Shell::Nushell);
+        test_shell_parsing("powershell", Shell::PowerShell);
+        test_shell_parsing("zsh", Shell::Zsh);
+    }
 }

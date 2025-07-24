@@ -75,3 +75,24 @@ impl CmdEventList {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Command;
+
+    #[test]
+    fn test_parse_event_list() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdEventList::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "event", "--output-format", "json"])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("event").unwrap();
+        let parsed = CmdEventList::parse(sub_matches);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+    }
+}
