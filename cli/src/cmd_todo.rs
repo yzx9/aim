@@ -18,16 +18,17 @@ use std::{error::Error, path::PathBuf, str::FromStr};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
-pub struct CmdTodoDraft {
+pub struct CmdTodoNew {
     pub summary: String,
     pub description: Option<String>,
     pub due: Option<String>,
     pub priority: Priority,
 }
 
-impl CmdTodoDraft {
+impl CmdTodoNew {
     pub fn command() -> Command {
         Command::new("new")
+            .alias("add")
             .about("Add a new todo item")
             .arg(arg!(summary: <SUMMARY> "Summary of the todo").required(true))
             .arg(arg!(-d --description <DESCRIPTION> "Description of the todo"))
@@ -89,68 +90,76 @@ impl CmdTodoDraft {
 }
 
 #[derive(Debug, Clone)]
-pub struct CmdTodoDone(TodoEdit);
+pub struct CmdTodoDone {
+    pub uid_or_short_id: String,
+    pub output_format: ArgOutputFormat,
+}
 
 impl CmdTodoDone {
     pub fn command() -> Command {
         Command::new("done")
-            .about("Edit a todo item")
-            .arg(arg!(<id> "The short id or uid of the todo to edit"))
+            .about("Mark a todo item as done")
+            .arg(TodoEdit::arg_id())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
-        Self(TodoEdit {
-            uid_or_short_id: matches
-                .get_one::<String>("id")
-                .expect("id is required")
-                .clone(),
+        Self {
+            uid_or_short_id: TodoEdit::parse_id(matches),
             output_format: ArgOutputFormat::parse(matches),
-        })
+        }
     }
 
-    /// Mark a todo as done.
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         log::debug!("Marking todo as done...");
-        let patch = TodoPatch {
+        TodoEdit {
+            config,
+            uid_or_short_id: self.uid_or_short_id,
+            output_format: self.output_format,
+        }
+        .run(TodoPatch {
             completed: Some(Some(Utc::now().into())),
             status: Some(TodoStatus::Completed),
             ..Default::default()
-        };
-        self.0.run(config, patch).await
+        })
+        .await
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct CmdTodoUndo(TodoEdit);
+pub struct CmdTodoUndo {
+    uid_or_short_id: String,
+    output_format: ArgOutputFormat,
+}
 
 impl CmdTodoUndo {
     pub fn command() -> Command {
         Command::new("undo")
-            .about("Edit a todo item")
-            .arg(arg!(<id> "The short id or uid of the todo to edit"))
+            .about("Mark a todo item as undone")
+            .arg(TodoEdit::arg_id())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
-        Self(TodoEdit {
-            uid_or_short_id: matches
-                .get_one::<String>("id")
-                .expect("id is required")
-                .clone(),
+        Self {
+            uid_or_short_id: TodoEdit::parse_id(matches),
             output_format: ArgOutputFormat::parse(matches),
-        })
+        }
     }
 
-    /// Mark a todo as undone.
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         log::debug!("Marking todo as undone...");
-        let patch = TodoPatch {
+        TodoEdit {
+            config,
+            uid_or_short_id: self.uid_or_short_id,
+            output_format: self.output_format,
+        }
+        .run(TodoPatch {
             completed: Some(None),
             status: Some(TodoStatus::NeedsAction),
             ..Default::default()
-        };
-        self.0.run(config, patch).await
+        })
+        .await
     }
 }
 
@@ -162,7 +171,7 @@ pub struct CmdTodoList {
 
 impl CmdTodoList {
     pub fn command() -> Command {
-        Command::new("todo")
+        Command::new("list")
             .about("List todos")
             .arg(ArgOutputFormat::arg())
     }
@@ -191,7 +200,6 @@ impl CmdTodoList {
         Ok(())
     }
 
-    /// List todos with the given conditions and output format.
     pub async fn list(
         aim: &Aim,
         map: &ShortIdMap,
@@ -228,20 +236,28 @@ impl CmdTodoList {
 
 #[derive(Debug, Clone)]
 struct TodoEdit {
-    pub uid_or_short_id: String,
-    pub output_format: ArgOutputFormat,
+    config: Option<PathBuf>,
+    uid_or_short_id: String,
+    output_format: ArgOutputFormat,
 }
 
 impl TodoEdit {
-    async fn run(
-        &self,
-        config: Option<PathBuf>,
-        mut patch: TodoPatch,
-    ) -> Result<(), Box<dyn Error>> {
+    fn arg_id() -> Arg {
+        arg!(<id> "The short id or uid of the todo to edit")
+    }
+
+    fn parse_id(matches: &ArgMatches) -> String {
+        matches
+            .get_one::<String>("id")
+            .expect("id is required")
+            .clone()
+    }
+
+    async fn run(self, mut patch: TodoPatch) -> Result<(), Box<dyn Error>> {
         let now = Local::now().naive_local();
 
         log::debug!("Parsing configuration...");
-        let config = Config::parse(config).await?;
+        let config = Config::parse(self.config).await?;
         let aim = Aim::new(&config.core).await?;
         let map = ShortIdMap::load_or_new(&config)?;
 
@@ -325,7 +341,7 @@ mod tests {
     fn test_parse_todo_draft() {
         let cmd = Command::new("test")
             .subcommand_required(true)
-            .subcommand(CmdTodoDraft::command());
+            .subcommand(CmdTodoNew::command());
 
         let matches = cmd
             .try_get_matches_from([
@@ -341,7 +357,7 @@ mod tests {
             ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdTodoDraft::parse(sub_matches);
+        let parsed = CmdTodoNew::parse(sub_matches);
         assert_eq!(parsed.summary, "Another summary");
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
@@ -359,8 +375,8 @@ mod tests {
             .unwrap();
         let sub_matches = matches.subcommand_matches("done").unwrap();
         let parsed = CmdTodoDone::parse(sub_matches);
-        assert_eq!(parsed.0.uid_or_short_id, "abc");
-        assert_eq!(parsed.0.output_format, ArgOutputFormat::Json);
+        assert_eq!(parsed.uid_or_short_id, "abc");
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 
     #[test]
@@ -375,8 +391,8 @@ mod tests {
 
         let sub_matches = matches.subcommand_matches("undo").unwrap();
         let parsed = CmdTodoUndo::parse(sub_matches);
-        assert_eq!(parsed.0.uid_or_short_id, "abc");
-        assert_eq!(parsed.0.output_format, ArgOutputFormat::Json);
+        assert_eq!(parsed.uid_or_short_id, "abc");
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 
     #[test]
@@ -386,10 +402,10 @@ mod tests {
             .subcommand(CmdTodoList::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "todo", "--output-format", "json"])
+            .try_get_matches_from(["test", "list", "--output-format", "json"])
             .unwrap();
 
-        let sub_matches = matches.subcommand_matches("todo").unwrap();
+        let sub_matches = matches.subcommand_matches("list").unwrap();
         let parsed = CmdTodoList::parse(sub_matches);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }

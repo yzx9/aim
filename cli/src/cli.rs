@@ -6,7 +6,7 @@ use crate::{
     cmd_dashboard::CmdDashboard,
     cmd_event::CmdEventList,
     cmd_generate_completion::CmdGenerateCompletion,
-    cmd_todo::{CmdTodoDone, CmdTodoDraft, CmdTodoList, CmdTodoUndo},
+    cmd_todo::{CmdTodoDone, CmdTodoList, CmdTodoNew, CmdTodoUndo},
     config::APP_NAME,
 };
 use clap::{Arg, ArgMatches, Command, ValueEnum, ValueHint, arg, crate_version, value_parser};
@@ -48,9 +48,25 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .value_hint(ValueHint::FilePath),
             )
             .subcommand(CmdDashboard::command())
-            .subcommand(CmdEventList::command())
-            .subcommand(CmdTodoList::command())
-            .subcommand(CmdTodoDraft::command())
+            .subcommand(
+                Command::new("event")
+                    .alias("e")
+                    .about("Manage your event list")
+                    .arg_required_else_help(true)
+                    .subcommand_required(true)
+                    .subcommand(CmdEventList::command()),
+            )
+            .subcommand(
+                Command::new("todo")
+                    .alias("t")
+                    .about("Manage your todo list")
+                    .arg_required_else_help(true)
+                    .subcommand_required(true)
+                    .subcommand(CmdTodoList::command())
+                    .subcommand(CmdTodoNew::command())
+                    .subcommand(CmdTodoDone::command())
+                    .subcommand(CmdTodoUndo::command()),
+            )
             .subcommand(CmdTodoDone::command())
             .subcommand(CmdTodoUndo::command())
             .subcommand(CmdGenerateCompletion::command())
@@ -62,11 +78,19 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
 
         let command = match matches.subcommand() {
             Some(("dashboard", _)) => Commands::Dashboard(CmdDashboard::parse()),
-            Some(("event", matches)) => Commands::EventList(CmdEventList::parse(matches)),
-            Some(("new", matches)) => Commands::TodoDraft(CmdTodoDraft::parse(matches)),
+            Some(("event", matches)) => match matches.subcommand() {
+                Some(("list", matches)) => Commands::EventList(CmdEventList::parse(matches)),
+                _ => unreachable!(),
+            },
+            Some(("todo", matches)) => match matches.subcommand() {
+                Some(("list", matches)) => Commands::TodoList(CmdTodoList::parse(matches)),
+                Some(("new", matches)) => Commands::TodoNew(CmdTodoNew::parse(matches)),
+                Some(("done", matches)) => Commands::TodoDone(CmdTodoDone::parse(matches)),
+                Some(("undo", matches)) => Commands::TodoUndo(CmdTodoUndo::parse(matches)),
+                _ => unreachable!(),
+            },
             Some(("done", matches)) => Commands::TodoDone(CmdTodoDone::parse(matches)),
             Some(("undo", matches)) => Commands::TodoUndo(CmdTodoUndo::parse(matches)),
-            Some(("todo", matches)) => Commands::TodoList(CmdTodoList::parse(matches)),
             Some(("generate-completion", matches)) => {
                 Commands::GenerateCompletion(CmdGenerateCompletion::parse(matches))
             }
@@ -94,7 +118,7 @@ pub enum Commands {
     EventList(CmdEventList),
 
     /// Add a new todo
-    TodoDraft(CmdTodoDraft),
+    TodoNew(CmdTodoNew),
 
     /// Mark a todo as done
     TodoDone(CmdTodoDone),
@@ -115,7 +139,7 @@ impl Commands {
         match self {
             Commands::Dashboard(a) => a.run(config).await,
             Commands::EventList(a) => a.run(config).await,
-            Commands::TodoDraft(a) => a.run(config).await,
+            Commands::TodoNew(a) => a.run(config).await,
             Commands::TodoDone(a) => a.run(config).await,
             Commands::TodoUndo(a) => a.run(config).await,
             Commands::TodoList(a) => a.run(config).await,

@@ -21,7 +21,7 @@ pub struct CmdEventList {
 
 impl CmdEventList {
     pub fn command() -> Command {
-        Command::new("event")
+        Command::new("list")
             .about("List events")
             .arg(ArgOutputFormat::arg())
     }
@@ -88,10 +88,10 @@ mod tests {
             .subcommand(CmdEventList::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "event", "--output-format", "json"])
+            .try_get_matches_from(["test", "list", "--output-format", "json"])
             .unwrap();
 
-        let sub_matches = matches.subcommand_matches("event").unwrap();
+        let sub_matches = matches.subcommand_matches("list").unwrap();
         let parsed = CmdEventList::parse(sub_matches);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
