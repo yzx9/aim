@@ -9,11 +9,10 @@ use crate::{
     todo_formatter::TodoFormatter,
 };
 use aimcal_core::{
-    Aim, DatePerhapsTime, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
+    Aim, LooseDateTime, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
     TodoStatus,
 };
-use chrono::{Duration, Local, NaiveDateTime, Utc};
-use chrono_tz::UTC;
+use chrono::{Duration, Local, NaiveDateTime, TimeZone, Utc, offset::LocalResult};
 use clap::{Arg, ArgMatches, Command, arg, value_parser};
 use std::{error::Error, path::PathBuf, str::FromStr};
 use uuid::Uuid;
@@ -59,10 +58,16 @@ impl CmdTodoDraft {
             .due
             .as_ref()
             .and_then(|a| NaiveDateTime::parse_from_str(a, "%Y-%m-%d %H:%M:%S").ok())
-            .map(|a| DatePerhapsTime {
-                date: a.date(),
-                time: Some(a.time()),
-                tz: Some(UTC),
+            .map(|a| match Local.from_local_datetime(&a) {
+                LocalResult::Single(dt) => LooseDateTime::Local(dt),
+                LocalResult::Ambiguous(dt1, _) => {
+                    log::warn!("Ambiguous local time for {a} in local, picking earliest");
+                    LooseDateTime::Local(dt1)
+                }
+                LocalResult::None => {
+                    log::warn!("Invalid local time for {a} in local, falling back to floating");
+                    LooseDateTime::Floating(a)
+                }
             });
 
         let draft = TodoDraft {

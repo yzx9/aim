@@ -7,7 +7,7 @@ use crate::{
     short_id::TodoWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
-use aimcal_core::{Priority, Todo, TodoStatus};
+use aimcal_core::{LooseDateTime, Priority, Todo, TodoStatus};
 use chrono::NaiveDateTime;
 use colored::Color;
 use std::{borrow::Cow, fmt};
@@ -152,7 +152,7 @@ pub struct TodoColumnDue;
 
 impl TodoColumnDue {
     pub fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
-        todo.inner.due().map_or("".into(), |a| a.format().into())
+        todo.inner.due().map_or("".into(), |a| format_ldt(a).into())
     }
 
     fn get_color(&self, todo: &TodoWithShortId<impl Todo>, now: &NaiveDateTime) -> Option<Color> {
@@ -160,22 +160,30 @@ impl TodoColumnDue {
         const COLOR_TODAY: Option<Color> = Some(Color::Yellow);
 
         let due = todo.inner.due()?;
-        let due_date = due.date;
+        let due_date = due.date();
         let now_date = now.date();
         if due_date > now_date {
             None
         } else if due_date < now_date {
             COLOR_OVERDUE
-        } else if let Some(due_time) = due.time {
-            if due_time < now.time() {
-                COLOR_OVERDUE
-            } else {
-                COLOR_TODAY
+        } else if let Some(due_time) = due.time() {
+            match due_time < now.time() {
+                true => COLOR_OVERDUE,
+                false => COLOR_TODAY,
             }
         } else {
             COLOR_TODAY
         }
     }
+}
+
+fn format_ldt(t: LooseDateTime) -> String {
+    match t {
+        LooseDateTime::DateOnly(d) => d.format("%Y-%m-%d"),
+        LooseDateTime::Floating(dt) => dt.format("%Y-%m-%d %H:%M"),
+        LooseDateTime::Local(dt) => dt.format("%Y-%m-%d %H:%M"),
+    }
+    .to_string()
 }
 
 #[derive(Debug, Clone)]
@@ -207,7 +215,7 @@ impl TodoColumnStatus {
             Some(TodoStatus::NeedsAction) => "[ ]".into(),
             Some(TodoStatus::Completed) => "[x]".into(),
             Some(TodoStatus::Cancelled) => " ✗ ".into(),
-            Some(TodoStatus::InProcess) => match todo.inner.percent() {
+            Some(TodoStatus::InProcess) => match todo.inner.percent_complete() {
                 Some(percent) if percent > 0 => {
                     format!("[{}]", "x".repeat(percent as usize)).into()
                 }

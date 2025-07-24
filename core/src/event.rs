@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::DatePerhapsTime;
+use crate::LooseDateTime;
 use chrono::NaiveDateTime;
 use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
@@ -19,10 +19,10 @@ pub trait Event {
     fn description(&self) -> Option<&str>;
 
     /// The location of the event, if available.
-    fn start(&self) -> Option<DatePerhapsTime>;
+    fn start(&self) -> Option<LooseDateTime>;
 
     /// The start date and time of the event, if available.
-    fn end(&self) -> Option<DatePerhapsTime>;
+    fn end(&self) -> Option<LooseDateTime>;
 
     /// The status of the event, if available.
     fn status(&self) -> Option<EventStatus>;
@@ -41,11 +41,11 @@ impl Event for icalendar::Event {
         self.get_description()
     }
 
-    fn start(&self) -> Option<DatePerhapsTime> {
+    fn start(&self) -> Option<LooseDateTime> {
         self.get_start().map(Into::into)
     }
 
-    fn end(&self) -> Option<DatePerhapsTime> {
+    fn end(&self) -> Option<LooseDateTime> {
         self.get_end().map(Into::into)
     }
 

@@ -7,7 +7,7 @@ use crate::{
     short_id::EventWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
-use aimcal_core::Event;
+use aimcal_core::{Event, LooseDateTime};
 use chrono::NaiveDateTime;
 use std::{borrow::Cow, fmt};
 
@@ -128,34 +128,43 @@ pub struct EventColumnTimeRange;
 impl EventColumnTimeRange {
     fn format<'a>(&self, event: &'a EventWithShortId<impl Event>) -> Cow<'a, str> {
         match (event.inner.start(), event.inner.end()) {
-            (Some(start), Some(end)) => match start.date == end.date {
-                true => match (start.time, end.time) {
+            (Some(start), Some(end)) => match start.date() == end.date() {
+                true => match (start.time(), end.time()) {
                     (Some(stime), Some(etime)) => format!(
                         "{} {}~{}",
-                        start.date.format("%Y-%m-%d"),
+                        start.date().format("%Y-%m-%d"),
                         stime.format("%H:%M"),
                         etime.format("%H:%M")
                     ),
                     (Some(stime), None) => format!(
                         "{} {}~24:00",
-                        start.date.format("%Y-%m-%d"),
+                        start.date().format("%Y-%m-%d"),
                         stime.format("%H:%M")
                     ),
                     (None, Some(etime)) => format!(
                         "{} 00:00~{}",
-                        start.date.format("%Y-%m-%d"),
+                        start.date().format("%Y-%m-%d"),
                         etime.format("%H:%M")
                     ),
-                    (None, None) => start.date.format("%Y-%m-%d").to_string(),
+                    (None, None) => start.date().format("%Y-%m-%d").to_string(),
                 },
-                false => format!("{}~{}", start.format(), end.format()),
+                false => format!("{}~{}", format_ldt(start), format_ldt(end)),
             }
             .into(),
-            (Some(start), None) => start.format().into(),
-            (None, Some(end)) => format!("~{}", end.format()).into(),
+            (Some(start), None) => format_ldt(start).into(),
+            (None, Some(end)) => format!("~{}", format_ldt(end)).into(),
             (None, None) => "".to_string().into(),
         }
     }
+}
+
+fn format_ldt(t: LooseDateTime) -> String {
+    match t {
+        LooseDateTime::DateOnly(d) => d.format("%Y-%m-%d"),
+        LooseDateTime::Floating(dt) => dt.format("%Y-%m-%d %H:%M"),
+        LooseDateTime::Local(dt) => dt.format("%Y-%m-%d %H:%M"),
+    }
+    .to_string()
 }
 
 #[derive(Debug, Clone)]

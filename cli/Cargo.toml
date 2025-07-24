@@ -21,7 +21,6 @@ path = "src/main.rs"
 [dependencies]
 aimcal-core = { version = "0.1.2", path = "../core" }
 chrono = { version = "0.4.41", features = ["serde"] }
-chrono-tz = "0.10"
 clap = { version = "4.5", features = ["cargo", "derive"] }
 clap_complete = "4.5"
 clap_complete_nushell = "4.5"

@@ -2,136 +2,128 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
 use chrono_tz::Tz;
+use icalendar::{CalendarDateTime, DatePerhapsTime};
 
-/// Represents a date that may or may not include a time component, along with an optional timezone.
+/// A date and time that may be in different formats, such as date only, floating time, or local time with timezone.
 #[derive(Debug, Clone, Copy)]
-pub struct DatePerhapsTime {
-    /// The date component.
-    pub date: NaiveDate,
+pub enum LooseDateTime {
+    /// Date only without time.
+    DateOnly(NaiveDate),
 
-    /// The optional time component.
-    pub time: Option<NaiveTime>,
+    /// Floating date and time without timezone.
+    Floating(NaiveDateTime),
 
-    /// The optional timezone.
-    pub tz: Option<Tz>,
+    /// Local date and time with timezone.
+    /// NOTE: This is always in the local timezone of the system running the code.
+    Local(DateTime<Local>),
 }
 
-impl DatePerhapsTime {
-    /// Creates a new `DatePerhapsTime` instance with the given date, optional time, and optional timezone.
-    pub fn format(&self) -> String {
-        if let Some(time) = self.time {
-            format!("{} {}", self.date.format("%Y-%m-%d"), time.format("%H:%M"))
-        } else {
-            self.date.format("%Y-%m-%d").to_string()
+impl LooseDateTime {
+    /// Returns the date part
+    pub fn date(&self) -> NaiveDate {
+        match self {
+            LooseDateTime::DateOnly(d) => *d,
+            LooseDateTime::Floating(dt) => dt.date(),
+            LooseDateTime::Local(dt) => dt.date_naive(),
         }
     }
 
-    /// Converts the `DatePerhapsTime` to a string representation of date and timezone.
-    pub fn to_dt_tz(&self, date_format: &str, datetime_format: &str) -> (String, String) {
-        let t = if let Some(t) = self.time {
-            let dt = NaiveDateTime::new(self.date, t);
-            dt.format(datetime_format).to_string()
-        } else {
-            self.date.format(date_format).to_string()
-        };
-        (t, self.tz.map_or("", |tz| tz.name()).to_string())
+    /// Returns the time part, if available.
+    pub fn time(&self) -> Option<NaiveTime> {
+        match self {
+            LooseDateTime::DateOnly(_) => None,
+            LooseDateTime::Floating(dt) => Some(dt.time()),
+            LooseDateTime::Local(dt) => Some(dt.time()),
+        }
     }
 
-    /// Parses a date or datetime string with an optional timezone into a `DatePerhapsTime`.
-    pub fn from_dt_tz(
-        dt: &str,
-        tz: &str,
-        date_format: &str,
-        datetime_format: &str,
-    ) -> Option<DatePerhapsTime> {
-        if dt.is_empty() {
-            return None;
-        }
+    /// NOTE: Used for storing in the database, so it should be stable across different runs.
+    const DATEONLY_FORMAT: &str = "%Y-%m-%d";
+    const FLOATING_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
+    const LOCAL_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%z";
 
-        let tz: Option<Tz> = tz.parse().ok();
-        match dt.len() {
-            10 => NaiveDate::parse_from_str(dt, date_format)
-                .ok()
-                .map(|d| DatePerhapsTime {
-                    date: d,
-                    time: None,
-                    tz,
-                }),
-            19 => NaiveDateTime::parse_from_str(dt, datetime_format)
-                .ok()
-                .map(|d| DatePerhapsTime {
-                    date: d.date(),
-                    time: Some(d.time()),
-                    tz,
-                }),
+    /// Converts to a string representation of date and time.
+    pub(crate) fn format_stable(&self) -> String {
+        match self {
+            LooseDateTime::DateOnly(d) => d.format(Self::DATEONLY_FORMAT).to_string(),
+            LooseDateTime::Floating(dt) => dt.format(Self::FLOATING_FORMAT).to_string(),
+            LooseDateTime::Local(dt) => dt.format(Self::LOCAL_FORMAT).to_string(),
+        }
+    }
+
+    pub(crate) fn parse_stable(s: &str) -> Option<Self> {
+        match s.len() {
+            // 2006-01-02
+            10 => NaiveDate::parse_from_str(s, Self::DATEONLY_FORMAT)
+                .map(Self::DateOnly)
+                .ok(),
+
+            // 2006-01-02T15:04:05
+            19 => NaiveDateTime::parse_from_str(s, Self::FLOATING_FORMAT)
+                .map(Self::Floating)
+                .ok(),
+
+            // 2006-01-02T15:04:05Z
+            20.. => DateTime::parse_from_str(s, Self::LOCAL_FORMAT)
+                .map(|a| Self::Local(a.with_timezone(&Local)))
+                .ok(),
+
             _ => None,
         }
     }
 }
 
-impl From<icalendar::DatePerhapsTime> for DatePerhapsTime {
-    fn from(date: icalendar::DatePerhapsTime) -> Self {
-        match date {
-            icalendar::DatePerhapsTime::DateTime(dt) => match dt {
-                icalendar::CalendarDateTime::Floating(dt) => Self {
-                    date: dt.date(),
-                    time: Some(dt.time()),
-                    tz: None,
+impl From<DatePerhapsTime> for LooseDateTime {
+    fn from(dt: DatePerhapsTime) -> Self {
+        match dt {
+            DatePerhapsTime::DateTime(dt) => match dt {
+                CalendarDateTime::Floating(dt) => LooseDateTime::Floating(dt),
+                CalendarDateTime::Utc(dt) => LooseDateTime::Local(dt.into()),
+                CalendarDateTime::WithTimezone { date_time, tzid } => match tzid.parse::<Tz>() {
+                    Ok(tz) => match tz.from_local_datetime(&date_time) {
+                        // Use the parsed timezone to interpret the datetime
+                        LocalResult::Single(dt_in_tz) => {
+                            LooseDateTime::Local(dt_in_tz.with_timezone(&Local))
+                        }
+                        LocalResult::Ambiguous(dt1, _) => {
+                            log::warn!(
+                                "Ambiguous local time for {date_time} in {tzid}, picking earliest"
+                            );
+                            LooseDateTime::Local(dt1.with_timezone(&Local))
+                        }
+                        LocalResult::None => {
+                            log::warn!(
+                                "Invalid local time for {date_time} in {tzid}, falling back to floating"
+                            );
+                            LooseDateTime::Floating(date_time)
+                        }
+                    },
+                    _ => {
+                        log::warn!("Unknown timezone, treating as floating: {tzid}");
+                        LooseDateTime::Floating(date_time)
+                    }
                 },
-                icalendar::CalendarDateTime::Utc(dt) => {
-                    // NOTE: always use local time, so we need refresh cache when system time changes
-                    let local = dt.with_timezone(&Local).naive_local();
-                    Self {
-                        date: local.date(),
-                        time: Some(local.time()),
-                        tz: Some(Tz::UTC),
-                    }
-                }
-                icalendar::CalendarDateTime::WithTimezone { date_time, tzid } => {
-                    let tz: Option<Tz> = tzid.parse().ok();
-                    if let Some(tz) = tz {
-                        let local = tz
-                            .from_local_datetime(&date_time)
-                            .unwrap()
-                            .with_timezone(&Local)
-                            .naive_local();
-                        Self {
-                            date: local.date(),
-                            time: Some(local.time()),
-                            tz: Some(tz),
-                        }
-                    } else {
-                        log::warn!("Unknown timezone, treating as local time: {tzid}");
-                        Self {
-                            date: date_time.date(),
-                            time: Some(date_time.time()),
-                            tz: None,
-                        }
-                    }
-                }
             },
-            icalendar::DatePerhapsTime::Date(d) => Self {
-                date: d,
-                time: None,
-                tz: None,
-            },
+            DatePerhapsTime::Date(d) => LooseDateTime::DateOnly(d),
         }
     }
 }
 
-impl From<DatePerhapsTime> for icalendar::DatePerhapsTime {
-    fn from(date: DatePerhapsTime) -> Self {
-        match date.time {
-            Some(t) => icalendar::DatePerhapsTime::DateTime(match date.tz {
-                Some(tz) => icalendar::CalendarDateTime::WithTimezone {
-                    date_time: NaiveDateTime::new(date.date, t),
-                    tzid: tz.name().to_string(),
-                },
-                None => icalendar::CalendarDateTime::Floating(NaiveDateTime::new(date.date, t)),
-            }),
-            None => icalendar::DatePerhapsTime::Date(date.date),
+impl From<LooseDateTime> for DatePerhapsTime {
+    fn from(dt: LooseDateTime) -> Self {
+        use DatePerhapsTime::*;
+        match dt {
+            LooseDateTime::DateOnly(d) => Date(d),
+            LooseDateTime::Floating(dt) => DateTime(CalendarDateTime::Floating(dt)),
+            LooseDateTime::Local(dt) => match iana_time_zone::get_timezone() {
+                Ok(tzid) => DateTime(CalendarDateTime::WithTimezone {
+                    date_time: dt.naive_local(),
+                    tzid,
+                }),
+                Err(_) => DateTime(CalendarDateTime::Utc(dt.into())),
+            },
         }
     }
 }
@@ -144,6 +136,16 @@ pub enum SortOrder {
 
     /// Descending order.
     Desc,
+}
+
+impl SortOrder {
+    /// Converts to a string representation suitable for SQL queries.
+    pub(crate) fn sql_keyword(&self) -> &str {
+        match self {
+            SortOrder::Asc => "ASC",
+            SortOrder::Desc => "DESC",
+        }
+    }
 }
 
 /// Pagination with a limit and an offset.

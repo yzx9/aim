@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{DatePerhapsTime, Priority, SortOrder};
-use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime, Utc};
+use crate::{LooseDateTime, Priority, SortOrder};
+use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDateTime, Utc};
 use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
 
@@ -17,16 +17,16 @@ pub trait Todo {
     fn uid(&self) -> &str;
 
     /// Returns the description of the todo item.
-    fn completed(&self) -> Option<DateTime<FixedOffset>>;
+    fn completed(&self) -> Option<DateTime<Local>>;
 
     /// Returns the description of the todo item, if available.
     fn description(&self) -> Option<&str>;
 
     /// Returns the due date and time of the todo item, if available.
-    fn due(&self) -> Option<DatePerhapsTime>;
+    fn due(&self) -> Option<LooseDateTime>;
 
     /// The percent complete, from 0 to 100.
-    fn percent(&self) -> Option<u8>;
+    fn percent_complete(&self) -> Option<u8>;
 
     /// The priority from 1 to 9, where 1 is the highest priority.
     fn priority(&self) -> Priority;
@@ -43,20 +43,19 @@ impl Todo for icalendar::Todo {
         self.get_uid().unwrap_or("")
     }
 
-    fn completed(&self) -> Option<DateTime<FixedOffset>> {
-        self.get_completed()
-            .map(|a| a.with_timezone(&FixedOffset::east_opt(0).unwrap()))
+    fn completed(&self) -> Option<DateTime<Local>> {
+        self.get_completed().map(|dt| dt.with_timezone(&Local))
     }
 
     fn description(&self) -> Option<&str> {
         self.get_description()
     }
 
-    fn due(&self) -> Option<DatePerhapsTime> {
+    fn due(&self) -> Option<LooseDateTime> {
         self.get_due().map(Into::into)
     }
 
-    fn percent(&self) -> Option<u8> {
+    fn percent_complete(&self) -> Option<u8> {
         self.get_percent_complete()
     }
 
@@ -84,7 +83,7 @@ pub struct TodoDraft {
     pub description: Option<String>,
 
     /// The due date and time of the todo item, if available.
-    pub due: Option<DatePerhapsTime>,
+    pub due: Option<LooseDateTime>,
 
     /// The priority of the todo item.
     pub priority: Priority,
@@ -129,7 +128,7 @@ pub struct TodoPatch {
     pub description: Option<Option<String>>,
 
     /// The due date and time of the todo item, if available.
-    pub due: Option<Option<DatePerhapsTime>>,
+    pub due: Option<Option<LooseDateTime>>,
 
     /// The percent complete, from 0 to 100.
     pub percent: Option<Option<u8>>,

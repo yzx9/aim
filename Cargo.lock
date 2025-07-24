@@ -40,7 +40,6 @@ version = "0.1.2"
 dependencies = [
  "aimcal-core",
  "chrono",
- "chrono-tz",
  "clap",
  "clap_complete",
  "clap_complete_nushell",
@@ -64,6 +63,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "env_logger",
+ "iana-time-zone",
  "icalendar",
  "log",
  "sqlx",

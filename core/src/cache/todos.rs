@@ -2,10 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    DatePerhapsTime, Pager, Priority, SortOrder, Todo, TodoConditions, TodoSort, TodoStatus,
-};
-use chrono::{DateTime, FixedOffset, Local, NaiveDateTime};
+use crate::{LooseDateTime, Pager, Priority, Todo, TodoConditions, TodoSort, TodoStatus};
+use chrono::{DateTime, Local, NaiveDateTime};
 use sqlx::sqlite::SqlitePool;
 
 #[derive(Debug, Clone)]
@@ -23,15 +21,8 @@ impl Todos {
     }
 
     /// See RFC-5545 Sect. 3.6.2
-    ///
-    /// ## max lengths
-    /// - `completed` (25): 2023-10-01T12:00:00+14:00
-    /// - `status` (12): needs-action
-    /// - `due_at` (19): 2023-10-01T12:00:00
-    /// - `due_tz` (32): America/Argentina/ComodRivadavia
     async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "
+        const SQL: &str = "
 CREATE TABLE todos (
     uid         TEXT PRIMARY KEY,
     path        TEXT NOT NULL,
@@ -41,63 +32,56 @@ CREATE TABLE todos (
     priority    INTEGER NOT NULL,
     status      TEXT NOT NULL,
     summary     TEXT NOT NULL,
-    due_at      TEXT NOT NULL,
-    due_tz      TEXT NOT NULL
+    due         TEXT NOT NULL
 );
-        ",
-        )
-        .execute(pool)
-        .await?;
+";
 
+        sqlx::query(SQL).execute(pool).await?;
         Ok(())
     }
 
     pub async fn upsert(&self, todo: &TodoRecord) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "
-INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due_at, due_tz)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        const SQL: &str = "
+INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uid) DO UPDATE SET
-    path = excluded.path,
-    completed = excluded.completed,
+    path        = excluded.path,
+    completed   = excluded.completed,
     description = excluded.description,
-    percent = excluded.percent,
-    priority = excluded.priority,
-    status = excluded.status,
-    summary = excluded.summary,
-    due_at = excluded.due_at,
-    due_tz = excluded.due_tz;
-            ",
-        )
-        .bind(&todo.uid)
-        .bind(&todo.path)
-        .bind(&todo.completed)
-        .bind(&todo.description)
-        .bind(todo.percent)
-        .bind(todo.priority)
-        .bind(&todo.status)
-        .bind(&todo.summary)
-        .bind(&todo.due_at)
-        .bind(&todo.due_tz)
-        .execute(&self.pool)
-        .await?;
+    percent     = excluded.percent,
+    priority    = excluded.priority,
+    status      = excluded.status,
+    summary     = excluded.summary,
+    due         = excluded.due;
+";
+
+        sqlx::query(SQL)
+            .bind(&todo.uid)
+            .bind(&todo.path)
+            .bind(&todo.completed)
+            .bind(&todo.description)
+            .bind(todo.percent)
+            .bind(todo.priority)
+            .bind(&todo.status)
+            .bind(&todo.summary)
+            .bind(&todo.due)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
 
     pub async fn get(&self, uid: &str) -> Result<Option<TodoRecord>, sqlx::Error> {
-        let todo: Option<TodoRecord> = sqlx::query_as(
-            "
-SELECT uid, path, completed, description, percent, priority, status, summary, due_at, due_tz
+        const SQL: &str = "
+SELECT uid, path, completed, description, percent, priority, status, summary, due
 FROM todos
 WHERE uid = ?;
-            ",
-        )
-        .bind(uid)
-        .fetch_optional(&self.pool)
-        .await?;
+";
 
-        Ok(todo)
+        sqlx::query_as(SQL)
+            .bind(uid)
+            .fetch_optional(&self.pool)
+            .await
     }
 
     pub async fn list(
@@ -106,14 +90,13 @@ WHERE uid = ?;
         sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
-        let due_before = query.due_before();
-
-        let mut where_clauses: Vec<&str> = Vec::new();
+        let mut where_clauses = Vec::new();
         if query.status.is_some() {
             where_clauses.push("status = ?");
         }
+        let due_before = query.due_before();
         if due_before.is_some() {
-            where_clauses.push("due_at <= ?");
+            where_clauses.push("due <= ?");
         }
 
         let mut sql = "SELECT * FROM todos".to_string();
@@ -127,15 +110,15 @@ WHERE uid = ?;
             for (i, s) in sort.iter().enumerate() {
                 match s {
                     TodoSort::Due(order) => {
-                        sql += "due_at";
-                        sql += to_sql_order(order);
+                        sql += "due ";
+                        sql += order.sql_keyword();
                     }
                     TodoSort::Priority { order, none_first } => {
                         sql += match none_first {
-                            true => "priority",
-                            false => "((priority + 9) % 10)",
+                            true => "priority ",
+                            false => "((priority + 9) % 10) ",
                         };
-                        sql += to_sql_order(order);
+                        sql += order.sql_keyword();
                     }
                 }
 
@@ -148,11 +131,10 @@ WHERE uid = ?;
 
         let mut executable = sqlx::query_as(&sql);
         if let Some(status) = &query.status {
-            let status: &str = status.as_ref();
-            executable = executable.bind(status);
+            executable = executable.bind(AsRef::<str>::as_ref(status));
         }
-        if let Some(due_at) = due_before {
-            executable = executable.bind(format_ndt(due_at));
+        if let Some(due) = due_before {
+            executable = executable.bind(format_ndt(due));
         }
 
         executable
@@ -169,7 +151,7 @@ WHERE uid = ?;
             where_clauses.push("status = ?");
         }
         if due_before.is_some() {
-            where_clauses.push("due_at <= ?");
+            where_clauses.push("due <= ?");
         }
 
         let mut sql = "SELECT COUNT(*) FROM todos".to_string();
@@ -183,8 +165,8 @@ WHERE uid = ?;
             let status: &str = status.as_ref();
             executable = executable.bind(status);
         }
-        if let Some(due_at) = query.due_before() {
-            executable = executable.bind(format_ndt(due_at));
+        if let Some(due) = query.due_before() {
+            executable = executable.bind(format_ndt(due));
         }
         let row: (i64,) = executable.fetch_one(&self.pool).await?;
         Ok(row.0)
@@ -201,22 +183,22 @@ pub struct TodoRecord {
     priority: u8,
     status: String,
     summary: String,
-    due_at: String,
-    due_tz: String,
+    due: String,
 }
 
 impl TodoRecord {
     pub fn from(path: String, todo: impl Todo) -> Result<Self, Box<dyn std::error::Error>> {
-        let (due_at, due_tz) = to_dt_tz(todo.due());
         Ok(Self {
             uid: todo.uid().to_string(),
             path,
             summary: todo.summary().to_string(),
             description: todo.description().unwrap_or("").to_string(),
-            due_at,
-            due_tz,
+            due: todo
+                .due()
+                .map(|a| a.format_stable())
+                .unwrap_or("".to_string()),
             completed: todo.completed().map(format_dt).unwrap_or("".to_string()),
-            percent: todo.percent(),
+            percent: todo.percent_complete(),
             priority: todo.priority().into(),
             status: todo
                 .status()
@@ -235,21 +217,22 @@ impl Todo for TodoRecord {
         &self.uid
     }
 
-    fn completed(&self) -> Option<DateTime<FixedOffset>> {
+    fn completed(&self) -> Option<DateTime<Local>> {
         (!self.completed.is_empty())
             .then(|| DateTime::parse_from_rfc3339(&self.completed).ok())
             .flatten()
+            .map(|dt| dt.with_timezone(&Local))
     }
 
     fn description(&self) -> Option<&str> {
         (!self.description.is_empty()).then_some(self.description.as_str())
     }
 
-    fn due(&self) -> Option<DatePerhapsTime> {
-        from_dt_tz(&self.due_at, &self.due_tz)
+    fn due(&self) -> Option<LooseDateTime> {
+        LooseDateTime::parse_stable(&self.due)
     }
 
-    fn percent(&self) -> Option<u8> {
+    fn percent_complete(&self) -> Option<u8> {
         self.percent
     }
 
@@ -266,31 +249,13 @@ impl Todo for TodoRecord {
     }
 }
 
-fn to_sql_order(order: &SortOrder) -> &str {
-    match order {
-        SortOrder::Asc => " ASC",
-        SortOrder::Desc => " DESC",
-    }
-}
-
-const DATE_FORMAT: &str = "%Y-%m-%d";
+// NOTE: The format strings used here are stable and should not change across different runs.
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 
 fn format_ndt(ndt: NaiveDateTime) -> String {
     ndt.format(DATETIME_FORMAT).to_string()
 }
 
-fn format_dt(dt: DateTime<FixedOffset>) -> String {
-    dt.with_timezone(&Local).format(DATETIME_FORMAT).to_string()
-}
-
-fn to_dt_tz(dt: Option<DatePerhapsTime>) -> (String, String) {
-    match dt {
-        Some(dt) => DatePerhapsTime::to_dt_tz(&dt, DATE_FORMAT, DATETIME_FORMAT),
-        None => ("".to_string(), "".to_string()),
-    }
-}
-
-fn from_dt_tz(dt: &str, tz: &str) -> Option<DatePerhapsTime> {
-    DatePerhapsTime::from_dt_tz(dt, tz, DATE_FORMAT, DATETIME_FORMAT)
+fn format_dt(dt: DateTime<Local>) -> String {
+    dt.format(DATETIME_FORMAT).to_string()
 }
