@@ -94,11 +94,12 @@ impl Aim {
             .ok_or("Todo not found in calendar")?;
 
         patch.apply_to(t);
-        fs::write(path, calendar.done().to_string())
+        let todo = t.clone();
+        fs::write(&path, calendar.done().to_string())
             .await
             .map_err(|e| format!("Failed to write calendar file: {e}"))?;
 
-        self.cache.todos.upsert(&todo).await?;
+        self.cache.upsert_todo(&path, &todo).await?;
         Ok(todo)
     }
 
