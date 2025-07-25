@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Old events are now filtered when listing
+- Display a hint when nothing is found during listing.
 
 ## [v0.2.0] - 2025-07-25
 

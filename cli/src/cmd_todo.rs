@@ -14,6 +14,7 @@ use aimcal_core::{
 use chrono::{Duration, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
 use clap::{Arg, ArgMatches, Command, arg, value_parser};
 use clap_num::number_range;
+use colored::Colorize;
 use std::error::Error;
 use uuid::Uuid;
 
@@ -269,6 +270,8 @@ impl CmdTodoList {
             if total > MAX {
                 println!("Displaying the {total}/{MAX} todos");
             }
+        } else if todos.is_empty() && output_format == ArgOutputFormat::Table {
+            println!("{}", "No todos found".italic());
         }
 
         let todos: Vec<_> = todos

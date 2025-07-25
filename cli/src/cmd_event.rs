@@ -10,6 +10,7 @@ use crate::{
 use aimcal_core::{Aim, EventConditions, Pager};
 use chrono::Local;
 use clap::{ArgMatches, Command};
+use colored::Colorize;
 use std::error::Error;
 
 #[derive(Debug, Clone, Copy)]
@@ -57,6 +58,9 @@ impl CmdEventList {
             if total > MAX {
                 println!("Displaying the {total}/{MAX} events");
             }
+        } else if events.is_empty() && output_format == ArgOutputFormat::Table {
+            println!("{}", "No events found".italic());
+            return Ok(());
         }
 
         let events: Vec<_> = events
