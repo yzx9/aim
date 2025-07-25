@@ -54,12 +54,11 @@ impl Aim {
 
     /// Add a new todo from the given draft.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo, Box<dyn Error>> {
-        let uid = draft.uid.clone();
-        if self.cache.todos.get(&uid).await?.is_some() {
+        if self.cache.todos.get(&draft.uid).await?.is_some() {
             return Err("Todo with this UID already exists".into());
         }
 
-        let path = self.calendar_path.join(format!("{uid}.ics"));
+        let path = self.calendar_path.join(format!("{}.ics", draft.uid));
         if fs::try_exists(&path).await? {
             return Err(format!("File already exists: {}", path.display()).into());
         }

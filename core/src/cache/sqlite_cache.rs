@@ -6,6 +6,7 @@ use super::{
     events::{EventRecord, Events},
     todos::{TodoRecord, Todos},
 };
+use crate::{Event, Todo};
 use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 
@@ -31,7 +32,7 @@ impl SqliteCache {
     pub async fn upsert_event(
         &self,
         path: &Path,
-        event: &icalendar::Event,
+        event: &impl Event,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
         let record = EventRecord::from(path.clone(), event)?;
@@ -44,7 +45,7 @@ impl SqliteCache {
     pub async fn upsert_todo(
         &self,
         path: &Path,
-        todo: &icalendar::Todo,
+        todo: &impl Todo,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
         let record = TodoRecord::from(path.clone(), todo)?;
