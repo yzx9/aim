@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    Config,
     cli::ArgOutputFormat,
     short_id::{ShortIdMap, TodoWithShortId},
     todo_formatter::TodoFormatter,
@@ -15,8 +14,7 @@ use aimcal_core::{
 use chrono::{Duration, Local, NaiveDate, NaiveDateTime, TimeZone, offset::LocalResult};
 use clap::{Arg, ArgMatches, Command, arg, value_parser};
 use clap_num::number_range;
-use std::{error::Error, path::PathBuf};
-use tokio::try_join;
+use std::error::Error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -51,11 +49,7 @@ impl CmdTodoNew {
         }
     }
 
-    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
-        log::debug!("Parsing configuration...");
-        let config = Config::parse(config).await?;
-        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
-
+    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Add todos...");
         let due = self
             .due
@@ -73,11 +67,10 @@ impl CmdTodoNew {
         };
         let todo = aim.new_todo(draft).await?;
 
-        let todo = TodoWithShortId::with(&map, todo);
+        let todo = TodoWithShortId::with(map, todo);
         let formatter = TodoFormatter::new(Local::now().naive_local());
         println!("{}", formatter.format(&[todo]));
 
-        map.dump(&config).await?;
         Ok(())
     }
 }
@@ -125,24 +118,24 @@ impl CmdTodoEdit {
         }
     }
 
-    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Editing todo...");
         let due = self.due.as_ref().map(|a| parse_datetime(a)).transpose()?;
 
         TodoEdit {
-            config,
             uid_or_short_id: self.uid_or_short_id,
             output_format: self.output_format,
+            patch: TodoPatch {
+                description: self.description.map(|d| (!d.is_empty()).then_some(d)),
+                due,
+                priority: self.priority,
+                percent_complete: None,
+                status: self.status,
+                summary: self.summary,
+                ..Default::default()
+            },
         }
-        .run(TodoPatch {
-            description: self.description.map(|d| (!d.is_empty()).then_some(d)),
-            due,
-            priority: self.priority,
-            percent_complete: None,
-            status: self.status,
-            summary: self.summary,
-            ..Default::default()
-        })
+        .run(aim, map)
         .await
     }
 }
@@ -170,17 +163,17 @@ impl CmdTodoDone {
         }
     }
 
-    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Marking todo as done...");
         TodoEdit {
-            config,
             uid_or_short_id: self.uid_or_short_id,
             output_format: self.output_format,
+            patch: TodoPatch {
+                status: Some(TodoStatus::Completed),
+                ..Default::default()
+            },
         }
-        .run(TodoPatch {
-            status: Some(TodoStatus::Completed),
-            ..Default::default()
-        })
+        .run(aim, map)
         .await
     }
 }
@@ -208,17 +201,17 @@ impl CmdTodoUndo {
         }
     }
 
-    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Marking todo as undone...");
         TodoEdit {
-            config,
             uid_or_short_id: self.uid_or_short_id,
             output_format: self.output_format,
+            patch: TodoPatch {
+                status: Some(TodoStatus::NeedsAction),
+                ..Default::default()
+            },
         }
-        .run(TodoPatch {
-            status: Some(TodoStatus::NeedsAction),
-            ..Default::default()
-        })
+        .run(aim, map)
         .await
     }
 }
@@ -249,15 +242,9 @@ impl CmdTodoList {
         }
     }
 
-    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
-        log::debug!("Parsing configuration...");
-        let config = Config::parse(config).await?;
-        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
-
+    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Listing todos...");
-        Self::list(&aim, &map, &self.conds, self.output_format).await?;
-
-        map.dump(&config).await?;
+        Self::list(aim, map, &self.conds, self.output_format).await?;
         Ok(())
     }
 
@@ -297,9 +284,9 @@ impl CmdTodoList {
 
 #[derive(Debug, Clone)]
 struct TodoEdit {
-    config: Option<PathBuf>,
     uid_or_short_id: String,
     output_format: ArgOutputFormat,
+    patch: TodoPatch,
 }
 
 impl TodoEdit {
@@ -354,23 +341,19 @@ impl TodoEdit {
         matches.get_one::<String>("summary").cloned()
     }
 
-    async fn run(self, mut patch: TodoPatch) -> Result<(), Box<dyn Error>> {
+    async fn run(mut self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         let now = Local::now().naive_local();
 
-        log::debug!("Parsing configuration...");
-        let config = Config::parse(self.config).await?;
-        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
-
         log::debug!("Edit todo ...");
-        patch.uid = self
+        self.patch.uid = self
             .uid_or_short_id
             .parse()
             .ok()
             .and_then(|a| map.find(a))
             .unwrap_or_else(|| self.uid_or_short_id.to_string()); // treat it as a UID if is not a short ID
-        let todo = aim.update_todo(patch.clone()).await?;
+        let todo = aim.update_todo(self.patch).await?;
 
-        let todo = TodoWithShortId::with(&map, todo);
+        let todo = TodoWithShortId::with(map, todo);
         let formatter = TodoFormatter::new(now).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
         Ok(())

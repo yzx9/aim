@@ -84,8 +84,11 @@ impl ShortIdMap {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await?;
         }
-        let inner = self.inner.read().unwrap();
-        let content = serde_json::to_string_pretty(&*inner)?;
+
+        let content = {
+            let inner = self.inner.read().unwrap();
+            serde_json::to_string(&*inner)?
+        };
         fs::write(path, content).await?;
         Ok(())
     }

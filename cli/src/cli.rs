@@ -3,15 +3,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
+    Config,
     cmd_dashboard::CmdDashboard,
     cmd_event::CmdEventList,
     cmd_generate_completion::CmdGenerateCompletion,
     cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo},
     config::APP_NAME,
+    short_id::ShortIdMap,
 };
+use aimcal_core::Aim;
 use clap::{Arg, ArgMatches, Command, ValueEnum, ValueHint, arg, crate_version, value_parser};
 use colored::Colorize;
+use futures::{FutureExt, future::BoxFuture};
 use std::{error::Error, path::PathBuf};
+use tokio::try_join;
 
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
@@ -146,18 +151,32 @@ impl Commands {
     /// Run the command with the given configuration
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         match self {
-            Commands::Dashboard(a) => a.run(config).await,
-            Commands::EventList(a) => a.run(config).await,
-            Commands::TodoNew(a) => a.run(config).await,
-            Commands::TodoEdit(a) => a.run(config).await,
-            Commands::TodoDone(a) => a.run(config).await,
-            Commands::TodoUndo(a) => a.run(config).await,
-            Commands::TodoList(a) => a.run(config).await,
+            Commands::Dashboard(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
+            Commands::EventList(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
+            Commands::TodoNew(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
+            Commands::TodoEdit(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
+            Commands::TodoDone(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
+            Commands::TodoUndo(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
+            Commands::TodoList(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
             Commands::GenerateCompletion(a) => {
                 a.run();
                 Ok(())
             }
         }
+    }
+
+    async fn run_with<F>(config: Option<PathBuf>, f: F) -> Result<(), Box<dyn Error>>
+    where
+        F: for<'a> FnOnce(&'a Aim, &'a ShortIdMap) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
+    {
+        log::debug!("Parsing configuration...");
+        let config = Config::parse(config).await?;
+        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
+
+        f(&aim, &map).await?;
+
+        map.dump(&config).await?;
+        Ok(())
     }
 }
 

@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    Config,
     cli::ArgOutputFormat,
     event_formatter::EventFormatter,
     short_id::{EventWithShortId, ShortIdMap},
@@ -11,8 +10,7 @@ use crate::{
 use aimcal_core::{Aim, EventConditions, Pager};
 use chrono::Local;
 use clap::{ArgMatches, Command};
-use std::{error::Error, path::PathBuf};
-use tokio::try_join;
+use std::error::Error;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdEventList {
@@ -38,16 +36,9 @@ impl CmdEventList {
         }
     }
 
-    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
-        log::debug!("Parsing configuration...");
-        let config = Config::parse(config).await?;
-        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
-
+    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Listing events...");
-        Self::list(&aim, &map, &self.conds, self.output_format).await?;
-
-        map.dump(&config).await?;
-        Ok(())
+        Self::list(aim, map, &self.conds, self.output_format).await
     }
 
     /// List events with the given conditions and output format.

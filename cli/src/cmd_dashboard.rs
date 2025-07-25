@@ -3,15 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    Config, cli::ArgOutputFormat, cmd_event::CmdEventList, cmd_todo::CmdTodoList,
-    short_id::ShortIdMap,
+    cli::ArgOutputFormat, cmd_event::CmdEventList, cmd_todo::CmdTodoList, short_id::ShortIdMap,
 };
 use aimcal_core::{Aim, EventConditions, TodoConditions, TodoStatus};
 use chrono::{Duration, Local};
 use clap::Command;
 use colored::Colorize;
-use std::{error::Error, path::PathBuf};
-use tokio::try_join;
+use std::error::Error;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdDashboard;
@@ -30,17 +28,13 @@ impl CmdDashboard {
     }
 
     /// Show the dashboard with events and todos.
-    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
-        log::debug!("Parsing configuration...");
-        let config = Config::parse(config).await?;
-        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
-
+    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Generating dashboard...");
         let now = Local::now().naive_local();
 
         println!("🗓️ {}", "Events".bold());
         let conds = EventConditions { now };
-        CmdEventList::list(&aim, &map, &conds, ArgOutputFormat::Table).await?;
+        CmdEventList::list(aim, map, &conds, ArgOutputFormat::Table).await?;
         println!();
 
         println!("✅ {}", "Todos".bold());
@@ -49,9 +43,7 @@ impl CmdDashboard {
             status: Some(TodoStatus::NeedsAction),
             due: Some(Duration::days(2)),
         };
-        CmdTodoList::list(&aim, &map, &conds, ArgOutputFormat::Table).await?;
-
-        map.dump(&config).await?;
+        CmdTodoList::list(aim, map, &conds, ArgOutputFormat::Table).await?;
         Ok(())
     }
 }
