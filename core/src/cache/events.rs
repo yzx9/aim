@@ -89,7 +89,7 @@ pub struct EventRecord {
 }
 
 impl EventRecord {
-    pub fn from(path: String, event: impl Event) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from<E: Event>(path: String, event: &E) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             uid: event.uid().to_string(),
             path,

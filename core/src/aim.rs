@@ -66,14 +66,12 @@ impl Aim {
 
         let todo = draft.into_todo()?;
         let calendar = Calendar::new().push(todo.clone()).done();
-
         fs::write(&path, calendar.to_string())
             .await
             .map_err(|e| format!("Failed to write calendar file: {e}"))?;
 
-        // TODO: perf
-        self.cache.upsert_todo(&path, todo).await?;
-        Ok(self.cache.todos.get(&uid).await?.unwrap())
+        self.cache.upsert_todo(&path, &todo).await?;
+        Ok(todo)
     }
 
     /// Upsert an event into the calendar.
@@ -101,7 +99,6 @@ impl Aim {
             .map_err(|e| format!("Failed to write calendar file: {e}"))?;
 
         self.cache.todos.upsert(&todo).await?;
-
         Ok(todo)
     }
 
@@ -164,8 +161,8 @@ impl Aim {
         for component in calendar.components {
             log::debug!("Processing component: {component:?}");
             match component {
-                CalendarComponent::Event(event) => self.cache.upsert_event(path, event).await?,
-                CalendarComponent::Todo(todo) => self.cache.upsert_todo(path, todo).await?,
+                CalendarComponent::Event(event) => self.cache.upsert_event(path, &event).await?,
+                CalendarComponent::Todo(todo) => self.cache.upsert_todo(path, &todo).await?,
                 _ => log::warn!("Ignoring unsupported component type: {component:?}"),
             }
         }

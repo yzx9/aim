@@ -187,7 +187,7 @@ pub struct TodoRecord {
 }
 
 impl TodoRecord {
-    pub fn from(path: String, todo: impl Todo) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from<T: Todo>(path: String, todo: &T) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             uid: todo.uid().to_string(),
             path,
