@@ -12,17 +12,18 @@ use aimcal_core::{
     Aim, LooseDateTime, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
     TodoStatus,
 };
-use chrono::{Duration, Local, NaiveDateTime, TimeZone, Utc, offset::LocalResult};
+use chrono::{Duration, Local, NaiveDateTime, TimeZone, offset::LocalResult};
 use clap::{Arg, ArgMatches, Command, arg, value_parser};
+use clap_num::number_range;
 use std::{error::Error, path::PathBuf};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
-    pub summary: String,
     pub description: Option<String>,
     pub due: Option<String>,
     pub priority: Priority,
+    pub summary: String,
 }
 
 impl CmdTodoNew {
@@ -30,53 +31,36 @@ impl CmdTodoNew {
         Command::new("new")
             .alias("add")
             .about("Add a new todo item")
-            .arg(arg!(summary: <SUMMARY> "Summary of the todo").required(true))
-            .arg(arg!(-d --description <DESCRIPTION> "Description of the todo"))
-            .arg(arg!(-u --due <DUE> "Due date and time of the todo"))
+            .arg(TodoEdit::arg_summary(true).required(true))
+            .arg(TodoEdit::arg_due())
+            .arg(TodoEdit::arg_description())
             .arg(ArgPriority::arg())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
-            summary: matches
-                .get_one::<String>("summary")
-                .expect("summary is required")
-                .clone(),
-            description: matches.get_one::<String>("description").cloned(),
-            due: matches.get_one::<String>("due").cloned(),
-            priority: ArgPriority::parse(matches).into(),
+            description: TodoEdit::parse_description(matches),
+            due: TodoEdit::parse_due(matches),
+            priority: ArgPriority::parse(matches)
+                .unwrap_or(&ArgPriority::None)
+                .into(),
+            summary: TodoEdit::parse_summary(matches).expect("summary is required"),
         }
     }
 
-    pub async fn run(&self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
         let aim = Aim::new(&config.core).await?;
         let map = ShortIdMap::load_or_new(&config)?;
 
         log::debug!("Add todos...");
-        let due = self
-            .due
-            .as_ref()
-            .and_then(|a| NaiveDateTime::parse_from_str(a, "%Y-%m-%d %H:%M:%S").ok())
-            .map(|a| match Local.from_local_datetime(&a) {
-                LocalResult::Single(dt) => LooseDateTime::Local(dt),
-                LocalResult::Ambiguous(dt1, _) => {
-                    log::warn!("Ambiguous local time for {a} in local, picking earliest");
-                    LooseDateTime::Local(dt1)
-                }
-                LocalResult::None => {
-                    log::warn!("Invalid local time for {a} in local, falling back to floating");
-                    LooseDateTime::Floating(a)
-                }
-            });
-
         let draft = TodoDraft {
             uid: Uuid::new_v4().to_string(), // TODO: better uid
-            description: self.description.clone(),
-            due,
+            description: self.description,
+            due: self.due.as_ref().and_then(|a| parse_datetime(a)),
             priority: self.priority,
-            summary: self.summary.clone(),
+            summary: self.summary,
         };
         let todo = aim.new_todo(draft).await?;
 
@@ -86,6 +70,67 @@ impl CmdTodoNew {
 
         map.dump(&config)?;
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CmdTodoEdit {
+    pub uid_or_short_id: String,
+    pub output_format: ArgOutputFormat,
+
+    pub description: Option<String>,
+    pub due: Option<String>,
+    pub percent_complete: Option<u8>,
+    pub priority: Option<Priority>,
+    pub status: Option<TodoStatus>,
+    pub summary: Option<String>,
+}
+
+impl CmdTodoEdit {
+    pub fn command() -> Command {
+        Command::new("edit")
+            .about("Edit a todo item")
+            .arg(TodoEdit::arg_id())
+            .arg(TodoEdit::arg_summary(false))
+            .arg(TodoEdit::arg_due())
+            .arg(TodoEdit::arg_description())
+            .arg(TodoEdit::arg_percent_complete())
+            .arg(ArgPriority::arg())
+            .arg(ArgStatus::arg())
+            .arg(ArgOutputFormat::arg())
+    }
+
+    pub fn parse(matches: &ArgMatches) -> Self {
+        Self {
+            uid_or_short_id: TodoEdit::parse_id(matches),
+            output_format: ArgOutputFormat::parse(matches),
+
+            description: TodoEdit::parse_description(matches),
+            due: TodoEdit::parse_due(matches),
+            percent_complete: TodoEdit::parse_percent_complete(matches),
+            priority: ArgPriority::parse(matches).map(Into::into),
+            status: ArgStatus::parse(matches).map(Into::into),
+            summary: TodoEdit::parse_summary(matches),
+        }
+    }
+
+    pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+        log::debug!("Marking todo as done...");
+        TodoEdit {
+            config,
+            uid_or_short_id: self.uid_or_short_id,
+            output_format: self.output_format,
+        }
+        .run(TodoPatch {
+            description: self.description.map(|d| (!d.is_empty()).then_some(d)),
+            due: self.due.as_ref().map(|a| parse_datetime(a)), // TODO: handle invalid date
+            priority: self.priority,
+            percent_complete: None,
+            status: self.status,
+            summary: self.summary,
+            ..Default::default()
+        })
+        .await
     }
 }
 
@@ -118,7 +163,6 @@ impl CmdTodoDone {
             output_format: self.output_format,
         }
         .run(TodoPatch {
-            completed: Some(Some(Utc::now().into())),
             status: Some(TodoStatus::Completed),
             ..Default::default()
         })
@@ -155,7 +199,6 @@ impl CmdTodoUndo {
             output_format: self.output_format,
         }
         .run(TodoPatch {
-            completed: Some(None),
             status: Some(TodoStatus::NeedsAction),
             ..Default::default()
         })
@@ -243,7 +286,7 @@ struct TodoEdit {
 
 impl TodoEdit {
     fn arg_id() -> Arg {
-        arg!(<id> "The short id or uid of the todo to edit")
+        arg!(id: <ID> "The short id or uid of the todo to edit")
     }
 
     fn parse_id(matches: &ArgMatches) -> String {
@@ -251,6 +294,46 @@ impl TodoEdit {
             .get_one::<String>("id")
             .expect("id is required")
             .clone()
+    }
+
+    fn arg_description() -> Arg {
+        arg!(--description <DESCRIPTION> "Description of the todo")
+    }
+
+    fn parse_description(matches: &ArgMatches) -> Option<String> {
+        matches.get_one::<String>("description").cloned()
+    }
+
+    fn arg_due() -> Arg {
+        arg!(--due <DUE> "Due date and time of the todo")
+    }
+
+    fn parse_due(matches: &ArgMatches) -> Option<String> {
+        matches.get_one::<String>("due").cloned()
+    }
+
+    fn arg_percent_complete() -> Arg {
+        fn from_0_to_100(s: &str) -> Result<u8, String> {
+            number_range(s, 0, 100)
+        }
+
+        arg!(--percent <PERCENT> "Percent complete of the todo (0-100)").value_parser(from_0_to_100)
+    }
+
+    fn parse_percent_complete(matches: &ArgMatches) -> Option<u8> {
+        matches.get_one::<u8>("percent").cloned()
+    }
+
+    fn arg_summary(positional: bool) -> Arg {
+        if positional {
+            arg!(summary: <SUMMARY> "Summary of the todo")
+        } else {
+            arg!(summary: -s --summary <SUMMARY> "Summary of the todo")
+        }
+    }
+
+    fn parse_summary(matches: &ArgMatches) -> Option<String> {
+        matches.get_one::<String>("summary").cloned()
     }
 
     async fn run(self, mut patch: TodoPatch) -> Result<(), Box<dyn Error>> {
@@ -277,12 +360,57 @@ impl TodoEdit {
     }
 }
 
+fn parse_datetime(dt: &str) -> Option<LooseDateTime> {
+    NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .map(|a| match Local.from_local_datetime(&a) {
+            LocalResult::Single(dt) => LooseDateTime::Local(dt),
+            LocalResult::Ambiguous(dt1, _) => {
+                log::warn!("Ambiguous local time for {a} in local, picking earliest");
+                LooseDateTime::Local(dt1)
+            }
+            LocalResult::None => {
+                log::warn!("Invalid local time for {a} in local, falling back to floating");
+                LooseDateTime::Floating(a)
+            }
+        })
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum ArgStatus {
+    NeedsAction,
+    Completed,
+    InProcess,
+    Cancelled,
+}
+
+impl ArgStatus {
+    pub fn arg() -> Arg {
+        arg!(--status <STATUS> "Status of the todo").value_parser(value_parser!(ArgStatus))
+    }
+
+    pub fn parse(matches: &ArgMatches) -> Option<&Self> {
+        matches.get_one::<ArgStatus>("status")
+    }
+}
+
+impl From<&ArgStatus> for TodoStatus {
+    fn from(status: &ArgStatus) -> Self {
+        match status {
+            ArgStatus::NeedsAction => TodoStatus::NeedsAction,
+            ArgStatus::Completed => TodoStatus::Completed,
+            ArgStatus::InProcess => TodoStatus::InProcess,
+            ArgStatus::Cancelled => TodoStatus::Cancelled,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 pub enum ArgPriority {
     #[clap(name = "1", hide = true)]
     P1,
 
-    #[clap(name = "high", alias = "2")]
+    #[clap(name = "high", aliases = ["h" ,"2"])]
     P2,
 
     #[clap(name = "3", hide = true)]
@@ -291,7 +419,7 @@ pub enum ArgPriority {
     #[clap(name = "4", hide = true)]
     P4,
 
-    #[clap(name = "middle", alias = "5")]
+    #[clap(name = "middle", aliases = ["m", "mid", "5"])]
     P5,
 
     #[clap(name = "6", hide = true)]
@@ -300,13 +428,13 @@ pub enum ArgPriority {
     #[clap(name = "7", hide = true)]
     P7,
 
-    #[clap(name = "low", alias = "8")]
+    #[clap(name = "low", aliases = ["l", "8"])]
     P8,
 
     #[clap(name = "9", hide = true)]
     P9,
 
-    #[clap(name = "none", alias = "0")]
+    #[clap(name = "none", aliases = ["n", "0"])]
     None,
 }
 
@@ -316,10 +444,8 @@ impl ArgPriority {
             .value_parser(value_parser!(ArgPriority))
     }
 
-    pub fn parse(matches: &ArgMatches) -> &Self {
-        matches
-            .get_one::<ArgPriority>("priority")
-            .unwrap_or(&ArgPriority::None)
+    pub fn parse(matches: &ArgMatches) -> Option<&Self> {
+        matches.get_one::<ArgPriority>("priority")
     }
 }
 
@@ -348,7 +474,7 @@ mod tests {
     use clap::Command;
 
     #[test]
-    fn test_parse_todo_draft() {
+    fn test_parse_todo_new() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoNew::command());
@@ -372,6 +498,38 @@ mod tests {
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.priority, Priority::P1);
+    }
+
+    #[test]
+    fn test_parse_todo_edit() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoEdit::command());
+
+        let matches = cmd
+            .try_get_matches_from([
+                "test",
+                "edit",
+                "test_id",
+                "--description",
+                "A description",
+                "--due",
+                "2025-01-01 12:00:00",
+                "--priority",
+                "1",
+                "--status",
+                "needs-action",
+                "--summary",
+                "Another summary",
+            ])
+            .unwrap();
+        let sub_matches = matches.subcommand_matches("edit").unwrap();
+        let parsed = CmdTodoEdit::parse(sub_matches);
+        assert_eq!(parsed.uid_or_short_id, "test_id");
+        assert_eq!(parsed.summary, Some("Another summary".to_string()));
+        assert_eq!(parsed.description, Some("A description".to_string()));
+        assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
+        assert_eq!(parsed.priority, Some(Priority::P1));
     }
 
     #[test]

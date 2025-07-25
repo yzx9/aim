@@ -22,6 +22,7 @@ path = "src/main.rs"
 aimcal-core = { version = "0.1.2", path = "../core" }
 chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5", features = ["cargo", "derive"] }
+clap-num = "1.2.0"
 clap_complete = "4.5"
 clap_complete_nushell = "4.5"
 colored = "3.0.0"

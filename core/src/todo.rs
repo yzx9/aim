@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{LooseDateTime, Priority, SortOrder};
-use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, Local, NaiveDateTime, Utc};
 use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
 
@@ -121,9 +121,6 @@ pub struct TodoPatch {
     /// The unique identifier for the todo item.
     pub uid: String,
 
-    /// The completion date and time of the todo item, if available.
-    pub completed: Option<Option<DateTime<FixedOffset>>>,
-
     /// The description of the todo item, if available.
     pub description: Option<Option<String>>,
 
@@ -131,7 +128,7 @@ pub struct TodoPatch {
     pub due: Option<Option<LooseDateTime>>,
 
     /// The percent complete, from 0 to 100.
-    pub percent: Option<Option<u8>>,
+    pub percent_complete: Option<Option<u8>>,
 
     /// The priority of the todo item, from 1 to 9, where 1 is the highest priority.
     pub priority: Option<Priority>,
@@ -146,10 +143,9 @@ pub struct TodoPatch {
 impl TodoPatch {
     /// Is this patch empty, meaning no fields are set
     pub fn is_empty(&self) -> bool {
-        self.completed.is_none()
-            && self.description.is_none()
+        self.description.is_none()
             && self.due.is_none()
-            && self.percent.is_none()
+            && self.percent_complete.is_none()
             && self.priority.is_none()
             && self.status.is_none()
             && self.summary.is_none()
@@ -157,13 +153,6 @@ impl TodoPatch {
 
     /// Applies the patch to a mutable todo item, modifying it in place.
     pub fn apply_to<'a>(&self, t: &'a mut icalendar::Todo) -> &'a mut icalendar::Todo {
-        if let Some(completed) = self.completed {
-            match completed {
-                Some(dt) => t.completed(dt.with_timezone(&Utc)),
-                None => t.remove_property(KEY_COMPLETED),
-            };
-        }
-
         if let Some(description) = &self.description {
             match description {
                 Some(desc) => t.description(desc),
@@ -178,7 +167,7 @@ impl TodoPatch {
             };
         }
 
-        if let Some(percent) = self.percent {
+        if let Some(percent) = self.percent_complete {
             t.percent_complete(percent.unwrap_or(0));
         }
 
@@ -188,6 +177,12 @@ impl TodoPatch {
 
         if let Some(status) = self.status {
             t.status((&status).into());
+
+            match status {
+                TodoStatus::Completed => t.completed(Utc::now()),
+                _ if t.get_completed().is_some() => t.remove_property(KEY_COMPLETED),
+                _ => t,
+            };
         }
 
         if let Some(summary) = &self.summary {

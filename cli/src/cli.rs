@@ -6,7 +6,7 @@ use crate::{
     cmd_dashboard::CmdDashboard,
     cmd_event::CmdEventList,
     cmd_generate_completion::CmdGenerateCompletion,
-    cmd_todo::{CmdTodoDone, CmdTodoList, CmdTodoNew, CmdTodoUndo},
+    cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo},
     config::APP_NAME,
 };
 use clap::{Arg, ArgMatches, Command, ValueEnum, ValueHint, arg, crate_version, value_parser};
@@ -62,10 +62,11 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .about("Manage your todo list")
                     .arg_required_else_help(true)
                     .subcommand_required(true)
-                    .subcommand(CmdTodoList::command())
                     .subcommand(CmdTodoNew::command())
+                    .subcommand(CmdTodoEdit::command())
                     .subcommand(CmdTodoDone::command())
-                    .subcommand(CmdTodoUndo::command()),
+                    .subcommand(CmdTodoUndo::command())
+                    .subcommand(CmdTodoList::command()),
             )
             .subcommand(CmdTodoDone::command())
             .subcommand(CmdTodoUndo::command())
@@ -83,10 +84,11 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 _ => unreachable!(),
             },
             Some(("todo", matches)) => match matches.subcommand() {
-                Some(("list", matches)) => Commands::TodoList(CmdTodoList::parse(matches)),
                 Some(("new", matches)) => Commands::TodoNew(CmdTodoNew::parse(matches)),
+                Some(("edit", matches)) => Commands::TodoEdit(CmdTodoEdit::parse(matches)),
                 Some(("done", matches)) => Commands::TodoDone(CmdTodoDone::parse(matches)),
                 Some(("undo", matches)) => Commands::TodoUndo(CmdTodoUndo::parse(matches)),
+                Some(("list", matches)) => Commands::TodoList(CmdTodoList::parse(matches)),
                 _ => unreachable!(),
             },
             Some(("done", matches)) => Commands::TodoDone(CmdTodoDone::parse(matches)),
@@ -120,6 +122,9 @@ pub enum Commands {
     /// Add a new todo
     TodoNew(CmdTodoNew),
 
+    /// Edit a todo
+    TodoEdit(CmdTodoEdit),
+
     /// Mark a todo as done
     TodoDone(CmdTodoDone),
 
@@ -140,6 +145,7 @@ impl Commands {
             Commands::Dashboard(a) => a.run(config).await,
             Commands::EventList(a) => a.run(config).await,
             Commands::TodoNew(a) => a.run(config).await,
+            Commands::TodoEdit(a) => a.run(config).await,
             Commands::TodoDone(a) => a.run(config).await,
             Commands::TodoUndo(a) => a.run(config).await,
             Commands::TodoList(a) => a.run(config).await,

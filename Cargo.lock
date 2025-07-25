@@ -41,6 +41,7 @@ dependencies = [
  "aimcal-core",
  "chrono",
  "clap",
+ "clap-num",
  "clap_complete",
  "clap_complete_nushell",
  "colored",
@@ -278,6 +279,15 @@ checksum = "40b6887a1d8685cebccf115538db5c0efe625ccac9696ad45c409d96566e910f"
 dependencies = [
  "clap_builder",
  "clap_derive",
+]
+
+[[package]]
+name = "clap-num"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "822c4000301ac390e65995c62207501e3ef800a1fc441df913a5e8e4dc374816"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
