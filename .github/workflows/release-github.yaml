@@ -32,12 +32,17 @@ jobs:
       - name: Build CLI binary
         run: cargo build --release --package aimcal-cli --target ${{ matrix.target }}
       - name: Package binary
+        shell: bash
         run: |
           mkdir -p dist
           mkdir -p package
-          cp target/${{ matrix.target }}/release/aim package/
+          BIN_NAME=aim
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            BIN_NAME=aim.exe
+          fi
+          cp target/${{ matrix.target }}/release/$BIN_NAME package/
           cp README.md LICENSE package/
-          chmod +x package/aim || true
+          chmod +x package/$BIN_NAME || true
           tar -czf dist/aim-${{ matrix.suffix }}.tar.gz -C package aim README.md LICENSE
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
