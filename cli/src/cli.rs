@@ -12,7 +12,10 @@ use crate::{
     short_id::ShortIdMap,
 };
 use aimcal_core::Aim;
-use clap::{Arg, ArgMatches, Command, ValueEnum, ValueHint, arg, crate_version, value_parser};
+use clap::{
+    Arg, ArgMatches, Command, ValueEnum, ValueHint, arg, builder::styling, crate_version,
+    value_parser,
+};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
 use std::{error::Error, path::PathBuf};
@@ -40,10 +43,17 @@ pub struct Cli {
 impl Cli {
     /// Create the command-line interface
     pub fn command() -> Command {
+        const STYLES: styling::Styles = styling::Styles::styled()
+            .header(styling::AnsiColor::Green.on_default().bold())
+            .usage(styling::AnsiColor::Green.on_default().bold())
+            .literal(styling::AnsiColor::Blue.on_default().bold())
+            .placeholder(styling::AnsiColor::Cyan.on_default());
+
         Command::new(APP_NAME)
             .about("Analyze. Interact. Manage Your Time, with calendar support.")
             .author("Zexin Yuan <aim@yzx9.xyz>")
             .version(crate_version!())
+            .styles(STYLES)
             .subcommand_required(false) // allow default to dashboard
             .arg_required_else_help(false)
             .arg(
