@@ -27,8 +27,10 @@ pub struct CmdTodoNew {
 }
 
 impl CmdTodoNew {
+    pub const NAME: &str = "new";
+
     pub fn command() -> Command {
-        Command::new("new")
+        Command::new(Self::NAME)
             .alias("add")
             .about("Add a new todo item")
             .arg(TodoEdit::arg_summary(true).required(true))
@@ -87,8 +89,10 @@ pub struct CmdTodoEdit {
 }
 
 impl CmdTodoEdit {
+    pub const NAME: &str = "edit";
+
     pub fn command() -> Command {
-        Command::new("edit")
+        Command::new(Self::NAME)
             .about("Edit a todo item")
             .arg(TodoEdit::arg_id())
             .arg(TodoEdit::arg_summary(false))
@@ -141,8 +145,10 @@ pub struct CmdTodoDone {
 }
 
 impl CmdTodoDone {
+    pub const NAME: &str = "done";
+
     pub fn command() -> Command {
-        Command::new("done")
+        Command::new(Self::NAME)
             .about("Mark a todo item as done")
             .arg(TodoEdit::arg_id())
             .arg(ArgOutputFormat::arg())
@@ -177,8 +183,10 @@ pub struct CmdTodoUndo {
 }
 
 impl CmdTodoUndo {
+    pub const NAME: &str = "undo";
+
     pub fn command() -> Command {
-        Command::new("undo")
+        Command::new(Self::NAME)
             .about("Mark a todo item as undone")
             .arg(TodoEdit::arg_id())
             .arg(ArgOutputFormat::arg())
@@ -213,8 +221,10 @@ pub struct CmdTodoList {
 }
 
 impl CmdTodoList {
+    pub const NAME: &str = "list";
+
     pub fn command() -> Command {
-        Command::new("list")
+        Command::new(Self::NAME)
             .about("List todos")
             .arg(ArgOutputFormat::arg())
     }

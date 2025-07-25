@@ -13,8 +13,10 @@ pub struct CmdGenerateCompletion {
 }
 
 impl CmdGenerateCompletion {
+    pub const NAME: &str = "generate-completion";
+
     pub fn command() -> Command {
-        Command::new("generate-completion")
+        Command::new(Self::NAME)
             .about("Generate shell completion for the specified shell")
             .hide(true)
             .arg(

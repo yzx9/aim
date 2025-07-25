@@ -20,8 +20,10 @@ pub struct CmdEventList {
 }
 
 impl CmdEventList {
+    pub const NAME: &str = "list";
+
     pub fn command() -> Command {
-        Command::new("list")
+        Command::new(Self::NAME)
             .about("List events")
             .arg(ArgOutputFormat::arg())
     }

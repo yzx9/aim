@@ -16,8 +16,10 @@ use std::{error::Error, path::PathBuf};
 pub struct CmdDashboard;
 
 impl CmdDashboard {
+    pub const NAME: &str = "dashboard";
+
     pub fn command() -> Command {
-        Command::new("dashboard")
+        Command::new(Self::NAME)
             .about("Show the dashboard, which includes upcoming events and todos")
             .arg(ArgOutputFormat::arg())
     }

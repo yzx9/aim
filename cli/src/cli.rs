@@ -75,28 +75,28 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
 
     /// Parse the command-line arguments
     pub fn parse() -> Self {
+        use Commands::*;
         let matches = Self::command().get_matches();
-
         let command = match matches.subcommand() {
-            Some(("dashboard", _)) => Commands::Dashboard(CmdDashboard::parse()),
+            Some((CmdDashboard::NAME, _)) => Dashboard(CmdDashboard::parse()),
             Some(("event", matches)) => match matches.subcommand() {
-                Some(("list", matches)) => Commands::EventList(CmdEventList::parse(matches)),
+                Some(("list", matches)) => EventList(CmdEventList::parse(matches)),
                 _ => unreachable!(),
             },
             Some(("todo", matches)) => match matches.subcommand() {
-                Some(("new", matches)) => Commands::TodoNew(CmdTodoNew::parse(matches)),
-                Some(("edit", matches)) => Commands::TodoEdit(CmdTodoEdit::parse(matches)),
-                Some(("done", matches)) => Commands::TodoDone(CmdTodoDone::parse(matches)),
-                Some(("undo", matches)) => Commands::TodoUndo(CmdTodoUndo::parse(matches)),
-                Some(("list", matches)) => Commands::TodoList(CmdTodoList::parse(matches)),
+                Some((CmdTodoNew::NAME, matches)) => TodoNew(CmdTodoNew::parse(matches)),
+                Some((CmdTodoEdit::NAME, matches)) => TodoEdit(CmdTodoEdit::parse(matches)),
+                Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::parse(matches)),
+                Some((CmdTodoUndo::NAME, matches)) => TodoUndo(CmdTodoUndo::parse(matches)),
+                Some((CmdTodoList::NAME, matches)) => TodoList(CmdTodoList::parse(matches)),
                 _ => unreachable!(),
             },
-            Some(("done", matches)) => Commands::TodoDone(CmdTodoDone::parse(matches)),
-            Some(("undo", matches)) => Commands::TodoUndo(CmdTodoUndo::parse(matches)),
-            Some(("generate-completion", matches)) => {
-                Commands::GenerateCompletion(CmdGenerateCompletion::parse(matches))
+            Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::parse(matches)),
+            Some((CmdTodoUndo::NAME, matches)) => TodoUndo(CmdTodoUndo::parse(matches)),
+            Some((CmdGenerateCompletion::NAME, matches)) => {
+                GenerateCompletion(CmdGenerateCompletion::parse(matches))
             }
-            None => Commands::Dashboard(CmdDashboard::parse()),
+            None => Dashboard(CmdDashboard::parse()),
             _ => unreachable!(),
         };
 
