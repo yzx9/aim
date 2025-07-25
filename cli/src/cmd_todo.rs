@@ -16,6 +16,7 @@ use chrono::{Duration, Local, NaiveDate, NaiveDateTime, TimeZone, offset::LocalR
 use clap::{Arg, ArgMatches, Command, arg, value_parser};
 use clap_num::number_range;
 use std::{error::Error, path::PathBuf};
+use tokio::try_join;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -53,11 +54,9 @@ impl CmdTodoNew {
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
-        let aim = Aim::new(&config.core).await?;
-        let map = ShortIdMap::load_or_new(&config)?;
+        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
 
         log::debug!("Add todos...");
-
         let due = self
             .due
             .as_ref()
@@ -78,7 +77,7 @@ impl CmdTodoNew {
         let formatter = TodoFormatter::new(Local::now().naive_local());
         println!("{}", formatter.format(&[todo]));
 
-        map.dump(&config)?;
+        map.dump(&config).await?;
         Ok(())
     }
 }
@@ -253,13 +252,12 @@ impl CmdTodoList {
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
-        let aim = Aim::new(&config.core).await?;
-        let map = ShortIdMap::load_or_new(&config)?;
+        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
 
         log::debug!("Listing todos...");
         Self::list(&aim, &map, &self.conds, self.output_format).await?;
 
-        map.dump(&config)?;
+        map.dump(&config).await?;
         Ok(())
     }
 
@@ -361,8 +359,7 @@ impl TodoEdit {
 
         log::debug!("Parsing configuration...");
         let config = Config::parse(self.config).await?;
-        let aim = Aim::new(&config.core).await?;
-        let map = ShortIdMap::load_or_new(&config)?;
+        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
 
         log::debug!("Edit todo ...");
         patch.uid = self

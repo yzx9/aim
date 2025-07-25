@@ -311,7 +311,7 @@ mod tests {
             "Name".into()
         }
         fn format<'a>(&self, data: &'a TestData) -> Cow<'a, str> {
-            data.name.clone().into()
+            (&data.name).into()
         }
         fn get_color(&self, data: &TestData) -> Option<Color> {
             data.active.then_some(Color::Green)

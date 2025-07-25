@@ -4,14 +4,15 @@
 
 use crate::config::Config;
 use aimcal_core::{Event, Todo};
+use bimap::BiBTreeMap;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
-    fs, io,
+    io,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
+use tokio::fs;
 
 /// A thread-safe structure for mapping UIDs to display numbers.
 ///
@@ -23,7 +24,7 @@ pub struct ShortIdMap {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Inner {
-    map: HashMap<String, i64>,
+    map: BiBTreeMap<String, i64>,
     next: i64,
     last_modified: DateTime<Local>,
 }
@@ -31,7 +32,7 @@ struct Inner {
 impl Default for Inner {
     fn default() -> Self {
         Self {
-            map: HashMap::new(),
+            map: BiBTreeMap::new(),
             next: 1,
             last_modified: Local::now(),
         }
@@ -48,7 +49,7 @@ impl ShortIdMap {
     /// Load the map from disk.
     ///
     /// If the file does not exist or is empty, a new map is returned.
-    pub fn load_or_new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn load_or_new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
         let path = match Self::get_map_path(config) {
             Some(a) => a,
             None => {
@@ -57,7 +58,7 @@ impl ShortIdMap {
             }
         };
 
-        match fs::read_to_string(&path) {
+        match fs::read_to_string(&path).await {
             Ok(content) => match serde_json::from_str::<Inner>(&content) {
                 Ok(inner) => {
                     log::debug!("Loaded existing map from disk: {:?}", path.display());
@@ -78,14 +79,14 @@ impl ShortIdMap {
     }
 
     /// Dump the map to disk.
-    pub fn dump(&self, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn dump(&self, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         let path = Self::get_map_path(config).ok_or("No state directory configured")?;
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
+            fs::create_dir_all(parent).await?;
         }
         let inner = self.inner.read().unwrap();
         let content = serde_json::to_string_pretty(&*inner)?;
-        fs::write(path, content)?;
+        fs::write(path, content).await?;
         Ok(())
     }
 
@@ -96,14 +97,14 @@ impl ShortIdMap {
         // First try read-only access
         {
             let inner = self.inner.read().unwrap();
-            if let Some(&id) = inner.map.get(uid) {
+            if let Some(&id) = inner.map.get_by_left(uid) {
                 return id;
             }
         }
 
         // Upgrade to write lock when needed
         let mut inner = self.inner.write().unwrap();
-        if let Some(&id) = inner.map.get(uid) {
+        if let Some(&id) = inner.map.get_by_left(uid) {
             return id;
         }
 
@@ -114,13 +115,12 @@ impl ShortIdMap {
     }
 
     pub fn find(&self, short_id: i64) -> Option<String> {
-        // TODO: prefer using a more efficient data structure if performance becomes an issue
         self.inner
             .read()
             .unwrap()
             .map
-            .iter()
-            .find_map(|(uid, &id)| (id == short_id).then_some(uid.clone()))
+            .get_by_right(&short_id)
+            .cloned()
     }
 
     fn get_map_path(config: &Config) -> Option<PathBuf> {

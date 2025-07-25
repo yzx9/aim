@@ -12,6 +12,7 @@ use aimcal_core::{Aim, EventConditions, Pager};
 use chrono::Local;
 use clap::{ArgMatches, Command};
 use std::{error::Error, path::PathBuf};
+use tokio::try_join;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdEventList {
@@ -40,13 +41,12 @@ impl CmdEventList {
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
-        let aim = Aim::new(&config.core).await?;
-        let map = ShortIdMap::load_or_new(&config)?;
+        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
 
         log::debug!("Listing events...");
         Self::list(&aim, &map, &self.conds, self.output_format).await?;
 
-        map.dump(&config)?;
+        map.dump(&config).await?;
         Ok(())
     }
 

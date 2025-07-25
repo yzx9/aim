@@ -11,6 +11,7 @@ use chrono::{Duration, Local};
 use clap::Command;
 use colored::Colorize;
 use std::{error::Error, path::PathBuf};
+use tokio::try_join;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdDashboard;
@@ -32,8 +33,7 @@ impl CmdDashboard {
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
-        let aim = Aim::new(&config.core).await?;
-        let map = ShortIdMap::load_or_new(&config)?;
+        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
 
         log::debug!("Generating dashboard...");
         let now = Local::now().naive_local();
@@ -51,7 +51,7 @@ impl CmdDashboard {
         };
         CmdTodoList::list(&aim, &map, &conds, ArgOutputFormat::Table).await?;
 
-        map.dump(&config)?;
+        map.dump(&config).await?;
         Ok(())
     }
 }
