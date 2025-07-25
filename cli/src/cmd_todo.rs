@@ -12,7 +12,7 @@ use aimcal_core::{
     Aim, LooseDateTime, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
     TodoStatus,
 };
-use chrono::{Duration, Local, NaiveDateTime, TimeZone, offset::LocalResult};
+use chrono::{Duration, Local, NaiveDate, NaiveDateTime, TimeZone, offset::LocalResult};
 use clap::{Arg, ArgMatches, Command, arg, value_parser};
 use clap_num::number_range;
 use std::{error::Error, path::PathBuf};
@@ -57,10 +57,18 @@ impl CmdTodoNew {
         let map = ShortIdMap::load_or_new(&config)?;
 
         log::debug!("Add todos...");
+
+        let due = self
+            .due
+            .as_ref()
+            .map(|a| parse_datetime(a))
+            .transpose()?
+            .flatten();
+
         let draft = TodoDraft {
             uid: Uuid::new_v4().to_string(), // TODO: better uid
             description: self.description,
-            due: self.due.as_ref().and_then(|a| parse_datetime(a)),
+            due,
             priority: self.priority,
             summary: self.summary,
         };
@@ -119,7 +127,9 @@ impl CmdTodoEdit {
     }
 
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
-        log::debug!("Marking todo as done...");
+        log::debug!("Editing todo...");
+        let due = self.due.as_ref().map(|a| parse_datetime(a)).transpose()?;
+
         TodoEdit {
             config,
             uid_or_short_id: self.uid_or_short_id,
@@ -127,7 +137,7 @@ impl CmdTodoEdit {
         }
         .run(TodoPatch {
             description: self.description.map(|d| (!d.is_empty()).then_some(d)),
-            due: self.due.as_ref().map(|a| parse_datetime(a)), // TODO: handle invalid date
+            due,
             priority: self.priority,
             percent_complete: None,
             status: self.status,
@@ -370,20 +380,26 @@ impl TodoEdit {
     }
 }
 
-fn parse_datetime(dt: &str) -> Option<LooseDateTime> {
-    NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M:%S")
-        .ok()
-        .map(|a| match Local.from_local_datetime(&a) {
+fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &str> {
+    if dt.is_empty() {
+        Ok(None)
+    } else if let Ok(dt) = NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M:%S") {
+        Ok(Some(match Local.from_local_datetime(&dt) {
             LocalResult::Single(dt) => LooseDateTime::Local(dt),
             LocalResult::Ambiguous(dt1, _) => {
-                log::warn!("Ambiguous local time for {a} in local, picking earliest");
+                log::warn!("Ambiguous local time for {dt} in local, picking earliest");
                 LooseDateTime::Local(dt1)
             }
             LocalResult::None => {
-                log::warn!("Invalid local time for {a} in local, falling back to floating");
-                LooseDateTime::Floating(a)
+                log::warn!("Invalid local time for {dt} in local, falling back to floating");
+                LooseDateTime::Floating(dt)
             }
-        })
+        }))
+    } else if let Ok(date) = NaiveDate::parse_from_str(dt, "%Y-%m-%d") {
+        Ok(Some(LooseDateTime::DateOnly(date)))
+    } else {
+        Err("Invalid date format. Expected format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS")
+    }
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]

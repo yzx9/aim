@@ -10,12 +10,16 @@ use crate::{
     config::APP_NAME,
 };
 use clap::{Arg, ArgMatches, Command, ValueEnum, ValueHint, arg, crate_version, value_parser};
+use colored::Colorize;
 use std::{error::Error, path::PathBuf};
 
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
     env_logger::init();
-    Cli::parse().run().await
+    if let Err(e) = Cli::parse().run().await {
+        println!("{} {}", "Error:".red(), e);
+    }
+    Ok(())
 }
 
 /// Command-line interface
