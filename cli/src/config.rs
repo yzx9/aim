@@ -36,8 +36,8 @@ impl TryFrom<ConfigRaw> for Config {
             calendar_path: expand_path(&raw.calendar_path)?,
         };
         let state_dir = match raw.state_dir {
-            Some(a) => Some(expand_path(&a)?.join(APP_NAME)),
-            None => get_state_dir().ok(),
+            Some(a) => Some(expand_path(&a)?),
+            None => get_state_dir().ok().map(|a| a.join(APP_NAME)),
         };
         Ok(Self { core, state_dir })
     }
