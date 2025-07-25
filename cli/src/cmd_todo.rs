@@ -11,7 +11,7 @@ use aimcal_core::{
     Aim, LooseDateTime, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
     TodoStatus,
 };
-use chrono::{Duration, Local, NaiveDate, NaiveDateTime, TimeZone, offset::LocalResult};
+use chrono::{Duration, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
 use clap::{Arg, ArgMatches, Command, arg, value_parser};
 use clap_num::number_range;
 use std::error::Error;
@@ -180,8 +180,8 @@ impl CmdTodoDone {
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoUndo {
-    uid_or_short_id: String,
-    output_format: ArgOutputFormat,
+    pub uid_or_short_id: String,
+    pub output_format: ArgOutputFormat,
 }
 
 impl CmdTodoUndo {
@@ -363,7 +363,7 @@ impl TodoEdit {
 fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &str> {
     if dt.is_empty() {
         Ok(None)
-    } else if let Ok(dt) = NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M:%S") {
+    } else if let Ok(dt) = NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M") {
         Ok(Some(match Local.from_local_datetime(&dt) {
             LocalResult::Single(dt) => LooseDateTime::Local(dt),
             LocalResult::Ambiguous(dt1, _) => {
@@ -375,10 +375,20 @@ fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &str> {
                 LooseDateTime::Floating(dt)
             }
         }))
+    } else if let Ok(time) = NaiveTime::parse_from_str(dt, "%H:%M") {
+        // If the input is just a time, we assume it's today
+        match Local::now().with_time(time) {
+            LocalResult::Single(dt) => Ok(Some(LooseDateTime::Local(dt))),
+            LocalResult::Ambiguous(dt1, _) => {
+                log::warn!("Ambiguous local time for {dt} in local, picking earliest");
+                Ok(Some(LooseDateTime::Local(dt1)))
+            }
+            LocalResult::None => Err("Invalid local time"),
+        }
     } else if let Ok(date) = NaiveDate::parse_from_str(dt, "%Y-%m-%d") {
         Ok(Some(LooseDateTime::DateOnly(date)))
     } else {
-        Err("Invalid date format. Expected format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS")
+        Err("Invalid date format. Expected format: YYYY-MM-DD, HH:MM and YYYY-MM-DD HH:MM")
     }
 }
 
