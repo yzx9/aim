@@ -14,7 +14,7 @@ use aimcal_core::{
 };
 use chrono::{Duration, Local, NaiveDateTime, TimeZone, Utc, offset::LocalResult};
 use clap::{Arg, ArgMatches, Command, arg, value_parser};
-use std::{error::Error, path::PathBuf, str::FromStr};
+use std::{error::Error, path::PathBuf};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -277,9 +277,38 @@ impl TodoEdit {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-#[rustfmt::skip]
-pub enum ArgPriority { P1, P2, P3, P4, P5, P6, P7, P8, P9, None }
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum ArgPriority {
+    #[clap(name = "1", hide = true)]
+    P1,
+
+    #[clap(name = "high", alias = "2")]
+    P2,
+
+    #[clap(name = "3", hide = true)]
+    P3,
+
+    #[clap(name = "4", hide = true)]
+    P4,
+
+    #[clap(name = "middle", alias = "5")]
+    P5,
+
+    #[clap(name = "6", hide = true)]
+    P6,
+
+    #[clap(name = "7", hide = true)]
+    P7,
+
+    #[clap(name = "low", alias = "8")]
+    P8,
+
+    #[clap(name = "9", hide = true)]
+    P9,
+
+    #[clap(name = "none", alias = "0")]
+    None,
+}
 
 impl ArgPriority {
     pub fn arg() -> Arg {
@@ -291,25 +320,6 @@ impl ArgPriority {
         matches
             .get_one::<ArgPriority>("priority")
             .unwrap_or(&ArgPriority::None)
-    }
-}
-
-impl FromStr for ArgPriority {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "1" => Ok(ArgPriority::P1),
-            "2" | "high" => Ok(ArgPriority::P2),
-            "3" => Ok(ArgPriority::P3),
-            "4" => Ok(ArgPriority::P4),
-            "5" | "middle" => Ok(ArgPriority::P5),
-            "6" => Ok(ArgPriority::P6),
-            "7" => Ok(ArgPriority::P7),
-            "8" | "low" => Ok(ArgPriority::P8),
-            "9" => Ok(ArgPriority::P9),
-            _ => Err(format!("Invalid priority: {s}")),
-        }
     }
 }
 
