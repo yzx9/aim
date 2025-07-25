@@ -1,0 +1,48 @@
+name: Release to GitHub
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build CLI and Upload to GitHub Release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: linux-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            suffix: macos-aarch64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build CLI binary
+        run: cargo build --release --package aimcal-cli --target ${{ matrix.target }}
+      - name: Package binary
+        run: |
+          mkdir -p dist
+          mkdir -p package
+          cp target/${{ matrix.target }}/release/aim package/
+          cp README.md LICENSE package/
+          chmod +x package/aim || true
+          tar -czf dist/aim-${{ matrix.suffix }}.tar.gz -C package aim README.md LICENSE
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
