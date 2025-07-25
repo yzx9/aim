@@ -125,4 +125,7 @@ impl From<&icalendar::EventStatus> for EventStatus {
 pub struct EventConditions {
     /// The current time to filter events.
     pub now: NaiveDateTime,
+
+    /// Whether to include only startable events.
+    pub startable: bool,
 }

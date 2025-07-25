@@ -31,6 +31,7 @@ impl CmdEventList {
         Self {
             conds: EventConditions {
                 now: Local::now().naive_local(),
+                startable: true,
             },
             output_format: ArgOutputFormat::parse(matches),
         }

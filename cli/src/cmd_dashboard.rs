@@ -33,7 +33,10 @@ impl CmdDashboard {
         let now = Local::now().naive_local();
 
         println!("🗓️ {}", "Events".bold());
-        let conds = EventConditions { now };
+        let conds = EventConditions {
+            now,
+            startable: true,
+        };
         CmdEventList::list(aim, map, &conds, ArgOutputFormat::Table).await?;
         println!();
 

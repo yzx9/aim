@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{Event, EventConditions, EventStatus, LooseDateTime, Pager};
+use chrono::NaiveDateTime;
 use sqlx::SqlitePool;
 
 #[derive(Debug, Clone)]
@@ -59,10 +60,28 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 
     pub async fn list(
         &self,
-        _conds: &EventConditions,
+        conds: &EventConditions,
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
-        sqlx::query_as("SELECT * FROM events ORDER BY start ASC LIMIT ? OFFSET ?")
+        let mut sql = "SELECT * FROM events".to_string();
+
+        let mut where_clauses = Vec::new();
+        if conds.startable {
+            where_clauses.push("end >= ?");
+        }
+        if !where_clauses.is_empty() {
+            sql += " WHERE ";
+            sql += &where_clauses.join(" AND ");
+        }
+
+        sql += "ORDER BY start ASC LIMIT ? OFFSET ?";
+
+        let mut executable = sqlx::query_as(&sql);
+        if conds.startable {
+            executable = executable.bind(format_ndt(conds.now));
+        }
+
+        executable
             .bind(pager.limit)
             .bind(pager.offset)
             .fetch_all(&self.pool)
@@ -138,4 +157,10 @@ impl Event for EventRecord {
     fn status(&self) -> Option<EventStatus> {
         self.status.as_str().parse().ok()
     }
+}
+
+const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
+
+fn format_ndt(ndt: NaiveDateTime) -> String {
+    ndt.format(DATETIME_FORMAT).to_string()
 }

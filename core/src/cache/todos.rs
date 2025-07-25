@@ -86,15 +86,15 @@ WHERE uid = ?;
 
     pub async fn list(
         &self,
-        query: &TodoConditions,
+        conds: &TodoConditions,
         sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
         let mut where_clauses = Vec::new();
-        if query.status.is_some() {
+        if conds.status.is_some() {
             where_clauses.push("status = ?");
         }
-        let due_before = query.due_before();
+        let due_before = conds.due_before();
         if due_before.is_some() {
             where_clauses.push("due <= ?");
         }
@@ -130,7 +130,7 @@ WHERE uid = ?;
         sql += " LIMIT ? OFFSET ?";
 
         let mut executable = sqlx::query_as(&sql);
-        if let Some(status) = &query.status {
+        if let Some(status) = &conds.status {
             executable = executable.bind(AsRef::<str>::as_ref(status));
         }
         if let Some(due) = due_before {
@@ -144,28 +144,28 @@ WHERE uid = ?;
             .await
     }
 
-    pub async fn count(&self, query: &TodoConditions) -> Result<i64, sqlx::Error> {
-        let due_before = query.due_before();
+    pub async fn count(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
+        let mut sql = "SELECT COUNT(*) FROM todos".to_string();
+
         let mut where_clauses = Vec::new();
-        if query.status.is_some() {
+        if conds.status.is_some() {
             where_clauses.push("status = ?");
         }
+        let due_before = conds.due_before();
         if due_before.is_some() {
             where_clauses.push("due <= ?");
         }
-
-        let mut sql = "SELECT COUNT(*) FROM todos".to_string();
         if !where_clauses.is_empty() {
             sql += " WHERE ";
             sql += &where_clauses.join(" AND ");
         }
 
         let mut executable = sqlx::query_as(&sql);
-        if let Some(status) = &query.status {
+        if let Some(status) = &conds.status {
             let status: &str = status.as_ref();
             executable = executable.bind(status);
         }
-        if let Some(due) = query.due_before() {
+        if let Some(due) = conds.due_before() {
             executable = executable.bind(format_ndt(due));
         }
         let row: (i64,) = executable.fetch_one(&self.pool).await?;
