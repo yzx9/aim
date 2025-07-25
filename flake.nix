@@ -102,6 +102,7 @@
 
             # misc
             just
+            cargo-release
           ];
         };
 
