@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::parser::ParsedPriority;
 use aimcal_core::{Config as CoreConfig, Priority};
-use serde::Deserialize;
 use std::{
     error::Error,
     path::{Path, PathBuf},
@@ -13,11 +11,11 @@ use std::{
 
 pub const APP_NAME: &str = "aim";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct ConfigRaw {
     calendar_path: PathBuf,
     state_dir: Option<PathBuf>,
-    default_priority: Option<ParsedPriority>,
+    default_priority: Option<Priority>,
 }
 
 /// Configuration for the Aim application.
@@ -45,7 +43,7 @@ impl TryFrom<ConfigRaw> for Config {
                 Some(a) => Some(expand_path(&a)?),
                 None => get_state_dir().ok().map(|a| a.join(APP_NAME)),
             },
-            default_priority: (&raw.default_priority.unwrap_or(ParsedPriority::None)).into(),
+            default_priority: raw.default_priority.unwrap_or(Priority::None),
         })
     }
 }

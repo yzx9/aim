@@ -12,10 +12,7 @@ use crate::{
     short_id::ShortIdMap,
 };
 use aimcal_core::Aim;
-use clap::{
-    Arg, ArgMatches, Command, ValueEnum, ValueHint, arg, builder::styling, crate_version,
-    value_parser,
-};
+use clap::{Command, ValueHint, arg, builder::styling, crate_version, value_parser};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
 use std::{error::Error, path::PathBuf};
@@ -119,7 +116,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             _ => unreachable!(),
         };
 
-        let config = matches.get_one::<PathBuf>("config").cloned();
+        let config = matches.get_one("config").cloned();
         Cli { config, command }
     }
 
@@ -189,27 +186,5 @@ impl Commands {
 
         map.dump(&config).await?;
         Ok(())
-    }
-}
-
-/// The output format for commands
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum ArgOutputFormat {
-    Json,
-    Table,
-}
-
-impl ArgOutputFormat {
-    pub fn arg() -> Arg {
-        arg!(--"output-format" <FORMAT> "Output format")
-            .value_parser(value_parser!(ArgOutputFormat))
-            .default_value("table")
-    }
-
-    pub fn parse(matches: &ArgMatches) -> Self {
-        matches
-            .get_one::<ArgOutputFormat>("output-format")
-            .copied()
-            .unwrap_or(ArgOutputFormat::Table)
     }
 }

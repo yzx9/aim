@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    cli::ArgOutputFormat,
+    parser::{ArgOutputFormat, format_datetime},
     short_id::EventWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
-use aimcal_core::{Event, LooseDateTime};
+use aimcal_core::Event;
 use chrono::NaiveDateTime;
 use std::{borrow::Cow, fmt};
 
@@ -148,23 +148,14 @@ impl EventColumnTimeRange {
                     ),
                     (None, None) => start.date().format("%Y-%m-%d").to_string(),
                 },
-                false => format!("{}~{}", format_ldt(start), format_ldt(end)),
+                false => format!("{}~{}", format_datetime(start), format_datetime(end)),
             }
             .into(),
-            (Some(start), None) => format_ldt(start).into(),
-            (None, Some(end)) => format!("~{}", format_ldt(end)).into(),
+            (Some(start), None) => format_datetime(start).into(),
+            (None, Some(end)) => format!("~{}", format_datetime(end)).into(),
             (None, None) => "".to_string().into(),
         }
     }
-}
-
-fn format_ldt(t: LooseDateTime) -> String {
-    match t {
-        LooseDateTime::DateOnly(d) => d.format("%Y-%m-%d"),
-        LooseDateTime::Floating(dt) => dt.format("%Y-%m-%d %H:%M"),
-        LooseDateTime::Local(dt) => dt.format("%Y-%m-%d %H:%M"),
-    }
-    .to_string()
 }
 
 #[derive(Debug, Clone)]

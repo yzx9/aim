@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    cli::ArgOutputFormat,
+    parser::{ArgOutputFormat, format_datetime},
     short_id::TodoWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
-use aimcal_core::{LooseDateTime, Priority, Todo, TodoStatus};
+use aimcal_core::{Priority, Todo, TodoStatus};
 use chrono::NaiveDateTime;
 use colored::Color;
 use std::{borrow::Cow, fmt};
@@ -154,7 +154,7 @@ impl TodoColumnDue {
     pub fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
         todo.inner
             .due()
-            .map_or("".into(), |a| Self::format_value(a).into())
+            .map_or("".into(), |a| format_datetime(a).into())
     }
 
     fn get_color(&self, todo: &TodoWithShortId<impl Todo>, now: &NaiveDateTime) -> Option<Color> {
@@ -176,15 +176,6 @@ impl TodoColumnDue {
         } else {
             COLOR_TODAY
         }
-    }
-
-    pub fn format_value(t: LooseDateTime) -> String {
-        match t {
-            LooseDateTime::DateOnly(d) => d.format("%Y-%m-%d"),
-            LooseDateTime::Floating(dt) => dt.format("%Y-%m-%d %H:%M"),
-            LooseDateTime::Local(dt) => dt.format("%Y-%m-%d %H:%M"),
-        }
-        .to_string()
     }
 }
 

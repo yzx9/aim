@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    cli::ArgOutputFormat, cmd_event::CmdEventList, cmd_todo::CmdTodoList, short_id::ShortIdMap,
+    cmd_event::CmdEventList, cmd_todo::CmdTodoList, parser::ArgOutputFormat, short_id::ShortIdMap,
 };
 use aimcal_core::{Aim, EventConditions, TodoConditions, TodoStatus};
 use chrono::{Duration, Local};

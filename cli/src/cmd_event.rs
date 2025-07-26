@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    cli::ArgOutputFormat,
     event_formatter::EventFormatter,
+    parser::ArgOutputFormat,
     short_id::{EventWithShortId, ShortIdMap},
 };
 use aimcal_core::{Aim, EventConditions, Pager};

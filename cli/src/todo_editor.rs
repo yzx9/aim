@@ -2,12 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    cmd_todo::ArgTodoStatus,
-    parser::{ParsedPriority, parse_datetime},
-    todo_formatter::TodoColumnDue,
-};
-use aimcal_core::{Todo, TodoPatch};
+use crate::parser::{format_datetime, parse_datetime};
+use aimcal_core::{Priority, Todo, TodoPatch, TodoStatus};
 use clap::ValueEnum;
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
@@ -36,18 +32,27 @@ impl TodoEditor {
         Self::new_with(Data {
             uid: todo.uid().to_owned(),
             description: todo.description().unwrap_or("").to_owned(),
-            due: todo
-                .due()
-                .map(TodoColumnDue::format_value)
-                .unwrap_or("".to_string()),
+            due: todo.due().map(format_datetime).unwrap_or("".to_string()),
             percent_complete: todo
                 .percent_complete()
                 .map(|a| a.to_string())
                 .unwrap_or("".to_string()),
-            priority: ParsedPriority::from(&todo.priority()).to_string(),
+            priority: match todo.priority() {
+                Priority::None => "none",
+                Priority::P1 => "1",
+                Priority::P2 => "2",
+                Priority::P3 => "3",
+                Priority::P4 => "4",
+                Priority::P5 => "3",
+                Priority::P6 => "6",
+                Priority::P7 => "7",
+                Priority::P8 => "8",
+                Priority::P9 => "9",
+            }
+            .to_string(),
             status: todo
                 .status()
-                .map(|a| ArgTodoStatus::from(a).to_string())
+                .map(|a| a.to_string())
                 .unwrap_or("".to_string()),
             summary: todo.summary().to_string(),
         })
@@ -94,37 +99,40 @@ impl TodoEditor {
             KeyCode::Up | KeyCode::BackTab => {
                 let len = self.fields.len();
                 self.field_index = (self.field_index + len - 1) % len;
-                self.character_index = match self.fields[self.field_index] {
-                    Description => self.data.description.len(),
-                    Due => self.data.due.len(),
-                    PercentComplete => self.data.percent_complete.len(),
-                    Priority => self.data.priority.len(),
-                    Status => self.data.status.len(),
-                    Summary => self.data.summary.len(),
+                self.character_index = match self.fields.get(self.field_index) {
+                    Some(Description) => self.data.description.len(),
+                    Some(Due) => self.data.due.len(),
+                    Some(PercentComplete) => self.data.percent_complete.len(),
+                    Some(Priority) => self.data.priority.len(),
+                    Some(Status) => self.data.status.len(),
+                    Some(Summary) => self.data.summary.len(),
+                    None => unreachable!("Invalid field index"),
                 };
             }
             KeyCode::Down | KeyCode::Tab => {
                 self.field_index = (self.field_index + 1) % self.fields.len();
-                self.character_index = match self.fields[self.field_index] {
-                    Description => self.data.description.len(),
-                    Due => self.data.due.len(),
-                    PercentComplete => self.data.percent_complete.len(),
-                    Priority => self.data.priority.len(),
-                    Status => self.data.status.len(),
-                    Summary => self.data.summary.len(),
+                self.character_index = match self.fields.get(self.field_index) {
+                    Some(Description) => self.data.description.len(),
+                    Some(Due) => self.data.due.len(),
+                    Some(PercentComplete) => self.data.percent_complete.len(),
+                    Some(Priority) => self.data.priority.len(),
+                    Some(Status) => self.data.status.len(),
+                    Some(Summary) => self.data.summary.len(),
+                    None => unreachable!("Invalid field index"),
                 };
             }
             KeyCode::Left => {
                 self.character_index = self.character_index.saturating_sub(1);
             }
             KeyCode::Right => {
-                let len = match self.fields[self.field_index] {
-                    Description => self.data.description.len(),
-                    Due => self.data.due.len(),
-                    PercentComplete => self.data.percent_complete.len(),
-                    Priority => self.data.priority.len(),
-                    Status => self.data.status.len(),
-                    Summary => self.data.summary.len(),
+                let len = match self.fields.get(self.field_index) {
+                    Some(Description) => self.data.description.len(),
+                    Some(Due) => self.data.due.len(),
+                    Some(PercentComplete) => self.data.percent_complete.len(),
+                    Some(Priority) => self.data.priority.len(),
+                    Some(Status) => self.data.status.len(),
+                    Some(Summary) => self.data.summary.len(),
+                    None => unreachable!("Invalid field index"),
                 };
                 self.character_index = self.character_index.saturating_add(1).min(len);
             }
@@ -240,11 +248,11 @@ impl TodoEditor {
                 false => None,
             },
             priority: match self.dirty.priority {
-                true => Some(ParsedPriority::from_str(&self.data.priority, IGNORE_CASE)?.into()),
+                true => Some(Priority::from_str(&self.data.priority, IGNORE_CASE)?),
                 false => None,
             },
             status: match self.dirty.status {
-                true => Some(ArgTodoStatus::from_str(&self.data.status, IGNORE_CASE)?.into()),
+                true => Some(TodoStatus::from_str(&self.data.status, IGNORE_CASE)?),
                 false => None,
             },
             summary: self.dirty.summary.then(|| self.data.summary.clone()),

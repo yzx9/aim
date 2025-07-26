@@ -19,7 +19,10 @@ name = "aim"
 path = "src/main.rs"
 
 [dependencies]
-aimcal-core = { version = "0.2.0", path = "../core" }
+aimcal-core = { path = "../core", version = "0.2.0", features = [
+  "clap",
+  "serde",
+] }
 bimap = { version = "0.6.3", features = ["serde"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5", features = ["cargo", "color", "derive"] }

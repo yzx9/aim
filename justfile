@@ -5,7 +5,7 @@ default:
 
 # Run tests for the project
 test:
-  cargo test
+  cargo test --all-features
 
 # Run clippy to check for linting issues
 lint:

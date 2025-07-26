@@ -166,26 +166,60 @@ impl From<(i64, i64)> for Pager {
 
 /// Priority of a task or item, with values ranging from 1 to 9, and None for no priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Priority {
     /// No priority.
+    #[cfg_attr(feature = "clap", clap(name = "none", aliases = ["0"]))]
+    #[cfg_attr(feature = "serde", serde(rename = "none", alias = "n", alias = "0"))]
     None,
+
     /// Priority 1, highest priority.
+    #[cfg_attr(feature = "clap", clap(name = "1", hide = true))]
+    #[cfg_attr(feature = "serde", serde(rename = "1"))]
     P1,
-    /// Priority 2.
+
+    /// Priority 2, high priority.
+    #[cfg_attr(feature = "clap", clap(name = "high", aliases = ["2"]))]
+    #[cfg_attr(feature = "serde", serde(rename = "2", alias = "high", alias = "h"))]
     P2,
+
     /// Priority 3.
+    #[cfg_attr(feature = "clap", clap(name = "3", hide = true))]
+    #[cfg_attr(feature = "serde", serde(rename = "3"))]
     P3,
+
     /// Priority 4.
+    #[cfg_attr(feature = "clap", clap(name = "4", hide = true))]
+    #[cfg_attr(feature = "serde", serde(rename = "4"))]
     P4,
-    /// Priority 5.
+
+    /// Priority 5, medium priority.
+    #[cfg_attr(feature = "clap", clap(name = "middle", aliases = ["mid",  "5"]))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "5", alias = "middle", alias = "mid", alias = "m")
+    )]
     P5,
+
     /// Priority 6.
+    #[cfg_attr(feature = "clap", clap(name = "6", hide = true))]
+    #[cfg_attr(feature = "serde", serde(rename = "6"))]
     P6,
+
     /// Priority 7.
+    #[cfg_attr(feature = "clap", clap(name = "7", hide = true))]
+    #[cfg_attr(feature = "serde", serde(rename = "7"))]
     P7,
-    /// Priority 8.
+
+    /// Priority 8, low priority.
+    #[cfg_attr(feature = "clap",clap (name = "low", aliases = ["8"]))]
+    #[cfg_attr(feature = "serde", serde(rename = "8", alias = "low", alias = "l"))]
     P8,
+
     /// Priority 9, lowest priority.
+    #[cfg_attr(feature = "clap", clap(name = "9", hide = true))]
+    #[cfg_attr(feature = "serde", serde(rename = "9"))]
     P9,
 }
 

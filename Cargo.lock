@@ -67,10 +67,12 @@ version = "0.2.0"
 dependencies = [
  "chrono",
  "chrono-tz",
+ "clap",
  "env_logger",
  "iana-time-zone",
  "icalendar",
  "log",
+ "serde",
  "sqlx",
  "tokio",
 ]

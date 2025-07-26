@@ -4,8 +4,7 @@
 
 use crate::{
     Config,
-    cli::ArgOutputFormat,
-    parser::{ArgUidOrShortId, ParsedPriority, parse_datetime},
+    parser::{ArgOutputFormat, ArgUidOrShortId, parse_datetime},
     short_id::{ShortIdMap, TodoWithShortId},
     todo_editor::TodoEditor,
     todo_formatter::TodoFormatter,
@@ -14,10 +13,10 @@ use aimcal_core::{
     Aim, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus,
 };
 use chrono::{Duration, Local};
-use clap::{Arg, ArgMatches, Command, arg, value_parser};
+use clap::{Arg, ArgMatches, Command, arg};
 use clap_num::number_range;
 use colored::Colorize;
-use std::{error::Error, fmt};
+use std::error::Error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -38,14 +37,14 @@ impl CmdTodoNew {
             .arg(TodoEdit::arg_summary(true).required(true))
             .arg(TodoEdit::arg_due())
             .arg(TodoEdit::arg_description())
-            .arg(ParsedPriority::arg())
+            .arg(TodoEdit::arg_priority())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
             description: TodoEdit::parse_description(matches),
             due: TodoEdit::parse_due(matches),
-            priority: ParsedPriority::arg_parse(matches).map(Into::into),
+            priority: TodoEdit::parse_priority(matches),
             summary: TodoEdit::parse_summary(matches).expect("summary is required"),
         }
     }
@@ -100,26 +99,26 @@ impl CmdTodoEdit {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Edit a todo item")
-            .arg(TodoEdit::arg_id())
+            .arg(ArgUidOrShortId::arg())
             .arg(TodoEdit::arg_summary(false))
             .arg(TodoEdit::arg_due())
             .arg(TodoEdit::arg_description())
             .arg(TodoEdit::arg_percent_complete())
-            .arg(ParsedPriority::arg())
-            .arg(ArgTodoStatus::arg())
+            .arg(TodoEdit::arg_priority())
+            .arg(TodoEdit::arg_status())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: TodoEdit::parse_id(matches),
+            uid_or_short_id: ArgUidOrShortId::parse(matches),
             output_format: ArgOutputFormat::parse(matches),
 
             description: TodoEdit::parse_description(matches),
             due: TodoEdit::parse_due(matches),
             percent_complete: TodoEdit::parse_percent_complete(matches),
-            priority: ParsedPriority::arg_parse(matches).map(Into::into),
-            status: ArgTodoStatus::parse(matches).map(Into::into),
+            priority: TodoEdit::parse_priority(matches),
+            status: TodoEdit::parse_status(matches),
             summary: TodoEdit::parse_summary(matches),
         }
     }
@@ -177,13 +176,13 @@ impl CmdTodoDone {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Mark a todo item as done")
-            .arg(TodoEdit::arg_id())
+            .arg(ArgUidOrShortId::arg())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: TodoEdit::parse_id(matches),
+            uid_or_short_id: ArgUidOrShortId::parse(matches),
             output_format: ArgOutputFormat::parse(matches),
         }
     }
@@ -215,13 +214,13 @@ impl CmdTodoUndo {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Mark a todo item as undone")
-            .arg(TodoEdit::arg_id())
+            .arg(ArgUidOrShortId::arg())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: TodoEdit::parse_id(matches),
+            uid_or_short_id: ArgUidOrShortId::parse(matches),
             output_format: ArgOutputFormat::parse(matches),
         }
     }
@@ -316,24 +315,12 @@ struct TodoEdit {
 }
 
 impl TodoEdit {
-    fn arg_id() -> Arg {
-        arg!(id: <ID> "The short id or uid of the todo to edit")
-            .value_parser(value_parser!(ArgUidOrShortId))
-    }
-
-    fn parse_id(matches: &ArgMatches) -> ArgUidOrShortId {
-        matches
-            .get_one::<ArgUidOrShortId>("id")
-            .expect("id is required")
-            .clone()
-    }
-
     fn arg_description() -> Arg {
         arg!(--description <DESCRIPTION> "Description of the todo")
     }
 
     fn parse_description(matches: &ArgMatches) -> Option<String> {
-        matches.get_one::<String>("description").cloned()
+        matches.get_one("description").cloned()
     }
 
     fn arg_due() -> Arg {
@@ -341,7 +328,7 @@ impl TodoEdit {
     }
 
     fn parse_due(matches: &ArgMatches) -> Option<String> {
-        matches.get_one::<String>("due").cloned()
+        matches.get_one("due").cloned()
     }
 
     fn arg_percent_complete() -> Arg {
@@ -353,7 +340,25 @@ impl TodoEdit {
     }
 
     fn parse_percent_complete(matches: &ArgMatches) -> Option<u8> {
-        matches.get_one::<u8>("percent").cloned()
+        matches.get_one("percent").copied()
+    }
+
+    fn arg_priority() -> Arg {
+        clap::arg!(-p --priority <PRIORITY> "Priority of the todo")
+            .value_parser(clap::value_parser!(Priority))
+    }
+
+    fn parse_priority(matches: &ArgMatches) -> Option<Priority> {
+        matches.get_one("priority").copied()
+    }
+
+    fn arg_status() -> Arg {
+        clap::arg!(--status <STATUS> "Status of the todo")
+            .value_parser(clap::value_parser!(TodoStatus))
+    }
+
+    fn parse_status(matches: &ArgMatches) -> Option<TodoStatus> {
+        matches.get_one("status").cloned()
     }
 
     fn arg_summary(positional: bool) -> Arg {
@@ -379,68 +384,9 @@ impl TodoEdit {
     }
 }
 
-#[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum ArgTodoStatus {
-    NeedsAction,
-    Completed,
-    InProcess,
-    Cancelled,
-}
-
-impl ArgTodoStatus {
-    pub fn arg() -> Arg {
-        arg!(--status <STATUS> "Status of the todo").value_parser(value_parser!(ArgTodoStatus))
-    }
-
-    pub fn parse(matches: &ArgMatches) -> Option<&Self> {
-        matches.get_one::<ArgTodoStatus>("status")
-    }
-}
-
-impl From<TodoStatus> for ArgTodoStatus {
-    fn from(status: TodoStatus) -> Self {
-        match status {
-            TodoStatus::NeedsAction => Self::NeedsAction,
-            TodoStatus::Completed => Self::Completed,
-            TodoStatus::InProcess => Self::InProcess,
-            TodoStatus::Cancelled => Self::Cancelled,
-        }
-    }
-}
-
-impl From<ArgTodoStatus> for TodoStatus {
-    fn from(status: ArgTodoStatus) -> Self {
-        match status {
-            ArgTodoStatus::NeedsAction => Self::NeedsAction,
-            ArgTodoStatus::Completed => Self::Completed,
-            ArgTodoStatus::InProcess => Self::InProcess,
-            ArgTodoStatus::Cancelled => Self::Cancelled,
-        }
-    }
-}
-
-impl From<&ArgTodoStatus> for TodoStatus {
-    fn from(status: &ArgTodoStatus) -> Self {
-        (*status).into()
-    }
-}
-
-impl fmt::Display for ArgTodoStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Self::NeedsAction => "needs-action",
-            Self::Completed => "completed",
-            Self::InProcess => "in-process",
-            Self::Cancelled => "cancelled",
-        };
-        write!(f, "{s}")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::ArgOutputFormat;
     use aimcal_core::Priority;
     use clap::Command;
 
