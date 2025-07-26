@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enable colored output for clap
 - Add default priority configuration
 - Add TUI-based todo editor
+- Colorize event time range
 
 ### Fixed
 

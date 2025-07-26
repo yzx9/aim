@@ -22,13 +22,15 @@
 
 mod aim;
 mod cache;
+mod datetime;
 mod event;
 mod todo;
 mod types;
 
 pub use crate::{
     aim::{Aim, Config},
+    datetime::{LooseDateTime, RangePosition},
     event::{Event, EventConditions, EventStatus},
     todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus},
-    types::{LooseDateTime, Pager, Priority, SortOrder},
+    types::{Pager, Priority, SortOrder},
 };

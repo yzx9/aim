@@ -66,28 +66,28 @@ pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &str> {
         Ok(None)
     } else if let Ok(dt) = NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M") {
         Ok(Some(match Local.from_local_datetime(&dt) {
-            LocalResult::Single(dt) => LooseDateTime::Local(dt),
+            LocalResult::Single(dt) => dt.into(),
             LocalResult::Ambiguous(dt1, _) => {
                 log::warn!("Ambiguous local time for {dt} in local, picking earliest");
-                LooseDateTime::Local(dt1)
+                dt1.into()
             }
             LocalResult::None => {
                 log::warn!("Invalid local time for {dt} in local, falling back to floating");
-                LooseDateTime::Floating(dt)
+                dt.into()
             }
         }))
     } else if let Ok(time) = NaiveTime::parse_from_str(dt, "%H:%M") {
         // If the input is just a time, we assume it's today
         match Local::now().with_time(time) {
-            LocalResult::Single(dt) => Ok(Some(LooseDateTime::Local(dt))),
+            LocalResult::Single(dt) => Ok(Some(dt.into())),
             LocalResult::Ambiguous(dt1, _) => {
                 log::warn!("Ambiguous local time for {dt} in local, picking earliest");
-                Ok(Some(LooseDateTime::Local(dt1)))
+                Ok(Some(dt1.into()))
             }
             LocalResult::None => Err("Invalid local time"),
         }
     } else if let Ok(date) = NaiveDate::parse_from_str(dt, "%Y-%m-%d") {
-        Ok(Some(LooseDateTime::DateOnly(date)))
+        Ok(Some(date.into()))
     } else {
         Err("Invalid date format. Expected format: YYYY-MM-DD, HH:MM and YYYY-MM-DD HH:MM")
     }

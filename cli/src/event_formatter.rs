@@ -7,14 +7,15 @@ use crate::{
     short_id::EventWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
-use aimcal_core::Event;
+use aimcal_core::{Event, LooseDateTime, RangePosition};
 use chrono::NaiveDateTime;
+use colored::Color;
 use std::{borrow::Cow, fmt};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EventFormatter {
     columns: Vec<EventColumn>,
-    _now: NaiveDateTime,
+    now: NaiveDateTime,
     format: ArgOutputFormat,
 }
 
@@ -26,7 +27,7 @@ impl EventFormatter {
                 EventColumn::TimeRange(EventColumnTimeRange),
                 EventColumn::Summary(EventColumnSummary),
             ],
-            _now: now,
+            now,
             format: ArgOutputFormat::Table,
         }
     }
@@ -44,7 +45,7 @@ impl EventFormatter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Display<'a, E: Event> {
     events: &'a [EventWithShortId<E>],
     formatter: &'a EventFormatter,
@@ -52,22 +53,32 @@ pub struct Display<'a, E: Event> {
 
 impl<'a, E: Event> fmt::Display for Display<'a, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let columns = self
+            .formatter
+            .columns
+            .iter()
+            .map(|column| ColumnMeta {
+                column,
+                now: self.formatter.now,
+            })
+            .collect::<Vec<_>>();
+
         match self.formatter.format {
             ArgOutputFormat::Json => write!(
                 f,
                 "{}",
-                Table::new(TableStyleJson::new(), &self.formatter.columns, self.events)
+                Table::new(TableStyleJson::new(), &columns, self.events)
             ),
             ArgOutputFormat::Table => write!(
                 f,
                 "{}",
-                Table::new(TableStyleBasic::new(), &self.formatter.columns, self.events)
+                Table::new(TableStyleBasic::new(), &columns, self.events)
             ),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum EventColumn {
     ShortId(EventColumnShortId),
     Summary(EventColumnSummary),
@@ -76,9 +87,15 @@ pub enum EventColumn {
     Uid(EventColumnUid),
 }
 
-impl<E: Event> TableColumn<EventWithShortId<E>> for EventColumn {
+#[derive(Debug, Clone, Copy)]
+struct ColumnMeta<'a> {
+    column: &'a EventColumn,
+    now: NaiveDateTime,
+}
+
+impl<'a, E: Event> TableColumn<EventWithShortId<E>> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
-        match self {
+        match self.column {
             EventColumn::ShortId(_) => "Display Number",
             EventColumn::Summary(_) => "Summary",
             EventColumn::TimeRange(_) => "Time Range",
@@ -87,8 +104,8 @@ impl<E: Event> TableColumn<EventWithShortId<E>> for EventColumn {
         .into()
     }
 
-    fn format<'a>(&self, data: &'a EventWithShortId<E>) -> Cow<'a, str> {
-        match self {
+    fn format<'b>(&self, data: &'b EventWithShortId<E>) -> Cow<'b, str> {
+        match self.column {
             EventColumn::ShortId(a) => a.format(data),
             EventColumn::Summary(a) => a.format(data),
             EventColumn::TimeRange(a) => a.format(data),
@@ -97,14 +114,21 @@ impl<E: Event> TableColumn<EventWithShortId<E>> for EventColumn {
     }
 
     fn padding_direction(&self) -> PaddingDirection {
-        match self {
+        match self.column {
             EventColumn::ShortId(_) | EventColumn::Uid(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
+
+    fn get_color(&self, data: &EventWithShortId<E>) -> Option<Color> {
+        match &self.column {
+            EventColumn::TimeRange(v) => v.get_color(data, &self.now),
+            _ => None,
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct EventColumnShortId;
 
 impl EventColumnShortId {
@@ -113,7 +137,7 @@ impl EventColumnShortId {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct EventColumnSummary;
 
 impl EventColumnSummary {
@@ -122,7 +146,7 @@ impl EventColumnSummary {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct EventColumnTimeRange;
 
 impl EventColumnTimeRange {
@@ -156,9 +180,29 @@ impl EventColumnTimeRange {
             (None, None) => "".to_string().into(),
         }
     }
+
+    fn get_color(
+        &self,
+        event: &EventWithShortId<impl Event>,
+        now: &NaiveDateTime,
+    ) -> Option<Color> {
+        const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
+        const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
+
+        let start = event.inner.start()?;
+        match LooseDateTime::position_in_range(now, &start, &event.inner.end()) {
+            RangePosition::Before => COLOR_TODAY_LATE,
+            RangePosition::InRange => COLOR_CURRENT,
+            RangePosition::After => None,
+            RangePosition::InvalidRange => {
+                log::warn!("Invalid range for event: {}", event.inner.uid());
+                None
+            }
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct EventColumnUid;
 
 impl EventColumnUid {

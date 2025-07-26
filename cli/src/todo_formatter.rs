@@ -12,7 +12,7 @@ use chrono::NaiveDateTime;
 use colored::Color;
 use std::{borrow::Cow, fmt};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TodoFormatter {
     columns: Vec<TodoColumn>,
     now: NaiveDateTime,
@@ -47,7 +47,7 @@ impl TodoFormatter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Display<'a, T: Todo> {
     todos: &'a [TodoWithShortId<T>],
     formatter: &'a TodoFormatter,
@@ -59,7 +59,7 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
             .formatter
             .columns
             .iter()
-            .map(|column| TodoColumnMeta {
+            .map(|column| ColumnMeta {
                 column,
                 now: self.formatter.now,
             })
@@ -80,7 +80,7 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum TodoColumn {
     DisplayNumber(TodoColumnDisplayNumber),
     Due(TodoColumnDue),
@@ -91,12 +91,13 @@ pub enum TodoColumn {
     Uid(TodoColumnUid),
 }
 
-struct TodoColumnMeta<'a> {
+#[derive(Debug, Clone, Copy)]
+struct ColumnMeta<'a> {
     column: &'a TodoColumn,
     now: NaiveDateTime,
 }
 
-impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for TodoColumnMeta<'a> {
+impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match &self.column {
             TodoColumn::DisplayNumber(_) => "Display Number",
@@ -138,7 +139,7 @@ impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for TodoColumnMeta<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct TodoColumnDisplayNumber;
 
 impl TodoColumnDisplayNumber {
@@ -147,7 +148,7 @@ impl TodoColumnDisplayNumber {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct TodoColumnDue;
 
 impl TodoColumnDue {
@@ -179,7 +180,7 @@ impl TodoColumnDue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct TodoColumnPriority;
 
 impl TodoColumnPriority {
@@ -199,7 +200,7 @@ impl TodoColumnPriority {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct TodoColumnStatus;
 
 impl TodoColumnStatus {
@@ -219,7 +220,7 @@ impl TodoColumnStatus {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct TodoColumnSummary;
 
 impl TodoColumnSummary {
@@ -228,7 +229,7 @@ impl TodoColumnSummary {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct TodoColumnUid;
 
 impl TodoColumnUid {
