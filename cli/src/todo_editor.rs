@@ -23,7 +23,8 @@ pub struct TodoEditor {
     data: Data,
     dirty: Dirty,
     fields: Vec<TodoEditorField>,
-    active_field: usize,
+    field_index: usize,
+    character_index: usize,
 }
 
 impl TodoEditor {
@@ -56,7 +57,19 @@ impl TodoEditor {
         let mut terminal = ratatui::init();
 
         let result = loop {
-            terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
+            terminal.draw(|frame| {
+                frame.render_widget(&self, frame.area());
+
+                let areas = Layout::vertical(self.fields.iter().map(|_| Constraint::Max(3)))
+                    .margin(2)
+                    .split(frame.area());
+
+                if let Some(active_area) = areas.get(self.field_index) {
+                    let x = active_area.x + self.character_index as u16 + 2;
+                    let y = active_area.y + 1;
+                    frame.set_cursor_position((x, y))
+                }
+            })?;
 
             if let Event::Key(key) = event::read()? {
                 if let Some(summit) = self.handle_input(key.code) {
@@ -80,71 +93,111 @@ impl TodoEditor {
             }
             KeyCode::Up | KeyCode::BackTab => {
                 let len = self.fields.len();
-                self.active_field = (self.active_field + len - 1) % len;
+                self.field_index = (self.field_index + len - 1) % len;
+                self.character_index = match self.fields[self.field_index] {
+                    Description => self.data.description.len(),
+                    Due => self.data.due.len(),
+                    PercentComplete => self.data.percent_complete.len(),
+                    Priority => self.data.priority.len(),
+                    Status => self.data.status.len(),
+                    Summary => self.data.summary.len(),
+                };
             }
             KeyCode::Down | KeyCode::Tab => {
-                self.active_field = (self.active_field + 1) % self.fields.len();
+                self.field_index = (self.field_index + 1) % self.fields.len();
+                self.character_index = match self.fields[self.field_index] {
+                    Description => self.data.description.len(),
+                    Due => self.data.due.len(),
+                    PercentComplete => self.data.percent_complete.len(),
+                    Priority => self.data.priority.len(),
+                    Status => self.data.status.len(),
+                    Summary => self.data.summary.len(),
+                };
             }
-            KeyCode::Backspace => match self.fields.get(self.active_field) {
-                Some(Description) => {
-                    self.data.description.pop();
-                    self.dirty.description = true;
+            KeyCode::Left => {
+                self.character_index = self.character_index.saturating_sub(1);
+            }
+            KeyCode::Right => {
+                let len = match self.fields[self.field_index] {
+                    Description => self.data.description.len(),
+                    Due => self.data.due.len(),
+                    PercentComplete => self.data.percent_complete.len(),
+                    Priority => self.data.priority.len(),
+                    Status => self.data.status.len(),
+                    Summary => self.data.summary.len(),
+                };
+                self.character_index = self.character_index.saturating_add(1).min(len);
+            }
+            KeyCode::Backspace => {
+                if self.character_index > 0 {
+                    let current_index = self.character_index;
+                    match self.fields.get(self.field_index) {
+                        Some(Description) => {
+                            self.data.description.remove(current_index - 1);
+                            self.dirty.description = true;
+                        }
+                        Some(Due) => {
+                            self.data.due.remove(current_index - 1);
+                            self.dirty.due = true;
+                        }
+                        Some(PercentComplete) => {
+                            self.data.percent_complete.remove(current_index - 1);
+                            self.dirty.percent_complete = true;
+                        }
+                        Some(Priority) => {
+                            self.data.priority.remove(current_index - 1);
+                            self.dirty.priority = true;
+                        }
+                        Some(Status) => {
+                            self.data.status.remove(current_index - 1);
+                            self.dirty.status = true;
+                        }
+                        Some(Summary) => {
+                            self.data.summary.remove(current_index - 1);
+                            self.dirty.summary = true;
+                        }
+                        None => {}
+                    }
+                    self.character_index -= 1;
                 }
-                Some(Due) => {
-                    self.data.due.pop();
-                    self.dirty.due = true;
+            }
+            KeyCode::Char(c) => {
+                match self.fields.get(self.field_index) {
+                    Some(Description) => {
+                        self.data.description.insert(self.character_index, c);
+                        self.dirty.description = true;
+                    }
+                    Some(Due) => {
+                        self.data.due.insert(self.character_index, c);
+                        self.dirty.due = true;
+                    }
+                    Some(PercentComplete) => {
+                        self.data.percent_complete.insert(self.character_index, c);
+                        self.dirty.percent_complete = true;
+                    }
+                    Some(Priority) => {
+                        self.data.priority.insert(self.character_index, c);
+                        self.dirty.priority = true;
+                    }
+                    Some(Status) => {
+                        self.data.status.insert(self.character_index, c);
+                        self.dirty.status = true;
+                    }
+                    Some(Summary) => {
+                        self.data.summary.insert(self.character_index, c);
+                        self.dirty.summary = true;
+                    }
+                    None => {}
                 }
-                Some(PercentComplete) => {
-                    self.data.percent_complete.pop();
-                    self.dirty.percent_complete = true;
-                }
-                Some(Priority) => {
-                    self.data.priority.pop();
-                    self.dirty.priority = true;
-                }
-                Some(Status) => {
-                    self.data.status.pop();
-                    self.dirty.status = true;
-                }
-                Some(Summary) => {
-                    self.data.summary.pop();
-                    self.dirty.summary = true;
-                }
-                None => {}
-            },
-            KeyCode::Char(c) => match self.fields.get(self.active_field) {
-                Some(Description) => {
-                    self.data.description.push(c);
-                    self.dirty.description = true;
-                }
-                Some(Due) => {
-                    self.data.due.push(c);
-                    self.dirty.due = true;
-                }
-                Some(PercentComplete) => {
-                    self.data.percent_complete.push(c);
-                    self.dirty.percent_complete = true;
-                }
-                Some(Priority) => {
-                    self.data.priority.push(c);
-                    self.dirty.priority = true;
-                }
-                Some(Status) => {
-                    self.data.status.push(c);
-                    self.dirty.status = true;
-                }
-                Some(Summary) => {
-                    self.data.summary.push(c);
-                    self.dirty.summary = true;
-                }
-                None => {}
-            },
+                self.character_index += 1;
+            }
             _ => {}
         }
         None
     }
 
     fn new_with(data: Data) -> Self {
+        let character_index = data.summary.len();
         Self {
             data,
             dirty: Dirty {
@@ -163,7 +216,8 @@ impl TodoEditor {
                 TodoEditorField::Status,
                 TodoEditorField::Description,
             ],
-            active_field: 0,
+            field_index: 0,
+            character_index,
         }
     }
 
@@ -206,14 +260,14 @@ impl Default for TodoEditor {
 
 impl Widget for &TodoEditor {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from("Todo Editor".bold());
+        let title = Line::from(" Todo Editor ".bold());
         let instructions = Line::from(vec![
-            "  Prev ".into(),
+            " Prev ".into(),
             "<Up>".blue().bold(),
             " Next ".into(),
             "<Down>".blue().bold(),
             " Exit ".into(),
-            "<Esc>  ".blue().bold(),
+            "<Esc> ".blue().bold(),
         ]);
         Block::bordered()
             .title(title.centered())
@@ -234,7 +288,7 @@ impl Widget for &TodoEditor {
                 TodoEditorField::Status => &self.data.status,
                 TodoEditorField::Summary => &self.data.summary,
             };
-            let is_active = i == self.active_field;
+            let is_active = i == self.field_index;
             Paragraph::new(content.clone())
                 .block(title_block(field.title(), is_active))
                 .render(*area, buf);
