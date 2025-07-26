@@ -102,6 +102,11 @@ impl Aim {
         Ok(todo)
     }
 
+    /// Get a todo by its UID.
+    pub async fn get_todo(&self, uid: &str) -> Result<Option<impl Todo>, sqlx::Error> {
+        self.cache.todos.get(uid).await
+    }
+
     /// List todos matching the given conditions, sorted and paginated.
     pub async fn list_todos(
         &self,

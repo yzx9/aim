@@ -152,7 +152,9 @@ pub struct TodoColumnDue;
 
 impl TodoColumnDue {
     pub fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
-        todo.inner.due().map_or("".into(), |a| format_ldt(a).into())
+        todo.inner
+            .due()
+            .map_or("".into(), |a| Self::format_value(a).into())
     }
 
     fn get_color(&self, todo: &TodoWithShortId<impl Todo>, now: &NaiveDateTime) -> Option<Color> {
@@ -175,15 +177,15 @@ impl TodoColumnDue {
             COLOR_TODAY
         }
     }
-}
 
-fn format_ldt(t: LooseDateTime) -> String {
-    match t {
-        LooseDateTime::DateOnly(d) => d.format("%Y-%m-%d"),
-        LooseDateTime::Floating(dt) => dt.format("%Y-%m-%d %H:%M"),
-        LooseDateTime::Local(dt) => dt.format("%Y-%m-%d %H:%M"),
+    pub fn format_value(t: LooseDateTime) -> String {
+        match t {
+            LooseDateTime::DateOnly(d) => d.format("%Y-%m-%d"),
+            LooseDateTime::Floating(dt) => dt.format("%Y-%m-%d %H:%M"),
+            LooseDateTime::Local(dt) => dt.format("%Y-%m-%d %H:%M"),
+        }
+        .to_string()
     }
-    .to_string()
 }
 
 #[derive(Debug, Clone)]

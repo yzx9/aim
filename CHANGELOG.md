@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display a hint when nothing is found during listing.
 - Enable colored output for clap
 - Add default priority configuration
+- Add TUI-based todo editor
 
 ### Fixed
 
