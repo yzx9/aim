@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
+    Config,
     cli::ArgOutputFormat,
+    parser::ParsedPriority,
     short_id::{ShortIdMap, TodoWithShortId},
     todo_formatter::TodoFormatter,
 };
@@ -22,7 +24,7 @@ use uuid::Uuid;
 pub struct CmdTodoNew {
     pub description: Option<String>,
     pub due: Option<String>,
-    pub priority: Priority,
+    pub priority: Option<Priority>,
     pub summary: String,
 }
 
@@ -36,22 +38,25 @@ impl CmdTodoNew {
             .arg(TodoEdit::arg_summary(true).required(true))
             .arg(TodoEdit::arg_due())
             .arg(TodoEdit::arg_description())
-            .arg(ArgPriority::arg())
+            .arg(ParsedPriority::arg())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
             description: TodoEdit::parse_description(matches),
             due: TodoEdit::parse_due(matches),
-            priority: ArgPriority::parse(matches)
-                .unwrap_or(&ArgPriority::None)
-                .into(),
+            priority: ParsedPriority::arg_parse(matches).map(Into::into),
             summary: TodoEdit::parse_summary(matches).expect("summary is required"),
         }
     }
 
-    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
-        log::debug!("Add todos...");
+    pub async fn run(
+        self,
+        config: &Config,
+        aim: &Aim,
+        map: &ShortIdMap,
+    ) -> Result<(), Box<dyn Error>> {
+        log::debug!("Adding new todo...");
         let due = self
             .due
             .as_ref()
@@ -63,7 +68,7 @@ impl CmdTodoNew {
             uid: Uuid::new_v4().to_string(), // TODO: better uid
             description: self.description,
             due,
-            priority: self.priority,
+            priority: self.priority.unwrap_or(config.default_priority),
             summary: self.summary,
         };
         let todo = aim.new_todo(draft).await?;
@@ -100,7 +105,7 @@ impl CmdTodoEdit {
             .arg(TodoEdit::arg_due())
             .arg(TodoEdit::arg_description())
             .arg(TodoEdit::arg_percent_complete())
-            .arg(ArgPriority::arg())
+            .arg(ParsedPriority::arg())
             .arg(ArgStatus::arg())
             .arg(ArgOutputFormat::arg())
     }
@@ -113,7 +118,7 @@ impl CmdTodoEdit {
             description: TodoEdit::parse_description(matches),
             due: TodoEdit::parse_due(matches),
             percent_complete: TodoEdit::parse_percent_complete(matches),
-            priority: ArgPriority::parse(matches).map(Into::into),
+            priority: ParsedPriority::arg_parse(matches).map(Into::into),
             status: ArgStatus::parse(matches).map(Into::into),
             summary: TodoEdit::parse_summary(matches),
         }
@@ -424,67 +429,6 @@ impl From<&ArgStatus> for TodoStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum ArgPriority {
-    #[clap(name = "1", hide = true)]
-    P1,
-
-    #[clap(name = "high", aliases = ["h" ,"2"])]
-    P2,
-
-    #[clap(name = "3", hide = true)]
-    P3,
-
-    #[clap(name = "4", hide = true)]
-    P4,
-
-    #[clap(name = "middle", aliases = ["m", "mid", "5"])]
-    P5,
-
-    #[clap(name = "6", hide = true)]
-    P6,
-
-    #[clap(name = "7", hide = true)]
-    P7,
-
-    #[clap(name = "low", aliases = ["l", "8"])]
-    P8,
-
-    #[clap(name = "9", hide = true)]
-    P9,
-
-    #[clap(name = "none", aliases = ["n", "0"])]
-    None,
-}
-
-impl ArgPriority {
-    pub fn arg() -> Arg {
-        arg!(-p --priority <PRIORITY> "Priority of the todo")
-            .value_parser(value_parser!(ArgPriority))
-    }
-
-    pub fn parse(matches: &ArgMatches) -> Option<&Self> {
-        matches.get_one::<ArgPriority>("priority")
-    }
-}
-
-impl From<&ArgPriority> for Priority {
-    fn from(priority: &ArgPriority) -> Self {
-        match priority {
-            ArgPriority::P1 => Priority::P1,
-            ArgPriority::P2 => Priority::P2,
-            ArgPriority::P3 => Priority::P3,
-            ArgPriority::P4 => Priority::P4,
-            ArgPriority::P5 => Priority::P5,
-            ArgPriority::P6 => Priority::P6,
-            ArgPriority::P7 => Priority::P7,
-            ArgPriority::P8 => Priority::P8,
-            ArgPriority::P9 => Priority::P9,
-            ArgPriority::None => Priority::None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -516,7 +460,7 @@ mod tests {
         assert_eq!(parsed.summary, "Another summary");
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
-        assert_eq!(parsed.priority, Priority::P1);
+        assert_eq!(parsed.priority, Some(Priority::P1));
     }
 
     #[test]

@@ -5,7 +5,7 @@
 use crate::Cli;
 use clap::{ArgMatches, Command, ValueEnum, arg, value_parser};
 use clap_complete::generate;
-use std::io;
+use std::{error::Error, io};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdGenerateCompletion {
@@ -32,8 +32,9 @@ impl CmdGenerateCompletion {
         }
     }
 
-    pub fn run(self) {
-        self.generate(&mut io::stdout())
+    pub fn run(self) -> Result<(), Box<dyn Error>> {
+        self.generate(&mut io::stdout());
+        Ok(())
     }
 
     pub fn generate(self, buf: &mut impl io::Write) {

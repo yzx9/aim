@@ -167,6 +167,8 @@ impl From<(i64, i64)> for Pager {
 /// Priority of a task or item, with values ranging from 1 to 9, and None for no priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Priority {
+    /// No priority.
+    None,
     /// Priority 1, highest priority.
     P1,
     /// Priority 2.
@@ -185,8 +187,6 @@ pub enum Priority {
     P8,
     /// Priority 9, lowest priority.
     P9,
-    /// No priority.
-    None,
 }
 
 impl From<u32> for Priority {
@@ -215,6 +215,7 @@ impl From<u8> for Priority {
 impl From<Priority> for u8 {
     fn from(value: Priority) -> Self {
         match value {
+            Priority::None => 0,
             Priority::P1 => 1,
             Priority::P2 => 2,
             Priority::P3 => 3,
@@ -224,7 +225,6 @@ impl From<Priority> for u8 {
             Priority::P7 => 7,
             Priority::P8 => 8,
             Priority::P9 => 9,
-            Priority::None => 0,
         }
     }
 }

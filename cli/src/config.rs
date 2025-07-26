@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use aimcal_core::Config as CoreConfig;
+use crate::parser::ParsedPriority;
+use aimcal_core::{Config as CoreConfig, Priority};
 use serde::Deserialize;
 use std::{
     error::Error,
@@ -16,6 +17,7 @@ pub const APP_NAME: &str = "aim";
 struct ConfigRaw {
     calendar_path: PathBuf,
     state_dir: Option<PathBuf>,
+    default_priority: Option<ParsedPriority>,
 }
 
 /// Configuration for the Aim application.
@@ -26,20 +28,25 @@ pub struct Config {
 
     /// Directory for storing application state.
     pub state_dir: Option<PathBuf>,
+
+    /// Default priority for new tasks.
+    pub default_priority: Priority,
 }
 
 impl TryFrom<ConfigRaw> for Config {
     type Error = Box<dyn Error>;
 
     fn try_from(raw: ConfigRaw) -> Result<Self, Self::Error> {
-        let core = CoreConfig {
-            calendar_path: expand_path(&raw.calendar_path)?,
-        };
-        let state_dir = match raw.state_dir {
-            Some(a) => Some(expand_path(&a)?),
-            None => get_state_dir().ok().map(|a| a.join(APP_NAME)),
-        };
-        Ok(Self { core, state_dir })
+        Ok(Self {
+            core: CoreConfig {
+                calendar_path: expand_path(&raw.calendar_path)?,
+            },
+            state_dir: match raw.state_dir {
+                Some(a) => Some(expand_path(&a)?),
+                None => get_state_dir().ok().map(|a| a.join(APP_NAME)),
+            },
+            default_priority: (&raw.default_priority.unwrap_or(ParsedPriority::None)).into(),
+        })
     }
 }
 

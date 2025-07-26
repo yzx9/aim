@@ -27,6 +27,7 @@ mod cmd_generate_completion;
 mod cmd_todo;
 mod config;
 mod event_formatter;
+mod parser;
 mod short_id;
 mod table;
 mod todo_formatter;

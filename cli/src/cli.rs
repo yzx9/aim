@@ -160,30 +160,32 @@ pub enum Commands {
 impl Commands {
     /// Run the command with the given configuration
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+        use Commands::*;
         match self {
-            Commands::Dashboard(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            Commands::EventList(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            Commands::TodoNew(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            Commands::TodoEdit(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            Commands::TodoDone(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            Commands::TodoUndo(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            Commands::TodoList(a) => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            Commands::GenerateCompletion(a) => {
-                a.run();
-                Ok(())
-            }
+            Dashboard(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
+            EventList(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
+            TodoNew(a) => Self::run_with(config, |x, y, z| a.run(x, y, z).boxed()).await,
+            TodoEdit(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
+            TodoDone(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
+            TodoUndo(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
+            TodoList(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
+            GenerateCompletion(a) => a.run(),
         }
     }
 
     async fn run_with<F>(config: Option<PathBuf>, f: F) -> Result<(), Box<dyn Error>>
     where
-        F: for<'a> FnOnce(&'a Aim, &'a ShortIdMap) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
+        F: for<'a> FnOnce(
+            &'a Config,
+            &'a Aim,
+            &'a ShortIdMap,
+        ) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
     {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
         let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
 
-        f(&aim, &map).await?;
+        f(&config, &aim, &map).await?;
 
         map.dump(&config).await?;
         Ok(())
