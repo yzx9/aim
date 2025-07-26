@@ -74,16 +74,16 @@ pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &str> {
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, serde::Deserialize)]
 pub enum ParsedPriority {
-    #[clap(name = "none", aliases = ["n", "0"])]
-    #[serde(rename = "none", alias = "n", alias = "0")]
+    #[clap(name = "none", aliases = ["0"])]
+    #[serde(rename = "none", alias = "0")]
     None,
 
     #[clap(name = "1", hide = true)]
     #[serde(rename = "1")]
     P1,
 
-    #[clap(name = "high", aliases = ["h" ,"2"])]
-    #[serde(rename = "2", alias = "high", alias = "h")]
+    #[clap(name = "high", aliases = ["2"])]
+    #[serde(rename = "2", alias = "high")]
     P2,
 
     #[clap(name = "3", hide = true)]
@@ -94,8 +94,8 @@ pub enum ParsedPriority {
     #[serde(rename = "4")]
     P4,
 
-    #[clap(name = "middle", aliases = ["mid", "m", "5"])]
-    #[serde(rename = "5", alias = "middle", alias = "mid", alias = "m")]
+    #[clap(name = "middle", aliases = ["mid",  "5"])]
+    #[serde(rename = "5", alias = "middle", alias = "mid")]
     P5,
 
     #[clap(name = "6", hide = true)]
@@ -106,8 +106,8 @@ pub enum ParsedPriority {
     #[serde(rename = "7")]
     P7,
 
-    #[clap(name = "low", aliases = ["l", "8"])]
-    #[serde(rename = "8", alias = "low", alias = "l")]
+    #[clap(name = "low", aliases = ["8"])]
+    #[serde(rename = "8", alias = "low")]
     P8,
 
     #[clap(name = "9", hide = true)]
