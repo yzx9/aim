@@ -96,6 +96,7 @@ impl TodoDraft {
     /// Converts the draft into a icalendar Todo component.
     pub fn into_todo(self) -> Result<icalendar::Todo, String> {
         let mut todo = icalendar::Todo::with_uid(&self.uid);
+        icalendar::Todo::status(&mut todo, icalendar::TodoStatus::NeedsAction);
         Component::priority(&mut todo, self.priority.into());
         Component::summary(&mut todo, &self.summary);
 

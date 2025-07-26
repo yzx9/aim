@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display a hint when nothing is found during listing.
 - Enable colored output for clap
 
+### Fixed
+
+- Always set status for new todo
+
 ## [v0.2.0] - 2025-07-25
 
 ### Added
