@@ -5,11 +5,11 @@ default:
 
 # Run tests for the project
 test:
-  cargo test --all-features
+  cargo test --workspace --all-features
 
 # Run clippy to check for linting issues
 lint:
-  cargo clippy --all-targets --all-features -- -D warnings
+  cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 # Release new version without publish
 release version:
