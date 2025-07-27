@@ -9,18 +9,16 @@ use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
     prelude::*,
     symbols::border,
-    widgets::{Block, Padding, Paragraph},
+    widgets::{self, Block, Paragraph, block},
 };
 use std::error::Error;
+use unicode_width::UnicodeWidthStr;
 
 /// TUI editor for editing todos.
 #[derive(Debug)]
 pub struct TodoEditor {
-    data: Data,
-    dirty: Dirty,
-    fields: Vec<TodoEditorField>,
-    field_index: usize,
-    character_index: usize,
+    store: Store,
+    fields: Vec<Component>,
 }
 
 impl TodoEditor {
@@ -29,186 +27,150 @@ impl TodoEditor {
     }
 
     pub fn from(todo: impl Todo) -> Self {
-        Self::new_with(Data {
-            uid: todo.uid().to_owned(),
-            description: todo.description().unwrap_or("").to_owned(),
-            due: todo.due().map(format_datetime).unwrap_or("".to_string()),
-            percent_complete: todo
-                .percent_complete()
-                .map(|a| a.to_string())
-                .unwrap_or("".to_string()),
-            priority: match todo.priority() {
-                Priority::None => "none",
-                Priority::P1 => "1",
-                Priority::P2 => "2",
-                Priority::P3 => "3",
-                Priority::P4 => "4",
-                Priority::P5 => "3",
-                Priority::P6 => "6",
-                Priority::P7 => "7",
-                Priority::P8 => "8",
-                Priority::P9 => "9",
-            }
-            .to_string(),
-            status: todo
-                .status()
-                .map(|a| a.to_string())
-                .unwrap_or("".to_string()),
-            summary: todo.summary().to_string(),
-        })
+        Self::new_with(todo.into())
+    }
+
+    fn new_with(data: Data) -> Self {
+        Self {
+            store: Store::new(data),
+            fields: vec![
+                Component::Summary(FieldSummary::new(0)),
+                Component::Due(FieldDue::new(1)),
+                Component::PercentComplete(FieldPercentComplete::new(2)),
+                Component::Priority(FieldPriority::new(3)),
+                Component::Status(FieldStatus::new(4)),
+                Component::Description(FieldDescription::new(5)),
+            ],
+        }
     }
 
     pub fn run(mut self) -> Result<Option<TodoPatch>, Box<dyn Error>> {
         let mut terminal = ratatui::init();
-
         let result = loop {
-            terminal.draw(|frame| {
-                frame.render_widget(&self, frame.area());
+            if let Err(e) = terminal.draw(|frame| self.draw(frame)) {
+                break Err(e.into());
+            }
 
-                let areas = Layout::vertical(self.fields.iter().map(|_| Constraint::Max(3)))
-                    .margin(2)
-                    .split(frame.area());
-
-                if let Some(active_area) = areas.get(self.field_index) {
-                    let x = active_area.x + self.character_index as u16 + 2;
-                    let y = active_area.y + 1;
-                    frame.set_cursor_position((x, y))
+            match event::read() {
+                Ok(e) => {
+                    if let Some(summit) = self.handle_event(e) {
+                        break match summit {
+                            true => self.store.submit().map(Some),
+                            false => Ok(None),
+                        };
+                    }
                 }
-            })?;
-
-            if let Event::Key(key) = event::read()? {
-                if let Some(summit) = self.handle_input(key.code) {
-                    break Ok(if summit { Some(self.submit()?) } else { None });
-                }
+                Err(e) => break Err(e.into()),
             }
         };
-
         ratatui::restore();
         result
     }
 
+    fn draw(&self, frame: &mut Frame) {
+        let area = frame.area();
+        frame.render_widget(self, area);
+
+        if let Some(cursor_pos) = self.get_cursor_position(area) {
+            frame.set_cursor_position(cursor_pos);
+        }
+    }
+
+    fn handle_event(&mut self, event: Event) -> Option<bool> {
+        match event {
+            Event::Key(key) => self.handle_input(key.code),
+            _ => None,
+        }
+    }
+
     fn handle_input(&mut self, key: KeyCode) -> Option<bool> {
-        use TodoEditorField::*;
-        match key {
+        let (index, action) = match key {
+            KeyCode::Up | KeyCode::BackTab => (
+                (self.store.field_index + self.fields.len() - 1) % self.fields.len(),
+                Action::MoveTo,
+            ),
+            KeyCode::Down | KeyCode::Tab => (
+                (self.store.field_index + 1) % self.fields.len(),
+                Action::MoveTo,
+            ),
+            KeyCode::Left => (self.store.field_index, Action::MoveLeft),
+            KeyCode::Right => (self.store.field_index, Action::MoveRight),
+            KeyCode::Backspace => (self.store.field_index, Action::Delete),
+            KeyCode::Char(c) => (self.store.field_index, Action::Typing { c }),
             KeyCode::Enter => {
                 return Some(true); // Submit the form
             }
             KeyCode::Esc => {
                 return Some(false); // Exit without submitting
             }
-            KeyCode::Up | KeyCode::BackTab => {
-                let len = self.fields.len();
-                self.field_index = (self.field_index + len - 1) % len;
-                self.character_index = match self.fields.get(self.field_index) {
-                    Some(Description) => self.data.description.len(),
-                    Some(Due) => self.data.due.len(),
-                    Some(PercentComplete) => self.data.percent_complete.len(),
-                    Some(Priority) => self.data.priority.len(),
-                    Some(Status) => self.data.status.len(),
-                    Some(Summary) => self.data.summary.len(),
-                    None => unreachable!("Invalid field index"),
-                };
+            _ => {
+                return None;
             }
-            KeyCode::Down | KeyCode::Tab => {
-                self.field_index = (self.field_index + 1) % self.fields.len();
-                self.character_index = match self.fields.get(self.field_index) {
-                    Some(Description) => self.data.description.len(),
-                    Some(Due) => self.data.due.len(),
-                    Some(PercentComplete) => self.data.percent_complete.len(),
-                    Some(Priority) => self.data.priority.len(),
-                    Some(Status) => self.data.status.len(),
-                    Some(Summary) => self.data.summary.len(),
-                    None => unreachable!("Invalid field index"),
-                };
-            }
-            KeyCode::Left => {
-                self.character_index = self.character_index.saturating_sub(1);
-            }
-            KeyCode::Right => {
-                let len = match self.fields.get(self.field_index) {
-                    Some(Description) => self.data.description.len(),
-                    Some(Due) => self.data.due.len(),
-                    Some(PercentComplete) => self.data.percent_complete.len(),
-                    Some(Priority) => self.data.priority.len(),
-                    Some(Status) => self.data.status.len(),
-                    Some(Summary) => self.data.summary.len(),
-                    None => unreachable!("Invalid field index"),
-                };
-                self.character_index = self.character_index.saturating_add(1).min(len);
-            }
-            KeyCode::Backspace => {
-                if self.character_index > 0 {
-                    let current_index = self.character_index;
-                    match self.fields.get(self.field_index) {
-                        Some(Description) => {
-                            self.data.description.remove(current_index - 1);
-                            self.dirty.description = true;
-                        }
-                        Some(Due) => {
-                            self.data.due.remove(current_index - 1);
-                            self.dirty.due = true;
-                        }
-                        Some(PercentComplete) => {
-                            self.data.percent_complete.remove(current_index - 1);
-                            self.dirty.percent_complete = true;
-                        }
-                        Some(Priority) => {
-                            self.data.priority.remove(current_index - 1);
-                            self.dirty.priority = true;
-                        }
-                        Some(Status) => {
-                            self.data.status.remove(current_index - 1);
-                            self.dirty.status = true;
-                        }
-                        Some(Summary) => {
-                            self.data.summary.remove(current_index - 1);
-                            self.dirty.summary = true;
-                        }
-                        None => {}
-                    }
-                    self.character_index -= 1;
-                }
-            }
-            KeyCode::Char(c) => {
-                match self.fields.get(self.field_index) {
-                    Some(Description) => {
-                        self.data.description.insert(self.character_index, c);
-                        self.dirty.description = true;
-                    }
-                    Some(Due) => {
-                        self.data.due.insert(self.character_index, c);
-                        self.dirty.due = true;
-                    }
-                    Some(PercentComplete) => {
-                        self.data.percent_complete.insert(self.character_index, c);
-                        self.dirty.percent_complete = true;
-                    }
-                    Some(Priority) => {
-                        self.data.priority.insert(self.character_index, c);
-                        self.dirty.priority = true;
-                    }
-                    Some(Status) => {
-                        self.data.status.insert(self.character_index, c);
-                        self.dirty.status = true;
-                    }
-                    Some(Summary) => {
-                        self.data.summary.insert(self.character_index, c);
-                        self.dirty.summary = true;
-                    }
-                    None => {}
-                }
-                self.character_index += 1;
-            }
-            _ => {}
+        };
+
+        if let Some(a) = self.fields.get(index) {
+            a.update(&mut self.store, action)
         }
         None
     }
 
-    fn new_with(data: Data) -> Self {
+    fn layout(&self) -> Layout {
+        Layout::vertical(self.fields.iter().map(|_| Constraint::Max(3))).margin(2)
+    }
+
+    fn get_cursor_position(&self, area: Rect) -> Option<(u16, u16)> {
+        let areas = self.layout().split(area);
+        let index = self.store.field_index;
+        match (self.fields.get(index), areas.get(index)) {
+            (Some(field), Some(area)) => Some(field.get_cursor_position(&self.store, *area)),
+            _ => None,
+        }
+    }
+}
+
+impl Default for TodoEditor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Widget for &TodoEditor {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let title = Line::from(" Todo Editor ".bold());
+        let instructions = Line::from(vec![
+            " Prev ".into(),
+            "<Up>".blue().bold(),
+            " Next ".into(),
+            "<Down>".blue().bold(),
+            " Exit ".into(),
+            "<Esc> ".blue().bold(),
+        ]);
+        Block::bordered()
+            .title(title.centered())
+            .title_bottom(instructions.centered())
+            .border_set(border::ROUNDED)
+            .render(area, buf);
+
+        for (field, area) in self.fields.iter().zip(self.layout().split(area).iter()) {
+            field.render(&self.store, *area, buf);
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Store {
+    data: Data,
+    dirty: Marker,
+    field_index: usize,
+    character_index: usize,
+}
+
+impl Store {
+    fn new(data: Data) -> Self {
         let character_index = data.summary.len();
         Self {
             data,
-            dirty: Dirty {
+            dirty: Marker {
                 description: false,
                 due: false,
                 percent_complete: false,
@@ -216,17 +178,47 @@ impl TodoEditor {
                 status: false,
                 summary: false,
             },
-            fields: vec![
-                TodoEditorField::Summary,
-                TodoEditorField::Due,
-                TodoEditorField::PercentComplete,
-                TodoEditorField::Priority,
-                TodoEditorField::Status,
-                TodoEditorField::Description,
-            ],
             field_index: 0,
             character_index,
         }
+    }
+
+    fn update_description(&mut self, value: String) {
+        self.data.description = value;
+        self.dirty.description = true;
+    }
+
+    fn update_due(&mut self, value: String) {
+        self.data.due = value;
+        self.dirty.due = true;
+    }
+
+    fn update_percent_complete(&mut self, value: String) {
+        self.data.percent_complete = value;
+        self.dirty.percent_complete = true;
+    }
+
+    fn update_priority(&mut self, value: String) {
+        self.data.priority = value;
+        self.dirty.priority = true;
+    }
+
+    fn update_status(&mut self, value: String) {
+        self.data.status = value;
+        self.dirty.status = true;
+    }
+
+    fn update_summary(&mut self, value: String) {
+        self.data.summary = value;
+        self.dirty.summary = true;
+    }
+
+    fn update_field_index(&mut self, index: usize) {
+        self.field_index = index;
+    }
+
+    fn update_character_index(&mut self, index: usize) {
+        self.character_index = index;
     }
 
     fn submit(self) -> Result<TodoPatch, Box<dyn Error>> {
@@ -260,60 +252,13 @@ impl TodoEditor {
     }
 }
 
-impl Default for TodoEditor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Widget for &TodoEditor {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(" Todo Editor ".bold());
-        let instructions = Line::from(vec![
-            " Prev ".into(),
-            "<Up>".blue().bold(),
-            " Next ".into(),
-            "<Down>".blue().bold(),
-            " Exit ".into(),
-            "<Esc> ".blue().bold(),
-        ]);
-        Block::bordered()
-            .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::ROUNDED)
-            .render(area, buf);
-
-        let areas = Layout::vertical(self.fields.iter().map(|_| Constraint::Max(3)))
-            .margin(2)
-            .split(area);
-
-        for (i, (field, area)) in self.fields.iter().zip(areas.iter()).enumerate() {
-            let content = match field {
-                TodoEditorField::Description => &self.data.description,
-                TodoEditorField::Due => &self.data.due,
-                TodoEditorField::PercentComplete => &self.data.percent_complete,
-                TodoEditorField::Priority => &self.data.priority,
-                TodoEditorField::Status => &self.data.status,
-                TodoEditorField::Summary => &self.data.summary,
-            };
-            let is_active = i == self.field_index;
-            Paragraph::new(content.clone())
-                .block(title_block(field.title(), is_active))
-                .render(*area, buf);
-        }
-    }
-}
-
-/// Create a bordered block with a title.
-fn title_block(title: &str, active: bool) -> Block {
-    let block = Block::bordered()
-        .border_set(border::ROUNDED)
-        .padding(Padding::horizontal(1))
-        .title(format!(" {title} ").bold());
-    match active {
-        true => block.blue(),
-        false => block.gray(),
-    }
+#[derive(Debug)]
+enum Action {
+    Typing { c: char },
+    Delete,
+    MoveTo,
+    MoveLeft,
+    MoveRight,
 }
 
 #[derive(Debug, Default)]
@@ -327,8 +272,40 @@ struct Data {
     summary: String,
 }
 
+impl<T: Todo> From<T> for Data {
+    fn from(todo: T) -> Self {
+        Self {
+            uid: todo.uid().to_owned(),
+            description: todo.description().unwrap_or("").to_owned(),
+            due: todo.due().map(format_datetime).unwrap_or("".to_string()),
+            percent_complete: todo
+                .percent_complete()
+                .map(|a| a.to_string())
+                .unwrap_or("".to_string()),
+            priority: match todo.priority() {
+                Priority::None => "none",
+                Priority::P1 => "1",
+                Priority::P2 => "2",
+                Priority::P3 => "3",
+                Priority::P4 => "4",
+                Priority::P5 => "3",
+                Priority::P6 => "6",
+                Priority::P7 => "7",
+                Priority::P8 => "8",
+                Priority::P9 => "9",
+            }
+            .to_string(),
+            status: todo
+                .status()
+                .map(|a| a.to_string())
+                .unwrap_or("".to_string()),
+            summary: todo.summary().to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
-struct Dirty {
+struct Marker {
     description: bool,
     due: bool,
     percent_complete: bool,
@@ -337,25 +314,165 @@ struct Dirty {
     summary: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum TodoEditorField {
-    Description,
-    Due,
-    PercentComplete,
-    Priority,
-    Status,
-    Summary,
+#[derive(Debug)]
+enum Component {
+    Description(FieldDescription),
+    Due(FieldDue),
+    PercentComplete(FieldPercentComplete),
+    Priority(FieldPriority),
+    Status(FieldStatus),
+    Summary(FieldSummary),
 }
 
-impl TodoEditorField {
-    const fn title(&self) -> &str {
+impl Component {
+    fn render(&self, store: &Store, area: Rect, buf: &mut Buffer) {
         match self {
-            TodoEditorField::Description => "Description",
-            TodoEditorField::Due => "Due",
-            TodoEditorField::PercentComplete => "Percent complete",
-            TodoEditorField::Priority => "Priority",
-            TodoEditorField::Status => "Status",
-            TodoEditorField::Summary => "Summary",
+            Component::Description(field) => field.render(store, area, buf),
+            Component::Due(field) => field.render(store, area, buf),
+            Component::PercentComplete(field) => field.render(store, area, buf),
+            Component::Priority(field) => field.render(store, area, buf),
+            Component::Status(field) => field.render(store, area, buf),
+            Component::Summary(field) => field.render(store, area, buf),
+        }
+    }
+
+    fn update(&self, store: &mut Store, action: Action) {
+        match self {
+            Component::Description(field) => field.update(store, action),
+            Component::Due(field) => field.update(store, action),
+            Component::PercentComplete(field) => field.update(store, action),
+            Component::Priority(field) => field.update(store, action),
+            Component::Status(field) => field.update(store, action),
+            Component::Summary(field) => field.update(store, action),
+        }
+    }
+
+    fn get_cursor_position(&self, store: &Store, area: Rect) -> (u16, u16) {
+        match self {
+            Component::Description(field) => field.get_cursor_position(store, area),
+            Component::Due(field) => field.get_cursor_position(store, area),
+            Component::PercentComplete(field) => field.get_cursor_position(store, area),
+            Component::Priority(field) => field.get_cursor_position(store, area),
+            Component::Status(field) => field.get_cursor_position(store, area),
+            Component::Summary(field) => field.get_cursor_position(store, area),
         }
     }
 }
+
+macro_rules! field_input {
+    ($name: ident, $title:expr, $field: ident, $update_call: ident) => {
+        #[derive(Debug)]
+        struct $name {
+            index: usize,
+        }
+
+        impl $name {
+            pub fn new(index: usize) -> Self {
+                Self { index }
+            }
+
+            fn update(&self, store: &mut Store, action: Action) {
+                match action {
+                    Action::Typing { c } if store.character_index > 0 => {
+                        let mut value = store.data.$field.to_owned();
+                        value.insert(store.character_index, c);
+                        store.$update_call(value);
+                        store.update_character_index(store.character_index + 1);
+                    }
+                    Action::Delete if store.character_index > 0 => {
+                        let mut value = store.data.$field.to_owned();
+                        value.remove(store.character_index - 1);
+                        store.$update_call(value);
+                        store.update_character_index(store.character_index - 1);
+                    }
+                    Action::MoveTo => {
+                        store.update_field_index(self.index);
+                        store.update_character_index(store.data.$field.len());
+                    }
+                    Action::MoveLeft if store.character_index > 0 => {
+                        store.update_character_index(store.character_index - 1);
+                    }
+                    Action::MoveRight if store.character_index < store.data.$field.len() => {
+                        store.update_character_index(store.character_index + 1);
+                    }
+                    _ => {}
+                }
+            }
+
+            pub fn render(&self, store: &Store, area: Rect, buf: &mut Buffer) {
+                self.input(store).render(area, buf);
+            }
+
+            pub fn get_cursor_position(&self, store: &Store, area: Rect) -> (u16, u16) {
+                self.input(store)
+                    .get_cursor_position(area, store.character_index)
+            }
+
+            fn input<'a>(&self, store: &'a Store) -> Input<'a> {
+                let value = store.data.$field.as_str();
+                let active = store.field_index == self.index;
+                Input::new($title, value, active)
+            }
+        }
+    };
+}
+
+field_input!(
+    FieldDescription,
+    "Description",
+    description,
+    update_description
+);
+field_input!(FieldDue, "Due", due, update_due);
+field_input!(
+    FieldPercentComplete,
+    "Percent complete",
+    percent_complete,
+    update_percent_complete
+);
+field_input!(FieldPriority, "Priority", priority, update_priority);
+field_input!(FieldStatus, "Status", status, update_status);
+field_input!(FieldSummary, "Summary", summary, update_summary);
+
+struct Input<'a> {
+    title: &'a str,
+    value: &'a str,
+    active: bool,
+}
+
+impl<'a> Input<'a> {
+    fn new(title: &'a str, value: &'a str, active: bool) -> Self {
+        Self {
+            title,
+            value,
+            active,
+        }
+    }
+
+    fn get_cursor_position(&self, area: Rect, character_index: usize) -> (u16, u16) {
+        let index = character_index.min(self.value.len());
+        let width = self.value[0..index].width();
+        let x = area.x + (width as u16) + 2; // border 1 + padding 1
+        let y = area.y + 1; // title line: 1
+        (x, y)
+    }
+}
+
+impl Widget for &Input<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let block = Block::bordered()
+            .border_set(border::ROUNDED)
+            .borders(widgets::Borders::ALL)
+            .padding(widgets::Padding::horizontal(1))
+            .title_position(block::Position::Top)
+            .title(format!(" {} ", self.title).bold());
+
+        let block = match self.active {
+            true => block.blue(),
+            false => block.gray(),
+        };
+
+        Paragraph::new(self.value).block(block).render(area, buf);
+    }
+}
+
