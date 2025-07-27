@@ -44,9 +44,9 @@ impl From<(i64, i64)> for Pager {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Priority {
     /// No priority.
-    #[cfg_attr(feature = "clap", clap(name = "none", aliases = ["0"]))]
-    #[cfg_attr(feature = "serde", serde(rename = "none", alias = "n", alias = "0"))]
     #[default]
+    #[cfg_attr(feature = "clap", clap(name = "none", alias = "0"))]
+    #[cfg_attr(feature = "serde", serde(rename = "none", alias = "0"))]
     None,
 
     /// Priority 1, highest priority.
@@ -55,8 +55,8 @@ pub enum Priority {
     P1,
 
     /// Priority 2, high priority.
-    #[cfg_attr(feature = "clap", clap(name = "high", aliases = ["2"]))]
-    #[cfg_attr(feature = "serde", serde(rename = "2", alias = "high", alias = "h"))]
+    #[cfg_attr(feature = "clap", clap(name = "high", alias = "2"))]
+    #[cfg_attr(feature = "serde", serde(rename = "2", alias = "high"))]
     P2,
 
     /// Priority 3.
@@ -70,11 +70,8 @@ pub enum Priority {
     P4,
 
     /// Priority 5, medium priority.
-    #[cfg_attr(feature = "clap", clap(name = "middle", aliases = ["mid",  "5"]))]
-    #[cfg_attr(
-        feature = "serde",
-        serde(rename = "5", alias = "middle", alias = "mid", alias = "m")
-    )]
+    #[cfg_attr(feature = "clap", clap(name = "mid", alias = "5"))]
+    #[cfg_attr(feature = "serde", serde(rename = "5", alias = "mid"))]
     P5,
 
     /// Priority 6.
@@ -88,8 +85,8 @@ pub enum Priority {
     P7,
 
     /// Priority 8, low priority.
-    #[cfg_attr(feature = "clap",clap (name = "low", aliases = ["8"]))]
-    #[cfg_attr(feature = "serde", serde(rename = "8", alias = "low", alias = "l"))]
+    #[cfg_attr(feature = "clap", clap(name = "low", alias = "8"))]
+    #[cfg_attr(feature = "serde", serde(rename = "8", alias = "low"))]
     P8,
 
     /// Priority 9, lowest priority.
