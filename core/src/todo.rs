@@ -195,7 +195,7 @@ impl TodoPatch {
 }
 
 /// The status of a todo item, which can be one of several predefined states.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum TodoStatus {
     /// The todo item needs action.
