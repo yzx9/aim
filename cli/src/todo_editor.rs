@@ -22,15 +22,7 @@ pub struct TodoEditor {
 
 impl TodoEditor {
     pub fn new() -> Self {
-        Self::new_with(Data {
-            uid: "".to_string(),
-            description: "".to_string(),
-            due: "".to_string(),
-            percent_complete: "".to_string(),
-            priority: Priority::default(),
-            status: TodoStatus::default(),
-            summary: "".to_string(),
-        })
+        Self::new_with(Data::default())
     }
 
     pub fn from(todo: impl Todo) -> Self {
@@ -38,13 +30,19 @@ impl TodoEditor {
     }
 
     fn new_with(data: Data) -> Self {
+        let fields = Fields::new();
         let store = Store::new(data);
-        let fields = Fields::new(&store);
         Self { store, fields }
     }
 
     pub fn run(mut self) -> Result<Option<TodoPatch>, Box<dyn Error>> {
         let mut terminal = ratatui::init();
+
+        // Send the initial position to the store
+        if let Some(a) = self.fields.0.get_mut(0) {
+            a.update(&mut self.store, Action::MoveTo)
+        }
+
         let result = loop {
             if let Err(e) = terminal.draw(|frame| {
                 self.store.update_cursor_position(None);
@@ -82,20 +80,13 @@ impl TodoEditor {
     }
 
     fn handle_input(&mut self, key: KeyCode) -> Option<bool> {
-        let (index, action) = match key {
-            KeyCode::Up | KeyCode::BackTab => (
-                // TODO: move to Fields
-                (self.store.field_index + self.fields.fields.len() - 1) % self.fields.fields.len(),
-                Action::MoveTo,
-            ),
-            KeyCode::Down | KeyCode::Tab => (
-                (self.store.field_index + 1) % self.fields.fields.len(),
-                Action::MoveTo,
-            ),
-            KeyCode::Left => (self.store.field_index, Action::MoveLeft),
-            KeyCode::Right => (self.store.field_index, Action::MoveRight),
-            KeyCode::Backspace => (self.store.field_index, Action::Delete),
-            KeyCode::Char(c) => (self.store.field_index, Action::Typing { c }),
+        let action = match key {
+            KeyCode::Up | KeyCode::BackTab => Action::MoveUp,
+            KeyCode::Down | KeyCode::Tab => Action::MoveDown,
+            KeyCode::Left => Action::MoveLeft,
+            KeyCode::Right => Action::MoveRight,
+            KeyCode::Backspace => Action::Delete,
+            KeyCode::Char(c) => Action::Char(c),
             KeyCode::Enter => {
                 return Some(true); // Submit the form
             }
@@ -107,9 +98,7 @@ impl TodoEditor {
             }
         };
 
-        if let Some(a) = self.fields.fields.get_mut(index) {
-            a.update(&mut self.store, action)
-        }
+        self.fields.update(&mut self.store, action);
         None
     }
 }
@@ -129,54 +118,32 @@ struct Store {
     cursor_pos: Option<(u16, u16)>,
 }
 
+macro_rules! define_update {
+    ($name: ident, $field: ident, $type: ty) => {
+        fn $name(&mut self, value: $type) {
+            self.data.$field = value;
+            self.dirty.$field = true;
+        }
+    };
+}
+
 impl Store {
     fn new(data: Data) -> Self {
-        let character_index = data.summary.len();
         Self {
             data,
-            dirty: Marker {
-                description: false,
-                due: false,
-                percent_complete: false,
-                priority: false,
-                status: false,
-                summary: false,
-            },
+            dirty: Marker::default(),
             field_index: 0,
-            character_index,
+            character_index: 0,
             cursor_pos: None,
         }
     }
 
-    fn update_description(&mut self, value: String) {
-        self.data.description = value;
-        self.dirty.description = true;
-    }
-
-    fn update_due(&mut self, value: String) {
-        self.data.due = value;
-        self.dirty.due = true;
-    }
-
-    fn update_percent_complete(&mut self, value: String) {
-        self.data.percent_complete = value;
-        self.dirty.percent_complete = true;
-    }
-
-    fn update_priority(&mut self, value: Priority) {
-        self.data.priority = value;
-        self.dirty.priority = true;
-    }
-
-    fn update_status(&mut self, value: TodoStatus) {
-        self.data.status = value;
-        self.dirty.status = true;
-    }
-
-    fn update_summary(&mut self, value: String) {
-        self.data.summary = value;
-        self.dirty.summary = true;
-    }
+    define_update!(update_description, description, String);
+    define_update!(update_due, due, String);
+    define_update!(update_percent_complete, percent_complete, String);
+    define_update!(update_priority, priority, Priority);
+    define_update!(update_status, status, TodoStatus);
+    define_update!(update_summary, summary, String);
 
     fn update_field_index(&mut self, index: usize) {
         self.field_index = index;
@@ -216,14 +183,16 @@ impl Store {
 
 #[derive(Debug)]
 enum Action {
-    Typing { c: char },
+    Char(char),
     Delete,
-    MoveTo,
+    MoveUp,
+    MoveDown,
     MoveLeft,
     MoveRight,
+    MoveTo,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Data {
     uid: String,
     description: String,
@@ -262,25 +231,21 @@ struct Marker {
 }
 
 #[derive(Debug)]
-struct Fields {
-    fields: Vec<Field>,
-}
+struct Fields(Vec<Field>);
 
 impl Fields {
-    pub fn new(store: &Store) -> Self {
-        Self {
-            fields: vec![
-                Field::Summary(FieldSummary::new(0)),
-                Field::Due(FieldDue::new(1)),
-                Field::PercentComplete(FieldPercentComplete::new(2)),
-                Field::Priority(FieldPriority::new(3, store)),
-                Field::Status(FieldStatus::new(4)),
-                Field::Description(FieldDescription::new(5)),
-            ],
-        }
+    pub fn new() -> Self {
+        Self(vec![
+            Field::Summary(FieldSummary::new(0)),
+            Field::Due(FieldDue::new(1)),
+            Field::PercentComplete(FieldPercentComplete::new(2)),
+            Field::Priority(FieldPriority::new(3)),
+            Field::Status(FieldStatus::new(4)),
+            Field::Description(FieldDescription::new(5)),
+        ])
     }
 
-    fn render(&self, store: &mut Store, area: Rect, buf: &mut Buffer) {
+    fn render(&mut self, store: &mut Store, area: Rect, buf: &mut Buffer) {
         let title = Line::from(" Todo Editor ".bold());
         let instructions = Line::from(vec![
             " Prev ".into(),
@@ -297,13 +262,31 @@ impl Fields {
             .white()
             .render(area, buf);
 
-        for (field, area) in self.fields.iter().zip(self.layout().split(area).iter()) {
+        let layout = Layout::vertical(self.0.iter().map(|_| Constraint::Max(3))).margin(2);
+        for (field, area) in self.0.iter_mut().zip(layout.split(area).iter()) {
             field.render(store, *area, buf);
         }
     }
 
-    fn layout(&self) -> Layout {
-        Layout::vertical(self.fields.iter().map(|_| Constraint::Max(3))).margin(2)
+    fn update(&mut self, store: &mut Store, action: Action) {
+        let (index, action) = match action {
+            Action::Char(_) => (store.field_index, action),
+            Action::Delete => (store.field_index, action),
+            Action::MoveUp => (
+                (store.field_index + self.0.len() - 1) % self.0.len(),
+                Action::MoveTo,
+            ),
+            Action::MoveDown => ((store.field_index + 1) % self.0.len(), Action::MoveTo),
+            Action::MoveLeft => (store.field_index, Action::MoveLeft),
+            Action::MoveRight => (store.field_index, Action::MoveRight),
+            _ => {
+                return;
+            }
+        };
+
+        if let Some(a) = self.0.get_mut(index) {
+            a.update(store, action)
+        }
     }
 }
 
@@ -318,7 +301,7 @@ enum Field {
 }
 
 impl Field {
-    fn render(&self, store: &mut Store, area: Rect, buf: &mut Buffer) {
+    fn render(&mut self, store: &mut Store, area: Rect, buf: &mut Buffer) {
         match self {
             Field::Description(field) => field.render(store, area, buf),
             Field::Due(field) => field.render(store, area, buf),
@@ -355,7 +338,7 @@ macro_rules! field_input {
 
             fn update(&self, store: &mut Store, action: Action) {
                 match action {
-                    Action::Typing { c } => {
+                    Action::Char(c) => {
                         let mut value = store.data.$field.to_owned();
                         value.insert(store.character_index, c);
                         store.$update_call(value);
@@ -450,7 +433,12 @@ trait FieldSwitch {
         }
     }
 
-    fn render(&self, store: &mut Store, area: Rect, buf: &mut Buffer) {
+    /// Pre-render hook for the field. This method can be overridden by specific fields if needed.
+    fn before_render(&mut self, _store: &mut Store) {}
+
+    fn render(&mut self, store: &mut Store, area: Rect, buf: &mut Buffer) {
+        Self::before_render(self, store);
+
         let active = store.field_index == self.index();
         let switch = Switch {
             title: Self::get_title(),
@@ -475,16 +463,18 @@ trait FieldSwitch {
 #[derive(Debug)]
 struct FieldPriority {
     index: usize,
+    verbose: bool,
     values: Vec<Priority>,
     options: Vec<String>,
 }
 
 impl FieldPriority {
-    pub fn new(index: usize, store: &Store) -> Self {
-        let verbose = Self::need_verbose(&store.data.priority);
-        let (values, options) = Self::get_value_options(verbose);
+    pub fn new(index: usize) -> Self {
+        let verbose = false;
+        let (values, options) = Self::get_value_options(false);
         Self {
             index,
+            verbose,
             values,
             options,
         }
@@ -540,6 +530,15 @@ impl FieldSwitch for FieldPriority {
     fn index(&self) -> usize          { self.index }
     fn values(&self) -> &Vec<Self::T> { &self.values }
     fn options(&self) -> &Vec<String> { &self.options }
+
+    fn before_render(&mut self, store: &mut Store) {
+        let verbose = Self::need_verbose(&store.data.priority);
+        if self.verbose != verbose {
+            let (values, options) = Self::get_value_options(verbose);
+            self.values = values;
+            self.options = options;
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -615,7 +614,7 @@ impl<'a> Switch<'a> {
     }
 
     fn split(&self, area: Rect) -> (Block, Rc<[Rect]>) {
-        let outer_block = title_block(self.title, self.active).white();
+        let outer_block = title_block(self.title, self.active);
         let inner = outer_block.inner(area);
         let inner_blocks = self.layout().split(inner);
         (outer_block, inner_blocks)
@@ -636,7 +635,6 @@ impl Widget for &Switch<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let (outer, inners) = self.split(area);
         outer.render(area, buf);
-
         for (i, (value, area)) in self.values.iter().zip(inners.iter()).enumerate() {
             let label = format!("[{}] {}", if self.selected == i { 'x' } else { ' ' }, value);
             let inner_block = Block::default().padding(block::Padding::horizontal(1));
