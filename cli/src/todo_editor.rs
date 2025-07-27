@@ -17,7 +17,7 @@ use unicode_width::UnicodeWidthStr;
 #[derive(Debug)]
 pub struct TodoEditor {
     store: Store,
-    fields: Vec<Component>,
+    fields: Fields,
 }
 
 impl TodoEditor {
@@ -39,21 +39,22 @@ impl TodoEditor {
 
     fn new_with(data: Data) -> Self {
         let store = Store::new(data);
-        let fields = vec![
-            Component::Summary(FieldSummary::new(0)),
-            Component::Due(FieldDue::new(1)),
-            Component::PercentComplete(FieldPercentComplete::new(2)),
-            Component::Priority(FieldPriority::new(3, &store)),
-            Component::Status(FieldStatus::new(4)),
-            Component::Description(FieldDescription::new(5)),
-        ];
+        let fields = Fields::new(&store);
         Self { store, fields }
     }
 
     pub fn run(mut self) -> Result<Option<TodoPatch>, Box<dyn Error>> {
         let mut terminal = ratatui::init();
         let result = loop {
-            if let Err(e) = terminal.draw(|frame| self.draw(frame)) {
+            if let Err(e) = terminal.draw(|frame| {
+                self.store.update_cursor_position(None);
+                self.fields
+                    .render(&mut self.store, frame.area(), frame.buffer_mut());
+
+                if let Some(pos) = self.store.cursor_pos {
+                    frame.set_cursor_position(pos);
+                }
+            }) {
                 break Err(e.into());
             }
 
@@ -73,15 +74,6 @@ impl TodoEditor {
         result
     }
 
-    fn draw(&self, frame: &mut Frame) {
-        let area = frame.area();
-        frame.render_widget(self, area);
-
-        if let Some(cursor_pos) = self.get_cursor_position(area) {
-            frame.set_cursor_position(cursor_pos);
-        }
-    }
-
     fn handle_event(&mut self, event: Event) -> Option<bool> {
         match event {
             Event::Key(key) if key.kind == KeyEventKind::Press => self.handle_input(key.code),
@@ -92,11 +84,12 @@ impl TodoEditor {
     fn handle_input(&mut self, key: KeyCode) -> Option<bool> {
         let (index, action) = match key {
             KeyCode::Up | KeyCode::BackTab => (
-                (self.store.field_index + self.fields.len() - 1) % self.fields.len(),
+                // TODO: move to Fields
+                (self.store.field_index + self.fields.fields.len() - 1) % self.fields.fields.len(),
                 Action::MoveTo,
             ),
             KeyCode::Down | KeyCode::Tab => (
-                (self.store.field_index + 1) % self.fields.len(),
+                (self.store.field_index + 1) % self.fields.fields.len(),
                 Action::MoveTo,
             ),
             KeyCode::Left => (self.store.field_index, Action::MoveLeft),
@@ -114,23 +107,10 @@ impl TodoEditor {
             }
         };
 
-        if let Some(a) = self.fields.get_mut(index) {
+        if let Some(a) = self.fields.fields.get_mut(index) {
             a.update(&mut self.store, action)
         }
         None
-    }
-
-    fn layout(&self) -> Layout {
-        Layout::vertical(self.fields.iter().map(|_| Constraint::Max(3))).margin(2)
-    }
-
-    fn get_cursor_position(&self, area: Rect) -> Option<(u16, u16)> {
-        let areas = self.layout().split(area);
-        let index = self.store.field_index;
-        match (self.fields.get(index), areas.get(index)) {
-            (Some(field), Some(area)) => field.get_cursor_position(&self.store, *area),
-            _ => None,
-        }
     }
 }
 
@@ -140,36 +120,13 @@ impl Default for TodoEditor {
     }
 }
 
-impl Widget for &TodoEditor {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(" Todo Editor ".bold());
-        let instructions = Line::from(vec![
-            " Prev ".into(),
-            "<Up>".blue().bold(),
-            " Next ".into(),
-            "<Down>".blue().bold(),
-            " Exit ".into(),
-            "<Esc> ".blue().bold(),
-        ]);
-        Block::bordered()
-            .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::ROUNDED)
-            .white()
-            .render(area, buf);
-
-        for (field, area) in self.fields.iter().zip(self.layout().split(area).iter()) {
-            field.render(&self.store, *area, buf);
-        }
-    }
-}
-
 #[derive(Debug)]
 struct Store {
     data: Data,
     dirty: Marker,
     field_index: usize,
     character_index: usize,
+    cursor_pos: Option<(u16, u16)>,
 }
 
 impl Store {
@@ -187,6 +144,7 @@ impl Store {
             },
             field_index: 0,
             character_index,
+            cursor_pos: None,
         }
     }
 
@@ -226,6 +184,10 @@ impl Store {
 
     fn update_character_index(&mut self, index: usize) {
         self.character_index = index;
+    }
+
+    fn update_cursor_position(&mut self, pos: Option<(u16, u16)>) {
+        self.cursor_pos = pos;
     }
 
     fn submit(self) -> Result<TodoPatch, Box<dyn Error>> {
@@ -300,7 +262,53 @@ struct Marker {
 }
 
 #[derive(Debug)]
-enum Component {
+struct Fields {
+    fields: Vec<Field>,
+}
+
+impl Fields {
+    pub fn new(store: &Store) -> Self {
+        Self {
+            fields: vec![
+                Field::Summary(FieldSummary::new(0)),
+                Field::Due(FieldDue::new(1)),
+                Field::PercentComplete(FieldPercentComplete::new(2)),
+                Field::Priority(FieldPriority::new(3, &store)),
+                Field::Status(FieldStatus::new(4)),
+                Field::Description(FieldDescription::new(5)),
+            ],
+        }
+    }
+
+    fn render(&self, store: &mut Store, area: Rect, buf: &mut Buffer) {
+        let title = Line::from(" Todo Editor ".bold());
+        let instructions = Line::from(vec![
+            " Prev ".into(),
+            "<Up>".blue().bold(),
+            " Next ".into(),
+            "<Down>".blue().bold(),
+            " Exit ".into(),
+            "<Esc> ".blue().bold(),
+        ]);
+        Block::bordered()
+            .title(title.centered())
+            .title_bottom(instructions.centered())
+            .border_set(border::ROUNDED)
+            .white()
+            .render(area, buf);
+
+        for (field, area) in self.fields.iter().zip(self.layout().split(area).iter()) {
+            field.render(store, *area, buf);
+        }
+    }
+
+    fn layout(&self) -> Layout {
+        Layout::vertical(self.fields.iter().map(|_| Constraint::Max(3))).margin(2)
+    }
+}
+
+#[derive(Debug)]
+enum Field {
     Description(FieldDescription),
     Due(FieldDue),
     PercentComplete(FieldPercentComplete),
@@ -309,37 +317,26 @@ enum Component {
     Summary(FieldSummary),
 }
 
-impl Component {
-    fn render(&self, store: &Store, area: Rect, buf: &mut Buffer) {
+impl Field {
+    fn render(&self, store: &mut Store, area: Rect, buf: &mut Buffer) {
         match self {
-            Component::Description(field) => field.render(store, area, buf),
-            Component::Due(field) => field.render(store, area, buf),
-            Component::PercentComplete(field) => field.render(store, area, buf),
-            Component::Priority(field) => field.render(store, area, buf),
-            Component::Status(field) => field.render(store, area, buf),
-            Component::Summary(field) => field.render(store, area, buf),
+            Field::Description(field) => field.render(store, area, buf),
+            Field::Due(field) => field.render(store, area, buf),
+            Field::PercentComplete(field) => field.render(store, area, buf),
+            Field::Priority(field) => field.render(store, area, buf),
+            Field::Status(field) => field.render(store, area, buf),
+            Field::Summary(field) => field.render(store, area, buf),
         }
     }
 
     fn update(&mut self, store: &mut Store, action: Action) {
         match self {
-            Component::Description(field) => field.update(store, action),
-            Component::Due(field) => field.update(store, action),
-            Component::PercentComplete(field) => field.update(store, action),
-            Component::Priority(field) => field.update(store, action),
-            Component::Status(field) => field.update(store, action),
-            Component::Summary(field) => field.update(store, action),
-        }
-    }
-
-    fn get_cursor_position(&self, store: &Store, area: Rect) -> Option<(u16, u16)> {
-        match self {
-            Component::Description(field) => field.get_cursor_position(store, area),
-            Component::Due(field) => field.get_cursor_position(store, area),
-            Component::PercentComplete(field) => field.get_cursor_position(store, area),
-            Component::Priority(field) => field.get_cursor_position(store, area),
-            Component::Status(field) => field.get_cursor_position(store, area),
-            Component::Summary(field) => field.get_cursor_position(store, area),
+            Field::Description(field) => field.update(store, action),
+            Field::Due(field) => field.update(store, action),
+            Field::PercentComplete(field) => field.update(store, action),
+            Field::Priority(field) => field.update(store, action),
+            Field::Status(field) => field.update(store, action),
+            Field::Summary(field) => field.update(store, action),
         }
     }
 }
@@ -358,7 +355,7 @@ macro_rules! field_input {
 
             fn update(&self, store: &mut Store, action: Action) {
                 match action {
-                    Action::Typing { c } if store.character_index > 0 => {
+                    Action::Typing { c } => {
                         let mut value = store.data.$field.to_owned();
                         value.insert(store.character_index, c);
                         store.$update_call(value);
@@ -384,24 +381,19 @@ macro_rules! field_input {
                 }
             }
 
-            pub fn render(&self, store: &Store, area: Rect, buf: &mut Buffer) {
-                self.input(store).render(area, buf);
-            }
-
-            pub fn get_cursor_position(&self, store: &Store, area: Rect) -> Option<(u16, u16)> {
-                Some(
-                    self.input(store)
-                        .get_cursor_position(area, store.character_index),
-                )
-            }
-
-            fn input<'a>(&self, store: &'a Store) -> Input<'a> {
+            pub fn render(&self, store: &mut Store, area: Rect, buf: &mut Buffer) {
                 let value = store.data.$field.as_str();
                 let active = store.field_index == self.index;
-                Input {
+                let input = Input {
                     title: $title,
                     value,
                     active,
+                };
+                input.render(area, buf);
+
+                if active {
+                    let pos = input.get_cursor_position(area, store.character_index);
+                    store.update_cursor_position(Some(pos));
                 }
             }
         }
@@ -458,21 +450,19 @@ trait FieldSwitch {
         }
     }
 
-    fn render(&self, store: &Store, area: Rect, buf: &mut Buffer) {
-        self.switch(store).render(area, buf);
-    }
-
-    fn get_cursor_position(&self, store: &Store, area: Rect) -> Option<(u16, u16)> {
-        self.switch(store)
-            .get_cursor_position(area, store.character_index)
-    }
-
-    fn switch<'a>(&'a self, store: &'a Store) -> Switch<'a> {
-        Switch {
+    fn render(&self, store: &mut Store, area: Rect, buf: &mut Buffer) {
+        let active = store.field_index == self.index();
+        let switch = Switch {
             title: Self::get_title(),
             values: self.options(),
-            active: store.field_index == self.index(),
+            active,
             selected: self.selected(store),
+        };
+        switch.render(area, buf);
+
+        if active {
+            let pos = switch.get_cursor_position(area, store.character_index);
+            store.update_cursor_position(pos);
         }
     }
 
@@ -583,7 +573,6 @@ impl FieldSwitch for FieldStatus {
     fn index(&self) -> usize          { self.index }
     fn values(&self) -> &Vec<Self::T> { &self.values }
     fn options(&self) -> &Vec<String> { &self.options }
-
 }
 
 struct Input<'a> {
