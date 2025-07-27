@@ -206,16 +206,17 @@ pub struct TodoColumnStatus;
 impl TodoColumnStatus {
     fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
         match todo.inner.status() {
-            Some(TodoStatus::NeedsAction) => "[ ]".into(),
-            Some(TodoStatus::Completed) => "[x]".into(),
-            Some(TodoStatus::Cancelled) => " ✗ ".into(),
-            Some(TodoStatus::InProcess) => match todo.inner.percent_complete() {
-                Some(percent) if percent > 0 => {
-                    format!("[{}]", "x".repeat(percent as usize)).into()
+            TodoStatus::NeedsAction => "[ ]".into(),
+            TodoStatus::Completed => "[x]".into(),
+            TodoStatus::Cancelled => " ✗ ".into(),
+            TodoStatus::InProcess => {
+                let percent = todo.inner.percent_complete().unwrap_or_default();
+                match percent {
+                    0 => "[ ]".into(),
+                    100 => "[x]".into(),
+                    _ => format!("{percent}%").into(),
                 }
-                _ => "[ ]".into(),
-            },
-            None => "".into(),
+            }
         }
     }
 }

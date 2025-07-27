@@ -27,8 +27,8 @@ impl TodoEditor {
             description: "".to_string(),
             due: "".to_string(),
             percent_complete: "".to_string(),
-            priority: Priority::None,
-            status: TodoStatus::NeedsAction,
+            priority: Priority::default(),
+            status: TodoStatus::default(),
             summary: "".to_string(),
         })
     }
@@ -245,7 +245,7 @@ impl<T: Todo> From<T> for Data {
                 .map(|a| a.to_string())
                 .unwrap_or("".to_string()),
             priority: todo.priority(),
-            status: todo.status().unwrap_or(TodoStatus::NeedsAction),
+            status: todo.status(),
             summary: todo.summary().to_string(),
         }
     }
@@ -273,7 +273,7 @@ impl Fields {
                 Field::Summary(FieldSummary::new(0)),
                 Field::Due(FieldDue::new(1)),
                 Field::PercentComplete(FieldPercentComplete::new(2)),
-                Field::Priority(FieldPriority::new(3, &store)),
+                Field::Priority(FieldPriority::new(3, store)),
                 Field::Status(FieldStatus::new(4)),
                 Field::Description(FieldDescription::new(5)),
             ],

@@ -200,10 +200,7 @@ impl TodoRecord {
             completed: todo.completed().map(format_dt).unwrap_or("".to_string()),
             percent: todo.percent_complete(),
             priority: todo.priority().into(),
-            status: todo
-                .status()
-                .as_ref()
-                .map_or("".to_string(), ToString::to_string),
+            status: todo.status().to_string(),
         })
     }
 
@@ -240,8 +237,8 @@ impl Todo for TodoRecord {
         self.priority.into()
     }
 
-    fn status(&self) -> Option<TodoStatus> {
-        self.status.as_str().parse().ok()
+    fn status(&self) -> TodoStatus {
+        self.status.as_str().parse().unwrap_or_default()
     }
 
     fn summary(&self) -> &str {

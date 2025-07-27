@@ -31,8 +31,8 @@ pub trait Todo {
     /// The priority from 1 to 9, where 1 is the highest priority.
     fn priority(&self) -> Priority;
 
-    /// Returns the status of the todo item, if available.
-    fn status(&self) -> Option<TodoStatus>;
+    /// Returns the status of the todo item.
+    fn status(&self) -> TodoStatus;
 
     /// Returns the summary of the todo item.
     fn summary(&self) -> &str;
@@ -61,11 +61,12 @@ impl Todo for icalendar::Todo {
 
     fn priority(&self) -> Priority {
         self.get_priority()
-            .map_or(Priority::None, |p| Priority::from(p as u8))
+            .map(|p| Priority::from(p as u8))
+            .unwrap_or_default()
     }
 
-    fn status(&self) -> Option<TodoStatus> {
-        self.get_status().map(|a| TodoStatus::from(&a))
+    fn status(&self) -> TodoStatus {
+        self.get_status().map(Into::into).unwrap_or_default()
     }
 
     fn summary(&self) -> &str {
@@ -177,7 +178,7 @@ impl TodoPatch {
         }
 
         if let Some(status) = self.status {
-            t.status((&status).into());
+            t.status(status.into());
 
             match status {
                 TodoStatus::Completed => t.completed(Utc::now()),
@@ -195,10 +196,11 @@ impl TodoPatch {
 }
 
 /// The status of a todo item, which can be one of several predefined states.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum TodoStatus {
     /// The todo item needs action.
+    #[default]
     NeedsAction,
 
     /// The todo item has been completed.
@@ -247,8 +249,8 @@ impl FromStr for TodoStatus {
     }
 }
 
-impl From<&TodoStatus> for icalendar::TodoStatus {
-    fn from(item: &TodoStatus) -> icalendar::TodoStatus {
+impl From<TodoStatus> for icalendar::TodoStatus {
+    fn from(item: TodoStatus) -> icalendar::TodoStatus {
         match item {
             TodoStatus::NeedsAction => icalendar::TodoStatus::NeedsAction,
             TodoStatus::Completed => icalendar::TodoStatus::Completed,
@@ -258,8 +260,8 @@ impl From<&TodoStatus> for icalendar::TodoStatus {
     }
 }
 
-impl From<&icalendar::TodoStatus> for TodoStatus {
-    fn from(status: &icalendar::TodoStatus) -> Self {
+impl From<icalendar::TodoStatus> for TodoStatus {
+    fn from(status: icalendar::TodoStatus) -> Self {
         match status {
             icalendar::TodoStatus::NeedsAction => TodoStatus::NeedsAction,
             icalendar::TodoStatus::Completed => TodoStatus::Completed,

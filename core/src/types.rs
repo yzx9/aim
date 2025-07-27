@@ -39,13 +39,14 @@ impl From<(i64, i64)> for Pager {
 }
 
 /// Priority of a task or item, with values ranging from 1 to 9, and None for no priority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Priority {
     /// No priority.
     #[cfg_attr(feature = "clap", clap(name = "none", aliases = ["0"]))]
     #[cfg_attr(feature = "serde", serde(rename = "none", alias = "n", alias = "0"))]
+    #[default]
     None,
 
     /// Priority 1, highest priority.

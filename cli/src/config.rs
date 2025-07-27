@@ -43,7 +43,7 @@ impl TryFrom<ConfigRaw> for Config {
                 Some(a) => Some(expand_path(&a)?),
                 None => get_state_dir().ok().map(|a| a.join(APP_NAME)),
             },
-            default_priority: raw.default_priority.unwrap_or(Priority::None),
+            default_priority: raw.default_priority.unwrap_or_default(),
         })
     }
 }
