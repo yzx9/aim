@@ -83,8 +83,14 @@ pub struct TodoDraft {
     /// The due date and time of the todo item, if available.
     pub due: Option<LooseDateTime>,
 
+    /// The percent complete, from 0 to 100.
+    pub percent_complete: Option<u8>,
+
     /// The priority of the todo item.
     pub priority: Priority,
+
+    /// The status of the todo item, if available.
+    pub status: Option<TodoStatus>,
 
     /// The summary of the todo item.
     pub summary: String,
@@ -95,16 +101,24 @@ impl TodoDraft {
     pub(crate) fn into_todo(self, uid: &str) -> icalendar::Todo {
         let mut todo = icalendar::Todo::with_uid(uid);
 
-        icalendar::Todo::status(&mut todo, icalendar::TodoStatus::NeedsAction);
-        Component::priority(&mut todo, self.priority.into());
-        Component::summary(&mut todo, &self.summary);
-
         if let Some(description) = self.description {
             Component::description(&mut todo, &description);
         }
+
         if let Some(due) = self.due {
             icalendar::Todo::due(&mut todo, due);
         }
+
+        if let Some(percent) = self.percent_complete {
+            icalendar::Todo::percent_complete(&mut todo, percent);
+        }
+
+        Component::priority(&mut todo, self.priority.into());
+
+        let status = self.status.unwrap_or(TodoStatus::NeedsAction).into();
+        icalendar::Todo::status(&mut todo, status);
+
+        Component::summary(&mut todo, &self.summary);
 
         todo
     }

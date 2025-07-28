@@ -23,7 +23,9 @@ use std::error::Error;
 pub struct CmdTodoNew {
     pub description: Option<String>,
     pub due: Option<String>,
+    pub percent_complete: Option<u8>,
     pub priority: Option<Priority>,
+    pub status: Option<TodoStatus>,
     pub summary: String,
 }
 
@@ -37,14 +39,18 @@ impl CmdTodoNew {
             .arg(TodoEdit::arg_summary(true).required(true))
             .arg(TodoEdit::arg_due())
             .arg(TodoEdit::arg_description())
+            .arg(TodoEdit::arg_percent_complete())
             .arg(TodoEdit::arg_priority())
+            .arg(TodoEdit::arg_status())
     }
 
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
             description: TodoEdit::parse_description(matches),
             due: TodoEdit::parse_due(matches),
+            percent_complete: TodoEdit::parse_percent_complete(matches),
             priority: TodoEdit::parse_priority(matches),
+            status: TodoEdit::parse_status(matches),
             summary: TodoEdit::parse_summary(matches).expect("summary is required"),
         }
     }
@@ -65,7 +71,9 @@ impl CmdTodoNew {
         let draft = TodoDraft {
             description: self.description,
             due,
+            percent_complete: self.percent_complete,
             priority: self.priority.unwrap_or(config.default_priority),
+            status: self.status,
             summary: self.summary,
         };
         let todo = aim.new_todo(draft).await?;
