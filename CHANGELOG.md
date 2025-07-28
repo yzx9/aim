@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Set default status for todo if not available
+- TodoDraft no longer contains a uid. Instead, an ID will be generated when it's added.
 
 ## [v0.2.1] - 2025-07-27
 

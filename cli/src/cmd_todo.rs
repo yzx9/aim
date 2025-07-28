@@ -18,7 +18,6 @@ use clap::{Arg, ArgMatches, Command, arg};
 use clap_num::number_range;
 use colored::Colorize;
 use std::error::Error;
-use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
@@ -64,7 +63,6 @@ impl CmdTodoNew {
         };
 
         let draft = TodoDraft {
-            uid: Uuid::new_v4().to_string(), // TODO: better uid
             description: self.description,
             due,
             priority: self.priority.unwrap_or(config.default_priority),

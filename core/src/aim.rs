@@ -12,6 +12,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio::fs;
+use uuid::Uuid;
 
 /// AIM calendar application core.
 #[derive(Debug, Clone)]
@@ -54,16 +55,10 @@ impl Aim {
 
     /// Add a new todo from the given draft.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo, Box<dyn Error>> {
-        if self.cache.todos.get(&draft.uid).await?.is_some() {
-            return Err("Todo with this UID already exists".into());
-        }
+        let uid = self.generate_uid().await?;
+        let todo = draft.into_todo(&uid);
+        let path = self.get_path(&uid);
 
-        let path = self.calendar_path.join(format!("{}.ics", draft.uid));
-        if fs::try_exists(&path).await? {
-            return Err(format!("File already exists: {}", path.display()).into());
-        }
-
-        let todo = draft.into_todo()?;
         let calendar = Calendar::new().push(todo.clone()).done();
         fs::write(&path, calendar.to_string())
             .await
@@ -173,6 +168,24 @@ impl Aim {
         }
 
         Ok(())
+    }
+
+    async fn generate_uid(&self) -> Result<String, Box<dyn Error>> {
+        for _ in 0..16 {
+            let uid = Uuid::new_v4().to_string(); // TODO: better uid
+            if self.cache.todos.get(&uid).await?.is_some()
+                || fs::try_exists(&self.get_path(&uid)).await?
+            {
+                continue;
+            }
+            return Ok(uid);
+        }
+
+        Err("Failed to generate a unique UID after multiple attempts".into())
+    }
+
+    fn get_path(&self, uid: &str) -> PathBuf {
+        self.calendar_path.join(format!("{uid}.ics"))
     }
 }
 

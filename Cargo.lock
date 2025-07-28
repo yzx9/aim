@@ -57,7 +57,6 @@ dependencies = [
  "tokio",
  "toml",
  "unicode-width 0.2.0",
- "uuid",
  "xdg",
 ]
 
@@ -76,6 +75,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

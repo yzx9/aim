@@ -77,9 +77,6 @@ impl Todo for icalendar::Todo {
 /// Darft for a todo item, used for creating new todos.
 #[derive(Debug)]
 pub struct TodoDraft {
-    /// The unique identifier for the todo item.
-    pub uid: String,
-
     /// The description of the todo item, if available.
     pub description: Option<String>,
 
@@ -95,8 +92,9 @@ pub struct TodoDraft {
 
 impl TodoDraft {
     /// Converts the draft into a icalendar Todo component.
-    pub fn into_todo(self) -> Result<icalendar::Todo, String> {
-        let mut todo = icalendar::Todo::with_uid(&self.uid);
+    pub(crate) fn into_todo(self, uid: &str) -> icalendar::Todo {
+        let mut todo = icalendar::Todo::with_uid(uid);
+
         icalendar::Todo::status(&mut todo, icalendar::TodoStatus::NeedsAction);
         Component::priority(&mut todo, self.priority.into());
         Component::summary(&mut todo, &self.summary);
@@ -108,12 +106,7 @@ impl TodoDraft {
             icalendar::Todo::due(&mut todo, due);
         }
 
-        Ok(todo)
-    }
-
-    /// Returns the path where this todo should be stored.
-    pub fn path(&self) -> String {
-        format!("{}.ics", self.uid)
+        todo
     }
 }
 
@@ -154,7 +147,7 @@ impl TodoPatch {
     }
 
     /// Applies the patch to a mutable todo item, modifying it in place.
-    pub fn apply_to<'a>(&self, t: &'a mut icalendar::Todo) -> &'a mut icalendar::Todo {
+    pub(crate) fn apply_to<'a>(&self, t: &'a mut icalendar::Todo) -> &'a mut icalendar::Todo {
         if let Some(description) = &self.description {
             match description {
                 Some(desc) => t.description(desc),
