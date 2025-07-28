@@ -83,11 +83,11 @@ pub struct TodoDraft {
     /// The due date and time of the todo item, if available.
     pub due: Option<LooseDateTime>,
 
-    /// The percent complete, from 0 to 100.
+    /// The percent complete, from 0 to 100, if available.
     pub percent_complete: Option<u8>,
 
-    /// The priority of the todo item.
-    pub priority: Priority,
+    /// The priority of the todo item, if available.
+    pub priority: Option<Priority>,
 
     /// The status of the todo item, if available.
     pub status: Option<TodoStatus>,
@@ -120,7 +120,11 @@ impl TodoDraft {
             icalendar::Todo::percent_complete(&mut todo, percent);
         }
 
-        Component::priority(&mut todo, self.priority.into());
+        if let Some(priority) = self.priority {
+            Component::priority(&mut todo, priority.into());
+        } else {
+            Component::priority(&mut todo, config.default_priority.into());
+        }
 
         let status = self.status.unwrap_or(TodoStatus::NeedsAction).into();
         icalendar::Todo::status(&mut todo, status);

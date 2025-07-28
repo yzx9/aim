@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    Event, EventConditions, Pager, Todo, TodoConditions, TodoDraft, TodoSort, cache::SqliteCache,
-    todo::TodoPatch,
+    Event, EventConditions, Pager, Priority, Todo, TodoConditions, TodoDraft, TodoSort,
+    cache::SqliteCache, todo::TodoPatch,
 };
 use chrono::{DateTime, Duration, Local};
 use icalendar::{Calendar, CalendarComponent, Component};
@@ -214,6 +214,9 @@ pub struct Config {
 
     /// Default due time for new tasks.
     pub default_due: Option<Duration>,
+
+    /// Default priority for new tasks.
+    pub default_priority: Priority,
 }
 
 async fn parse_ics(path: &Path) -> Result<Calendar, Box<dyn Error>> {

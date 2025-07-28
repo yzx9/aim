@@ -109,7 +109,7 @@ impl CmdTodoNew {
                 description: self.description,
                 due,
                 percent_complete: self.percent_complete,
-                priority: self.priority.unwrap_or(config.default_priority),
+                priority: self.priority,
                 status: self.status,
                 summary,
             }

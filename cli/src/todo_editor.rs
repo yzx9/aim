@@ -31,7 +31,7 @@ impl TodoEditor {
                 .default_due
                 .map(|a| (aim.now() + a).format("%Y-%m-%d %H:%M").to_string())
                 .unwrap_or_default(),
-            priority: config.default_priority,
+            priority: config.core.default_priority,
             ..Data::default()
         });
 
@@ -179,8 +179,8 @@ impl Store {
                 true => Some(self.data.percent_complete.parse::<u8>()?),
                 false => None,
             },
-            priority: self.data.priority,
-            status: self.dirty.status.then_some(self.data.status),
+            priority: Some(self.data.priority), // Always commit since it was confirmed by the user
+            status: Some(self.data.status),     // Always commit since it was confirmed by the user
             summary: if self.data.summary.is_empty() {
                 "New todo".to_string()
             } else {
