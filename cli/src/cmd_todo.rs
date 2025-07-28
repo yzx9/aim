@@ -21,6 +21,8 @@ use std::error::Error;
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
+    pub output_format: ArgOutputFormat,
+
     pub description: Option<String>,
     pub due: Option<String>,
     pub percent_complete: Option<u8>,
@@ -42,6 +44,7 @@ impl CmdTodoNew {
             .arg(TodoEdit::arg_percent_complete())
             .arg(TodoEdit::arg_priority())
             .arg(TodoEdit::arg_status())
+            .arg(ArgOutputFormat::arg())
     }
 
     pub fn parse(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
@@ -68,6 +71,8 @@ impl CmdTodoNew {
         };
 
         Ok(Self {
+            output_format: ArgOutputFormat::parse(matches),
+
             description,
             due,
             percent_complete,
@@ -79,6 +84,8 @@ impl CmdTodoNew {
 
     pub fn new() -> Self {
         Self {
+            output_format: ArgOutputFormat::Table,
+
             description: None,
             due: None,
             percent_complete: None,
@@ -119,10 +126,11 @@ impl CmdTodoNew {
                 }
             }
         };
+        let now = Local::now().naive_local();
         let todo = aim.new_todo(draft).await?;
 
         let todo = TodoWithShortId::with(map, todo);
-        let formatter = TodoFormatter::new(Local::now().naive_local());
+        let formatter = TodoFormatter::new(now).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
 
         Ok(())
