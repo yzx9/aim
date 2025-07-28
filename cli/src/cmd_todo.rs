@@ -47,12 +47,12 @@ impl CmdTodoNew {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
-        let description = TodoEdit::parse_description(matches);
-        let due = TodoEdit::parse_due(matches);
-        let percent_complete = TodoEdit::parse_percent_complete(matches);
-        let priority = TodoEdit::parse_priority(matches);
-        let status = TodoEdit::parse_status(matches);
+    pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
+        let description = TodoEdit::get_description(matches);
+        let due = TodoEdit::get_due(matches);
+        let percent_complete = TodoEdit::get_percent_complete(matches);
+        let priority = TodoEdit::get_priority(matches);
+        let status = TodoEdit::get_status(matches);
 
         let summary = match matches.get_one::<String>("summary") {
             Some(summary) => Some(summary.clone()),
@@ -71,7 +71,7 @@ impl CmdTodoNew {
         };
 
         Ok(Self {
-            output_format: ArgOutputFormat::parse(matches),
+            output_format: ArgOutputFormat::from(matches),
 
             description,
             due,
@@ -165,16 +165,16 @@ impl CmdTodoEdit {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: ArgUidOrShortId::parse(matches),
-            output_format: ArgOutputFormat::parse(matches),
+            uid_or_short_id: ArgUidOrShortId::from(matches),
+            output_format: ArgOutputFormat::from(matches),
 
-            description: TodoEdit::parse_description(matches),
-            due: TodoEdit::parse_due(matches),
-            percent_complete: TodoEdit::parse_percent_complete(matches),
-            priority: TodoEdit::parse_priority(matches),
-            status: TodoEdit::parse_status(matches),
+            description: TodoEdit::get_description(matches),
+            due: TodoEdit::get_due(matches),
+            percent_complete: TodoEdit::get_percent_complete(matches),
+            priority: TodoEdit::get_priority(matches),
+            status: TodoEdit::get_status(matches),
             summary: TodoEdit::parse_summary(matches),
         }
     }
@@ -248,10 +248,10 @@ impl CmdTodoDone {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: ArgUidOrShortId::parse(matches),
-            output_format: ArgOutputFormat::parse(matches),
+            uid_or_short_id: ArgUidOrShortId::from(matches),
+            output_format: ArgOutputFormat::from(matches),
         }
     }
 
@@ -286,10 +286,10 @@ impl CmdTodoUndo {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: ArgUidOrShortId::parse(matches),
-            output_format: ArgOutputFormat::parse(matches),
+            uid_or_short_id: ArgUidOrShortId::from(matches),
+            output_format: ArgOutputFormat::from(matches),
         }
     }
 
@@ -323,13 +323,13 @@ impl CmdTodoList {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         Self {
             conds: TodoConditions {
                 status: Some(TodoStatus::NeedsAction),
                 due: Some(Duration::days(2)),
             },
-            output_format: ArgOutputFormat::parse(matches),
+            output_format: ArgOutputFormat::from(matches),
         }
     }
 
@@ -386,7 +386,7 @@ impl TodoEdit {
         arg!(--description <DESCRIPTION> "Description of the todo")
     }
 
-    fn parse_description(matches: &ArgMatches) -> Option<String> {
+    fn get_description(matches: &ArgMatches) -> Option<String> {
         matches.get_one("description").cloned()
     }
 
@@ -394,7 +394,7 @@ impl TodoEdit {
         arg!(--due <DUE> "Due date and time of the todo")
     }
 
-    fn parse_due(matches: &ArgMatches) -> Option<String> {
+    fn get_due(matches: &ArgMatches) -> Option<String> {
         matches.get_one("due").cloned()
     }
 
@@ -406,7 +406,7 @@ impl TodoEdit {
         arg!(--percent <PERCENT> "Percent complete of the todo (0-100)").value_parser(from_0_to_100)
     }
 
-    fn parse_percent_complete(matches: &ArgMatches) -> Option<u8> {
+    fn get_percent_complete(matches: &ArgMatches) -> Option<u8> {
         matches.get_one("percent").copied()
     }
 
@@ -415,7 +415,7 @@ impl TodoEdit {
             .value_parser(clap::value_parser!(Priority))
     }
 
-    fn parse_priority(matches: &ArgMatches) -> Option<Priority> {
+    fn get_priority(matches: &ArgMatches) -> Option<Priority> {
         matches.get_one("priority").copied()
     }
 
@@ -424,8 +424,8 @@ impl TodoEdit {
             .value_parser(clap::value_parser!(TodoStatus))
     }
 
-    fn parse_status(matches: &ArgMatches) -> Option<TodoStatus> {
-        matches.get_one("status").cloned()
+    fn get_status(matches: &ArgMatches) -> Option<TodoStatus> {
+        matches.get_one("status").copied()
     }
 
     fn arg_summary(positional: bool) -> Arg {
@@ -480,7 +480,7 @@ mod tests {
             ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdTodoNew::parse(sub_matches).unwrap();
+        let parsed = CmdTodoNew::from(sub_matches).unwrap();
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.percent_complete, Some(66));
@@ -497,7 +497,7 @@ mod tests {
 
         let matches = cmd.try_get_matches_from(["test", "new"]).unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdTodoNew::parse(sub_matches).unwrap();
+        let parsed = CmdTodoNew::from(sub_matches).unwrap();
         assert_eq!(parsed.description, None);
         assert_eq!(parsed.due, None);
         assert_eq!(parsed.percent_complete, None);
@@ -516,7 +516,7 @@ mod tests {
             .try_get_matches_from(["test", "new", "--priority", "1"])
             .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdTodoNew::parse(sub_matches);
+        let parsed = CmdTodoNew::from(sub_matches);
         assert!(parsed.is_err());
     }
 
@@ -544,7 +544,7 @@ mod tests {
             ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("edit").unwrap();
-        let parsed = CmdTodoEdit::parse(sub_matches);
+        let parsed = CmdTodoEdit::from(sub_matches);
         assert_eq!(parsed.uid_or_short_id, "test_id".into());
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
         assert_eq!(parsed.description, Some("A description".to_string()));
@@ -562,7 +562,7 @@ mod tests {
             .try_get_matches_from(["test", "done", "abc", "--output-format", "json"])
             .unwrap();
         let sub_matches = matches.subcommand_matches("done").unwrap();
-        let parsed = CmdTodoDone::parse(sub_matches);
+        let parsed = CmdTodoDone::from(sub_matches);
         assert_eq!(parsed.uid_or_short_id, "abc".into());
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
@@ -578,7 +578,7 @@ mod tests {
             .unwrap();
 
         let sub_matches = matches.subcommand_matches("undo").unwrap();
-        let parsed = CmdTodoUndo::parse(sub_matches);
+        let parsed = CmdTodoUndo::from(sub_matches);
         assert_eq!(parsed.uid_or_short_id, "abc".into());
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
@@ -594,7 +594,7 @@ mod tests {
             .unwrap();
 
         let sub_matches = matches.subcommand_matches("list").unwrap();
-        let parsed = CmdTodoList::parse(sub_matches);
+        let parsed = CmdTodoList::from(sub_matches);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 }

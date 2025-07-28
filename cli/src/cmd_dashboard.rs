@@ -7,11 +7,11 @@ use crate::{
 };
 use aimcal_core::{Aim, EventConditions, TodoConditions, TodoStatus};
 use chrono::Duration;
-use clap::Command;
+use clap::{ArgMatches, Command};
 use colored::Colorize;
 use std::error::Error;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct CmdDashboard;
 
 impl CmdDashboard {
@@ -23,7 +23,7 @@ impl CmdDashboard {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse() -> Self {
+    pub fn from(_matches: &ArgMatches) -> Self {
         CmdDashboard
     }
 
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn test_parse_dashboard() {
         let cmd = Command::new("test").subcommand(CmdDashboard::command());
-        let _ = cmd.try_get_matches_from(["test", "dashboard"]).unwrap();
-        let _ = CmdDashboard::parse();
+        let matches = cmd.try_get_matches_from(["test", "dashboard"]).unwrap();
+        let _ = CmdDashboard::from(&matches);
     }
 }

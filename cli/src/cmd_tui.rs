@@ -29,9 +29,9 @@ impl CmdNew {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            output_format: ArgOutputFormat::parse(matches),
+            output_format: ArgOutputFormat::from(matches),
         }
     }
 
@@ -62,10 +62,10 @@ impl CmdEdit {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: ArgUidOrShortId::parse(matches),
-            output_format: ArgOutputFormat::parse(matches),
+            uid_or_short_id: ArgUidOrShortId::from(matches),
+            output_format: ArgOutputFormat::from(matches),
         }
     }
 

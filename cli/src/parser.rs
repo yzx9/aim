@@ -16,7 +16,7 @@ impl ArgUidOrShortId {
             .value_parser(value_parser!(ArgUidOrShortId))
     }
 
-    pub fn parse(matches: &ArgMatches) -> ArgUidOrShortId {
+    pub fn from(matches: &ArgMatches) -> ArgUidOrShortId {
         matches
             .get_one::<ArgUidOrShortId>("id")
             .expect("id is required")
@@ -53,7 +53,7 @@ impl ArgOutputFormat {
             .default_value("table")
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         matches
             .get_one("output-format")
             .copied()

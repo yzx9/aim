@@ -27,10 +27,10 @@ impl CmdEventList {
             .arg(ArgOutputFormat::arg())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         Self {
             conds: EventConditions { startable: true },
-            output_format: ArgOutputFormat::parse(matches),
+            output_format: ArgOutputFormat::from(matches),
         }
     }
 
@@ -86,7 +86,7 @@ mod tests {
             .unwrap();
 
         let sub_matches = matches.subcommand_matches("list").unwrap();
-        let parsed = CmdEventList::parse(sub_matches);
+        let parsed = CmdEventList::from(sub_matches);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 }

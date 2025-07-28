@@ -25,7 +25,7 @@ impl CmdGenerateCompletion {
             )
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
+    pub fn from(matches: &ArgMatches) -> Self {
         match matches.get_one::<Shell>("shell") {
             Some(shell) => Self { shell: *shell },
             _ => unreachable!(),
@@ -79,7 +79,7 @@ mod tests {
             .unwrap();
 
         let sub_matches = matches.subcommand_matches("generate-completion").unwrap();
-        let parsed = CmdGenerateCompletion::parse(sub_matches);
+        let parsed = CmdGenerateCompletion::from(sub_matches);
         assert_eq!(parsed.shell, Shell::Bash);
 
         let mut output = vec![];
@@ -95,7 +95,7 @@ mod tests {
                 .try_get_matches_from(["aim", "generate-completion", shell_str])
                 .unwrap_or_else(|e| panic!("Failed to parse for shell '{shell_str}': {e}"));
             let sub_matches = matches.subcommand_matches("generate-completion").unwrap();
-            let parsed = CmdGenerateCompletion::parse(sub_matches);
+            let parsed = CmdGenerateCompletion::from(sub_matches);
             assert_eq!(parsed.shell, expected_shell);
         }
 
