@@ -25,6 +25,7 @@ mod cmd_dashboard;
 mod cmd_event;
 mod cmd_generate_completion;
 mod cmd_todo;
+mod cmd_tui;
 mod config;
 mod event_formatter;
 mod parser;

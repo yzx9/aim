@@ -8,6 +8,7 @@ use crate::{
     cmd_event::CmdEventList,
     cmd_generate_completion::CmdGenerateCompletion,
     cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo},
+    cmd_tui::{CmdEdit, CmdNew},
     config::APP_NAME,
     short_id::ShortIdMap,
 };
@@ -71,6 +72,8 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .value_hint(ValueHint::FilePath),
             )
             .subcommand(CmdDashboard::command())
+            .subcommand(CmdNew::command())
+            .subcommand(CmdEdit::command())
             .subcommand(
                 Command::new("event")
                     .alias("e")
@@ -102,6 +105,8 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
         let matches = Self::command().get_matches();
         let command = match matches.subcommand() {
             Some((CmdDashboard::NAME, _)) => Dashboard(CmdDashboard::parse()),
+            Some((CmdNew::NAME, matches)) => New(CmdNew::parse(matches)),
+            Some((CmdEdit::NAME, matches)) => Edit(CmdEdit::parse(matches)),
             Some(("event", matches)) => match matches.subcommand() {
                 Some(("list", matches)) => EventList(CmdEventList::parse(matches)),
                 _ => unreachable!(),
@@ -139,6 +144,12 @@ pub enum Commands {
     /// Show the dashboard
     Dashboard(CmdDashboard),
 
+    /// New a event or todo
+    New(CmdNew),
+
+    /// Edit a event or todo
+    Edit(CmdEdit),
+
     /// List events
     EventList(CmdEventList),
 
@@ -163,16 +174,19 @@ pub enum Commands {
 
 impl Commands {
     /// Run the command with the given configuration
+    #[rustfmt::skip]
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         use Commands::*;
         match self {
-            Dashboard(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
-            EventList(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
-            TodoNew(a) => Self::run_with(config, |x, y, z| a.run(x, y, z).boxed()).await,
-            TodoEdit(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
-            TodoDone(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
-            TodoUndo(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
-            TodoList(a) => Self::run_with(config, |_, y, z| a.run(y, z).boxed()).await,
+            Dashboard(a) => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
+            New(a)       => Self::run_with(config, |x, y, z| a.run(x, y, z).boxed()).await,
+            Edit(a)      => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
+            EventList(a) => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
+            TodoNew(a)   => Self::run_with(config, |x, y, z| a.run(x, y, z).boxed()).await,
+            TodoEdit(a)  => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
+            TodoDone(a)  => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
+            TodoUndo(a)  => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
+            TodoList(a)  => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
             GenerateCompletion(a) => a.run(),
         }
     }

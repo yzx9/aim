@@ -77,6 +77,17 @@ impl CmdTodoNew {
         })
     }
 
+    pub fn new() -> Self {
+        Self {
+            description: None,
+            due: None,
+            percent_complete: None,
+            priority: None,
+            status: None,
+            summary: None,
+        }
+    }
+
     pub async fn run(
         self,
         config: &Config,
@@ -158,6 +169,19 @@ impl CmdTodoEdit {
             priority: TodoEdit::parse_priority(matches),
             status: TodoEdit::parse_status(matches),
             summary: TodoEdit::parse_summary(matches),
+        }
+    }
+
+    pub fn new(uid_or_short_id: ArgUidOrShortId, output_format: ArgOutputFormat) -> Self {
+        Self {
+            uid_or_short_id,
+            output_format,
+            description: None,
+            due: None,
+            percent_complete: None,
+            priority: None,
+            status: None,
+            summary: None,
         }
     }
 

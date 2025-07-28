@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "aimcal"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "aimcal-cli",
  "tokio",
@@ -36,7 +36,7 @@ dependencies = [
 
 [[package]]
 name = "aimcal-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "aimcal-core",
  "bimap",
@@ -62,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "aimcal-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "chrono-tz",
