@@ -22,7 +22,7 @@ struct ConfigRaw {
     /// Default due time for new tasks, in the format "HH:MM" or "1d" / "24h" / "60m" / "1800s".
     default_due: Option<String>,
 
-    /// Default priority for new tasks, support "high", "mid", "low", "none" or "1"-"9".
+    /// Default priority for new tasks, support "high", "mid", "low", "none" or 0-9.
     default_priority: Option<Priority>,
 }
 

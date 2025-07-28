@@ -73,6 +73,7 @@ dependencies = [
  "icalendar",
  "log",
  "serde",
+ "serde_json",
  "sqlx",
  "tokio",
 ]

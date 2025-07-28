@@ -41,7 +41,7 @@ impl From<(i64, i64)> for Pager {
 /// Priority of a task or item, with values ranging from 1 to 9, and None for no priority.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum Priority {
     /// No priority.
     #[default]
@@ -138,5 +138,137 @@ impl From<Priority> for u8 {
 impl From<Priority> for u32 {
     fn from(value: Priority) -> Self {
         u8::from(value).into()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Priority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct PriorityVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for PriorityVisitor {
+            type Value = Priority;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter
+                    .write_str(r#"a string of "none", "high", "mid", "low" or number from 0 to 9"#)
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match v {
+                    0 => Ok(Priority::None),
+                    1 => Ok(Priority::P1),
+                    2 => Ok(Priority::P2),
+                    3 => Ok(Priority::P3),
+                    4 => Ok(Priority::P4),
+                    5 => Ok(Priority::P5),
+                    6 => Ok(Priority::P6),
+                    7 => Ok(Priority::P7),
+                    8 => Ok(Priority::P8),
+                    9 => Ok(Priority::P9),
+                    _ => Err(E::custom(format!("invalid priority: {v}"))),
+                }
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match v {
+                    "0" | "none" => Ok(Priority::None),
+                    "1" => Ok(Priority::P1),
+                    "2" | "high" => Ok(Priority::P2),
+                    "3" => Ok(Priority::P3),
+                    "4" => Ok(Priority::P4),
+                    "5" | "mid" => Ok(Priority::P5),
+                    "6" => Ok(Priority::P6),
+                    "7" => Ok(Priority::P7),
+                    "8" | "low" => Ok(Priority::P8),
+                    "9" => Ok(Priority::P9),
+                    _ => Err(E::custom(format!("invalid priority: {v}"))),
+                }
+            }
+        }
+
+        deserializer.deserialize_any(PriorityVisitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sort_order_sql_keyword() {
+        assert_eq!(SortOrder::Asc.sql_keyword(), "ASC");
+        assert_eq!(SortOrder::Desc.sql_keyword(), "DESC");
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_priority_deserialize_all_variants() {
+        let cases = [
+            // integer number
+            ("0", Priority::None),
+            ("1", Priority::P1),
+            ("2", Priority::P2),
+            ("3", Priority::P3),
+            ("4", Priority::P4),
+            ("5", Priority::P5),
+            ("6", Priority::P6),
+            ("7", Priority::P7),
+            ("8", Priority::P8),
+            ("9", Priority::P9),
+            // string number
+            ("\"1\"", Priority::P1),
+            ("\"2\"", Priority::P2),
+            ("\"3\"", Priority::P3),
+            ("\"4\"", Priority::P4),
+            ("\"5\"", Priority::P5),
+            ("\"6\"", Priority::P6),
+            ("\"7\"", Priority::P7),
+            ("\"8\"", Priority::P8),
+            ("\"9\"", Priority::P9),
+            // named strings
+            ("\"none\"", Priority::None),
+            ("\"high\"", Priority::P2),
+            ("\"mid\"", Priority::P5),
+            ("\"low\"", Priority::P8),
+        ];
+
+        for (input, expected) in cases {
+            let actual: Priority = serde_json::from_str(input).unwrap();
+            assert_eq!(actual, expected, "Failed on input: {input}");
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_priority_deserialize_invalid_values() {
+        let cases = [
+            "\"invalid\"",
+            "\"urgent\"",
+            "\"10\"",
+            "10",
+            "-1",
+            "\"-1\"",
+            "0.1",
+            "\"0.1\"",
+        ];
+
+        for input in cases {
+            let result = serde_json::from_str::<Priority>(input);
+            assert!(
+                result.is_err(),
+                "Expected error for input: {input}, but got Ok({:?})",
+                result.ok()
+            );
+        }
     }
 }
