@@ -13,7 +13,7 @@ use aimcal_core::{
     Aim, LooseDateTime, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
     TodoStatus,
 };
-use chrono::{Duration, Local};
+use chrono::Duration;
 use clap::{Arg, ArgMatches, Command, arg};
 use clap_num::number_range;
 use colored::Colorize;
@@ -98,13 +98,13 @@ impl CmdTodoNew {
     pub async fn run(
         self,
         config: &Config,
-        aim: &Aim,
+        aim: &mut Aim,
         map: &ShortIdMap,
     ) -> Result<(), Box<dyn Error>> {
         log::debug!("Adding new todo...");
         let due = match (self.due, config.default_due) {
             (Some(due), _) => parse_datetime(&due)?,
-            (None, Some(duration)) => Some(LooseDateTime::Local(Local::now() + duration)),
+            (None, Some(duration)) => Some(LooseDateTime::Local(aim.now() + duration)),
             (None, None) => None,
         };
 
@@ -118,7 +118,7 @@ impl CmdTodoNew {
                 summary,
             }
         } else {
-            match TodoEditor::new(config).run_draft()? {
+            match TodoEditor::run_draft(config, aim)? {
                 Some(data) => data,
                 None => {
                     log::info!("User canceled the todo edit");
@@ -126,11 +126,10 @@ impl CmdTodoNew {
                 }
             }
         };
-        let now = Local::now().naive_local();
         let todo = aim.new_todo(draft).await?;
 
         let todo = TodoWithShortId::with(map, todo);
-        let formatter = TodoFormatter::new(now).with_output_format(self.output_format);
+        let formatter = TodoFormatter::new(aim.now()).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
 
         Ok(())
@@ -193,11 +192,10 @@ impl CmdTodoEdit {
         }
     }
 
-    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &mut Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         let patch = if self.is_empty() {
             let uid = self.uid_or_short_id.get_id(map);
-            let todo = aim.get_todo(&uid).await?.ok_or("Todo not found")?;
-            match TodoEditor::from(todo).run_patch()? {
+            match TodoEditor::run_patch(aim, &uid).await? {
                 Some(data) => data,
                 None => {
                     log::info!("User canceled the todo edit");
@@ -328,7 +326,6 @@ impl CmdTodoList {
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
             conds: TodoConditions {
-                now: Local::now().naive_local(),
                 status: Some(TodoStatus::NeedsAction),
                 due: Some(Duration::days(2)),
             },
@@ -372,7 +369,7 @@ impl CmdTodoList {
             .map(|todo| TodoWithShortId::with(map, todo))
             .collect();
 
-        let formatter = TodoFormatter::new(conds.now).with_output_format(output_format);
+        let formatter = TodoFormatter::new(aim.now()).with_output_format(output_format);
         println!("{}", formatter.format(&todos));
         Ok(())
     }
@@ -445,10 +442,9 @@ impl TodoEdit {
 
     async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Edit todo ...");
-        let now = Local::now().naive_local();
         let todo = aim.update_todo(self.patch).await?;
         let todo = TodoWithShortId::with(map, todo);
-        let formatter = TodoFormatter::new(now).with_output_format(self.output_format);
+        let formatter = TodoFormatter::new(aim.now()).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
         Ok(())
     }

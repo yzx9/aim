@@ -6,6 +6,7 @@ use crate::{
     Event, EventConditions, Pager, Todo, TodoConditions, TodoDraft, TodoSort, cache::SqliteCache,
     todo::TodoPatch,
 };
+use chrono::{DateTime, Local};
 use icalendar::{Calendar, CalendarComponent, Component};
 use std::{
     error::Error,
@@ -17,6 +18,7 @@ use uuid::Uuid;
 /// AIM calendar application core.
 #[derive(Debug, Clone)]
 pub struct Aim {
+    now: DateTime<Local>,
     cache: SqliteCache,
     calendar_path: PathBuf,
 }
@@ -24,11 +26,13 @@ pub struct Aim {
 impl Aim {
     /// Creates a new AIM instance with the given configuration.
     pub async fn new(config: &Config) -> Result<Self, Box<dyn Error>> {
+        let now = Local::now();
         let cache = SqliteCache::open()
             .await
             .map_err(|e| format!("Failed to initialize cache: {e}"))?;
 
         let that = Self {
+            now,
             cache,
             calendar_path: config.calendar_path.clone(),
         };
@@ -39,13 +43,23 @@ impl Aim {
         Ok(that)
     }
 
+    /// Returns the current time in the AIM instance.
+    pub fn now(&self) -> DateTime<Local> {
+        self.now
+    }
+
+    /// Refresh the current time to now.
+    pub fn refresh_now(&mut self) {
+        self.now = Local::now();
+    }
+
     /// List events matching the given conditions.
     pub async fn list_events(
         &self,
         conds: &EventConditions,
         pager: &Pager,
     ) -> Result<Vec<impl Event>, sqlx::Error> {
-        self.cache.events.list(conds, pager).await
+        self.cache.events.list(self.now, conds, pager).await
     }
 
     /// Counts the number of events matching the given conditions.
@@ -109,12 +123,12 @@ impl Aim {
         sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<impl Todo>, sqlx::Error> {
-        self.cache.todos.list(conds, sort, pager).await
+        self.cache.todos.list(self.now, conds, sort, pager).await
     }
 
     /// Counts the number of todos matching the given conditions.
     pub async fn count_todos(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
-        self.cache.todos.count(conds).await
+        self.cache.todos.count(self.now, conds).await
     }
 
     async fn add_calendar(&self, calendar_path: &PathBuf) -> Result<(), Box<dyn Error>> {

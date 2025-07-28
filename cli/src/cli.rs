@@ -28,9 +28,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 println!("{} {}", "Error:".red(), e);
             }
         }
-        Err(e) => {
-            println!("{} {}", "Error:".red(), e);
-        }
+        Err(e) => println!("{} {}", "Error:".red(), e),
     };
     Ok(())
 }
@@ -195,15 +193,15 @@ impl Commands {
     where
         F: for<'a> FnOnce(
             &'a Config,
-            &'a Aim,
+            &'a mut Aim,
             &'a ShortIdMap,
         ) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
     {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
-        let (aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
+        let (mut aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
 
-        f(&config, &aim, &map).await?;
+        f(&config, &mut aim, &map).await?;
 
         map.dump(&config).await?;
         Ok(())

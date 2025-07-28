@@ -6,8 +6,7 @@ use crate::{
     Config,
     parser::{format_datetime, parse_datetime},
 };
-use aimcal_core::{Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
-use chrono::Local;
+use aimcal_core::{Aim, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
     prelude::*,
@@ -25,41 +24,42 @@ pub struct TodoEditor {
 }
 
 impl TodoEditor {
-    pub fn new(config: &Config) -> Self {
-        Self::new_with(Data {
+    pub fn run_draft(config: &Config, aim: &mut Aim) -> Result<Option<TodoDraft>, Box<dyn Error>> {
+        let mut that = Self::new_with(Data {
             due: config
                 .default_due
-                .map(|a| (Local::now() + a).format("%Y-%m-%d %H:%M").to_string())
+                .map(|a| (aim.now() + a).format("%Y-%m-%d %H:%M").to_string())
                 .unwrap_or_default(),
             priority: config.default_priority,
             ..Data::default()
-        })
+        });
+
+        let should_submit = that.run()?;
+        let result = match should_submit {
+            true => that.store.submit_draft().map(Some),
+            false => Ok(None),
+        };
+        aim.refresh_now(); // Ensure the current time is updated
+        result
     }
 
-    pub fn from(todo: impl Todo) -> Self {
-        Self::new_with(todo.into())
+    pub async fn run_patch(aim: &mut Aim, uid: &str) -> Result<Option<TodoPatch>, Box<dyn Error>> {
+        let todo = aim.get_todo(uid).await?.ok_or("Todo not found")?;
+        let mut that = Self::new_with(todo.into());
+
+        let should_submit = that.run()?;
+        let result = match should_submit {
+            true => that.store.submit_patch().map(Some),
+            false => Ok(None),
+        };
+        aim.refresh_now(); // Ensure the current time is updated
+        result
     }
 
     fn new_with(data: Data) -> Self {
         let fields = Fields::new();
         let store = Store::new(data);
         Self { store, fields }
-    }
-
-    pub fn run_draft(mut self) -> Result<Option<TodoDraft>, Box<dyn Error>> {
-        let should_submit = self.run()?;
-        match should_submit {
-            true => self.store.submit_draft().map(Some),
-            false => Ok(None),
-        }
-    }
-
-    pub fn run_patch(mut self) -> Result<Option<TodoPatch>, Box<dyn Error>> {
-        let should_submit = self.run()?;
-        match should_submit {
-            true => self.store.submit_patch().map(Some),
-            false => Ok(None),
-        }
     }
 
     fn run(&mut self) -> Result<bool, Box<dyn Error>> {
@@ -111,15 +111,9 @@ impl TodoEditor {
             KeyCode::Right => Action::MoveRight,
             KeyCode::Backspace => Action::Delete,
             KeyCode::Char(c) => Action::Char(c),
-            KeyCode::Enter => {
-                return Some(true); // Submit the form
-            }
-            KeyCode::Esc => {
-                return Some(false); // Exit without submitting
-            }
-            _ => {
-                return None;
-            }
+            KeyCode::Enter => return Some(true), // Submit the form
+            KeyCode::Esc => return Some(false),  // Exit without submitting
+            _ => return None,
         };
 
         self.fields.update(&mut self.store, action);
@@ -316,9 +310,7 @@ impl Fields {
             Action::MoveDown => ((store.field_index + 1) % self.0.len(), Action::MoveTo),
             Action::MoveLeft => (store.field_index, Action::MoveLeft),
             Action::MoveRight => (store.field_index, Action::MoveRight),
-            _ => {
-                return;
-            }
+            _ => return,
         };
 
         if let Some(a) = self.0.get_mut(index) {

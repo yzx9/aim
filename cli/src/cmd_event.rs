@@ -8,7 +8,6 @@ use crate::{
     short_id::{EventWithShortId, ShortIdMap},
 };
 use aimcal_core::{Aim, EventConditions, Pager};
-use chrono::Local;
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 use std::error::Error;
@@ -30,10 +29,7 @@ impl CmdEventList {
 
     pub fn parse(matches: &ArgMatches) -> Self {
         Self {
-            conds: EventConditions {
-                now: Local::now().naive_local(),
-                startable: true,
-            },
+            conds: EventConditions { startable: true },
             output_format: ArgOutputFormat::parse(matches),
         }
     }
@@ -68,7 +64,7 @@ impl CmdEventList {
             .map(|event| EventWithShortId::with(map, event))
             .collect();
 
-        let formatter = EventFormatter::new(conds.now).with_output_format(output_format);
+        let formatter = EventFormatter::new(aim.now()).with_output_format(output_format);
         println!("{}", formatter.format(&events));
         Ok(())
     }

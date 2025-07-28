@@ -38,7 +38,7 @@ impl CmdNew {
     pub async fn run(
         self,
         config: &Config,
-        aim: &Aim,
+        aim: &mut Aim,
         map: &ShortIdMap,
     ) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
@@ -69,7 +69,7 @@ impl CmdEdit {
         }
     }
 
-    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &mut Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
         CmdTodoEdit::new(self.uid_or_short_id, self.output_format)
             .run(aim, map)

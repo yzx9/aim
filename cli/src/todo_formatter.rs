@@ -7,21 +7,22 @@ use crate::{
     short_id::TodoWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
-use aimcal_core::{Priority, Todo, TodoStatus};
-use chrono::NaiveDateTime;
+use aimcal_core::{LooseDateTime, Priority, RangePosition, Todo, TodoStatus};
+use chrono::{DateTime, Local};
 use colored::Color;
 use std::{borrow::Cow, fmt};
 
 #[derive(Debug, Clone)]
 pub struct TodoFormatter {
+    now: DateTime<Local>,
     columns: Vec<TodoColumn>,
-    now: NaiveDateTime,
     format: ArgOutputFormat,
 }
 
 impl TodoFormatter {
-    pub fn new(now: NaiveDateTime) -> Self {
+    pub fn new(now: DateTime<Local>) -> Self {
         Self {
+            now,
             columns: vec![
                 TodoColumn::Status(TodoColumnStatus),
                 TodoColumn::DisplayNumber(TodoColumnDisplayNumber),
@@ -29,7 +30,6 @@ impl TodoFormatter {
                 TodoColumn::Due(TodoColumnDue),
                 TodoColumn::Summary(TodoColumnSummary),
             ],
-            now,
             format: ArgOutputFormat::Table,
         }
     }
@@ -94,7 +94,7 @@ pub enum TodoColumn {
 #[derive(Debug, Clone, Copy)]
 struct ColumnMeta<'a> {
     column: &'a TodoColumn,
-    now: NaiveDateTime,
+    now: DateTime<Local>,
 }
 
 impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for ColumnMeta<'a> {
@@ -158,24 +158,23 @@ impl TodoColumnDue {
             .map_or("".into(), |a| format_datetime(a).into())
     }
 
-    fn get_color(&self, todo: &TodoWithShortId<impl Todo>, now: &NaiveDateTime) -> Option<Color> {
+    fn get_color(&self, todo: &TodoWithShortId<impl Todo>, now: &DateTime<Local>) -> Option<Color> {
         const COLOR_OVERDUE: Option<Color> = Some(Color::Red);
         const COLOR_TODAY: Option<Color> = Some(Color::Yellow);
 
         let due = todo.inner.due()?;
-        let due_date = due.date();
-        let now_date = now.date();
-        if due_date > now_date {
-            None
-        } else if due_date < now_date {
-            COLOR_OVERDUE
-        } else if let Some(due_time) = due.time() {
-            match due_time < now.time() {
-                true => COLOR_OVERDUE,
-                false => COLOR_TODAY,
+        match LooseDateTime::position_in_range(
+            &now.naive_local(),
+            &due,
+            &Some(LooseDateTime::DateOnly(due.date())), // End of today
+        ) {
+            RangePosition::Before => None,
+            RangePosition::InRange => COLOR_TODAY,
+            RangePosition::After => COLOR_OVERDUE,
+            RangePosition::InvalidRange => {
+                log::warn!("Invalid due date for todo: {}", todo.inner.uid());
+                None
             }
-        } else {
-            COLOR_TODAY
         }
     }
 }

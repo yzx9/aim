@@ -6,7 +6,7 @@ use crate::{
     cmd_event::CmdEventList, cmd_todo::CmdTodoList, parser::ArgOutputFormat, short_id::ShortIdMap,
 };
 use aimcal_core::{Aim, EventConditions, TodoConditions, TodoStatus};
-use chrono::{Duration, Local};
+use chrono::Duration;
 use clap::Command;
 use colored::Colorize;
 use std::error::Error;
@@ -30,19 +30,13 @@ impl CmdDashboard {
     /// Show the dashboard with events and todos.
     pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
         log::debug!("Generating dashboard...");
-        let now = Local::now().naive_local();
-
         println!("🗓️ {}", "Events".bold());
-        let conds = EventConditions {
-            now,
-            startable: true,
-        };
+        let conds = EventConditions { startable: true };
         CmdEventList::list(aim, map, &conds, ArgOutputFormat::Table).await?;
         println!();
 
         println!("✅ {}", "Todos".bold());
         let conds = TodoConditions {
-            now,
             status: Some(TodoStatus::NeedsAction),
             due: Some(Duration::days(2)),
         };

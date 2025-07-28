@@ -8,26 +8,26 @@ use crate::{
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
 use aimcal_core::{Event, LooseDateTime, RangePosition};
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Local};
 use colored::Color;
 use std::{borrow::Cow, fmt};
 
 #[derive(Debug, Clone)]
 pub struct EventFormatter {
+    now: DateTime<Local>,
     columns: Vec<EventColumn>,
-    now: NaiveDateTime,
     format: ArgOutputFormat,
 }
 
 impl EventFormatter {
-    pub fn new(now: NaiveDateTime) -> Self {
+    pub fn new(now: DateTime<Local>) -> Self {
         Self {
+            now,
             columns: vec![
                 EventColumn::ShortId(EventColumnShortId),
                 EventColumn::TimeRange(EventColumnTimeRange),
                 EventColumn::Summary(EventColumnSummary),
             ],
-            now,
             format: ArgOutputFormat::Table,
         }
     }
@@ -90,7 +90,7 @@ pub enum EventColumn {
 #[derive(Debug, Clone, Copy)]
 struct ColumnMeta<'a> {
     column: &'a EventColumn,
-    now: NaiveDateTime,
+    now: DateTime<Local>,
 }
 
 impl<'a, E: Event> TableColumn<EventWithShortId<E>> for ColumnMeta<'a> {
@@ -184,13 +184,13 @@ impl EventColumnTimeRange {
     fn get_color(
         &self,
         event: &EventWithShortId<impl Event>,
-        now: &NaiveDateTime,
+        now: &DateTime<Local>,
     ) -> Option<Color> {
         const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
         const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
 
         let start = event.inner.start()?;
-        match LooseDateTime::position_in_range(now, &start, &event.inner.end()) {
+        match LooseDateTime::position_in_range(&now.naive_local(), &start, &event.inner.end()) {
             RangePosition::Before => COLOR_TODAY_LATE,
             RangePosition::InRange => COLOR_CURRENT,
             RangePosition::After => None,

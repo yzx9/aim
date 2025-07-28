@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{LooseDateTime, Priority, SortOrder};
-use chrono::{DateTime, Duration, Local, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, Local, Utc};
 use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
 
@@ -281,9 +281,6 @@ impl From<icalendar::TodoStatus> for TodoStatus {
 /// Conditions for filtering todo items, such as current time, status, and due date.
 #[derive(Debug, Clone, Copy)]
 pub struct TodoConditions {
-    /// The current time, used for filtering todos.
-    pub now: NaiveDateTime,
-
     /// The status of the todo item to filter by, if any.
     pub status: Option<TodoStatus>,
 
@@ -293,8 +290,8 @@ pub struct TodoConditions {
 
 impl TodoConditions {
     /// The due datetime.
-    pub fn due_before(&self) -> Option<NaiveDateTime> {
-        self.due.map(|a| self.now + a)
+    pub fn due_before(&self, now: DateTime<Local>) -> Option<DateTime<Local>> {
+        self.due.map(|a| now + a)
     }
 }
 

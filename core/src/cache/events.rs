@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{Event, EventConditions, EventStatus, LooseDateTime, Pager};
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Local};
 use sqlx::SqlitePool;
 
 #[derive(Debug, Clone)]
@@ -60,6 +60,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 
     pub async fn list(
         &self,
+        now: DateTime<Local>,
         conds: &EventConditions,
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
@@ -78,7 +79,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 
         let mut executable = sqlx::query_as(&sql);
         if conds.startable {
-            executable = executable.bind(format_ndt(conds.now));
+            executable = executable.bind(format_dt(now));
         }
 
         executable
@@ -161,6 +162,6 @@ impl Event for EventRecord {
 
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 
-fn format_ndt(ndt: NaiveDateTime) -> String {
-    ndt.format(DATETIME_FORMAT).to_string()
+fn format_dt(dt: DateTime<Local>) -> String {
+    dt.format(DATETIME_FORMAT).to_string()
 }

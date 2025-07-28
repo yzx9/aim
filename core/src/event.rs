@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::LooseDateTime;
-use chrono::NaiveDateTime;
 use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
 
@@ -123,9 +122,6 @@ impl From<&icalendar::EventStatus> for EventStatus {
 /// Represents conditions for filtering events in a calendar.
 #[derive(Debug, Clone, Copy)]
 pub struct EventConditions {
-    /// The current time to filter events.
-    pub now: NaiveDateTime,
-
     /// Whether to include only startable events.
     pub startable: bool,
 }

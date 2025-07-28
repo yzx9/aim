@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{LooseDateTime, Pager, Priority, Todo, TodoConditions, TodoSort, TodoStatus};
-use chrono::{DateTime, Local, NaiveDateTime};
+use chrono::{DateTime, Local};
 use sqlx::sqlite::SqlitePool;
 
 #[derive(Debug, Clone)]
@@ -86,6 +86,7 @@ WHERE uid = ?;
 
     pub async fn list(
         &self,
+        now: DateTime<Local>,
         conds: &TodoConditions,
         sort: &[TodoSort],
         pager: &Pager,
@@ -94,7 +95,7 @@ WHERE uid = ?;
         if conds.status.is_some() {
             where_clauses.push("status = ?");
         }
-        let due_before = conds.due_before();
+        let due_before = conds.due_before(now);
         if due_before.is_some() {
             where_clauses.push("due <= ?");
         }
@@ -134,7 +135,7 @@ WHERE uid = ?;
             executable = executable.bind(AsRef::<str>::as_ref(status));
         }
         if let Some(due) = due_before {
-            executable = executable.bind(format_ndt(due));
+            executable = executable.bind(format_dt(due));
         }
 
         executable
@@ -144,14 +145,18 @@ WHERE uid = ?;
             .await
     }
 
-    pub async fn count(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
+    pub async fn count(
+        &self,
+        now: DateTime<Local>,
+        conds: &TodoConditions,
+    ) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM todos".to_string();
 
         let mut where_clauses = Vec::new();
         if conds.status.is_some() {
             where_clauses.push("status = ?");
         }
-        let due_before = conds.due_before();
+        let due_before = conds.due_before(now);
         if due_before.is_some() {
             where_clauses.push("due <= ?");
         }
@@ -165,8 +170,8 @@ WHERE uid = ?;
             let status: &str = status.as_ref();
             executable = executable.bind(status);
         }
-        if let Some(due) = conds.due_before() {
-            executable = executable.bind(format_ndt(due));
+        if let Some(due) = due_before {
+            executable = executable.bind(format_dt(due));
         }
         let row: (i64,) = executable.fetch_one(&self.pool).await?;
         Ok(row.0)
@@ -248,10 +253,6 @@ impl Todo for TodoRecord {
 
 // NOTE: The format strings used here are stable and should not change across different runs.
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
-
-fn format_ndt(ndt: NaiveDateTime) -> String {
-    ndt.format(DATETIME_FORMAT).to_string()
-}
 
 fn format_dt(dt: DateTime<Local>) -> String {
     dt.format(DATETIME_FORMAT).to_string()
