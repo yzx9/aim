@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add TUI switch for status and priority
+- Add default due config entry
 
 ### Changed
 

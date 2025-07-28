@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use aimcal_core::{Config as CoreConfig, Priority};
+use chrono::Duration;
+use colored::Colorize;
 use std::{
     error::Error,
     path::{Path, PathBuf},
@@ -14,7 +16,13 @@ pub const APP_NAME: &str = "aim";
 #[derive(Debug, serde::Deserialize)]
 struct ConfigRaw {
     calendar_path: PathBuf,
+
     state_dir: Option<PathBuf>,
+
+    /// Default due time for new tasks, in the format "HH:MM" or "1d" / "24h" / "60m" / "1800s".
+    default_due: Option<String>,
+
+    /// Default priority for new tasks, support "high", "mid", "low", "none" or "1"-"9".
     default_priority: Option<Priority>,
 }
 
@@ -27,6 +35,9 @@ pub struct Config {
     /// Directory for storing application state.
     pub state_dir: Option<PathBuf>,
 
+    /// Default due time for new tasks.
+    pub default_due: Option<Duration>,
+
     /// Default priority for new tasks.
     pub default_priority: Priority,
 }
@@ -35,14 +46,36 @@ impl TryFrom<ConfigRaw> for Config {
     type Error = Box<dyn Error>;
 
     fn try_from(raw: ConfigRaw) -> Result<Self, Self::Error> {
+        let state_dir = match raw.state_dir {
+            Some(a) => Some(
+                expand_path(&a)
+                    .map_err(|e| format!("Failed to expand state directory path: {e}"))?,
+            ),
+            None => match get_state_dir() {
+                Ok(a) => Some(a.join(APP_NAME)),
+                Err(e) => {
+                    log::warn!("Failed to get state directory: {e}");
+                    println!(
+                        "{}",
+                        "No state directory configured, some features not available.".red()
+                    );
+                    None
+                }
+            },
+        };
+
+        let default_due = raw
+            .default_due
+            .map(|a| parse_duration(&a))
+            .transpose()
+            .map_err(|e| format!("Failed to parse default due duration: {e}"))?;
+
         Ok(Self {
             core: CoreConfig {
                 calendar_path: expand_path(&raw.calendar_path)?,
             },
-            state_dir: match raw.state_dir {
-                Some(a) => Some(expand_path(&a)?),
-                None => get_state_dir().ok().map(|a| a.join(APP_NAME)),
-            },
+            state_dir,
+            default_due,
             default_priority: raw.default_priority.unwrap_or_default(),
         })
     }
@@ -134,6 +167,32 @@ fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
     state_dir.ok_or("User-specific state directory not found".into())
 }
 
+/// Parse a duration string in the format "HH:MM" / "1d" / "24h" / "60m" / "1800s" into a `chrono::Duration`.
+fn parse_duration(s: &str) -> Result<Duration, Box<dyn Error>> {
+    // Try to parse "HH:MM" format
+    if let Some((h, m)) = s.split_once(':') {
+        let hours: i64 = h.trim().parse()?;
+        let minutes: i64 = m.trim().parse()?;
+        Ok(Duration::minutes(hours * 60 + minutes))
+    }
+    // Match suffix-based formats
+    else if let Some(rest) = s.strip_suffix("d") {
+        let days: i64 = rest.trim().parse()?;
+        Ok(Duration::days(days))
+    } else if let Some(rest) = s.strip_suffix("h") {
+        let hours: i64 = rest.trim().parse()?;
+        Ok(Duration::hours(hours))
+    } else if let Some(rest) = s.strip_suffix("m") {
+        let minutes: i64 = rest.trim().parse()?;
+        Ok(Duration::minutes(minutes))
+    } else if let Some(rest) = s.strip_suffix("s") {
+        let minutes: i64 = rest.trim().parse()?;
+        Ok(Duration::seconds(minutes))
+    } else {
+        Err(format!("Invalid duration format: {s}").into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,5 +239,34 @@ mod tests {
         let relative_path = PathBuf::from("relative/path/to/file");
         let result = expand_path(&relative_path).unwrap();
         assert_eq!(result, relative_path);
+    }
+
+    #[test]
+    fn test_parse_duration_colon_format() {
+        let d = parse_duration("01:30").unwrap();
+        assert_eq!(d, Duration::minutes(90));
+
+        let d = parse_duration("00:00").unwrap();
+        assert_eq!(d, Duration::minutes(0));
+
+        let d = parse_duration("12:00").unwrap();
+        assert_eq!(d, Duration::hours(12));
+    }
+
+    #[test]
+    fn test_parse_duration_suffix_format() {
+        assert_eq!(parse_duration("1d").unwrap(), Duration::days(1));
+        assert_eq!(parse_duration("2h").unwrap(), Duration::hours(2));
+        assert_eq!(parse_duration("45m").unwrap(), Duration::minutes(45));
+        assert_eq!(parse_duration("1800s").unwrap(), Duration::seconds(1800));
+    }
+
+    #[test]
+    fn test_parse_duration_invalid_format() {
+        assert!(parse_duration("abc").is_err());
+        assert!(parse_duration("99x").is_err());
+        assert!(parse_duration("12:xx").is_err());
+        assert!(parse_duration("12:").is_err());
+        assert!(parse_duration("12").is_err());
     }
 }
