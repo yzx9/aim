@@ -199,7 +199,10 @@ impl Commands {
     {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
-        let (mut aim, map) = try_join!(Aim::new(&config.core), ShortIdMap::load_or_new(&config))?;
+        let (mut aim, map) = try_join!(
+            Aim::new(config.core.clone()),
+            ShortIdMap::load_or_new(&config)
+        )?;
 
         f(&config, &mut aim, &map).await?;
 

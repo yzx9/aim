@@ -61,7 +61,7 @@ impl ArgOutputFormat {
     }
 }
 
-pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &str> {
+pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &'static str> {
     if dt.is_empty() {
         Ok(None)
     } else if let Ok(dt) = NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M") {

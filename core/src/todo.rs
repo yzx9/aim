@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{LooseDateTime, Priority, SortOrder};
+use crate::{Config, LooseDateTime, Priority, SortOrder};
 use chrono::{DateTime, Duration, Local, Utc};
 use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
@@ -98,7 +98,12 @@ pub struct TodoDraft {
 
 impl TodoDraft {
     /// Converts the draft into a icalendar Todo component.
-    pub(crate) fn into_todo(self, uid: &str) -> icalendar::Todo {
+    pub(crate) fn into_todo(
+        self,
+        config: &Config,
+        now: DateTime<Local>,
+        uid: &str,
+    ) -> icalendar::Todo {
         let mut todo = icalendar::Todo::with_uid(uid);
 
         if let Some(description) = self.description {
@@ -107,6 +112,8 @@ impl TodoDraft {
 
         if let Some(due) = self.due {
             icalendar::Todo::due(&mut todo, due);
+        } else if let Some(duration) = config.default_due {
+            icalendar::Todo::due(&mut todo, LooseDateTime::Local(now + duration));
         }
 
         if let Some(percent) = self.percent_complete {

@@ -35,9 +35,6 @@ pub struct Config {
     /// Directory for storing application state.
     pub state_dir: Option<PathBuf>,
 
-    /// Default due time for new tasks.
-    pub default_due: Option<Duration>,
-
     /// Default priority for new tasks.
     pub default_priority: Priority,
 }
@@ -73,9 +70,9 @@ impl TryFrom<ConfigRaw> for Config {
         Ok(Self {
             core: CoreConfig {
                 calendar_path: expand_path(&raw.calendar_path)?,
+                default_due,
             },
             state_dir,
-            default_due,
             default_priority: raw.default_priority.unwrap_or_default(),
         })
     }

@@ -6,7 +6,7 @@ use crate::{
     Event, EventConditions, Pager, Todo, TodoConditions, TodoDraft, TodoSort, cache::SqliteCache,
     todo::TodoPatch,
 };
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Duration, Local};
 use icalendar::{Calendar, CalendarComponent, Component};
 use std::{
     error::Error,
@@ -19,24 +19,27 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct Aim {
     now: DateTime<Local>,
+    config: Config,
     cache: SqliteCache,
     calendar_path: PathBuf,
 }
 
 impl Aim {
     /// Creates a new AIM instance with the given configuration.
-    pub async fn new(config: &Config) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(config: Config) -> Result<Self, Box<dyn Error>> {
         let now = Local::now();
         let cache = SqliteCache::open()
             .await
             .map_err(|e| format!("Failed to initialize cache: {e}"))?;
 
+        let calendar_path = config.calendar_path.clone();
         let that = Self {
             now,
+            config,
             cache,
-            calendar_path: config.calendar_path.clone(),
+            calendar_path,
         };
-        that.add_calendar(&config.calendar_path)
+        that.add_calendar(&that.calendar_path)
             .await
             .map_err(|e| format!("Failed to add calendar files: {e}"))?;
 
@@ -70,7 +73,7 @@ impl Aim {
     /// Add a new todo from the given draft.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo, Box<dyn Error>> {
         let uid = self.generate_uid().await?;
-        let todo = draft.into_todo(&uid);
+        let todo = draft.into_todo(&self.config, self.now, &uid);
         let path = self.get_path(&uid);
 
         let calendar = Calendar::new().push(todo.clone()).done();
@@ -204,10 +207,13 @@ impl Aim {
 }
 
 /// Configuration for the AIM application.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Config {
     /// Path to the calendar directory.
     pub calendar_path: PathBuf,
+
+    /// Default due time for new tasks.
+    pub default_due: Option<Duration>,
 }
 
 async fn parse_ics(path: &Path) -> Result<Calendar, Box<dyn Error>> {

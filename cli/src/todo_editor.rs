@@ -27,6 +27,7 @@ impl TodoEditor {
     pub fn run_draft(config: &Config, aim: &mut Aim) -> Result<Option<TodoDraft>, Box<dyn Error>> {
         let mut that = Self::new_with(Data {
             due: config
+                .core
                 .default_due
                 .map(|a| (aim.now() + a).format("%Y-%m-%d %H:%M").to_string())
                 .unwrap_or_default(),

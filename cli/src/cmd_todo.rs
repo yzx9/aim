@@ -10,8 +10,7 @@ use crate::{
     todo_formatter::TodoFormatter,
 };
 use aimcal_core::{
-    Aim, LooseDateTime, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
-    TodoStatus,
+    Aim, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus,
 };
 use chrono::Duration;
 use clap::{Arg, ArgMatches, Command, arg};
@@ -102,13 +101,10 @@ impl CmdTodoNew {
         map: &ShortIdMap,
     ) -> Result<(), Box<dyn Error>> {
         log::debug!("Adding new todo...");
-        let due = match (self.due, config.default_due) {
-            (Some(due), _) => parse_datetime(&due)?,
-            (None, Some(duration)) => Some(LooseDateTime::Local(aim.now() + duration)),
-            (None, None) => None,
-        };
 
         let draft = if let Some(summary) = self.summary {
+            let due = self.due.map(|a| parse_datetime(&a)).transpose()?.flatten();
+
             TodoDraft {
                 description: self.description,
                 due,

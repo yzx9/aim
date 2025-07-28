@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add shortcuts `new`/`edit` to launch the TUI editor
 - Add output format argument for `todo new` command
 
+### Changed
+
+- Move `default_due` config to core
+
 ## [v0.2.2] - 2025-07-28
 
 ### Added
