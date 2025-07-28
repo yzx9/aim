@@ -26,7 +26,7 @@ pub struct CmdTodoNew {
     pub percent_complete: Option<u8>,
     pub priority: Option<Priority>,
     pub status: Option<TodoStatus>,
-    pub summary: String,
+    pub summary: Option<String>,
 }
 
 impl CmdTodoNew {
@@ -36,7 +36,7 @@ impl CmdTodoNew {
         Command::new(Self::NAME)
             .alias("add")
             .about("Add a new todo item")
-            .arg(TodoEdit::arg_summary(true).required(true))
+            .arg(TodoEdit::arg_summary(true))
             .arg(TodoEdit::arg_due())
             .arg(TodoEdit::arg_description())
             .arg(TodoEdit::arg_percent_complete())
@@ -44,15 +44,37 @@ impl CmdTodoNew {
             .arg(TodoEdit::arg_status())
     }
 
-    pub fn parse(matches: &ArgMatches) -> Self {
-        Self {
-            description: TodoEdit::parse_description(matches),
-            due: TodoEdit::parse_due(matches),
-            percent_complete: TodoEdit::parse_percent_complete(matches),
-            priority: TodoEdit::parse_priority(matches),
-            status: TodoEdit::parse_status(matches),
-            summary: TodoEdit::parse_summary(matches).expect("summary is required"),
-        }
+    pub fn parse(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
+        let description = TodoEdit::parse_description(matches);
+        let due = TodoEdit::parse_due(matches);
+        let percent_complete = TodoEdit::parse_percent_complete(matches);
+        let priority = TodoEdit::parse_priority(matches);
+        let status = TodoEdit::parse_status(matches);
+
+        let summary = match matches.get_one::<String>("summary") {
+            Some(summary) => Some(summary.clone()),
+
+            None if description.is_none()
+                && due.is_none()
+                && percent_complete.is_none()
+                && priority.is_none()
+                && status.is_none() =>
+            {
+                None
+            }
+
+            // If summary is not provided but other fields are set, we still require a summary.
+            None => return Err("Summary is required for new todo".into()),
+        };
+
+        Ok(Self {
+            description,
+            due,
+            percent_complete,
+            priority,
+            status,
+            summary,
+        })
     }
 
     pub async fn run(
@@ -68,13 +90,23 @@ impl CmdTodoNew {
             (None, None) => None,
         };
 
-        let draft = TodoDraft {
-            description: self.description,
-            due,
-            percent_complete: self.percent_complete,
-            priority: self.priority.unwrap_or(config.default_priority),
-            status: self.status,
-            summary: self.summary,
+        let draft = if let Some(summary) = self.summary {
+            TodoDraft {
+                description: self.description,
+                due,
+                percent_complete: self.percent_complete,
+                priority: self.priority.unwrap_or(config.default_priority),
+                status: self.status,
+                summary,
+            }
+        } else {
+            match TodoEditor::new(config).run_draft()? {
+                Some(data) => data,
+                None => {
+                    log::info!("User canceled the todo edit");
+                    return Ok(());
+                }
+            }
         };
         let todo = aim.new_todo(draft).await?;
 
@@ -133,7 +165,7 @@ impl CmdTodoEdit {
         let patch = if self.is_empty() {
             let uid = self.uid_or_short_id.get_id(map);
             let todo = aim.get_todo(&uid).await?.ok_or("Todo not found")?;
-            match TodoEditor::from(todo).run()? {
+            match TodoEditor::from(todo).run_patch()? {
                 Some(data) => data,
                 None => {
                     log::info!("User canceled the todo edit");
@@ -369,7 +401,7 @@ impl TodoEdit {
 
     fn arg_summary(positional: bool) -> Arg {
         if positional {
-            arg!(summary: <SUMMARY> "Summary of the todo")
+            arg!(summary: <SUMMARY> "Summary of the todo").required(false)
         } else {
             arg!(summary: -s --summary <SUMMARY> "Summary of the todo")
         }
@@ -411,16 +443,53 @@ mod tests {
                 "A description",
                 "--due",
                 "2025-01-01 12:00:00",
+                "--percent",
+                "66",
                 "--priority",
                 "1",
+                "--status",
+                "completed",
             ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdTodoNew::parse(sub_matches);
-        assert_eq!(parsed.summary, "Another summary");
+        let parsed = CmdTodoNew::parse(sub_matches).unwrap();
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
+        assert_eq!(parsed.percent_complete, Some(66));
         assert_eq!(parsed.priority, Some(Priority::P1));
+        assert_eq!(parsed.status, Some(TodoStatus::Completed));
+        assert_eq!(parsed.summary, Some("Another summary".to_string()));
+    }
+
+    #[test]
+    fn test_parse_todo_new_tui() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoNew::command());
+
+        let matches = cmd.try_get_matches_from(["test", "new"]).unwrap();
+        let sub_matches = matches.subcommand_matches("new").unwrap();
+        let parsed = CmdTodoNew::parse(sub_matches).unwrap();
+        assert_eq!(parsed.description, None);
+        assert_eq!(parsed.due, None);
+        assert_eq!(parsed.percent_complete, None);
+        assert_eq!(parsed.priority, None);
+        assert_eq!(parsed.status, None);
+        assert_eq!(parsed.summary, None);
+    }
+
+    #[test]
+    fn test_parse_todo_new_tui_invalid() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoNew::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "new", "--priority", "1"])
+            .unwrap();
+        let sub_matches = matches.subcommand_matches("new").unwrap();
+        let parsed = CmdTodoNew::parse(sub_matches);
+        assert!(parsed.is_err());
     }
 
     #[test]

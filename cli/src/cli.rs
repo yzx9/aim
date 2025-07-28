@@ -21,9 +21,16 @@ use tokio::try_join;
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
     env_logger::init();
-    if let Err(e) = Cli::parse().run().await {
-        println!("{} {}", "Error:".red(), e);
-    }
+    match Cli::parse() {
+        Ok(cli) => {
+            if let Err(e) = cli.run().await {
+                println!("{} {}", "Error:".red(), e);
+            }
+        }
+        Err(e) => {
+            println!("{} {}", "Error:".red(), e);
+        }
+    };
     Ok(())
 }
 
@@ -90,7 +97,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
     }
 
     /// Parse the command-line arguments
-    pub fn parse() -> Self {
+    pub fn parse() -> Result<Self, Box<dyn Error>> {
         use Commands::*;
         let matches = Self::command().get_matches();
         let command = match matches.subcommand() {
@@ -100,7 +107,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 _ => unreachable!(),
             },
             Some(("todo", matches)) => match matches.subcommand() {
-                Some((CmdTodoNew::NAME, matches)) => TodoNew(CmdTodoNew::parse(matches)),
+                Some((CmdTodoNew::NAME, matches)) => TodoNew(CmdTodoNew::parse(matches)?),
                 Some((CmdTodoEdit::NAME, matches)) => TodoEdit(CmdTodoEdit::parse(matches)),
                 Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::parse(matches)),
                 Some((CmdTodoUndo::NAME, matches)) => TodoUndo(CmdTodoUndo::parse(matches)),
@@ -117,7 +124,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
         };
 
         let config = matches.get_one("config").cloned();
-        Cli { config, command }
+        Ok(Cli { config, command })
     }
 
     /// Run the command

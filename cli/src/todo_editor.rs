@@ -2,8 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::parser::{format_datetime, parse_datetime};
-use aimcal_core::{Priority, Todo, TodoPatch, TodoStatus};
+use crate::{
+    Config,
+    parser::{format_datetime, parse_datetime},
+};
+use aimcal_core::{Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
+use chrono::Local;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
     prelude::*,
@@ -21,8 +25,15 @@ pub struct TodoEditor {
 }
 
 impl TodoEditor {
-    pub fn new() -> Self {
-        Self::new_with(Data::default())
+    pub fn new(config: &Config) -> Self {
+        Self::new_with(Data {
+            due: config
+                .default_due
+                .map(|a| (Local::now() + a).format("%Y-%m-%d %H:%M").to_string())
+                .unwrap_or_default(),
+            priority: config.default_priority,
+            ..Data::default()
+        })
     }
 
     pub fn from(todo: impl Todo) -> Self {
@@ -35,7 +46,23 @@ impl TodoEditor {
         Self { store, fields }
     }
 
-    pub fn run(mut self) -> Result<Option<TodoPatch>, Box<dyn Error>> {
+    pub fn run_draft(mut self) -> Result<Option<TodoDraft>, Box<dyn Error>> {
+        let should_submit = self.run()?;
+        match should_submit {
+            true => self.store.submit_draft().map(Some),
+            false => Ok(None),
+        }
+    }
+
+    pub fn run_patch(mut self) -> Result<Option<TodoPatch>, Box<dyn Error>> {
+        let should_submit = self.run()?;
+        match should_submit {
+            true => self.store.submit_patch().map(Some),
+            false => Ok(None),
+        }
+    }
+
+    fn run(&mut self) -> Result<bool, Box<dyn Error>> {
         let mut terminal = ratatui::init();
 
         // Send the initial position to the store
@@ -59,10 +86,7 @@ impl TodoEditor {
             match event::read() {
                 Ok(e) => {
                     if let Some(summit) = self.handle_event(e) {
-                        break match summit {
-                            true => self.store.submit().map(Some),
-                            false => Ok(None),
-                        };
+                        break Ok(summit);
                     }
                 }
                 Err(e) => break Err(e.into()),
@@ -100,12 +124,6 @@ impl TodoEditor {
 
         self.fields.update(&mut self.store, action);
         None
-    }
-}
-
-impl Default for TodoEditor {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -157,7 +175,26 @@ impl Store {
         self.cursor_pos = pos;
     }
 
-    fn submit(self) -> Result<TodoPatch, Box<dyn Error>> {
+    fn submit_draft(self) -> Result<TodoDraft, Box<dyn Error>> {
+        Ok(TodoDraft {
+            description: self.dirty.description.then_some(self.data.description),
+            due: parse_datetime(&self.data.due)?,
+            percent_complete: match self.dirty.percent_complete {
+                true if self.data.percent_complete.is_empty() => None,
+                true => Some(self.data.percent_complete.parse::<u8>()?),
+                false => None,
+            },
+            priority: self.data.priority,
+            status: self.dirty.status.then_some(self.data.status),
+            summary: if self.data.summary.is_empty() {
+                "New todo".to_string()
+            } else {
+                self.data.summary
+            },
+        })
+    }
+
+    fn submit_patch(self) -> Result<TodoPatch, Box<dyn Error>> {
         Ok(TodoPatch {
             uid: self.data.uid,
             description: match self.dirty.description {
@@ -502,10 +539,10 @@ impl FieldPriority {
 
     fn fmt(priority: &Priority, verbose: bool) -> &'static str {
         match priority {
-            Priority::P2 if !verbose => "high",
-            Priority::P5 if !verbose => "mid",
-            Priority::P8 if !verbose => "low",
-            Priority::None => "none",
+            Priority::P2 if !verbose => "HIGH",
+            Priority::P5 if !verbose => "MID",
+            Priority::P8 if !verbose => "LOW",
+            Priority::None => "NONE",
             Priority::P1 => "1",
             Priority::P2 => "2",
             Priority::P3 => "3",

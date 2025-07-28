@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add default due config entry
 - Support numbered priority config
 - Allow set percent_complete and status for new todo
+- Add TUI todo creator support
 
 ### Changed
 
