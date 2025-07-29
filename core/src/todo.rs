@@ -7,10 +7,6 @@ use chrono::{DateTime, Duration, Local, Utc};
 use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
 
-const KEY_COMPLETED: &str = "COMPLETED";
-const KEY_DESCRIPTION: &str = "DESCRIPTION";
-const KEY_DUE: &str = "DUE";
-
 /// Trait representing a todo item.
 pub trait Todo {
     /// Returns the unique identifier for the todo item.
@@ -176,14 +172,14 @@ impl TodoPatch {
         if let Some(description) = &self.description {
             match description {
                 Some(desc) => t.description(desc),
-                None => t.remove_property(KEY_DESCRIPTION),
+                None => t.remove_description(),
             };
         }
 
         if let Some(due) = &self.due {
             match due {
                 Some(d) => t.due(*d),
-                None => t.remove_property(KEY_DUE),
+                None => t.remove_due(),
             };
         }
 
@@ -200,7 +196,7 @@ impl TodoPatch {
 
             match status {
                 TodoStatus::Completed => t.completed(Utc::now()),
-                _ if t.get_completed().is_some() => t.remove_property(KEY_COMPLETED),
+                _ if t.get_completed().is_some() => t.remove_completed(),
                 _ => t,
             };
         }

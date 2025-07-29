@@ -20,7 +20,7 @@ chrono-tz = "0.10"
 clap = { version = "4.5", features = ["derive"], optional = true }
 env_logger = "0.11"
 iana-time-zone = "0.1.63"
-icalendar = "0.17"
+icalendar = "0.17.1"
 log = "0.4"
 serde = { version = "1.0.219", features = ["derive"], optional = true }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
