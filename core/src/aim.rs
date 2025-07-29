@@ -4,7 +4,9 @@
 
 use crate::{
     Event, EventConditions, Pager, Priority, Todo, TodoConditions, TodoDraft, TodoSort,
-    cache::SqliteCache, todo::TodoPatch,
+    cache::SqliteCache,
+    event::ParsedEventConditions,
+    todo::{ParsedTodoConditions, ParsedTodoSort, TodoPatch},
 };
 use chrono::{DateTime, Duration, Local};
 use icalendar::{Calendar, CalendarComponent, Component};
@@ -62,12 +64,14 @@ impl Aim {
         conds: &EventConditions,
         pager: &Pager,
     ) -> Result<Vec<impl Event>, sqlx::Error> {
-        self.cache.events.list(self.now, conds, pager).await
+        let conds = ParsedEventConditions::parse(&self.now, conds);
+        self.cache.events.list(&conds, pager).await
     }
 
     /// Counts the number of events matching the given conditions.
     pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, sqlx::Error> {
-        self.cache.events.count(conds).await
+        let conds = ParsedEventConditions::parse(&self.now, conds);
+        self.cache.events.count(&conds).await
     }
 
     /// Add a new todo from the given draft.
@@ -126,12 +130,20 @@ impl Aim {
         sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<impl Todo>, sqlx::Error> {
-        self.cache.todos.list(self.now, conds, sort, pager).await
+        let conds = ParsedTodoConditions::parse(&self.now, conds);
+
+        let sort: Vec<_> = sort
+            .iter()
+            .map(|s| ParsedTodoSort::parse(&self.config, *s))
+            .collect();
+
+        self.cache.todos.list(&conds, &sort, pager).await
     }
 
     /// Counts the number of todos matching the given conditions.
     pub async fn count_todos(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
-        self.cache.todos.count(self.now, conds).await
+        let conds = ParsedTodoConditions::parse(&self.now, conds);
+        self.cache.todos.count(&conds).await
     }
 
     async fn add_calendar(&self, calendar_path: &PathBuf) -> Result<(), Box<dyn Error>> {
@@ -217,6 +229,9 @@ pub struct Config {
 
     /// Default priority for new tasks.
     pub default_priority: Priority,
+
+    /// If true, items with no priority will be listed first.
+    pub default_priority_none_fist: bool,
 }
 
 async fn parse_ics(path: &Path) -> Result<Calendar, Box<dyn Error>> {

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add shortcuts `new`/`edit` to launch the TUI editor
 - Add output format argument for `todo new` command
+- Add a config option for placing no-priority todos at the top
 
 ### Changed
 

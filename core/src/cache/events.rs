@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{Event, EventConditions, EventStatus, LooseDateTime, Pager};
+use crate::{Event, EventStatus, LooseDateTime, Pager, event::ParsedEventConditions};
 use chrono::{DateTime, Local};
 use sqlx::SqlitePool;
 
@@ -60,14 +60,13 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 
     pub async fn list(
         &self,
-        now: DateTime<Local>,
-        conds: &EventConditions,
+        conds: &ParsedEventConditions,
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
         let mut sql = "SELECT * FROM events".to_string();
 
         let mut where_clauses = Vec::new();
-        if conds.startable {
+        if conds.end_after.is_some() {
             where_clauses.push("end >= ?");
         }
         if !where_clauses.is_empty() {
@@ -78,8 +77,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
         sql += "ORDER BY start ASC LIMIT ? OFFSET ?";
 
         let mut executable = sqlx::query_as(&sql);
-        if conds.startable {
-            executable = executable.bind(format_dt(now));
+        if let Some(end_after) = conds.end_after {
+            executable = executable.bind(format_dt(end_after));
         }
 
         executable
@@ -89,10 +88,18 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
             .await
     }
 
-    pub async fn count(&self, _conds: &EventConditions) -> Result<i64, sqlx::Error> {
-        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM events")
-            .fetch_one(&self.pool)
-            .await?;
+    pub async fn count(&self, conds: &ParsedEventConditions) -> Result<i64, sqlx::Error> {
+        let mut sql = "SELECT COUNT(*) FROM events".to_string();
+        let mut where_clauses = Vec::new();
+        if conds.end_after.is_some() {
+            where_clauses.push("end >= ?");
+        }
+        if !where_clauses.is_empty() {
+            sql += " WHERE ";
+            sql += &where_clauses.join(" AND ");
+        }
+
+        let row: (i64,) = sqlx::query_as(&sql).fetch_one(&self.pool).await?;
         Ok(row.0)
     }
 }

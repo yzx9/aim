@@ -346,7 +346,7 @@ impl CmdTodoList {
         let sort = vec![
             TodoSort::Priority {
                 order: SortOrder::Desc,
-                none_first: false, // TODO: add config entry
+                none_first: None,
             },
             TodoSort::Due(SortOrder::Desc),
         ];

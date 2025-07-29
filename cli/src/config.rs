@@ -24,6 +24,9 @@ struct ConfigRaw {
 
     /// Default priority for new tasks, support "high", "mid", "low", "none" or 0-9.
     default_priority: Option<Priority>,
+
+    /// If true, tasks with "none" priority will be shown first in the list.
+    default_priority_none_fist: Option<bool>,
 }
 
 /// Configuration for the Aim application.
@@ -69,6 +72,7 @@ impl TryFrom<ConfigRaw> for Config {
                 calendar_path: expand_path(&raw.calendar_path)?,
                 default_due,
                 default_priority: raw.default_priority.unwrap_or_default(),
+                default_priority_none_fist: raw.default_priority_none_fist.unwrap_or(false),
             },
             state_dir,
         })

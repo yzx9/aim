@@ -295,10 +295,21 @@ pub struct TodoConditions {
     pub due: Option<Duration>,
 }
 
-impl TodoConditions {
-    /// The due datetime.
-    pub fn due_before(&self, now: DateTime<Local>) -> Option<DateTime<Local>> {
-        self.due.map(|a| now + a)
+/// Conditions for filtering todo items, such as current time, status, and due date.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ParsedTodoConditions {
+    /// The status of the todo item to filter by, if any.
+    pub status: Option<TodoStatus>,
+
+    /// The priority of the todo item to filter by, if any.
+    pub due: Option<DateTime<Local>>,
+}
+
+impl ParsedTodoConditions {
+    pub fn parse(now: &DateTime<Local>, conds: &TodoConditions) -> Self {
+        let status = conds.status;
+        let due = conds.due.map(|d| *now + d);
+        ParsedTodoConditions { status, due }
     }
 }
 
@@ -313,7 +324,34 @@ pub enum TodoSort {
         /// Sort order, either ascending or descending.
         order: SortOrder,
 
+        /// Put items with no priority first or last. If none, use the default
+        none_first: Option<bool>,
+    },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ParsedTodoSort {
+    /// Sort by the due date and time of the todo item.
+    Due(SortOrder),
+
+    /// Sort by the priority of the todo item.
+    Priority {
+        /// Sort order, either ascending or descending.
+        order: SortOrder,
+
         /// Put items with no priority first or last.
         none_first: bool,
     },
+}
+
+impl ParsedTodoSort {
+    pub fn parse(config: &Config, sort: TodoSort) -> Self {
+        match sort {
+            TodoSort::Due(order) => ParsedTodoSort::Due(order),
+            TodoSort::Priority { order, none_first } => ParsedTodoSort::Priority {
+                order,
+                none_first: none_first.unwrap_or(config.default_priority_none_fist),
+            },
+        }
+    }
 }

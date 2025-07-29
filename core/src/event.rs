@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::LooseDateTime;
+use chrono::{DateTime, Local};
 use icalendar::Component;
 use std::{fmt::Display, str::FromStr};
 
@@ -53,7 +54,7 @@ impl Event for icalendar::Event {
     }
 }
 
-/// Represents the status of an event, which can be tentative, confirmed, or cancelled.
+/// The status of an event, which can be tentative, confirmed, or cancelled.
 #[derive(Debug, Clone, Copy)]
 pub enum EventStatus {
     /// The event is tentative.
@@ -119,9 +120,23 @@ impl From<&icalendar::EventStatus> for EventStatus {
     }
 }
 
-/// Represents conditions for filtering events in a calendar.
+/// Conditions for filtering events in a calendar.
 #[derive(Debug, Clone, Copy)]
 pub struct EventConditions {
     /// Whether to include only startable events.
     pub startable: bool,
+}
+
+#[derive(Debug)]
+pub(crate) struct ParsedEventConditions {
+    /// The date and time after which the event must end to be considered startable.
+    pub end_after: Option<DateTime<Local>>,
+}
+
+impl ParsedEventConditions {
+    pub fn parse(now: &DateTime<Local>, conds: &EventConditions) -> Self {
+        Self {
+            end_after: conds.startable.then_some(*now),
+        }
+    }
 }

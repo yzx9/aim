@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{LooseDateTime, Pager, Priority, Todo, TodoConditions, TodoSort, TodoStatus};
+use crate::{
+    LooseDateTime, Pager, Priority, Todo, TodoStatus,
+    todo::{ParsedTodoConditions, ParsedTodoSort},
+};
 use chrono::{DateTime, Local};
 use sqlx::sqlite::SqlitePool;
 
@@ -86,17 +89,15 @@ WHERE uid = ?;
 
     pub async fn list(
         &self,
-        now: DateTime<Local>,
-        conds: &TodoConditions,
-        sort: &[TodoSort],
+        conds: &ParsedTodoConditions,
+        sort: &[ParsedTodoSort],
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
         let mut where_clauses = Vec::new();
         if conds.status.is_some() {
             where_clauses.push("status = ?");
         }
-        let due_before = conds.due_before(now);
-        if due_before.is_some() {
+        if conds.due.is_some() {
             where_clauses.push("due <= ?");
         }
 
@@ -110,11 +111,11 @@ WHERE uid = ?;
             sql += " ORDER BY ";
             for (i, s) in sort.iter().enumerate() {
                 match s {
-                    TodoSort::Due(order) => {
+                    ParsedTodoSort::Due(order) => {
                         sql += "due ";
                         sql += order.sql_keyword();
                     }
-                    TodoSort::Priority { order, none_first } => {
+                    ParsedTodoSort::Priority { order, none_first } => {
                         sql += match none_first {
                             true => "priority ",
                             false => "((priority + 9) % 10) ",
@@ -134,7 +135,7 @@ WHERE uid = ?;
         if let Some(status) = &conds.status {
             executable = executable.bind(AsRef::<str>::as_ref(status));
         }
-        if let Some(due) = due_before {
+        if let Some(due) = conds.due {
             executable = executable.bind(format_dt(due));
         }
 
@@ -145,19 +146,14 @@ WHERE uid = ?;
             .await
     }
 
-    pub async fn count(
-        &self,
-        now: DateTime<Local>,
-        conds: &TodoConditions,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn count(&self, conds: &ParsedTodoConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM todos".to_string();
 
         let mut where_clauses = Vec::new();
         if conds.status.is_some() {
             where_clauses.push("status = ?");
         }
-        let due_before = conds.due_before(now);
-        if due_before.is_some() {
+        if conds.due.is_some() {
             where_clauses.push("due <= ?");
         }
         if !where_clauses.is_empty() {
@@ -170,7 +166,7 @@ WHERE uid = ?;
             let status: &str = status.as_ref();
             executable = executable.bind(status);
         }
-        if let Some(due) = due_before {
+        if let Some(due) = conds.due {
             executable = executable.bind(format_dt(due));
         }
         let row: (i64,) = executable.fetch_one(&self.pool).await?;
