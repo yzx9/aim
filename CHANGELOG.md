@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.3] - 2025-07-30
+
 ### Added
 
 - Add shortcuts `new`/`edit` to launch the TUI editor
@@ -111,7 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add events and todos command
 - Add dashboard command
 
-[unreleased]: https://github.com/yzx9/aim/compare/v0.2.2...HEAD
+[unreleased]: https://github.com/yzx9/aim/compare/v0.2.3...HEAD
+[v0.2.3]: https://github.com/yzx9/aim/compare/v0.2.2...v0.2.3
 [v0.2.2]: https://github.com/yzx9/aim/compare/v0.2.1...v0.2.2
 [v0.2.1]: https://github.com/yzx9/aim/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/yzx9/aim/compare/v0.1.2...v0.2.0
