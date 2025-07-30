@@ -5,10 +5,17 @@
 use crate::{Config, LooseDateTime, Priority, SortOrder};
 use chrono::{DateTime, Duration, Local, Utc};
 use icalendar::Component;
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
 /// Trait representing a todo item.
 pub trait Todo {
+    /// The short identifier for the todo.
+    /// It will be `None` if the event does not have a short ID.
+    /// It is used for display purposes and may not be unique.
+    fn short_id(&self) -> Option<NonZeroU32> {
+        None
+    }
+
     /// Returns the unique identifier for the todo item.
     fn uid(&self) -> &str;
 
@@ -134,9 +141,6 @@ impl TodoDraft {
 /// Patch for a todo item, allowing partial updates.
 #[derive(Debug, Default, Clone)]
 pub struct TodoPatch {
-    /// The unique identifier for the todo item.
-    pub uid: String,
-
     /// The description of the todo item, if available.
     pub description: Option<Option<String>>,
 

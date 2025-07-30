@@ -34,9 +34,6 @@ struct ConfigRaw {
 pub struct Config {
     /// Core configuration for the calendar.
     pub core: CoreConfig,
-
-    /// Directory for storing application state.
-    pub state_dir: Option<PathBuf>,
 }
 
 impl TryFrom<ConfigRaw> for Config {
@@ -70,11 +67,11 @@ impl TryFrom<ConfigRaw> for Config {
         Ok(Self {
             core: CoreConfig {
                 calendar_path: expand_path(&raw.calendar_path)?,
+                state_dir,
                 default_due,
                 default_priority: raw.default_priority.unwrap_or_default(),
                 default_priority_none_fist: raw.default_priority_none_fist.unwrap_or(false),
             },
-            state_dir,
         })
     }
 }
@@ -165,7 +162,7 @@ fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
     state_dir.ok_or("User-specific state directory not found".into())
 }
 
-/// Parse a duration string in the format "HH:MM" / "1d" / "24h" / "60m" / "1800s" into a `chrono::Duration`.
+/// Parse a duration string in the format "HH:MM" / "1d" / "24h" / "60m" / "1800s".
 fn parse_duration(s: &str) -> Result<Duration, Box<dyn Error>> {
     // Try to parse "HH:MM" format
     if let Some((h, m)) = s.split_once(':') {

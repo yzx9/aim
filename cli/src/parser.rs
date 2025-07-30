@@ -2,41 +2,21 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::short_id::ShortIdMap;
-use aimcal_core::LooseDateTime;
+use aimcal_core::{Id, LooseDateTime};
 use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
 use clap::{Arg, ArgMatches, arg, value_parser};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ArgUidOrShortId(String);
-
-impl ArgUidOrShortId {
-    pub fn arg() -> Arg {
-        arg!(id: <ID> "The short id or uid of the todo to edit")
-            .value_parser(value_parser!(ArgUidOrShortId))
-    }
-
-    pub fn from(matches: &ArgMatches) -> ArgUidOrShortId {
-        matches
-            .get_one::<ArgUidOrShortId>("id")
-            .expect("id is required")
-            .clone()
-    }
-
-    /// Get the ID of the todo, either by parsing the UID or looking up the short ID.
-    pub fn get_id(self, map: &ShortIdMap) -> String {
-        self.0
-            .parse()
-            .ok()
-            .and_then(|a| map.find(a))
-            .unwrap_or_else(|| self.0.to_string())
-    }
+pub fn arg_id() -> Arg {
+    arg!(id: <ID> "The short id or uid of the todo to edit")
 }
 
-impl From<&str> for ArgUidOrShortId {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
-    }
+pub fn get_id(matches: &ArgMatches) -> Id {
+    let id = matches
+        .get_one::<String>("id")
+        .expect("id is required")
+        .clone();
+
+    Id::ShortIdOrUid(id)
 }
 
 /// The output format for commands

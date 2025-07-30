@@ -24,11 +24,12 @@ mod aim;
 mod cache;
 mod datetime;
 mod event;
+mod short_id;
 mod todo;
 mod types;
 
 pub use crate::{
-    aim::{Aim, Config},
+    aim::{Aim, Config, Id},
     datetime::{LooseDateTime, RangePosition},
     event::{Event, EventConditions, EventStatus},
     todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus},

@@ -4,7 +4,6 @@
 
 use crate::{
     parser::{ArgOutputFormat, format_datetime},
-    short_id::EventWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
 use aimcal_core::{Event, LooseDateTime, RangePosition};
@@ -24,7 +23,7 @@ impl EventFormatter {
         Self {
             now,
             columns: vec![
-                EventColumn::ShortId(EventColumnShortId),
+                EventColumn::ShortId(EventColumnId),
                 EventColumn::TimeRange(EventColumnTimeRange),
                 EventColumn::Summary(EventColumnSummary),
             ],
@@ -37,7 +36,7 @@ impl EventFormatter {
         self
     }
 
-    pub fn format<'a, E: Event>(&'a self, events: &'a [EventWithShortId<E>]) -> Display<'a, E> {
+    pub fn format<'a, E: Event>(&'a self, events: &'a [E]) -> Display<'a, E> {
         Display {
             events,
             formatter: self,
@@ -47,7 +46,7 @@ impl EventFormatter {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Display<'a, E: Event> {
-    events: &'a [EventWithShortId<E>],
+    events: &'a [E],
     formatter: &'a EventFormatter,
 }
 
@@ -80,7 +79,7 @@ impl<'a, E: Event> fmt::Display for Display<'a, E> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum EventColumn {
-    ShortId(EventColumnShortId),
+    ShortId(EventColumnId),
     Summary(EventColumnSummary),
     TimeRange(EventColumnTimeRange),
     #[allow(dead_code)]
@@ -93,10 +92,10 @@ struct ColumnMeta<'a> {
     now: DateTime<Local>,
 }
 
-impl<'a, E: Event> TableColumn<EventWithShortId<E>> for ColumnMeta<'a> {
+impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match self.column {
-            EventColumn::ShortId(_) => "Display Number",
+            EventColumn::ShortId(_) => "ID",
             EventColumn::Summary(_) => "Summary",
             EventColumn::TimeRange(_) => "Time Range",
             EventColumn::Uid(_) => "UID",
@@ -104,7 +103,7 @@ impl<'a, E: Event> TableColumn<EventWithShortId<E>> for ColumnMeta<'a> {
         .into()
     }
 
-    fn format<'b>(&self, data: &'b EventWithShortId<E>) -> Cow<'b, str> {
+    fn format<'b>(&self, data: &'b E) -> Cow<'b, str> {
         match self.column {
             EventColumn::ShortId(a) => a.format(data),
             EventColumn::Summary(a) => a.format(data),
@@ -120,7 +119,7 @@ impl<'a, E: Event> TableColumn<EventWithShortId<E>> for ColumnMeta<'a> {
         }
     }
 
-    fn get_color(&self, data: &EventWithShortId<E>) -> Option<Color> {
+    fn get_color(&self, data: &E) -> Option<Color> {
         match &self.column {
             EventColumn::TimeRange(v) => v.get_color(data, &self.now),
             _ => None,
@@ -129,11 +128,17 @@ impl<'a, E: Event> TableColumn<EventWithShortId<E>> for ColumnMeta<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct EventColumnShortId;
+pub struct EventColumnId;
 
-impl EventColumnShortId {
-    fn format<'a>(&self, event: &'a EventWithShortId<impl Event>) -> Cow<'a, str> {
-        event.short_id.to_string().into()
+impl EventColumnId {
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        if let Some(short_id) = event.short_id() {
+            short_id.to_string().into()
+        } else {
+            let uid = event.uid(); // Fallback to the full UID if no short ID is available
+            log::warn!("Event {uid} does not have a short ID, using UID instead.",);
+            uid.into()
+        }
     }
 }
 
@@ -141,8 +146,8 @@ impl EventColumnShortId {
 pub struct EventColumnSummary;
 
 impl EventColumnSummary {
-    fn format<'a>(&self, event: &'a EventWithShortId<impl Event>) -> Cow<'a, str> {
-        event.inner.summary().into()
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        event.summary().into()
     }
 }
 
@@ -150,8 +155,8 @@ impl EventColumnSummary {
 pub struct EventColumnTimeRange;
 
 impl EventColumnTimeRange {
-    fn format<'a>(&self, event: &'a EventWithShortId<impl Event>) -> Cow<'a, str> {
-        match (event.inner.start(), event.inner.end()) {
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        match (event.start(), event.end()) {
             (Some(start), Some(end)) => match start.date() == end.date() {
                 true => match (start.time(), end.time()) {
                     (Some(stime), Some(etime)) => format!(
@@ -181,21 +186,17 @@ impl EventColumnTimeRange {
         }
     }
 
-    fn get_color(
-        &self,
-        event: &EventWithShortId<impl Event>,
-        now: &DateTime<Local>,
-    ) -> Option<Color> {
+    fn get_color(&self, event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
         const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
         const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
 
-        let start = event.inner.start()?;
-        match LooseDateTime::position_in_range(&now.naive_local(), &start, &event.inner.end()) {
+        let start = event.start()?;
+        match LooseDateTime::position_in_range(&now.naive_local(), &start, &event.end()) {
             RangePosition::Before => COLOR_TODAY_LATE,
             RangePosition::InRange => COLOR_CURRENT,
             RangePosition::After => None,
             RangePosition::InvalidRange => {
-                log::warn!("Invalid range for event: {}", event.inner.uid());
+                log::warn!("Invalid range for event: {}", event.uid());
                 None
             }
         }
@@ -206,7 +207,7 @@ impl EventColumnTimeRange {
 pub struct EventColumnUid;
 
 impl EventColumnUid {
-    fn format<'a>(&self, event: &'a EventWithShortId<impl Event>) -> Cow<'a, str> {
-        format!("#{}", event.inner.uid()).into()
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        format!("#{}", event.uid()).into()
     }
 }

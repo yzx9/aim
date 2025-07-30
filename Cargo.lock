@@ -39,7 +39,6 @@ name = "aimcal-cli"
 version = "0.2.2"
 dependencies = [
  "aimcal-core",
- "bimap",
  "chrono",
  "clap",
  "clap-num",
@@ -53,7 +52,6 @@ dependencies = [
  "log",
  "ratatui",
  "serde",
- "serde_json",
  "tokio",
  "toml",
  "unicode-width 0.2.0",
@@ -64,6 +62,7 @@ dependencies = [
 name = "aimcal-core"
 version = "0.2.2"
 dependencies = [
+ "bimap",
  "chrono",
  "chrono-tz",
  "clap",

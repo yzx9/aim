@@ -5,15 +5,19 @@
 use crate::LooseDateTime;
 use chrono::{DateTime, Local};
 use icalendar::Component;
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
 /// Trait representing a calendar event.
 pub trait Event {
+    /// The short identifier for the event.
+    /// It will be `None` if the event does not have a short ID.
+    /// It is used for display purposes and may not be unique.
+    fn short_id(&self) -> Option<NonZeroU32> {
+        None
+    }
+
     /// The unique identifier for the event.
     fn uid(&self) -> &str;
-
-    /// The summary of the event.
-    fn summary(&self) -> &str;
 
     /// The description of the event, if available.
     fn description(&self) -> Option<&str>;
@@ -26,15 +30,14 @@ pub trait Event {
 
     /// The status of the event, if available.
     fn status(&self) -> Option<EventStatus>;
+
+    /// The summary of the event.
+    fn summary(&self) -> &str;
 }
 
 impl Event for icalendar::Event {
     fn uid(&self) -> &str {
         self.get_uid().unwrap_or("")
-    }
-
-    fn summary(&self) -> &str {
-        self.get_summary().unwrap_or("")
     }
 
     fn description(&self) -> Option<&str> {
@@ -51,6 +54,10 @@ impl Event for icalendar::Event {
 
     fn status(&self) -> Option<EventStatus> {
         self.get_status().map(|a| EventStatus::from(&a))
+    }
+
+    fn summary(&self) -> &str {
+        self.get_summary().unwrap_or("")
     }
 }
 

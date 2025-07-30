@@ -29,7 +29,6 @@ mod cmd_tui;
 mod config;
 mod event_formatter;
 mod parser;
-mod short_id;
 mod table;
 mod todo_editor;
 mod todo_formatter;

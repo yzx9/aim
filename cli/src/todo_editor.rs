@@ -6,7 +6,7 @@ use crate::{
     Config,
     parser::{format_datetime, parse_datetime},
 };
-use aimcal_core::{Aim, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
+use aimcal_core::{Aim, Id, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
     prelude::*,
@@ -44,7 +44,7 @@ impl TodoEditor {
         result
     }
 
-    pub async fn run_patch(aim: &mut Aim, uid: &str) -> Result<Option<TodoPatch>, Box<dyn Error>> {
+    pub async fn run_patch(aim: &mut Aim, uid: &Id) -> Result<Option<TodoPatch>, Box<dyn Error>> {
         let todo = aim.get_todo(uid).await?.ok_or("Todo not found")?;
         let mut that = Self::new_with(todo.into());
 
@@ -191,7 +191,6 @@ impl Store {
 
     fn submit_patch(self) -> Result<TodoPatch, Box<dyn Error>> {
         Ok(TodoPatch {
-            uid: self.data.uid,
             description: match self.dirty.description {
                 true if self.data.description.is_empty() => Some(None),
                 true => Some(Some(self.data.description.clone())),
@@ -226,7 +225,6 @@ enum Action {
 
 #[derive(Debug, Default)]
 struct Data {
-    uid: String,
     description: String,
     due: String,
     percent_complete: String,
@@ -238,7 +236,6 @@ struct Data {
 impl<T: Todo> From<T> for Data {
     fn from(todo: T) -> Self {
         Self {
-            uid: todo.uid().to_owned(),
             description: todo.description().unwrap_or("").to_owned(),
             due: todo.due().map(format_datetime).unwrap_or("".to_string()),
             percent_complete: todo

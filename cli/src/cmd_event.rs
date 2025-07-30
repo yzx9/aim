@@ -2,11 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    event_formatter::EventFormatter,
-    parser::ArgOutputFormat,
-    short_id::{EventWithShortId, ShortIdMap},
-};
+use crate::{event_formatter::EventFormatter, parser::ArgOutputFormat};
 use aimcal_core::{Aim, EventConditions, Pager};
 use clap::{ArgMatches, Command};
 use colored::Colorize;
@@ -34,15 +30,14 @@ impl CmdEventList {
         }
     }
 
-    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Listing events...");
-        Self::list(aim, map, &self.conds, self.output_format).await
+        Self::list(aim, &self.conds, self.output_format).await
     }
 
     /// List events with the given conditions and output format.
     pub async fn list(
         aim: &Aim,
-        map: &ShortIdMap,
         conds: &EventConditions,
         output_format: ArgOutputFormat,
     ) -> Result<(), Box<dyn Error>> {
@@ -58,11 +53,6 @@ impl CmdEventList {
             println!("{}", "No events found".italic());
             return Ok(());
         }
-
-        let events: Vec<_> = events
-            .into_iter()
-            .map(|event| EventWithShortId::with(map, event))
-            .collect();
 
         let formatter = EventFormatter::new(aim.now()).with_output_format(output_format);
         println!("{}", formatter.format(&events));

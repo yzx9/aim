@@ -4,13 +4,12 @@
 
 use crate::{
     Config,
-    parser::{ArgOutputFormat, ArgUidOrShortId, parse_datetime},
-    short_id::{ShortIdMap, TodoWithShortId},
+    parser::{ArgOutputFormat, arg_id, get_id, parse_datetime},
     todo_editor::TodoEditor,
     todo_formatter::TodoFormatter,
 };
 use aimcal_core::{
-    Aim, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus,
+    Aim, Id, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus,
 };
 use chrono::Duration;
 use clap::{Arg, ArgMatches, Command, arg};
@@ -20,14 +19,14 @@ use std::error::Error;
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
-    pub output_format: ArgOutputFormat,
-
     pub description: Option<String>,
     pub due: Option<String>,
     pub percent_complete: Option<u8>,
     pub priority: Option<Priority>,
     pub status: Option<TodoStatus>,
     pub summary: Option<String>,
+
+    pub output_format: ArgOutputFormat,
 }
 
 impl CmdTodoNew {
@@ -70,44 +69,37 @@ impl CmdTodoNew {
         };
 
         Ok(Self {
-            output_format: ArgOutputFormat::from(matches),
-
             description,
             due,
             percent_complete,
             priority,
             status,
             summary,
+
+            output_format: ArgOutputFormat::from(matches),
         })
     }
 
     pub fn new() -> Self {
         Self {
-            output_format: ArgOutputFormat::Table,
-
             description: None,
             due: None,
             percent_complete: None,
             priority: None,
             status: None,
             summary: None,
+
+            output_format: ArgOutputFormat::Table,
         }
     }
 
-    pub async fn run(
-        self,
-        config: &Config,
-        aim: &mut Aim,
-        map: &ShortIdMap,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, config: &Config, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Adding new todo...");
 
         let draft = if let Some(summary) = self.summary {
-            let due = self.due.map(|a| parse_datetime(&a)).transpose()?.flatten();
-
             TodoDraft {
                 description: self.description,
-                due,
+                due: self.due.map(|a| parse_datetime(&a)).transpose()?.flatten(),
                 percent_complete: self.percent_complete,
                 priority: self.priority,
                 status: self.status,
@@ -124,7 +116,6 @@ impl CmdTodoNew {
         };
         let todo = aim.new_todo(draft).await?;
 
-        let todo = TodoWithShortId::with(map, todo);
         let formatter = TodoFormatter::new(aim.now()).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
 
@@ -134,15 +125,15 @@ impl CmdTodoNew {
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoEdit {
-    pub uid_or_short_id: ArgUidOrShortId,
-    pub output_format: ArgOutputFormat,
-
+    pub id: Id,
     pub description: Option<String>,
     pub due: Option<String>,
     pub percent_complete: Option<u8>,
     pub priority: Option<Priority>,
     pub status: Option<TodoStatus>,
     pub summary: Option<String>,
+
+    pub output_format: ArgOutputFormat,
 }
 
 impl CmdTodoEdit {
@@ -151,7 +142,7 @@ impl CmdTodoEdit {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Edit a todo item")
-            .arg(ArgUidOrShortId::arg())
+            .arg(arg_id())
             .arg(TodoEdit::arg_summary(false))
             .arg(TodoEdit::arg_due())
             .arg(TodoEdit::arg_description())
@@ -163,35 +154,35 @@ impl CmdTodoEdit {
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: ArgUidOrShortId::from(matches),
-            output_format: ArgOutputFormat::from(matches),
-
+            id: get_id(matches),
             description: TodoEdit::get_description(matches),
             due: TodoEdit::get_due(matches),
             percent_complete: TodoEdit::get_percent_complete(matches),
             priority: TodoEdit::get_priority(matches),
             status: TodoEdit::get_status(matches),
             summary: TodoEdit::parse_summary(matches),
+
+            output_format: ArgOutputFormat::from(matches),
         }
     }
 
-    pub fn new(uid_or_short_id: ArgUidOrShortId, output_format: ArgOutputFormat) -> Self {
+    pub fn new(id: Id, output_format: ArgOutputFormat) -> Self {
         Self {
-            uid_or_short_id,
-            output_format,
+            id,
             description: None,
             due: None,
             percent_complete: None,
             priority: None,
             status: None,
             summary: None,
+
+            output_format,
         }
     }
 
-    pub async fn run(self, aim: &mut Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         let patch = if self.is_empty() {
-            let uid = self.uid_or_short_id.get_id(map);
-            match TodoEditor::run_patch(aim, &uid).await? {
+            match TodoEditor::run_patch(aim, &self.id).await? {
                 Some(data) => data,
                 None => {
                     log::info!("User canceled the todo edit");
@@ -200,7 +191,6 @@ impl CmdTodoEdit {
             }
         } else {
             TodoPatch {
-                uid: self.uid_or_short_id.get_id(map),
                 description: self.description.map(|d| (!d.is_empty()).then_some(d)),
                 due: self.due.as_ref().map(|a| parse_datetime(a)).transpose()?,
                 priority: self.priority,
@@ -211,10 +201,11 @@ impl CmdTodoEdit {
         };
 
         TodoEdit {
-            output_format: self.output_format,
+            id: self.id,
             patch,
+            output_format: self.output_format,
         }
-        .run(aim, map)
+        .run(aim)
         .await
     }
 
@@ -230,7 +221,7 @@ impl CmdTodoEdit {
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoDone {
-    pub uid_or_short_id: ArgUidOrShortId,
+    pub id: Id,
     pub output_format: ArgOutputFormat,
 }
 
@@ -240,35 +231,35 @@ impl CmdTodoDone {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Mark a todo item as done")
-            .arg(ArgUidOrShortId::arg())
+            .arg(arg_id())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: ArgUidOrShortId::from(matches),
+            id: get_id(matches),
             output_format: ArgOutputFormat::from(matches),
         }
     }
 
-    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Marking todo as done...");
         TodoEdit {
+            id: self.id,
             output_format: self.output_format,
             patch: TodoPatch {
-                uid: self.uid_or_short_id.get_id(map),
                 status: Some(TodoStatus::Completed),
                 ..Default::default()
             },
         }
-        .run(aim, map)
+        .run(aim)
         .await
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoUndo {
-    pub uid_or_short_id: ArgUidOrShortId,
+    pub id: Id,
     pub output_format: ArgOutputFormat,
 }
 
@@ -278,28 +269,28 @@ impl CmdTodoUndo {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Mark a todo item as undone")
-            .arg(ArgUidOrShortId::arg())
+            .arg(arg_id())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: ArgUidOrShortId::from(matches),
+            id: get_id(matches),
             output_format: ArgOutputFormat::from(matches),
         }
     }
 
-    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Marking todo as undone...");
         TodoEdit {
+            id: self.id,
             output_format: self.output_format,
             patch: TodoPatch {
-                uid: self.uid_or_short_id.get_id(map),
                 status: Some(TodoStatus::NeedsAction),
                 ..Default::default()
             },
         }
-        .run(aim, map)
+        .run(aim)
         .await
     }
 }
@@ -329,15 +320,14 @@ impl CmdTodoList {
         }
     }
 
-    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Listing todos...");
-        Self::list(aim, map, &self.conds, self.output_format).await?;
+        Self::list(aim, &self.conds, self.output_format).await?;
         Ok(())
     }
 
     pub async fn list(
         aim: &Aim,
-        map: &ShortIdMap,
         conds: &TodoConditions,
         output_format: ArgOutputFormat,
     ) -> Result<(), Box<dyn Error>> {
@@ -360,11 +350,6 @@ impl CmdTodoList {
             println!("{}", "No todos found".italic());
         }
 
-        let todos: Vec<_> = todos
-            .into_iter()
-            .map(|todo| TodoWithShortId::with(map, todo))
-            .collect();
-
         let formatter = TodoFormatter::new(aim.now()).with_output_format(output_format);
         println!("{}", formatter.format(&todos));
         Ok(())
@@ -373,8 +358,9 @@ impl CmdTodoList {
 
 #[derive(Debug, Clone)]
 struct TodoEdit {
-    output_format: ArgOutputFormat,
+    id: Id,
     patch: TodoPatch,
+    output_format: ArgOutputFormat,
 }
 
 impl TodoEdit {
@@ -425,10 +411,9 @@ impl TodoEdit {
     }
 
     fn arg_summary(positional: bool) -> Arg {
-        if positional {
-            arg!(summary: <SUMMARY> "Summary of the todo").required(false)
-        } else {
-            arg!(summary: -s --summary <SUMMARY> "Summary of the todo")
+        match positional {
+            true => arg!(summary: <SUMMARY> "Summary of the todo").required(false),
+            false => arg!(summary: -s --summary <SUMMARY> "Summary of the todo"),
         }
     }
 
@@ -436,10 +421,9 @@ impl TodoEdit {
         matches.get_one::<String>("summary").cloned()
     }
 
-    async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Edit todo ...");
-        let todo = aim.update_todo(self.patch).await?;
-        let todo = TodoWithShortId::with(map, todo);
+        let todo = aim.update_todo(self.id, self.patch).await?;
         let formatter = TodoFormatter::new(aim.now()).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
         Ok(())
@@ -541,7 +525,7 @@ mod tests {
             .unwrap();
         let sub_matches = matches.subcommand_matches("edit").unwrap();
         let parsed = CmdTodoEdit::from(sub_matches);
-        assert_eq!(parsed.uid_or_short_id, "test_id".into());
+        assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
@@ -559,7 +543,7 @@ mod tests {
             .unwrap();
         let sub_matches = matches.subcommand_matches("done").unwrap();
         let parsed = CmdTodoDone::from(sub_matches);
-        assert_eq!(parsed.uid_or_short_id, "abc".into());
+        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 
@@ -575,7 +559,7 @@ mod tests {
 
         let sub_matches = matches.subcommand_matches("undo").unwrap();
         let parsed = CmdTodoUndo::from(sub_matches);
-        assert_eq!(parsed.uid_or_short_id, "abc".into());
+        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 

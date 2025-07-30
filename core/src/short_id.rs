@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::config::Config;
-use aimcal_core::{Event, Todo};
+use crate::{Config, Event, EventStatus, Id, LooseDateTime, Priority, Todo, TodoStatus};
 use bimap::BiBTreeMap;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::{
     io,
+    num::NonZeroU32,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
@@ -24,8 +24,8 @@ pub struct ShortIdMap {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Inner {
-    map: BiBTreeMap<String, i64>,
-    next: i64,
+    map: BiBTreeMap<String, NonZeroU32>,
+    next: NonZeroU32,
     last_modified: DateTime<Local>,
 }
 
@@ -33,7 +33,7 @@ impl Default for Inner {
     fn default() -> Self {
         Self {
             map: BiBTreeMap::new(),
-            next: 1,
+            next: NonZeroU32::new(1).expect("Failed to create NonZeroU32"),
             last_modified: Local::now(),
         }
     }
@@ -96,7 +96,7 @@ impl ShortIdMap {
     /// Get or allocate a display number for the given uid.
     ///
     /// If the UID is not already in the map, a new number is assigned and returned.
-    pub fn get_or_assign(&self, uid: &str) -> i64 {
+    pub fn get_or_assign_short_id(&self, uid: &str) -> NonZeroU32 {
         // First try read-only access
         {
             let inner = self.inner.read().unwrap();
@@ -108,22 +108,36 @@ impl ShortIdMap {
         // Upgrade to write lock when needed
         let mut inner = self.inner.write().unwrap();
         if let Some(&id) = inner.map.get_by_left(uid) {
-            return id;
+            return id; // Check again in the write lock
         }
 
         let id = inner.next;
-        inner.next += 1;
+        inner.next = inner.next.saturating_add(1);
         inner.map.insert(uid.to_string(), id);
         id
     }
 
-    pub fn find(&self, short_id: i64) -> Option<String> {
-        self.inner
-            .read()
-            .unwrap()
-            .map
-            .get_by_right(&short_id)
-            .cloned()
+    pub fn get_uid(&self, id: Id) -> String {
+        if let Id::ShortIdOrUid(uid) = &id {
+            if let Ok(short_id) = uid.parse::<NonZeroU32>() {
+                let uid = self
+                    .inner
+                    .read()
+                    .unwrap()
+                    .map
+                    .get_by_right(&short_id)
+                    .cloned();
+
+                if let Some(uid) = uid {
+                    return uid;
+                }
+            }
+        }
+
+        match id {
+            Id::Uid(uid) => uid,
+            Id::ShortIdOrUid(uid) => uid,
+        }
     }
 
     fn get_map_path(config: &Config) -> Option<PathBuf> {
@@ -134,31 +148,101 @@ impl ShortIdMap {
 #[derive(Debug)]
 pub struct EventWithShortId<E: Event> {
     pub inner: E,
-    pub short_id: i64,
+    pub short_id: NonZeroU32,
 }
 
 impl<E: Event> EventWithShortId<E> {
-    pub fn with(map: &ShortIdMap, event: E) -> Self {
-        let short_id = map.get_or_assign(event.uid());
-        Self {
+    pub fn with(map: &ShortIdMap, event: E) -> Result<Self, String> {
+        let short_id = if let Some(short_id) = event.short_id() {
+            short_id // If the todo already has a short ID, use it directly
+        } else {
+            map.get_or_assign_short_id(event.uid())
+        };
+
+        Ok(Self {
             inner: event,
             short_id,
-        }
+        })
+    }
+}
+
+impl<E: Event> Event for EventWithShortId<E> {
+    fn short_id(&self) -> Option<NonZeroU32> {
+        Some(self.short_id)
+    }
+
+    fn uid(&self) -> &str {
+        self.inner.uid()
+    }
+
+    fn description(&self) -> Option<&str> {
+        self.inner.description()
+    }
+
+    fn start(&self) -> Option<LooseDateTime> {
+        self.inner.start()
+    }
+
+    fn end(&self) -> Option<LooseDateTime> {
+        self.inner.end()
+    }
+
+    fn status(&self) -> Option<EventStatus> {
+        self.inner.status()
+    }
+
+    fn summary(&self) -> &str {
+        self.inner.summary()
     }
 }
 
 #[derive(Debug)]
 pub struct TodoWithShortId<T: Todo> {
     pub inner: T,
-    pub short_id: i64,
+    pub short_id: NonZeroU32,
 }
 
 impl<T: Todo> TodoWithShortId<T> {
-    pub fn with(map: &ShortIdMap, todo: T) -> Self {
-        let short_id = map.get_or_assign(todo.uid());
-        Self {
+    pub fn with(map: &ShortIdMap, todo: T) -> Result<Self, String> {
+        let short_id = if let Some(short_id) = todo.short_id() {
+            short_id // If the todo already has a short ID, use it directly
+        } else {
+            map.get_or_assign_short_id(todo.uid())
+        };
+
+        Ok(Self {
             inner: todo,
             short_id,
-        }
+        })
+    }
+}
+
+impl<T: Todo> Todo for TodoWithShortId<T> {
+    fn short_id(&self) -> Option<NonZeroU32> {
+        Some(self.short_id)
+    }
+    fn uid(&self) -> &str {
+        self.inner.uid()
+    }
+    fn completed(&self) -> Option<DateTime<Local>> {
+        self.inner.completed()
+    }
+    fn description(&self) -> Option<&str> {
+        self.inner.description()
+    }
+    fn due(&self) -> Option<LooseDateTime> {
+        self.inner.due()
+    }
+    fn percent_complete(&self) -> Option<u8> {
+        self.inner.percent_complete()
+    }
+    fn priority(&self) -> Priority {
+        self.inner.priority()
+    }
+    fn status(&self) -> TodoStatus {
+        self.inner.status()
+    }
+    fn summary(&self) -> &str {
+        self.inner.summary()
     }
 }

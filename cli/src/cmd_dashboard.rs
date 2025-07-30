@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    cmd_event::CmdEventList, cmd_todo::CmdTodoList, parser::ArgOutputFormat, short_id::ShortIdMap,
-};
+use crate::{cmd_event::CmdEventList, cmd_todo::CmdTodoList, parser::ArgOutputFormat};
 use aimcal_core::{Aim, EventConditions, TodoConditions, TodoStatus};
 use chrono::Duration;
 use clap::{ArgMatches, Command};
@@ -28,11 +26,11 @@ impl CmdDashboard {
     }
 
     /// Show the dashboard with events and todos.
-    pub async fn run(self, aim: &Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Generating dashboard...");
         println!("🗓️ {}", "Events".bold());
         let conds = EventConditions { startable: true };
-        CmdEventList::list(aim, map, &conds, ArgOutputFormat::Table).await?;
+        CmdEventList::list(aim, &conds, ArgOutputFormat::Table).await?;
         println!();
 
         println!("✅ {}", "Todos".bold());
@@ -40,7 +38,7 @@ impl CmdDashboard {
             status: Some(TodoStatus::NeedsAction),
             due: Some(Duration::days(2)),
         };
-        CmdTodoList::list(aim, map, &conds, ArgOutputFormat::Table).await?;
+        CmdTodoList::list(aim, &conds, ArgOutputFormat::Table).await?;
         Ok(())
     }
 }

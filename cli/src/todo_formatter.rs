@@ -4,7 +4,6 @@
 
 use crate::{
     parser::{ArgOutputFormat, format_datetime},
-    short_id::TodoWithShortId,
     table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
 };
 use aimcal_core::{LooseDateTime, Priority, RangePosition, Todo, TodoStatus};
@@ -25,7 +24,7 @@ impl TodoFormatter {
             now,
             columns: vec![
                 TodoColumn::Status(TodoColumnStatus),
-                TodoColumn::DisplayNumber(TodoColumnDisplayNumber),
+                TodoColumn::Id(TodoColumnId),
                 TodoColumn::Priority(TodoColumnPriority),
                 TodoColumn::Due(TodoColumnDue),
                 TodoColumn::Summary(TodoColumnSummary),
@@ -39,7 +38,7 @@ impl TodoFormatter {
         self
     }
 
-    pub fn format<'a, T: Todo>(&'a self, todos: &'a [TodoWithShortId<T>]) -> Display<'a, T> {
+    pub fn format<'a, T: Todo>(&'a self, todos: &'a [T]) -> Display<'a, T> {
         Display {
             todos,
             formatter: self,
@@ -49,7 +48,7 @@ impl TodoFormatter {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Display<'a, T: Todo> {
-    todos: &'a [TodoWithShortId<T>],
+    todos: &'a [T],
     formatter: &'a TodoFormatter,
 }
 
@@ -82,7 +81,7 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum TodoColumn {
-    DisplayNumber(TodoColumnDisplayNumber),
+    Id(TodoColumnId),
     Due(TodoColumnDue),
     Priority(TodoColumnPriority),
     Status(TodoColumnStatus),
@@ -97,10 +96,10 @@ struct ColumnMeta<'a> {
     now: DateTime<Local>,
 }
 
-impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for ColumnMeta<'a> {
+impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match &self.column {
-            TodoColumn::DisplayNumber(_) => "Display Number",
+            TodoColumn::Id(_) => "ID",
             TodoColumn::Due(_) => "Due",
             TodoColumn::Priority(_) => "Priority",
             TodoColumn::Status(_) => "Status",
@@ -110,9 +109,9 @@ impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for ColumnMeta<'a> {
         .into()
     }
 
-    fn format<'b>(&self, data: &'b TodoWithShortId<T>) -> Cow<'b, str> {
+    fn format<'b>(&self, data: &'b T) -> Cow<'b, str> {
         match &self.column {
-            TodoColumn::DisplayNumber(a) => a.format(data),
+            TodoColumn::Id(a) => a.format(data),
             TodoColumn::Due(a) => a.format(data),
             TodoColumn::Priority(a) => a.format(data),
             TodoColumn::Status(a) => a.format(data),
@@ -123,14 +122,14 @@ impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for ColumnMeta<'a> {
 
     fn padding_direction(&self) -> PaddingDirection {
         match &self.column {
-            TodoColumn::DisplayNumber(_) | TodoColumn::Priority(_) | TodoColumn::Uid(_) => {
+            TodoColumn::Id(_) | TodoColumn::Priority(_) | TodoColumn::Uid(_) => {
                 PaddingDirection::Right
             }
             _ => PaddingDirection::Left,
         }
     }
 
-    fn get_color(&self, data: &TodoWithShortId<T>) -> Option<Color> {
+    fn get_color(&self, data: &T) -> Option<Color> {
         match &self.column {
             TodoColumn::Due(v) => v.get_color(data, &self.now),
             TodoColumn::Priority(v) => v.get_color(),
@@ -140,11 +139,17 @@ impl<'a, T: Todo> TableColumn<TodoWithShortId<T>> for ColumnMeta<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct TodoColumnDisplayNumber;
+pub struct TodoColumnId;
 
-impl TodoColumnDisplayNumber {
-    fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
-        todo.short_id.to_string().into()
+impl TodoColumnId {
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        if let Some(short_id) = todo.short_id() {
+            short_id.to_string().into()
+        } else {
+            let uid = todo.uid(); // Fallback to the full UID if no short ID is available
+            log::warn!("Todo {uid} does not have a short ID, using UID instead.",);
+            uid.into()
+        }
     }
 }
 
@@ -152,17 +157,15 @@ impl TodoColumnDisplayNumber {
 pub struct TodoColumnDue;
 
 impl TodoColumnDue {
-    pub fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
-        todo.inner
-            .due()
-            .map_or("".into(), |a| format_datetime(a).into())
+    pub fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        todo.due().map_or("".into(), |a| format_datetime(a).into())
     }
 
-    fn get_color(&self, todo: &TodoWithShortId<impl Todo>, now: &DateTime<Local>) -> Option<Color> {
+    fn get_color(&self, todo: &impl Todo, now: &DateTime<Local>) -> Option<Color> {
         const COLOR_OVERDUE: Option<Color> = Some(Color::Red);
         const COLOR_TODAY: Option<Color> = Some(Color::Yellow);
 
-        let due = todo.inner.due()?;
+        let due = todo.due()?;
         match LooseDateTime::position_in_range(
             &now.naive_local(),
             &due,
@@ -172,7 +175,7 @@ impl TodoColumnDue {
             RangePosition::InRange => COLOR_TODAY,
             RangePosition::After => COLOR_OVERDUE,
             RangePosition::InvalidRange => {
-                log::warn!("Invalid due date for todo: {}", todo.inner.uid());
+                log::warn!("Invalid due date for todo: {}", todo.uid());
                 None
             }
         }
@@ -183,8 +186,8 @@ impl TodoColumnDue {
 pub struct TodoColumnPriority;
 
 impl TodoColumnPriority {
-    fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
-        match todo.inner.priority() {
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        match todo.priority() {
             // TODO: Use a more sophisticated mapping for priority to string
             Priority::P1 | Priority::P2 | Priority::P3 => "!!!",
             Priority::P4 | Priority::P5 | Priority::P6 => "!!",
@@ -203,13 +206,13 @@ impl TodoColumnPriority {
 pub struct TodoColumnStatus;
 
 impl TodoColumnStatus {
-    fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
-        match todo.inner.status() {
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        match todo.status() {
             TodoStatus::NeedsAction => "[ ]".into(),
             TodoStatus::Completed => "[x]".into(),
             TodoStatus::Cancelled => " ✗ ".into(),
             TodoStatus::InProcess => {
-                let percent = todo.inner.percent_complete().unwrap_or_default();
+                let percent = todo.percent_complete().unwrap_or_default();
                 match percent {
                     0 => "[ ]".into(),
                     100 => "[x]".into(),
@@ -224,8 +227,8 @@ impl TodoColumnStatus {
 pub struct TodoColumnSummary;
 
 impl TodoColumnSummary {
-    fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
-        todo.inner.summary().into()
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        todo.summary().into()
     }
 }
 
@@ -233,7 +236,7 @@ impl TodoColumnSummary {
 pub struct TodoColumnUid;
 
 impl TodoColumnUid {
-    fn format<'a>(&self, todo: &'a TodoWithShortId<impl Todo>) -> Cow<'a, str> {
-        todo.inner.uid().into()
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        todo.uid().into()
     }
 }

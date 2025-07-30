@@ -8,10 +8,9 @@
 use crate::{
     Config,
     cmd_todo::{CmdTodoEdit, CmdTodoNew},
-    parser::{ArgOutputFormat, ArgUidOrShortId},
-    short_id::ShortIdMap,
+    parser::{ArgOutputFormat, arg_id, get_id},
 };
-use aimcal_core::Aim;
+use aimcal_core::{Aim, Id};
 use clap::{ArgMatches, Command};
 use std::error::Error;
 
@@ -35,20 +34,15 @@ impl CmdNew {
         }
     }
 
-    pub async fn run(
-        self,
-        config: &Config,
-        aim: &mut Aim,
-        map: &ShortIdMap,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, config: &Config, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
-        CmdTodoNew::new().run(config, aim, map).await
+        CmdTodoNew::new().run(config, aim).await
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdEdit {
-    pub uid_or_short_id: ArgUidOrShortId,
+    pub uid_or_short_id: Id,
     pub output_format: ArgOutputFormat,
 }
 
@@ -58,21 +52,21 @@ impl CmdEdit {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Edit a event or todo using TUI")
-            .arg(ArgUidOrShortId::arg())
+            .arg(arg_id())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: ArgUidOrShortId::from(matches),
+            uid_or_short_id: get_id(matches),
             output_format: ArgOutputFormat::from(matches),
         }
     }
 
-    pub async fn run(self, aim: &mut Aim, map: &ShortIdMap) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
         CmdTodoEdit::new(self.uid_or_short_id, self.output_format)
-            .run(aim, map)
+            .run(aim)
             .await
     }
 }

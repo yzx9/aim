@@ -10,14 +10,12 @@ use crate::{
     cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo},
     cmd_tui::{CmdEdit, CmdNew},
     config::APP_NAME,
-    short_id::ShortIdMap,
 };
 use aimcal_core::Aim;
 use clap::{Command, ValueHint, arg, builder::styling, crate_version, value_parser};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
 use std::{error::Error, path::PathBuf};
-use tokio::try_join;
 
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
@@ -176,37 +174,30 @@ impl Commands {
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         use Commands::*;
         match self {
-            Dashboard(a) => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
-            New(a)       => Self::run_with(config, |x, y, z| a.run(x, y, z).boxed()).await,
-            Edit(a)      => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
-            EventList(a) => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
-            TodoNew(a)   => Self::run_with(config, |x, y, z| a.run(x, y, z).boxed()).await,
-            TodoEdit(a)  => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
-            TodoDone(a)  => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
-            TodoUndo(a)  => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
-            TodoList(a)  => Self::run_with(config, |_, y, z| a.run(   y, z).boxed()).await,
+            Dashboard(a) => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
+            New(a)       => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
+            Edit(a)      => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
+            EventList(a) => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
+            TodoNew(a)   => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
+            TodoEdit(a)  => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
+            TodoDone(a)  => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
+            TodoUndo(a)  => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
+            TodoList(a)  => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
             GenerateCompletion(a) => a.run(),
         }
     }
 
     async fn run_with<F>(config: Option<PathBuf>, f: F) -> Result<(), Box<dyn Error>>
     where
-        F: for<'a> FnOnce(
-            &'a Config,
-            &'a mut Aim,
-            &'a ShortIdMap,
-        ) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
+        F: for<'a> FnOnce(&'a Config, &'a mut Aim) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
     {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
-        let (mut aim, map) = try_join!(
-            Aim::new(config.core.clone()),
-            ShortIdMap::load_or_new(&config)
-        )?;
+        let mut aim = Aim::new(config.core.clone()).await?;
 
-        f(&config, &mut aim, &map).await?;
+        f(&config, &mut aim).await?;
 
-        map.dump(&config).await?;
+        aim.dump().await?;
         Ok(())
     }
 }

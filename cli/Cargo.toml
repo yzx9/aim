@@ -19,11 +19,7 @@ name = "aim"
 path = "src/main.rs"
 
 [dependencies]
-aimcal-core = { path = "../core", version = "0.2.1", features = [
-  "clap",
-  "serde",
-] }
-bimap = { version = "0.6.3", features = ["serde"] }
+aimcal-core = { path = "../core", version = "0.2.1", features = ["clap"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5", features = ["cargo", "color", "derive"] }
 clap-num = "1.2.0"
@@ -37,7 +33,6 @@ futures = "0.3.31"
 log = "0.4"
 ratatui = "0.29.0"
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.141"
 tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread"] }
 toml = "0.8"
 unicode-width = "0.2"

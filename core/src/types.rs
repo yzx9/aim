@@ -39,59 +39,58 @@ impl From<(i64, i64)> for Pager {
 }
 
 /// Priority of a task or item, with values ranging from 1 to 9, and None for no priority.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum Priority {
     /// No priority.
     #[default]
+    #[serde(rename = "none", alias = "0")]
     #[cfg_attr(feature = "clap", clap(name = "none", alias = "0"))]
-    #[cfg_attr(feature = "serde", serde(rename = "none", alias = "0"))]
     None,
 
     /// Priority 1, highest priority.
+    #[serde(rename = "1")]
     #[cfg_attr(feature = "clap", clap(name = "1", hide = true))]
-    #[cfg_attr(feature = "serde", serde(rename = "1"))]
     P1,
 
     /// Priority 2, high priority.
+    #[serde(rename = "2", alias = "high")]
     #[cfg_attr(feature = "clap", clap(name = "high", alias = "2"))]
-    #[cfg_attr(feature = "serde", serde(rename = "2", alias = "high"))]
     P2,
 
     /// Priority 3.
+    #[serde(rename = "3")]
     #[cfg_attr(feature = "clap", clap(name = "3", hide = true))]
-    #[cfg_attr(feature = "serde", serde(rename = "3"))]
     P3,
 
     /// Priority 4.
+    #[serde(rename = "4")]
     #[cfg_attr(feature = "clap", clap(name = "4", hide = true))]
-    #[cfg_attr(feature = "serde", serde(rename = "4"))]
     P4,
 
     /// Priority 5, medium priority.
+    #[serde(rename = "5", alias = "mid")]
     #[cfg_attr(feature = "clap", clap(name = "mid", alias = "5"))]
-    #[cfg_attr(feature = "serde", serde(rename = "5", alias = "mid"))]
     P5,
 
     /// Priority 6.
+    #[serde(rename = "6")]
     #[cfg_attr(feature = "clap", clap(name = "6", hide = true))]
-    #[cfg_attr(feature = "serde", serde(rename = "6"))]
     P6,
 
     /// Priority 7.
+    #[serde(rename = "7")]
     #[cfg_attr(feature = "clap", clap(name = "7", hide = true))]
-    #[cfg_attr(feature = "serde", serde(rename = "7"))]
     P7,
 
     /// Priority 8, low priority.
+    #[serde(rename = "8", alias = "low")]
     #[cfg_attr(feature = "clap", clap(name = "low", alias = "8"))]
-    #[cfg_attr(feature = "serde", serde(rename = "8", alias = "low"))]
     P8,
 
     /// Priority 9, lowest priority.
+    #[serde(rename = "9")]
     #[cfg_attr(feature = "clap", clap(name = "9", hide = true))]
-    #[cfg_attr(feature = "serde", serde(rename = "9"))]
     P9,
 }
 
@@ -141,7 +140,6 @@ impl From<Priority> for u32 {
     }
 }
 
-#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for Priority {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -211,7 +209,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn test_priority_deserialize_all_variants() {
         let cases = [
             // integer number
@@ -249,7 +246,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
     fn test_priority_deserialize_invalid_values() {
         let cases = [
             "\"invalid\"",
