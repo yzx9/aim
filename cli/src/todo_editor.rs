@@ -2,11 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    Config,
-    parser::{format_datetime, parse_datetime},
-};
-use aimcal_core::{Aim, Id, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
+use crate::parser::{format_datetime, parse_datetime};
+use aimcal_core::{Aim, Id, LooseDateTime, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
     prelude::*,
@@ -24,14 +21,18 @@ pub struct TodoEditor {
 }
 
 impl TodoEditor {
-    pub fn run_draft(config: &Config, aim: &mut Aim) -> Result<Option<TodoDraft>, Box<dyn Error>> {
+    pub fn run_draft(aim: &mut Aim) -> Result<Option<TodoDraft>, Box<dyn Error>> {
+        let draft = aim.default_todo_draft();
         let mut that = Self::new_with(Data {
-            due: config
-                .core
-                .default_due
-                .map(|a| (aim.now() + a).format("%Y-%m-%d %H:%M").to_string())
+            due: draft
+                .due
+                .map(|a| match a {
+                    LooseDateTime::DateOnly(a) => a.format("%Y-%m-%d").to_string(),
+                    LooseDateTime::Floating(a) => a.format("%Y-%m-%d %H:%M").to_string(),
+                    LooseDateTime::Local(a) => a.format("%Y-%m-%d %H:%M").to_string(),
+                })
                 .unwrap_or_default(),
-            priority: config.core.default_priority,
+            priority: draft.priority.unwrap_or_default(),
             ..Data::default()
         });
 

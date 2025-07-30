@@ -174,28 +174,28 @@ impl Commands {
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         use Commands::*;
         match self {
-            Dashboard(a) => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
-            New(a)       => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            Edit(a)      => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
-            EventList(a) => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
-            TodoNew(a)   => Self::run_with(config, |x, y| a.run(x, y).boxed()).await,
-            TodoEdit(a)  => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
-            TodoDone(a)  => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
-            TodoUndo(a)  => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
-            TodoList(a)  => Self::run_with(config, |_, y| a.run(   y).boxed()).await,
+            Dashboard(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
+            New(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Edit(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventList(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoNew(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoEdit(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoDone(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoUndo(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoList(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
             GenerateCompletion(a) => a.run(),
         }
     }
 
     async fn run_with<F>(config: Option<PathBuf>, f: F) -> Result<(), Box<dyn Error>>
     where
-        F: for<'a> FnOnce(&'a Config, &'a mut Aim) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
+        F: for<'a> FnOnce(&'a mut Aim) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
     {
         log::debug!("Parsing configuration...");
         let config = Config::parse(config).await?;
-        let mut aim = Aim::new(config.core.clone()).await?;
+        let mut aim = Aim::new(config.core).await?;
 
-        f(&config, &mut aim).await?;
+        f(&mut aim).await?;
 
         aim.dump().await?;
         Ok(())

@@ -85,6 +85,11 @@ impl Aim {
         self.cache.events.count(&conds).await
     }
 
+    /// Create a default todo draft based on the AIM configuration.
+    pub fn default_todo_draft(&self) -> TodoDraft {
+        TodoDraft::default(&self.config)
+    }
+
     /// Add a new todo from the given draft.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo, Box<dyn Error>> {
         let uid = self.generate_uid().await?;

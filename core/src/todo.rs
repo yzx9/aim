@@ -100,6 +100,20 @@ pub struct TodoDraft {
 }
 
 impl TodoDraft {
+    /// Creates a new empty patch.
+    pub(crate) fn default(config: &Config) -> Self {
+        Self {
+            description: None,
+            due: config
+                .default_due
+                .map(|d| LooseDateTime::Local(Local::now() + d)),
+            percent_complete: None,
+            priority: Some(config.default_priority),
+            status: Some(TodoStatus::NeedsAction),
+            summary: "".to_string(),
+        }
+    }
+
     /// Converts the draft into a icalendar Todo component.
     pub(crate) fn into_todo(
         self,

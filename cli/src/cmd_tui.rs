@@ -6,7 +6,6 @@
 //! In general, they dont provide a comprehensive CLI command, but call TUI directly.
 
 use crate::{
-    Config,
     cmd_todo::{CmdTodoEdit, CmdTodoNew},
     parser::{ArgOutputFormat, arg_id, get_id},
 };
@@ -34,9 +33,9 @@ impl CmdNew {
         }
     }
 
-    pub async fn run(self, config: &Config, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
-        CmdTodoNew::new().run(config, aim).await
+        CmdTodoNew::new().run(aim).await
     }
 }
 

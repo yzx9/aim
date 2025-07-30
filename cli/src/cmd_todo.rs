@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    Config,
     parser::{ArgOutputFormat, arg_id, get_id, parse_datetime},
     todo_editor::TodoEditor,
     todo_formatter::TodoFormatter,
@@ -93,7 +92,7 @@ impl CmdTodoNew {
         }
     }
 
-    pub async fn run(self, config: &Config, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Adding new todo...");
 
         let draft = if let Some(summary) = self.summary {
@@ -106,7 +105,7 @@ impl CmdTodoNew {
                 summary,
             }
         } else {
-            match TodoEditor::run_draft(config, aim)? {
+            match TodoEditor::run_draft(aim)? {
                 Some(data) => data,
                 None => {
                     log::info!("User canceled the todo edit");
