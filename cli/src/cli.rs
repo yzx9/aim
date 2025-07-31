@@ -91,7 +91,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .subcommand(CmdTodoList::command()),
             )
             .subcommand(CmdTodoDone::command())
-            .subcommand(CmdTodoUndo::command())
+            .subcommand(CmdTodoUndo::command().hide(true)) // TODO: remove in v0.4.0
             .subcommand(CmdGenerateCompletion::command())
     }
 
@@ -116,7 +116,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 _ => unreachable!(),
             },
             Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::from(matches)),
-            Some((CmdTodoUndo::NAME, matches)) => TodoUndo(CmdTodoUndo::from(matches)),
+            Some((CmdTodoUndo::NAME, matches)) => Undo(CmdTodoUndo::from(matches)),
             Some((CmdGenerateCompletion::NAME, matches)) => {
                 GenerateCompletion(CmdGenerateCompletion::from(matches))
             }
@@ -164,6 +164,9 @@ pub enum Commands {
     /// List todos
     TodoList(CmdTodoList),
 
+    /// Mark a todo as undone
+    Undo(CmdTodoUndo),
+
     /// Generate shell completion
     GenerateCompletion(CmdGenerateCompletion),
 }
@@ -183,6 +186,13 @@ impl Commands {
             TodoDone(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoUndo(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoList(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Undo(a) => {
+                println!(
+                    "{} `aim undo` is now `aim todo undo`, the shortcut will be removed in v0.4.0",
+                    "Deprecated:".yellow(),
+                );
+                Self::run_with(config, |x| a.run(x).boxed()).await
+            },
             GenerateCompletion(a) => a.run(),
         }
     }
