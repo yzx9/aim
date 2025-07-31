@@ -2,22 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use aimcal_core::{Id, LooseDateTime};
+use aimcal_core::LooseDateTime;
 use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
 use clap::{Arg, ArgMatches, arg, value_parser};
-
-pub fn arg_id() -> Arg {
-    arg!(id: <ID> "The short id or uid of the todo to edit")
-}
-
-pub fn get_id(matches: &ArgMatches) -> Id {
-    let id = matches
-        .get_one::<String>("id")
-        .expect("id is required")
-        .clone();
-
-    Id::ShortIdOrUid(id)
-}
 
 /// The output format for commands
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]

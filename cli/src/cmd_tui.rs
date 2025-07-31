@@ -7,10 +7,10 @@
 
 use crate::{
     cmd_todo::{CmdTodoEdit, CmdTodoNew},
-    parser::{ArgOutputFormat, arg_id, get_id},
+    parser::ArgOutputFormat,
 };
 use aimcal_core::{Aim, Id};
-use clap::{ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command, arg};
 use std::error::Error;
 
 #[derive(Debug, Clone, Copy)]
@@ -68,4 +68,17 @@ impl CmdEdit {
             .run(aim)
             .await
     }
+}
+
+fn arg_id() -> Arg {
+    arg!(id: <ID> "The short id or uid of the event or todo to edit")
+}
+
+fn get_id(matches: &ArgMatches) -> Id {
+    let id = matches
+        .get_one::<String>("id")
+        .expect("id is required")
+        .clone();
+
+    Id::ShortIdOrUid(id)
 }

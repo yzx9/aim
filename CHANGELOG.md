@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `aim done` support multiple todos now
+
 ### Deprecated
 
 - `aim undo` is a deprecated shortcut of `aim todo undo` now, will be remove in v0.4.0

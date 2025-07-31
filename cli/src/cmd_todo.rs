@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    parser::{ArgOutputFormat, arg_id, get_id, parse_datetime},
+    parser::{ArgOutputFormat, parse_datetime},
     todo_editor::TodoEditor,
     todo_formatter::TodoFormatter,
 };
@@ -141,7 +141,7 @@ impl CmdTodoEdit {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Edit a todo item")
-            .arg(arg_id())
+            .arg(TodoEdit::arg_id())
             .arg(TodoEdit::arg_summary(false))
             .arg(TodoEdit::arg_due())
             .arg(TodoEdit::arg_description())
@@ -153,7 +153,7 @@ impl CmdTodoEdit {
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: get_id(matches),
+            id: TodoEdit::get_id(matches),
             description: TodoEdit::get_description(matches),
             due: TodoEdit::get_due(matches),
             percent_complete: TodoEdit::get_percent_complete(matches),
@@ -220,7 +220,7 @@ impl CmdTodoEdit {
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoDone {
-    pub id: Id,
+    pub ids: Vec<Id>,
     pub output_format: ArgOutputFormat,
 }
 
@@ -230,35 +230,42 @@ impl CmdTodoDone {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Mark a todo item as done")
-            .arg(arg_id())
+            .arg(TodoEdit::arg_ids())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: get_id(matches),
+            ids: TodoEdit::get_ids(matches),
             output_format: ArgOutputFormat::from(matches),
         }
     }
 
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        log::debug!("Marking todo as done...");
-        TodoEdit {
-            id: self.id,
-            output_format: self.output_format,
-            patch: TodoPatch {
-                status: Some(TodoStatus::Completed),
-                ..Default::default()
-            },
+        for id in self.ids {
+            match &id {
+                Id::ShortIdOrUid(id) => log::debug!("Marking todo {id} as done"),
+                Id::Uid(uid) => log::debug!("Marking todo {uid} as done"),
+            }
+
+            TodoEdit {
+                id,
+                output_format: self.output_format,
+                patch: TodoPatch {
+                    status: Some(TodoStatus::Completed),
+                    ..Default::default()
+                },
+            }
+            .run(aim)
+            .await?;
         }
-        .run(aim)
-        .await
+        Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoUndo {
-    pub id: Id,
+    pub ids: Vec<Id>,
     pub output_format: ArgOutputFormat,
 }
 
@@ -268,29 +275,36 @@ impl CmdTodoUndo {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Mark a todo item as undone")
-            .arg(arg_id())
+            .arg(TodoEdit::arg_ids())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: get_id(matches),
+            ids: TodoEdit::get_ids(matches),
             output_format: ArgOutputFormat::from(matches),
         }
     }
 
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        log::debug!("Marking todo as undone...");
-        TodoEdit {
-            id: self.id,
-            output_format: self.output_format,
-            patch: TodoPatch {
-                status: Some(TodoStatus::NeedsAction),
-                ..Default::default()
-            },
+        for id in self.ids {
+            match &id {
+                Id::ShortIdOrUid(id) => log::debug!("Marking todo {id} as undone"),
+                Id::Uid(uid) => log::debug!("Marking todo {uid} as undone"),
+            }
+
+            TodoEdit {
+                id,
+                output_format: self.output_format,
+                patch: TodoPatch {
+                    status: Some(TodoStatus::NeedsAction),
+                    ..Default::default()
+                },
+            }
+            .run(aim)
+            .await?;
         }
-        .run(aim)
-        .await
+        Ok(())
     }
 }
 
@@ -363,6 +377,31 @@ struct TodoEdit {
 }
 
 impl TodoEdit {
+    fn arg_id() -> Arg {
+        arg!(id: <ID> "The short id or uid of the todo to edit")
+    }
+
+    fn get_id(matches: &ArgMatches) -> Id {
+        let id = matches
+            .get_one::<String>("id")
+            .expect("id is required")
+            .clone();
+
+        Id::ShortIdOrUid(id)
+    }
+
+    fn arg_ids() -> Arg {
+        arg!(id: <ID> "The short id or uid of the todo to edit").num_args(1..)
+    }
+
+    fn get_ids(matches: &ArgMatches) -> Vec<Id> {
+        matches
+            .get_many::<String>("id")
+            .expect("id is required")
+            .map(|a| Id::ShortIdOrUid(a.clone()))
+            .collect()
+    }
+
     fn arg_description() -> Arg {
         arg!(--description <DESCRIPTION> "Description of the todo")
     }
@@ -542,7 +581,29 @@ mod tests {
             .unwrap();
         let sub_matches = matches.subcommand_matches("done").unwrap();
         let parsed = CmdTodoDone::from(sub_matches);
-        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
+        assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+    }
+
+    #[test]
+    fn test_parse_todo_done_multi() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoDone::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "done", "a", "b", "c", "--output-format", "json"])
+            .unwrap();
+        let sub_matches = matches.subcommand_matches("done").unwrap();
+        let parsed = CmdTodoDone::from(sub_matches);
+        assert_eq!(
+            parsed.ids,
+            vec![
+                Id::ShortIdOrUid("a".to_string()),
+                Id::ShortIdOrUid("b".to_string()),
+                Id::ShortIdOrUid("c".to_string())
+            ]
+        );
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 
@@ -558,7 +619,30 @@ mod tests {
 
         let sub_matches = matches.subcommand_matches("undo").unwrap();
         let parsed = CmdTodoUndo::from(sub_matches);
-        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
+        assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+    }
+
+    #[test]
+    fn test_parse_todo_undo_multi() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoUndo::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "undo", "a", "b", "c", "--output-format", "json"])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("undo").unwrap();
+        let parsed = CmdTodoUndo::from(sub_matches);
+        assert_eq!(
+            parsed.ids,
+            vec![
+                Id::ShortIdOrUid("a".to_string()),
+                Id::ShortIdOrUid("b".to_string()),
+                Id::ShortIdOrUid("c".to_string())
+            ]
+        );
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 
