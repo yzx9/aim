@@ -19,7 +19,14 @@ impl Events {
     pub async fn insert(&self, event: EventRecord) -> Result<(), sqlx::Error> {
         const SQL: &str = "
 INSERT INTO events (uid, path, summary, description, status, start, end)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(uid) DO UPDATE SET
+    path        = excluded.path,
+    summary     = excluded.summary,
+    description = excluded.description,
+    status      = excluded.status,
+    start       = excluded.start,
+    end         = excluded.end;
 ";
 
         sqlx::query(SQL)
