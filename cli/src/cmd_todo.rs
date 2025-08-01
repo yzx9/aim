@@ -461,7 +461,7 @@ impl TodoEdit {
 
     async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Edit todo ...");
-        let todo = aim.update_todo(self.id, self.patch).await?;
+        let todo = aim.update_todo(&self.id, self.patch).await?;
         let formatter = TodoFormatter::new(aim.now()).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
         Ok(())

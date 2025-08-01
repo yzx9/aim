@@ -109,8 +109,12 @@ impl Aim {
     }
 
     /// Upsert an event into the calendar.
-    pub async fn update_todo(&self, id: Id, patch: TodoPatch) -> Result<impl Todo, Box<dyn Error>> {
-        let uid = self.short_ids.get_uid(&id).await?;
+    pub async fn update_todo(
+        &self,
+        id: &Id,
+        patch: TodoPatch,
+    ) -> Result<impl Todo, Box<dyn Error>> {
+        let uid = self.short_ids.get_uid(id).await?;
         let todo = match self.db.todos.get(&uid).await? {
             Some(todo) => todo,
             None => return Err("Todo not found".into()),
