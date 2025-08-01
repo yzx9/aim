@@ -6,7 +6,7 @@ use crate::{
     Event, EventConditions, Pager, Priority, Todo, TodoConditions, TodoDraft, TodoSort,
     event::ParsedEventConditions,
     localdb::LocalDb,
-    short_id::{EventWithShortId, ShortIdMap, TodoWithShortId},
+    short_id::ShortIds,
     todo::{ParsedTodoConditions, ParsedTodoSort, TodoPatch},
 };
 use chrono::{DateTime, Duration, Local};
@@ -24,7 +24,7 @@ pub struct Aim {
     now: DateTime<Local>,
     config: Config,
     db: LocalDb,
-    map: ShortIdMap,
+    short_ids: ShortIds,
     calendar_path: PathBuf,
 }
 
@@ -42,14 +42,13 @@ impl Aim {
             .await
             .map_err(|e| format!("Failed to initialize db: {e}"))?;
 
-        let map = ShortIdMap::load_or_new(&config).await?;
-
+        let short_ids = ShortIds::new(db.clone());
         let calendar_path = config.calendar_path.clone();
         let that = Self {
             now,
             config,
             db,
-            map,
+            short_ids,
             calendar_path,
         };
         that.add_calendar(&that.calendar_path)
@@ -77,12 +76,8 @@ impl Aim {
     ) -> Result<Vec<impl Event>, Box<dyn Error>> {
         let conds = ParsedEventConditions::parse(&self.now, conds);
         let events = self.db.events.list(&conds, pager).await?;
-
-        let mut with_id = Vec::with_capacity(events.len());
-        for event in events {
-            with_id.push(EventWithShortId::with(&self.map, event)?);
-        }
-        Ok(with_id)
+        let events = self.short_ids.events(events).await?;
+        Ok(events)
     }
 
     /// Counts the number of events matching the given conditions.
@@ -109,13 +104,13 @@ impl Aim {
 
         self.db.upsert_todo(&path, &todo).await?;
 
-        let todo = TodoWithShortId::with(&self.map, todo)?;
+        let todo = self.short_ids.todo(todo).await?;
         Ok(todo)
     }
 
     /// Upsert an event into the calendar.
     pub async fn update_todo(&self, id: Id, patch: TodoPatch) -> Result<impl Todo, Box<dyn Error>> {
-        let uid = self.map.get_uid(id);
+        let uid = self.short_ids.get_uid(&id).await?;
         let todo = match self.db.todos.get(&uid).await? {
             Some(todo) => todo,
             None => return Err("Todo not found".into()),
@@ -141,14 +136,21 @@ impl Aim {
 
         self.db.upsert_todo(&path, &todo).await?;
 
-        let todo = TodoWithShortId::with(&self.map, todo)?;
+        let todo = self.short_ids.todo(todo).await?;
         Ok(todo)
     }
 
     /// Get a todo by its UID.
-    pub async fn get_todo(&self, id: &Id) -> Result<Option<impl Todo>, sqlx::Error> {
-        let uid = self.map.get_uid(id.clone());
-        self.db.todos.get(&uid).await
+    pub async fn get_todo(&self, id: &Id) -> Result<Option<impl Todo>, Box<dyn Error>> {
+        let uid = self.short_ids.get_uid(id).await?;
+        match self.db.todos.get(&uid).await {
+            Ok(Some(todo)) => {
+                let todo = self.short_ids.todo(todo).await?;
+                Ok(Some(todo))
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     /// List todos matching the given conditions, sorted and paginated.
@@ -166,12 +168,8 @@ impl Aim {
             .collect();
 
         let todos = self.db.todos.list(&conds, &sort, pager).await?;
-
-        let mut with_id = Vec::with_capacity(todos.len());
-        for todo in todos {
-            with_id.push(TodoWithShortId::with(&self.map, todo)?);
-        }
-        Ok(with_id)
+        let todos = self.short_ids.todos(todos).await?;
+        Ok(todos)
     }
 
     /// Counts the number of todos matching the given conditions.
@@ -180,10 +178,9 @@ impl Aim {
         self.db.todos.count(&conds).await
     }
 
-    /// Close the AIM instance, saving any changes to the database and short ID map.
+    /// Close the AIM instance, saving any changes to the database.
     pub async fn close(self) -> Result<(), Box<dyn Error>> {
         self.db.close().await?;
-        self.map.dump(&self.config).await?;
         Ok(())
     }
 

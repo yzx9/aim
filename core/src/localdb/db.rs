@@ -6,7 +6,7 @@ use super::{
     events::{EventRecord, Events},
     todos::{TodoRecord, Todos},
 };
-use crate::{Event, Todo};
+use crate::{Event, Todo, localdb::short_ids::ShortIds};
 use sqlx::{
     SqlitePool, migrate,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
@@ -22,6 +22,7 @@ pub struct LocalDb {
 
     pub events: Events,
     pub todos: Todos,
+    pub short_ids: ShortIds,
 }
 
 impl LocalDb {
@@ -57,10 +58,12 @@ impl LocalDb {
         log::debug!("Creating tables in the database");
         let events = Events::new(pool.clone()).await?;
         let todos = Todos::new(pool.clone()).await?;
+        let short_ids = ShortIds::new(pool.clone());
         Ok(LocalDb {
             pool,
             events,
             todos,
+            short_ids,
         })
     }
 
