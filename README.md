@@ -70,10 +70,10 @@ nix run . -- --help
 
 ### 📅 Calendar Features
 
-- [ ] Calendar query – Support CLI queries for events and todos
-- [ ] Calendar editing – Add, edit, and delete calendar events and todos
+- [x] Todo query & edting – Support CLI queries, add, edit, and delete todos
+- [ ] Event query & edting – Support CLI queries, add, edit, and delete events
+- [ ] Revert editing - Undo history action, including adding, edit and delete
 - [ ] Recurring events – Handle creation and editing of repeating events
-- [ ] Conflict detection – Detect and alert calendar event conflicts
 
 ### 🤖 AI Capabilities
 
