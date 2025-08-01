@@ -100,6 +100,8 @@
             clippy
             rust-analyzer
 
+            sqlx-cli
+
             # misc
             just
             cargo-release

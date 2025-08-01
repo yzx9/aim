@@ -4,8 +4,8 @@
 
 use crate::{
     Event, EventConditions, Pager, Priority, Todo, TodoConditions, TodoDraft, TodoSort,
-    cache::SqliteCache,
     event::ParsedEventConditions,
+    localdb::LocalDb,
     short_id::{EventWithShortId, ShortIdMap, TodoWithShortId},
     todo::{ParsedTodoConditions, ParsedTodoSort, TodoPatch},
 };
@@ -23,7 +23,7 @@ use uuid::Uuid;
 pub struct Aim {
     now: DateTime<Local>,
     config: Config,
-    cache: SqliteCache,
+    db: LocalDb,
     map: ShortIdMap,
     calendar_path: PathBuf,
 }
@@ -32,9 +32,15 @@ impl Aim {
     /// Creates a new AIM instance with the given configuration.
     pub async fn new(config: Config) -> Result<Self, Box<dyn Error>> {
         let now = Local::now();
-        let cache = SqliteCache::open()
+
+        if let Some(parent) = &config.state_dir {
+            log::info!("Ensuring state directory exists: {}", parent.display());
+            fs::create_dir_all(parent).await?;
+        }
+
+        let db = LocalDb::open(&config.state_dir)
             .await
-            .map_err(|e| format!("Failed to initialize cache: {e}"))?;
+            .map_err(|e| format!("Failed to initialize db: {e}"))?;
 
         let map = ShortIdMap::load_or_new(&config).await?;
 
@@ -42,7 +48,7 @@ impl Aim {
         let that = Self {
             now,
             config,
-            cache,
+            db,
             map,
             calendar_path,
         };
@@ -70,7 +76,7 @@ impl Aim {
         pager: &Pager,
     ) -> Result<Vec<impl Event>, Box<dyn Error>> {
         let conds = ParsedEventConditions::parse(&self.now, conds);
-        let events = self.cache.events.list(&conds, pager).await?;
+        let events = self.db.events.list(&conds, pager).await?;
 
         let mut with_id = Vec::with_capacity(events.len());
         for event in events {
@@ -82,7 +88,7 @@ impl Aim {
     /// Counts the number of events matching the given conditions.
     pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, sqlx::Error> {
         let conds = ParsedEventConditions::parse(&self.now, conds);
-        self.cache.events.count(&conds).await
+        self.db.events.count(&conds).await
     }
 
     /// Create a default todo draft based on the AIM configuration.
@@ -101,7 +107,7 @@ impl Aim {
             .await
             .map_err(|e| format!("Failed to write calendar file: {e}"))?;
 
-        self.cache.upsert_todo(&path, &todo).await?;
+        self.db.upsert_todo(&path, &todo).await?;
 
         let todo = TodoWithShortId::with(&self.map, todo)?;
         Ok(todo)
@@ -110,7 +116,7 @@ impl Aim {
     /// Upsert an event into the calendar.
     pub async fn update_todo(&self, id: Id, patch: TodoPatch) -> Result<impl Todo, Box<dyn Error>> {
         let uid = self.map.get_uid(id);
-        let todo = match self.cache.todos.get(&uid).await? {
+        let todo = match self.db.todos.get(&uid).await? {
             Some(todo) => todo,
             None => return Err("Todo not found".into()),
         };
@@ -133,7 +139,7 @@ impl Aim {
             .await
             .map_err(|e| format!("Failed to write calendar file: {e}"))?;
 
-        self.cache.upsert_todo(&path, &todo).await?;
+        self.db.upsert_todo(&path, &todo).await?;
 
         let todo = TodoWithShortId::with(&self.map, todo)?;
         Ok(todo)
@@ -142,7 +148,7 @@ impl Aim {
     /// Get a todo by its UID.
     pub async fn get_todo(&self, id: &Id) -> Result<Option<impl Todo>, sqlx::Error> {
         let uid = self.map.get_uid(id.clone());
-        self.cache.todos.get(&uid).await
+        self.db.todos.get(&uid).await
     }
 
     /// List todos matching the given conditions, sorted and paginated.
@@ -159,7 +165,7 @@ impl Aim {
             .map(|s| ParsedTodoSort::parse(&self.config, *s))
             .collect();
 
-        let todos = self.cache.todos.list(&conds, &sort, pager).await?;
+        let todos = self.db.todos.list(&conds, &sort, pager).await?;
 
         let mut with_id = Vec::with_capacity(todos.len());
         for todo in todos {
@@ -171,11 +177,12 @@ impl Aim {
     /// Counts the number of todos matching the given conditions.
     pub async fn count_todos(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
         let conds = ParsedTodoConditions::parse(&self.now, conds);
-        self.cache.todos.count(&conds).await
+        self.db.todos.count(&conds).await
     }
 
-    /// Dump the current state of the AIM instance to the configured storage.
-    pub async fn dump(self) -> Result<(), Box<dyn Error>> {
+    /// Close the AIM instance, saving any changes to the database and short ID map.
+    pub async fn close(self) -> Result<(), Box<dyn Error>> {
+        self.db.close().await?;
         self.map.dump(&self.config).await?;
         Ok(())
     }
@@ -224,8 +231,8 @@ impl Aim {
         for component in calendar.components {
             log::debug!("Processing component: {component:?}");
             match component {
-                CalendarComponent::Event(event) => self.cache.upsert_event(path, &event).await?,
-                CalendarComponent::Todo(todo) => self.cache.upsert_todo(path, &todo).await?,
+                CalendarComponent::Event(event) => self.db.upsert_event(path, &event).await?,
+                CalendarComponent::Todo(todo) => self.db.upsert_todo(path, &todo).await?,
                 _ => log::warn!("Ignoring unsupported component type: {component:?}"),
             }
         }
@@ -236,7 +243,7 @@ impl Aim {
     async fn generate_uid(&self) -> Result<String, Box<dyn Error>> {
         for _ in 0..16 {
             let uid = Uuid::new_v4().to_string(); // TODO: better uid
-            if self.cache.todos.get(&uid).await?.is_some()
+            if self.db.todos.get(&uid).await?.is_some()
                 || fs::try_exists(&self.get_path(&uid)).await?
             {
                 continue;

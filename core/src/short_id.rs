@@ -81,10 +81,6 @@ impl ShortIdMap {
     /// Dump the map to disk.
     pub async fn dump(&self, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         let path = Self::get_map_path(config).ok_or("No state directory configured")?;
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-
         let content = {
             let inner = self.inner.read().unwrap();
             serde_json::to_string(&*inner)?

@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+mod db;
 mod events;
-mod sqlite_cache;
+mod short_ids;
 mod todos;
 
-pub use sqlite_cache::SqliteCache;
+pub use db::LocalDb;

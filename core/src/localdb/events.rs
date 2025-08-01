@@ -13,29 +13,7 @@ pub struct Events {
 
 impl Events {
     pub async fn new(pool: SqlitePool) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::create_table(&pool)
-            .await
-            .map_err(|e| format!("Failed to create events table: {e}"))?;
-
         Ok(Self { pool })
-    }
-
-    /// See RFC-5545 Sect. 3.6.1
-    async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
-        const SQL: &str = "
-CREATE TABLE events (
-    uid         TEXT PRIMARY KEY,
-    path        TEXT NOT NULL,
-    summary     TEXT NOT NULL,
-    description TEXT NOT NULL,
-    status      TEXT NOT NULL,
-    start       TEXT NOT NULL,
-    end         TEXT NOT NULL
-);
-";
-
-        sqlx::query(SQL).execute(pool).await?;
-        Ok(())
     }
 
     pub async fn insert(&self, event: EventRecord) -> Result<(), sqlx::Error> {

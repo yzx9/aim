@@ -207,7 +207,7 @@ impl Commands {
 
         f(&mut aim).await?;
 
-        aim.dump().await?;
+        aim.close().await?;
         Ok(())
     }
 }

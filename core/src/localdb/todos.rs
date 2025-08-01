@@ -16,31 +16,7 @@ pub struct Todos {
 
 impl Todos {
     pub async fn new(pool: SqlitePool) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::create_table(&pool)
-            .await
-            .map_err(|e| format!("Failed to create todos table: {e}"))?;
-
         Ok(Self { pool })
-    }
-
-    /// See RFC-5545 Sect. 3.6.2
-    async fn create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
-        const SQL: &str = "
-CREATE TABLE todos (
-    uid         TEXT PRIMARY KEY,
-    path        TEXT NOT NULL,
-    completed   TEXT NOT NULL,
-    description TEXT NOT NULL,
-    percent     INTEGER,
-    priority    INTEGER NOT NULL,
-    status      TEXT NOT NULL,
-    summary     TEXT NOT NULL,
-    due         TEXT NOT NULL
-);
-";
-
-        sqlx::query(SQL).execute(pool).await?;
-        Ok(())
     }
 
     pub async fn upsert(&self, todo: &TodoRecord) -> Result<(), sqlx::Error> {
