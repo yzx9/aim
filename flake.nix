@@ -92,6 +92,10 @@
       in
       {
         devShells.default = pkgs.mkShell {
+          env = {
+            RUST_LOG = "info";
+          };
+
           packages = with pkgs; [
             # rust
             cargo
