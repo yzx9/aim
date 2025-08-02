@@ -9,7 +9,8 @@ dist
 logs
 *.log
 
-
-# Added by cargo
-
+# cargo
 /target
+
+# nix
+/result
