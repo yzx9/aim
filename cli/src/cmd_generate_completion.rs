@@ -9,7 +9,7 @@ use std::{error::Error, io};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdGenerateCompletion {
-    shell: Shell,
+    pub shell: Shell,
 }
 
 impl CmdGenerateCompletion {

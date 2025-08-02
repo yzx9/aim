@@ -12,10 +12,10 @@ use crate::{
     config::APP_NAME,
 };
 use aimcal_core::Aim;
-use clap::{Command, ValueHint, arg, builder::styling, crate_version, value_parser};
+use clap::{ArgMatches, Command, ValueHint, arg, builder::styling, crate_version, value_parser};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
-use std::{error::Error, path::PathBuf};
+use std::{error::Error, ffi::OsString, path::PathBuf};
 
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
@@ -97,8 +97,25 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
 
     /// Parse the command-line arguments
     pub fn parse() -> Result<Self, Box<dyn Error>> {
+        let commands = Self::command();
+        let matches = commands.get_matches();
+        Self::from(matches)
+    }
+
+    /// Parse the specified arguments
+    pub fn try_parse_from<I, T>(args: I) -> Result<Self, Box<dyn Error>>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone,
+    {
+        let commands = Self::command();
+        let matches = commands.try_get_matches_from(args)?;
+        Self::from(matches)
+    }
+
+    /// Create a CLI instance from the `ArgMatches`
+    pub fn from(matches: ArgMatches) -> Result<Self, Box<dyn Error>> {
         use Commands::*;
-        let matches = Self::command().get_matches();
         let command = match matches.subcommand() {
             Some((CmdDashboard::NAME, matches)) => Dashboard(CmdDashboard::from(matches)),
             Some((CmdNew::NAME, matches)) => New(CmdNew::from(matches)),
@@ -209,5 +226,166 @@ impl Commands {
 
         aim.close().await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{cmd_generate_completion::Shell, parser::ArgOutputFormat};
+    use aimcal_core::Id;
+
+    #[test]
+    fn test_parse_config() {
+        let cli = Cli::try_parse_from(vec!["test", "-c", "/tmp/config.toml"]).unwrap();
+        assert_eq!(cli.config, Some(PathBuf::from("/tmp/config.toml")));
+        assert!(matches!(cli.command, Commands::Dashboard(_)));
+    }
+
+    #[test]
+    fn test_parse_default_dashboard() {
+        let cli = Cli::try_parse_from(vec!["test"]).unwrap();
+        assert!(matches!(cli.command, Commands::Dashboard(_)));
+    }
+
+    #[test]
+    fn test_parse_dashboard() {
+        let cli = Cli::try_parse_from(vec!["test", "dashboard"]).unwrap();
+        assert!(matches!(cli.command, Commands::Dashboard(_)));
+    }
+
+    #[test]
+    fn test_parse_new() {
+        let cli = Cli::try_parse_from(vec!["test", "new"]).unwrap();
+        assert!(matches!(cli.command, Commands::New(_)));
+    }
+
+    #[test]
+    fn test_parse_add() {
+        let cli = Cli::try_parse_from(vec!["test", "add"]).unwrap();
+        assert!(matches!(cli.command, Commands::New(_)));
+    }
+
+    #[test]
+    fn test_parse_edit() {
+        let cli = Cli::try_parse_from(vec!["test", "edit", "id1"]).unwrap();
+        assert!(matches!(cli.command, Commands::Edit(_)));
+    }
+
+    #[test]
+    fn test_parse_event_list() {
+        let args = vec!["test", "event", "list", "--output-format", "json"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::EventList(cmd) => {
+                assert_eq!(cmd.output_format, ArgOutputFormat::Json);
+            }
+            _ => panic!("Expected EventList command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_todo_new() {
+        let cli = Cli::try_parse_from(vec!["test", "todo", "new", "a new todo"]).unwrap();
+        assert!(matches!(cli.command, Commands::TodoNew(_)));
+    }
+
+    #[test]
+    fn test_parse_todo_add() {
+        let cli = Cli::try_parse_from(vec!["test", "todo", "add", "a new todo"]).unwrap();
+        assert!(matches!(cli.command, Commands::TodoNew(_)));
+    }
+
+    #[test]
+    fn test_parse_todo_edit() {
+        let args = vec!["test", "todo", "edit", "some_id", "-s", "new summary"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::TodoEdit(cmd) => {
+                assert_eq!(cmd.id, Id::ShortIdOrUid("some_id".to_string()));
+                assert_eq!(cmd.summary, Some("new summary".to_string()));
+            }
+            _ => panic!("Expected TodoEdit command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_todo_done() {
+        let cli = Cli::try_parse_from(vec!["test", "todo", "done", "id1", "id2"]).unwrap();
+        match cli.command {
+            Commands::TodoDone(cmd) => {
+                assert_eq!(
+                    cmd.ids,
+                    vec![
+                        Id::ShortIdOrUid("id1".to_string()),
+                        Id::ShortIdOrUid("id2".to_string())
+                    ]
+                );
+            }
+            _ => panic!("Expected TodoDone command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_todo_undo() {
+        let cli = Cli::try_parse_from(vec!["test", "todo", "undo", "id1"]).unwrap();
+        match cli.command {
+            Commands::TodoUndo(cmd) => {
+                assert_eq!(cmd.ids, vec![Id::ShortIdOrUid("id1".to_string())]);
+            }
+            _ => panic!("Expected TodoUndo command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_todo_list() {
+        let args = vec!["test", "todo", "list", "--output-format", "json"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::TodoList(cmd) => {
+                assert_eq!(cmd.output_format, ArgOutputFormat::Json);
+            }
+            _ => panic!("Expected TodoList command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_done() {
+        let cli = Cli::try_parse_from(vec!["test", "done", "id1", "id2"]).unwrap();
+        match cli.command {
+            Commands::TodoDone(cmd) => {
+                assert_eq!(
+                    cmd.ids,
+                    vec![
+                        Id::ShortIdOrUid("id1".to_string()),
+                        Id::ShortIdOrUid("id2".to_string())
+                    ]
+                );
+            }
+            _ => panic!("Expected TodoDone command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_undo() {
+        let cli = Cli::try_parse_from(vec!["test", "undo", "id1"]).unwrap();
+        match cli.command {
+            Commands::Undo(cmd) => {
+                assert_eq!(cmd.ids, vec![Id::ShortIdOrUid("id1".to_string())]);
+            }
+            _ => panic!("Expected Undo command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_generate_completions() {
+        let args = vec!["test", "generate-completion", "zsh"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::GenerateCompletion(cmd) => {
+                assert_eq!(cmd.shell, Shell::Zsh);
+            }
+            _ => panic!("Expected GenerateCompletion command"),
+        }
     }
 }
