@@ -23,7 +23,8 @@ impl CmdNew {
 
     pub fn command() -> Command {
         Command::new(Self::NAME)
-            .about("New a event or todo using TUI")
+            .alias("add")
+            .about("Add a new event or todo using TUI")
             .arg(ArgOutputFormat::arg())
     }
 

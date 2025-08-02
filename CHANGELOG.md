@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add alias `add` for command `new`
+
 ## [v0.3.0] - 2025-08-02
 
 ### Added
 
-- `aim done` support multiple todos now
+- Command `done` support multiple todos now
 - sqlite database is persistent now
 
 ### Changed
@@ -20,14 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
-- `aim undo` is a deprecated shortcut of `aim todo undo` now, will be remove in v0.4.0
+- Command `undo` is a deprecated shortcut of `aim todo undo` now, will be remove in v0.4.0
 
 ## [v0.2.3] - 2025-07-30
 
 ### Added
 
-- Add shortcuts `new`/`edit` to launch the TUI editor
-- Add output format argument for `todo new` command
+- Add shortcut commands `new`/`edit` to launch the TUI editor
+- Add output format argument for command `todo new`
 - Add a config option for placing no-priority todos at the top
 
 ### Changed
