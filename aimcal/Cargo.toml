@@ -19,5 +19,11 @@ name = "aim"
 path = "src/main.rs"
 
 [dependencies]
-aimcal-cli = { path = "../cli", version = "0.3.0" }
+aimcal-cli = { path = "../cli", version = "0.3.0", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[features]
+default = ["sqlite"]
+
+sqlite = ["aimcal-cli/sqlite"]
+sqlite-unbundled = ["aimcal-cli/sqlite-unbundled"]

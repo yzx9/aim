@@ -19,7 +19,9 @@ name = "aim"
 path = "src/main.rs"
 
 [dependencies]
-aimcal-core = { path = "../core", version = "0.3.0", features = ["clap"] }
+aimcal-core = { path = "../core", version = "0.3.0", default-features = false, features = [
+  "clap",
+] }
 chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5", features = ["cargo", "color", "derive"] }
 clap-num = "1.2.0"
@@ -39,3 +41,9 @@ unicode-width = "0.2"
 
 [target.'cfg(unix)'.dependencies]
 xdg = "3.0.0"
+
+[features]
+default = ["sqlite"]
+
+sqlite = ["aimcal-core/sqlite"]
+sqlite-unbundled = ["aimcal-core/sqlite-unbundled"]

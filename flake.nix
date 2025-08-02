@@ -32,6 +32,7 @@
           lib,
           stdenv,
           rustPlatform,
+          sqlite,
           installShellFiles,
           testers,
         }:
@@ -57,7 +58,14 @@
             lockFile = ./Cargo.lock;
           };
 
+          buildNoDefaultFeatures = true;
+          buildFeatures = [ "sqlite-unbundled" ];
+
           nativeBuildInputs = [ installShellFiles ];
+
+          buildInputs = [
+            sqlite
+          ];
 
           postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
             installShellCompletion --cmd aim \
