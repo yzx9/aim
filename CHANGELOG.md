@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add alias `add` for command `new`
 
+### Deprecated
+
+- The `'HH:MM'` format for the default `due` configuration is now deprecated and will be removed
+  in v0.5.0.
+
 ## [v0.3.0] - 2025-08-02
 
 ### Added

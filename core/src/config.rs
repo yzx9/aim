@@ -82,8 +82,7 @@ impl<'de> serde::Deserialize<'de> for ConfigDue {
             type Value = ConfigDue;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter
-                    .write_str(r#"a duration string like "HH:MM", "1d", "24h", "60m", or "1800s""#)
+                formatter.write_str(r#"a duration string like "1d", "24h", "60m", or "1800s""#)
             }
 
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
@@ -159,9 +158,12 @@ fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
 fn parse_duration(s: &str) -> Result<Duration, Box<dyn Error>> {
     // Try to parse "HH:MM" format
     if let Some((h, m)) = s.split_once(':') {
+        // TODO: remove in v0.5.0
         let hours: i64 = h.trim().parse()?;
         let minutes: i64 = m.trim().parse()?;
-        Ok(Duration::minutes(hours * 60 + minutes))
+        let minutes = hours * 60 + minutes;
+        println!("Deprecated duration format: {s}. Use '{minutes}m' instead.");
+        Ok(Duration::minutes(minutes))
     }
     // Match suffix-based formats
     else if let Some(rest) = s.strip_suffix("d") {
