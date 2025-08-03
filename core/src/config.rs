@@ -62,7 +62,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigDue(Duration);
 
 impl ConfigDue {
@@ -186,6 +186,38 @@ fn parse_duration(s: &str) -> Result<Duration, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_config_toml() {
+        const TOML: &str = r#"
+calendar_path = "calendar"
+state_dir = "state"
+default_due = "1d"
+default_priority = "high"
+default_priority_none_fist = true
+"#;
+
+        let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
+        assert_eq!(config.calendar_path, PathBuf::from("calendar"));
+        assert_eq!(config.state_dir, Some(PathBuf::from("state")));
+        assert_eq!(config.default_due, Some(ConfigDue(Duration::days(1))));
+        assert_eq!(config.default_priority, Priority::P2);
+        assert!(config.default_priority_none_fist);
+    }
+
+    #[test]
+    fn test_config_default() {
+        const TOML: &str = r#"
+calendar_path = "calendar"
+"#;
+
+        let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
+        assert_eq!(config.calendar_path, PathBuf::from("calendar"));
+        assert_eq!(config.state_dir, None);
+        assert_eq!(config.default_due, None);
+        assert_eq!(config.default_priority, Priority::None);
+        assert!(!config.default_priority_none_fist);
+    }
 
     #[test]
     fn test_expand_path_home_env() {
