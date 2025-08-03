@@ -53,7 +53,7 @@ impl Event for icalendar::Event {
     }
 
     fn status(&self) -> Option<EventStatus> {
-        self.get_status().map(|a| EventStatus::from(&a))
+        self.get_status().map(EventStatus::from)
     }
 
     fn summary(&self) -> &str {
@@ -107,8 +107,8 @@ impl FromStr for EventStatus {
     }
 }
 
-impl From<&EventStatus> for icalendar::EventStatus {
-    fn from(status: &EventStatus) -> Self {
+impl From<EventStatus> for icalendar::EventStatus {
+    fn from(status: EventStatus) -> Self {
         match status {
             EventStatus::Tentative => icalendar::EventStatus::Tentative,
             EventStatus::Confirmed => icalendar::EventStatus::Confirmed,
@@ -117,8 +117,8 @@ impl From<&EventStatus> for icalendar::EventStatus {
     }
 }
 
-impl From<&icalendar::EventStatus> for EventStatus {
-    fn from(status: &icalendar::EventStatus) -> Self {
+impl From<icalendar::EventStatus> for EventStatus {
+    fn from(status: icalendar::EventStatus) -> Self {
         match status {
             icalendar::EventStatus::Tentative => EventStatus::Tentative,
             icalendar::EventStatus::Confirmed => EventStatus::Confirmed,
