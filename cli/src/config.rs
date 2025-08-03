@@ -6,8 +6,8 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use aimcal_core::APP_NAME;
-use aimcal_core::Config as CoreConfig;
+use aimcal_core::{APP_NAME, Config as CoreConfig};
+use colored::Colorize;
 
 pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config), Box<dyn Error>> {
     let path = match path {
@@ -23,12 +23,25 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config),
         }
     };
 
-    let raw: ConfigRaw = tokio::fs::read_to_string(path)
-        .await
-        .map_err(|e| format!("Failed to read config file: {e}"))?
-        .parse()?;
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read config file at {}: {}", path.display(), e))?;
 
-    Ok((raw.0, Config {}))
+    match content.parse::<ConfigRaw>() {
+        Ok(raw) => Ok((raw.core, Config {})),
+        Err(err) => {
+            // If parsing fails, try legacy format
+            match content.parse::<ConfigLegacy>() {
+                Ok(legacy) => {
+                    println!(
+                        "{} Please update your config file by moving all entry to `[core]` sub-table",
+                        "Warning:".yellow(),
+                    );
+                    Ok((legacy.0, Config {}))
+                }
+                Err(_) => Err(err),
+            }
+        }
+    }
 }
 
 /// Configuration for the Aim application.
@@ -36,7 +49,20 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config),
 pub struct Config;
 
 #[derive(Debug, serde::Deserialize)]
-struct ConfigRaw(CoreConfig);
+struct ConfigLegacy(CoreConfig);
+
+impl FromStr for ConfigLegacy {
+    type Err = Box<dyn Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(toml::from_str(s)?)
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ConfigRaw {
+    core: CoreConfig,
+}
 
 impl FromStr for ConfigRaw {
     type Err = Box<dyn Error>;
