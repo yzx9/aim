@@ -377,7 +377,7 @@ impl ParsedTodoSort {
 
     pub fn parse_vec(config: &Config, sort: &[TodoSort]) -> Vec<Self> {
         sort.iter()
-            .map(|s| ParsedTodoSort::parse(&config, *s))
+            .map(|s| ParsedTodoSort::parse(config, *s))
             .collect()
     }
 }
