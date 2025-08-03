@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::error::Error;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+
 use aimcal_core::{Config as CoreConfig, Priority};
 use chrono::Duration;
 use colored::Colorize;
-use std::{
-    error::Error,
-    path::{Path, PathBuf},
-    str::FromStr,
-};
 
 pub const APP_NAME: &str = "aim";
 

@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use sqlx::SqlitePool;
 use std::num::NonZeroU32;
+
+use sqlx::SqlitePool;
 
 use crate::short_id::{ShortIdKind, UidAndShortId};
 

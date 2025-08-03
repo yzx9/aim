@@ -2,11 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    parser::{ArgOutputFormat, parse_datetime},
-    todo_editor::TodoEditor,
-    todo_formatter::TodoFormatter,
-};
+use std::error::Error;
+
 use aimcal_core::{
     Aim, Id, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus,
 };
@@ -14,7 +11,10 @@ use chrono::Duration;
 use clap::{Arg, ArgMatches, Command, arg};
 use clap_num::number_range;
 use colored::Colorize;
-use std::error::Error;
+
+use crate::parser::{ArgOutputFormat, parse_datetime};
+use crate::todo_editor::TodoEditor;
+use crate::todo_formatter::TodoFormatter;
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {

@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{Event, EventStatus, LooseDateTime, Pager, event::ParsedEventConditions};
 use chrono::{DateTime, Local};
 use sqlx::SqlitePool;
+
+use crate::{Event, EventStatus, LooseDateTime, Pager, event::ParsedEventConditions};
 
 #[derive(Debug, Clone)]
 pub struct Events {

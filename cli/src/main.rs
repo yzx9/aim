@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use aimcal_cli::run;
 use std::error::Error;
+
+use aimcal_cli::run;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

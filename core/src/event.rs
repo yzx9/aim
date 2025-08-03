@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::LooseDateTime;
+use std::{fmt::Display, num::NonZeroU32, str::FromStr};
+
 use chrono::{DateTime, Local};
 use icalendar::Component;
-use std::{fmt::Display, num::NonZeroU32, str::FromStr};
+
+use crate::LooseDateTime;
 
 /// Trait representing a calendar event.
 pub trait Event {

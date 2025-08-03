@@ -2,21 +2,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    Event, EventConditions, Pager, Priority, Todo, TodoConditions, TodoDraft, TodoSort,
-    event::ParsedEventConditions,
-    localdb::LocalDb,
-    short_id::ShortIds,
-    todo::{ParsedTodoConditions, ParsedTodoSort, TodoPatch},
-};
+use std::error::Error;
+use std::path::{Path, PathBuf};
+
 use chrono::{DateTime, Duration, Local};
 use icalendar::{Calendar, CalendarComponent, Component};
-use std::{
-    error::Error,
-    path::{Path, PathBuf},
-};
 use tokio::fs;
 use uuid::Uuid;
+
+use crate::event::ParsedEventConditions;
+use crate::localdb::LocalDb;
+use crate::short_id::ShortIds;
+use crate::todo::{ParsedTodoConditions, ParsedTodoSort, TodoPatch};
+use crate::{Event, EventConditions, Pager, Priority, Todo, TodoConditions, TodoDraft, TodoSort};
 
 /// AIM calendar application core.
 #[derive(Debug, Clone)]

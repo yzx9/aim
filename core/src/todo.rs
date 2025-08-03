@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{Config, LooseDateTime, Priority, SortOrder};
+use std::{fmt::Display, num::NonZeroU32, str::FromStr};
+
 use chrono::{DateTime, Duration, Local, Utc};
 use icalendar::Component;
-use std::{fmt::Display, num::NonZeroU32, str::FromStr};
+
+use crate::{Config, LooseDateTime, Priority, SortOrder};
 
 /// Trait representing a todo item.
 pub trait Todo {

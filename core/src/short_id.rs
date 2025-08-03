@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{Event, EventStatus, Id, LooseDateTime, Priority, Todo, TodoStatus, localdb::LocalDb};
-use chrono::{DateTime, Local};
 use std::{error::Error, num::NonZeroU32};
+
+use chrono::{DateTime, Local};
+
+use crate::{Event, EventStatus, Id, LooseDateTime, Priority, Todo, TodoStatus, localdb::LocalDb};
 
 #[derive(Debug, Clone)]
 pub struct ShortIds {

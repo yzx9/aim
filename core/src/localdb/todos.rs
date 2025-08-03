@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    LooseDateTime, Pager, Priority, Todo, TodoStatus,
-    todo::{ParsedTodoConditions, ParsedTodoSort},
-};
 use chrono::{DateTime, Local};
 use sqlx::sqlite::SqlitePool;
+
+use crate::todo::{ParsedTodoConditions, ParsedTodoSort};
+use crate::{LooseDateTime, Pager, Priority, Todo, TodoStatus};
 
 #[derive(Debug, Clone)]
 pub struct Todos {

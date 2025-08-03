@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::Cli;
+use std::{error::Error, io};
+
 use clap::{ArgMatches, Command, ValueEnum, arg, value_parser};
 use clap_complete::generate;
-use std::{error::Error, io};
+
+use crate::Cli;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdGenerateCompletion {

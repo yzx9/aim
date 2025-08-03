@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{cmd_event::CmdEventList, cmd_todo::CmdTodoList, parser::ArgOutputFormat};
+use std::error::Error;
+
 use aimcal_core::{Aim, EventConditions, TodoConditions, TodoStatus};
 use chrono::Duration;
 use clap::{ArgMatches, Command};
 use colored::Colorize;
-use std::error::Error;
+
+use crate::{cmd_event::CmdEventList, cmd_todo::CmdTodoList, parser::ArgOutputFormat};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CmdDashboard;

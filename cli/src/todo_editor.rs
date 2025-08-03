@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::parser::{format_datetime, parse_datetime};
+use std::{error::Error, rc::Rc};
+
 use aimcal_core::{Aim, Id, LooseDateTime, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::{
-    prelude::*,
-    symbols::border,
-    widgets::{self, Block, Paragraph, block},
-};
-use std::{error::Error, rc::Rc};
+use ratatui::prelude::*;
+use ratatui::symbols::border;
+use ratatui::widgets::{self, Block, Paragraph, block};
 use unicode_width::UnicodeWidthStr;
+
+use crate::parser::{format_datetime, parse_datetime};
 
 /// TUI editor for editing todos.
 #[derive(Debug)]

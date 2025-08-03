@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    parser::{ArgOutputFormat, format_datetime},
-    table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson},
-};
+use std::{borrow::Cow, fmt};
+
 use aimcal_core::{LooseDateTime, Priority, RangePosition, Todo, TodoStatus};
 use chrono::{DateTime, Local};
 use colored::Color;
-use std::{borrow::Cow, fmt};
+
+use crate::parser::{ArgOutputFormat, format_datetime};
+use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
 
 #[derive(Debug, Clone)]
 pub struct TodoFormatter {

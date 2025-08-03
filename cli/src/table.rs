@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Cow;
+use std::fmt::{self, Display};
+use std::marker::PhantomData;
+
 use colored::{Color, Colorize};
-use std::{
-    borrow::Cow,
-    fmt::{self, Display},
-    marker::PhantomData,
-};
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug)]

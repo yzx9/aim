@@ -2,20 +2,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    Config,
-    cmd_dashboard::CmdDashboard,
-    cmd_event::CmdEventList,
-    cmd_generate_completion::CmdGenerateCompletion,
-    cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo},
-    cmd_tui::{CmdEdit, CmdNew},
-    config::APP_NAME,
-};
+use std::{error::Error, ffi::OsString, path::PathBuf};
+
 use aimcal_core::Aim;
 use clap::{ArgMatches, Command, ValueHint, arg, builder::styling, crate_version, value_parser};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
-use std::{error::Error, ffi::OsString, path::PathBuf};
+
+use crate::Config;
+use crate::cmd_dashboard::CmdDashboard;
+use crate::cmd_event::CmdEventList;
+use crate::cmd_generate_completion::CmdGenerateCompletion;
+use crate::cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo};
+use crate::cmd_tui::{CmdEdit, CmdNew};
+use crate::config::APP_NAME;
 
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {

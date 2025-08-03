@@ -28,10 +28,8 @@ mod short_id;
 mod todo;
 mod types;
 
-pub use crate::{
-    aim::{Aim, Config, Id},
-    datetime::{LooseDateTime, RangePosition},
-    event::{Event, EventConditions, EventStatus},
-    todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus},
-    types::{Pager, Priority, SortOrder},
-};
+pub use crate::aim::{Aim, Config, Id};
+pub use crate::datetime::{LooseDateTime, RangePosition};
+pub use crate::event::{Event, EventConditions, EventStatus};
+pub use crate::todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus};
+pub use crate::types::{Pager, Priority, SortOrder};

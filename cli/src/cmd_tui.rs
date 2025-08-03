@@ -5,13 +5,13 @@
 //! This module provides the tui command for the AIM CLI.
 //! In general, they dont provide a comprehensive CLI command, but call TUI directly.
 
-use crate::{
-    cmd_todo::{CmdTodoEdit, CmdTodoNew},
-    parser::ArgOutputFormat,
-};
+use std::error::Error;
+
 use aimcal_core::{Aim, Id};
 use clap::{Arg, ArgMatches, Command, arg};
-use std::error::Error;
+
+use crate::cmd_todo::{CmdTodoEdit, CmdTodoNew};
+use crate::parser::ArgOutputFormat;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdNew {

@@ -2,11 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{event_formatter::EventFormatter, parser::ArgOutputFormat};
+use std::error::Error;
+
 use aimcal_core::{Aim, EventConditions, Pager};
 use clap::{ArgMatches, Command};
 use colored::Colorize;
-use std::error::Error;
+
+use crate::{event_formatter::EventFormatter, parser::ArgOutputFormat};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdEventList {

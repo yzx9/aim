@@ -33,7 +33,5 @@ mod table;
 mod todo_editor;
 mod todo_formatter;
 
-pub use crate::{
-    cli::{Cli, Commands, run},
-    config::Config,
-};
+pub use crate::cli::{Cli, Commands, run};
+pub use crate::config::Config;

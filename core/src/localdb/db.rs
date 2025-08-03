@@ -2,19 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{
-    events::{EventRecord, Events},
-    todos::{TodoRecord, Todos},
-};
+use std::error::Error;
+use std::path::{Path, PathBuf};
+
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::{SqlitePool, migrate};
+
+use super::events::{EventRecord, Events};
+use super::todos::{TodoRecord, Todos};
 use crate::{Event, Todo, localdb::short_ids::ShortIds};
-use sqlx::{
-    SqlitePool, migrate,
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-};
-use std::{
-    error::Error,
-    path::{Path, PathBuf},
-};
 
 #[derive(Debug, Clone)]
 pub struct LocalDb {
