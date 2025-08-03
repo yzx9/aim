@@ -5,7 +5,7 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Duration, Local};
+use chrono::{DateTime, Local};
 use icalendar::{Calendar, CalendarComponent, Component};
 use tokio::fs;
 use uuid::Uuid;
@@ -14,7 +14,7 @@ use crate::event::ParsedEventConditions;
 use crate::localdb::LocalDb;
 use crate::short_id::ShortIds;
 use crate::todo::{ParsedTodoConditions, ParsedTodoSort, TodoPatch};
-use crate::{Event, EventConditions, Pager, Priority, Todo, TodoConditions, TodoDraft, TodoSort};
+use crate::{Config, Event, EventConditions, Id, Pager, Todo, TodoConditions, TodoDraft, TodoSort};
 
 /// AIM calendar application core.
 #[derive(Debug, Clone)]
@@ -28,13 +28,11 @@ pub struct Aim {
 
 impl Aim {
     /// Creates a new AIM instance with the given configuration.
-    pub async fn new(config: Config) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(mut config: Config) -> Result<Self, Box<dyn Error>> {
         let now = Local::now();
 
-        if let Some(parent) = &config.state_dir {
-            log::info!("Ensuring state directory exists: {}", parent.display());
-            fs::create_dir_all(parent).await?;
-        }
+        config.normalize()?;
+        prepare(&config).await?;
 
         let db = LocalDb::open(&config.state_dir)
             .await
@@ -86,7 +84,7 @@ impl Aim {
 
     /// Create a default todo draft based on the AIM configuration.
     pub fn default_todo_draft(&self) -> TodoDraft {
-        TodoDraft::default(&self.config)
+        TodoDraft::default(&self.config, self.now)
     }
 
     /// Add a new todo from the given draft.
@@ -163,12 +161,7 @@ impl Aim {
         pager: &Pager,
     ) -> Result<Vec<impl Todo>, Box<dyn Error>> {
         let conds = ParsedTodoConditions::parse(&self.now, conds);
-
-        let sort: Vec<_> = sort
-            .iter()
-            .map(|s| ParsedTodoSort::parse(&self.config, *s))
-            .collect();
-
+        let sort = ParsedTodoSort::parse_vec(&self.config, sort);
         let todos = self.db.todos.list(&conds, &sort, pager).await?;
         let todos = self.short_ids.todos(todos).await?;
         Ok(todos)
@@ -258,23 +251,12 @@ impl Aim {
     }
 }
 
-/// Configuration for the AIM application.
-#[derive(Debug, Clone)]
-pub struct Config {
-    /// Path to the calendar directory.
-    pub calendar_path: PathBuf,
-
-    /// Directory for storing application state.
-    pub state_dir: Option<PathBuf>,
-
-    /// Default due time for new tasks.
-    pub default_due: Option<Duration>,
-
-    /// Default priority for new tasks.
-    pub default_priority: Priority,
-
-    /// If true, items with no priority will be listed first.
-    pub default_priority_none_fist: bool,
+async fn prepare(config: &Config) -> Result<(), Box<dyn Error>> {
+    if let Some(parent) = &config.state_dir {
+        log::info!("Ensuring state directory exists: {}", parent.display());
+        fs::create_dir_all(parent).await?;
+    }
+    Ok(())
 }
 
 async fn parse_ics(path: &Path) -> Result<Calendar, Box<dyn Error>> {
@@ -283,13 +265,4 @@ async fn parse_ics(path: &Path) -> Result<Calendar, Box<dyn Error>> {
         .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?
         .parse()
         .map_err(|e| format!("Failed to parse calendar: {e}").into())
-}
-
-/// The unique identifier for a todo item, which can be either a UID or a short ID.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Id {
-    /// The unique identifier for the todo item.
-    Uid(String),
-    /// Either a short identifier or a unique identifier.
-    ShortIdOrUid(String),
 }

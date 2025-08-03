@@ -2,6 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+/// The unique identifier for a todo item, which can be either a UID or a short ID.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Id {
+    /// The unique identifier for the todo item.
+    Uid(String),
+    /// Either a short identifier or a unique identifier.
+    ShortIdOrUid(String),
+}
+
 /// Sort order, either ascending or descending.
 #[derive(Debug, Clone, Copy)]
 pub enum SortOrder {

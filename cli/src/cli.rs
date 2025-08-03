@@ -4,18 +4,17 @@
 
 use std::{error::Error, ffi::OsString, path::PathBuf};
 
-use aimcal_core::Aim;
+use aimcal_core::{APP_NAME, Aim};
 use clap::{ArgMatches, Command, ValueHint, arg, builder::styling, crate_version, value_parser};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
 
-use crate::Config;
 use crate::cmd_dashboard::CmdDashboard;
 use crate::cmd_event::CmdEventList;
 use crate::cmd_generate_completion::CmdGenerateCompletion;
 use crate::cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo};
 use crate::cmd_tui::{CmdEdit, CmdNew};
-use crate::config::APP_NAME;
+use crate::config::parse_config;
 
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
@@ -219,8 +218,8 @@ impl Commands {
         F: for<'a> FnOnce(&'a mut Aim) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
     {
         log::debug!("Parsing configuration...");
-        let config = Config::parse(config).await?;
-        let mut aim = Aim::new(config.core).await?;
+        let (core_config, _config) = parse_config(config).await?;
+        let mut aim = Aim::new(core_config).await?;
 
         f(&mut aim).await?;
 

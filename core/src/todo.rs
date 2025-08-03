@@ -103,12 +103,12 @@ pub struct TodoDraft {
 
 impl TodoDraft {
     /// Creates a new empty patch.
-    pub(crate) fn default(config: &Config) -> Self {
+    pub(crate) fn default(config: &Config, now: DateTime<Local>) -> Self {
         Self {
             description: None,
             due: config
                 .default_due
-                .map(|d| LooseDateTime::Local(Local::now() + d)),
+                .map(|d| LooseDateTime::Local(d.datetime(now))),
             percent_complete: None,
             priority: Some(config.default_priority),
             status: Some(TodoStatus::NeedsAction),
@@ -132,7 +132,7 @@ impl TodoDraft {
         if let Some(due) = self.due {
             icalendar::Todo::due(&mut todo, due);
         } else if let Some(duration) = config.default_due {
-            icalendar::Todo::due(&mut todo, LooseDateTime::Local(now + duration));
+            icalendar::Todo::due(&mut todo, LooseDateTime::Local(duration.datetime(now)));
         }
 
         if let Some(percent) = self.percent_complete {
@@ -373,5 +373,11 @@ impl ParsedTodoSort {
                 none_first: none_first.unwrap_or(config.default_priority_none_fist),
             },
         }
+    }
+
+    pub fn parse_vec(config: &Config, sort: &[TodoSort]) -> Vec<Self> {
+        sort.iter()
+            .map(|s| ParsedTodoSort::parse(&config, *s))
+            .collect()
     }
 }
