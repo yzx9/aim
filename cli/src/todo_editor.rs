@@ -5,7 +5,7 @@
 use std::{error::Error, rc::Rc};
 
 use aimcal_core::{Aim, Id, LooseDateTime, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::{self, Block, Paragraph, block};
