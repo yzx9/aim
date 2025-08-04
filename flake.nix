@@ -105,18 +105,21 @@
           };
 
           packages = with pkgs; [
-            # rust
+            # rust toolchain
             cargo
             rustc
             rustfmt
             clippy
             rust-analyzer
 
-            sqlx-cli
+            # cargo tools
+            cargo-audit
+            cargo-release
+            cargo-outdated
 
             # misc
             just
-            cargo-release
+            sqlx-cli
           ];
         };
 
