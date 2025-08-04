@@ -12,6 +12,7 @@ use ratatui::widgets::{self, Block, Paragraph, block};
 use unicode_width::UnicodeWidthStr;
 
 use crate::parser::{format_datetime, parse_datetime};
+use crate::util::unicode_width_of_slice;
 
 /// TUI editor for editing todos.
 #[derive(Debug)]
@@ -610,8 +611,7 @@ struct Input<'a> {
 
 impl<'a> Input<'a> {
     pub fn get_cursor_position(&self, area: Rect, character_index: usize) -> (u16, u16) {
-        let index = character_index.min(self.value.len());
-        let width = self.value[0..index].width();
+        let width = unicode_width_of_slice(self.value, character_index);
         let x = area.x + (width as u16) + 2; // border 1 + padding 1
         let y = area.y + 1; // title line: 1
         (x, y)

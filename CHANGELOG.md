@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Handle Unicode boundary in substring width calculation
+
 ## [v0.3.1] - 2025-08-04
 
 ### Added

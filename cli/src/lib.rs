@@ -32,6 +32,7 @@ mod parser;
 mod table;
 mod todo_editor;
 mod todo_formatter;
+mod util;
 
 pub use crate::cli::{Cli, Commands, run};
 pub use crate::config::Config;
