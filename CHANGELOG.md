@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.1] - 2025-08-04
+
 ### Added
 
 - Add alias `add` for command `new`
@@ -141,7 +143,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add events and todos command
 - Add dashboard command
 
-[unreleased]: https://github.com/yzx9/aim/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/yzx9/aim/compare/v0.3.1...HEAD
+[v0.3.1]: https://github.com/yzx9/aim/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/yzx9/aim/compare/v0.2.3...v0.3.0
 [v0.2.3]: https://github.com/yzx9/aim/compare/v0.2.2...v0.2.3
 [v0.2.2]: https://github.com/yzx9/aim/compare/v0.2.1...v0.2.2
