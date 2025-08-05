@@ -34,24 +34,24 @@ impl CmdTodoNew {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .alias("add")
-            .about("Add a new todo item")
-            .arg(TodoEdit::arg_summary(true))
-            .arg(TodoEdit::arg_due())
-            .arg(TodoEdit::arg_description())
-            .arg(TodoEdit::arg_percent_complete())
-            .arg(TodoEdit::arg_priority())
-            .arg(TodoEdit::arg_status())
+            .about("Add a new todo")
+            .arg(arg_summary(true))
+            .arg(arg_due())
+            .arg(arg_description())
+            .arg(arg_percent_complete())
+            .arg(arg_priority())
+            .arg(arg_status())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
-        let description = TodoEdit::get_description(matches);
-        let due = TodoEdit::get_due(matches);
-        let percent_complete = TodoEdit::get_percent_complete(matches);
-        let priority = TodoEdit::get_priority(matches);
-        let status = TodoEdit::get_status(matches);
+        let description = get_description(matches);
+        let due = get_due(matches);
+        let percent_complete = get_percent_complete(matches);
+        let priority = get_priority(matches);
+        let status = get_status(matches);
 
-        let summary = match matches.get_one::<String>("summary") {
+        let summary = match get_summary(matches) {
             Some(summary) => Some(summary.clone()),
 
             None if description.is_none()
@@ -141,25 +141,25 @@ impl CmdTodoEdit {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Edit a todo item")
-            .arg(TodoEdit::arg_id())
-            .arg(TodoEdit::arg_summary(false))
-            .arg(TodoEdit::arg_due())
-            .arg(TodoEdit::arg_description())
-            .arg(TodoEdit::arg_percent_complete())
-            .arg(TodoEdit::arg_priority())
-            .arg(TodoEdit::arg_status())
+            .arg(arg_id())
+            .arg(arg_summary(false))
+            .arg(arg_due())
+            .arg(arg_description())
+            .arg(arg_percent_complete())
+            .arg(arg_priority())
+            .arg(arg_status())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: TodoEdit::get_id(matches),
-            description: TodoEdit::get_description(matches),
-            due: TodoEdit::get_due(matches),
-            percent_complete: TodoEdit::get_percent_complete(matches),
-            priority: TodoEdit::get_priority(matches),
-            status: TodoEdit::get_status(matches),
-            summary: TodoEdit::parse_summary(matches),
+            id: get_id(matches),
+            description: get_description(matches),
+            due: get_due(matches),
+            percent_complete: get_percent_complete(matches),
+            priority: get_priority(matches),
+            status: get_status(matches),
+            summary: get_summary(matches),
 
             output_format: ArgOutputFormat::from(matches),
         }
@@ -230,13 +230,13 @@ impl CmdTodoDone {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Mark a todo item as done")
-            .arg(TodoEdit::arg_ids())
+            .arg(arg_ids())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            ids: TodoEdit::get_ids(matches),
+            ids: get_ids(matches),
             output_format: ArgOutputFormat::from(matches),
         }
     }
@@ -275,13 +275,13 @@ impl CmdTodoUndo {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Mark a todo item as undone")
-            .arg(TodoEdit::arg_ids())
+            .arg(arg_ids())
             .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            ids: TodoEdit::get_ids(matches),
+            ids: get_ids(matches),
             output_format: ArgOutputFormat::from(matches),
         }
     }
@@ -369,7 +369,6 @@ impl CmdTodoList {
     }
 }
 
-#[derive(Debug, Clone)]
 struct TodoEdit {
     id: Id,
     patch: TodoPatch,
@@ -377,88 +376,6 @@ struct TodoEdit {
 }
 
 impl TodoEdit {
-    fn arg_id() -> Arg {
-        arg!(id: <ID> "The short id or uid of the todo to edit")
-    }
-
-    fn get_id(matches: &ArgMatches) -> Id {
-        let id = matches
-            .get_one::<String>("id")
-            .expect("id is required")
-            .clone();
-
-        Id::ShortIdOrUid(id)
-    }
-
-    fn arg_ids() -> Arg {
-        arg!(id: <ID> "The short id or uid of the todo to edit").num_args(1..)
-    }
-
-    fn get_ids(matches: &ArgMatches) -> Vec<Id> {
-        matches
-            .get_many::<String>("id")
-            .expect("id is required")
-            .map(|a| Id::ShortIdOrUid(a.clone()))
-            .collect()
-    }
-
-    fn arg_description() -> Arg {
-        arg!(--description <DESCRIPTION> "Description of the todo")
-    }
-
-    fn get_description(matches: &ArgMatches) -> Option<String> {
-        matches.get_one("description").cloned()
-    }
-
-    fn arg_due() -> Arg {
-        arg!(--due <DUE> "Due date and time of the todo")
-    }
-
-    fn get_due(matches: &ArgMatches) -> Option<String> {
-        matches.get_one("due").cloned()
-    }
-
-    fn arg_percent_complete() -> Arg {
-        fn from_0_to_100(s: &str) -> Result<u8, String> {
-            number_range(s, 0, 100)
-        }
-
-        arg!(--percent <PERCENT> "Percent complete of the todo (0-100)").value_parser(from_0_to_100)
-    }
-
-    fn get_percent_complete(matches: &ArgMatches) -> Option<u8> {
-        matches.get_one("percent").copied()
-    }
-
-    fn arg_priority() -> Arg {
-        clap::arg!(-p --priority <PRIORITY> "Priority of the todo")
-            .value_parser(clap::value_parser!(Priority))
-    }
-
-    fn get_priority(matches: &ArgMatches) -> Option<Priority> {
-        matches.get_one("priority").copied()
-    }
-
-    fn arg_status() -> Arg {
-        clap::arg!(--status <STATUS> "Status of the todo")
-            .value_parser(clap::value_parser!(TodoStatus))
-    }
-
-    fn get_status(matches: &ArgMatches) -> Option<TodoStatus> {
-        matches.get_one("status").copied()
-    }
-
-    fn arg_summary(positional: bool) -> Arg {
-        match positional {
-            true => arg!(summary: <SUMMARY> "Summary of the todo").required(false),
-            false => arg!(summary: -s --summary <SUMMARY> "Summary of the todo"),
-        }
-    }
-
-    fn parse_summary(matches: &ArgMatches) -> Option<String> {
-        matches.get_one::<String>("summary").cloned()
-    }
-
     async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Edit todo ...");
         let todo = aim.update_todo(&self.id, self.patch).await?;
@@ -466,6 +383,87 @@ impl TodoEdit {
         println!("{}", formatter.format(&[todo]));
         Ok(())
     }
+}
+
+fn arg_id() -> Arg {
+    arg!(id: <ID> "The short id or uid of the todo to edit")
+}
+
+fn get_id(matches: &ArgMatches) -> Id {
+    let id = matches
+        .get_one::<String>("id")
+        .expect("id is required")
+        .clone();
+
+    Id::ShortIdOrUid(id)
+}
+
+fn arg_ids() -> Arg {
+    arg!(id: <ID> "The short id or uid of the todo to edit").num_args(1..)
+}
+
+fn get_ids(matches: &ArgMatches) -> Vec<Id> {
+    matches
+        .get_many::<String>("id")
+        .expect("id is required")
+        .map(|a| Id::ShortIdOrUid(a.clone()))
+        .collect()
+}
+
+fn arg_description() -> Arg {
+    arg!(--description <DESCRIPTION> "Description of the todo")
+}
+
+fn get_description(matches: &ArgMatches) -> Option<String> {
+    matches.get_one("description").cloned()
+}
+
+fn arg_due() -> Arg {
+    arg!(--due <DUE> "Due date and time of the todo")
+}
+
+fn get_due(matches: &ArgMatches) -> Option<String> {
+    matches.get_one("due").cloned()
+}
+
+fn arg_percent_complete() -> Arg {
+    fn from_0_to_100(s: &str) -> Result<u8, String> {
+        number_range(s, 0, 100)
+    }
+
+    arg!(--percent <PERCENT> "Percent complete of the todo (0-100)").value_parser(from_0_to_100)
+}
+
+fn get_percent_complete(matches: &ArgMatches) -> Option<u8> {
+    matches.get_one("percent").copied()
+}
+
+fn arg_priority() -> Arg {
+    clap::arg!(-p --priority <PRIORITY> "Priority of the todo")
+        .value_parser(clap::value_parser!(Priority))
+}
+
+fn get_priority(matches: &ArgMatches) -> Option<Priority> {
+    matches.get_one("priority").copied()
+}
+
+fn arg_status() -> Arg {
+    clap::arg!(--status <STATUS> "Status of the todo").value_parser(clap::value_parser!(TodoStatus))
+}
+
+fn get_status(matches: &ArgMatches) -> Option<TodoStatus> {
+    matches.get_one("status").copied()
+}
+
+fn arg_summary(positional: bool) -> Arg {
+    match positional {
+        true => arg!(summary: <SUMMARY> "Summary of the todo").required(false),
+        false => arg!(summary: -s --summary <SUMMARY> "Summary of the todo"),
+    }
+}
+
+fn get_summary(matches: &ArgMatches) -> Option<String> {
+    matches.get_one::<String>("summary").cloned()
 }
 
 #[cfg(test)]
@@ -555,6 +553,8 @@ mod tests {
                 "2025-01-01 12:00:00",
                 "--priority",
                 "1",
+                "--percent",
+                "66",
                 "--status",
                 "needs-action",
                 "--summary",
@@ -564,10 +564,12 @@ mod tests {
         let sub_matches = matches.subcommand_matches("edit").unwrap();
         let parsed = CmdTodoEdit::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
-        assert_eq!(parsed.summary, Some("Another summary".to_string()));
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.priority, Some(Priority::P1));
+        assert_eq!(parsed.percent_complete, Some(66));
+        assert_eq!(parsed.status, Some(TodoStatus::NeedsAction));
+        assert_eq!(parsed.summary, Some("Another summary".to_string()));
     }
 
     #[test]

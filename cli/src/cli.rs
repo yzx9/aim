@@ -10,7 +10,7 @@ use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
 
 use crate::cmd_dashboard::CmdDashboard;
-use crate::cmd_event::CmdEventList;
+use crate::cmd_event::{CmdEventEdit, CmdEventList, CmdEventNew};
 use crate::cmd_generate_completion::CmdGenerateCompletion;
 use crate::cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo};
 use crate::cmd_tui::{CmdEdit, CmdNew};
@@ -75,6 +75,8 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .about("Manage your event list")
                     .arg_required_else_help(true)
                     .subcommand_required(true)
+                    .subcommand(CmdEventNew::command())
+                    .subcommand(CmdEventEdit::command())
                     .subcommand(CmdEventList::command()),
             )
             .subcommand(
@@ -120,7 +122,9 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             Some((CmdNew::NAME, matches)) => New(CmdNew::from(matches)),
             Some((CmdEdit::NAME, matches)) => Edit(CmdEdit::from(matches)),
             Some(("event", matches)) => match matches.subcommand() {
-                Some(("list", matches)) => EventList(CmdEventList::from(matches)),
+                Some((CmdEventNew::NAME, matches)) => EventNew(CmdEventNew::from(matches)?),
+                Some((CmdEventEdit::NAME, matches)) => EventEdit(CmdEventEdit::from(matches)),
+                Some((CmdEventList::NAME, matches)) => EventList(CmdEventList::from(matches)),
                 _ => unreachable!(),
             },
             Some(("todo", matches)) => match matches.subcommand() {
@@ -162,6 +166,12 @@ pub enum Commands {
     /// Edit a event or todo
     Edit(CmdEdit),
 
+    /// Add a new event
+    EventNew(CmdEventNew),
+
+    /// Edit a event
+    EventEdit(CmdEventEdit),
+
     /// List events
     EventList(CmdEventList),
 
@@ -196,6 +206,8 @@ impl Commands {
             Dashboard(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
             New(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             Edit(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventNew(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventEdit(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
             EventList(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoNew(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoEdit(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
@@ -269,6 +281,51 @@ mod tests {
     fn test_parse_edit() {
         let cli = Cli::try_parse_from(vec!["test", "edit", "id1"]).unwrap();
         assert!(matches!(cli.command, Commands::Edit(_)));
+    }
+
+    #[test]
+    fn test_parse_event_new() {
+        let cli = Cli::try_parse_from(vec![
+            "test",
+            "event",
+            "new",
+            "a new event",
+            "--start",
+            "2025-01-01 10:00",
+            "--end",
+            "2025-01-01 12:00",
+        ])
+        .unwrap();
+        assert!(matches!(cli.command, Commands::EventNew(_)));
+    }
+
+    #[test]
+    fn test_parse_event_add() {
+        let cli = Cli::try_parse_from(vec![
+            "test",
+            "event",
+            "add",
+            "a new event",
+            "--start",
+            "2025-01-01 10:00",
+            "--end",
+            "2025-01-01 12:00",
+        ])
+        .unwrap();
+        assert!(matches!(cli.command, Commands::EventNew(_)));
+    }
+
+    #[test]
+    fn test_parse_event_edit() {
+        let args = vec!["test", "event", "edit", "some_id", "-s", "new summary"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::EventEdit(cmd) => {
+                assert_eq!(cmd.id, Id::ShortIdOrUid("some_id".to_string()));
+                assert_eq!(cmd.summary, Some("new summary".to_string()));
+            }
+            _ => panic!("Expected EventEdit command"),
+        }
     }
 
     #[test]
