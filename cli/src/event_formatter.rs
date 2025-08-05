@@ -8,8 +8,8 @@ use aimcal_core::{Event, LooseDateTime, RangePosition};
 use chrono::{DateTime, Local};
 use colored::Color;
 
-use crate::parser::{ArgOutputFormat, format_datetime};
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
+use crate::util::{ArgOutputFormat, format_datetime};
 
 #[derive(Debug, Clone)]
 pub struct EventFormatter {

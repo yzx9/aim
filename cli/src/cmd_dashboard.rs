@@ -9,7 +9,7 @@ use chrono::Duration;
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 
-use crate::{cmd_event::CmdEventList, cmd_todo::CmdTodoList, parser::ArgOutputFormat};
+use crate::{cmd_event::CmdEventList, cmd_todo::CmdTodoList, util::ArgOutputFormat};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CmdDashboard;

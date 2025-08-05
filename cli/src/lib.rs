@@ -28,10 +28,9 @@ mod cmd_todo;
 mod cmd_tui;
 mod config;
 mod event_formatter;
-mod parser;
 mod table;
-mod todo_editor;
 mod todo_formatter;
+mod tui;
 mod util;
 
 pub use crate::cli::{Cli, Commands, run};

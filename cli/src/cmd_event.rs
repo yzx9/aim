@@ -8,10 +8,8 @@ use aimcal_core::{Aim, EventConditions, EventDraft, EventPatch, EventStatus, Id,
 use clap::{Arg, ArgMatches, Command, arg};
 use colored::Colorize;
 
-use crate::{
-    event_formatter::EventFormatter,
-    parser::{ArgOutputFormat, parse_datetime},
-};
+use crate::event_formatter::EventFormatter;
+use crate::util::{ArgOutputFormat, parse_datetime};
 
 #[derive(Debug, Clone)]
 pub struct CmdEventNew {

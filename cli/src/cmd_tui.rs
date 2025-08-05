@@ -11,7 +11,7 @@ use aimcal_core::{Aim, Id};
 use clap::{Arg, ArgMatches, Command, arg};
 
 use crate::cmd_todo::{CmdTodoEdit, CmdTodoNew};
-use crate::parser::ArgOutputFormat;
+use crate::util::ArgOutputFormat;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdNew {

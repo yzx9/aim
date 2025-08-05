@@ -12,9 +12,9 @@ use clap::{Arg, ArgMatches, Command, arg};
 use clap_num::number_range;
 use colored::Colorize;
 
-use crate::parser::{ArgOutputFormat, parse_datetime};
-use crate::todo_editor::TodoEditor;
 use crate::todo_formatter::TodoFormatter;
+use crate::tui::TodoEditor;
+use crate::util::{ArgOutputFormat, parse_datetime};
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
