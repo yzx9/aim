@@ -162,22 +162,25 @@ impl TodoColumnDue {
     }
 
     fn get_color(&self, todo: &impl Todo, now: &DateTime<Local>) -> Option<Color> {
+        let due = todo.due()?; // Ensure due date is present
+        self.compute_color(due, now)
+    }
+
+    fn compute_color(&self, due: LooseDateTime, now: &DateTime<Local>) -> Option<Color> {
         const COLOR_OVERDUE: Option<Color> = Some(Color::Red);
         const COLOR_TODAY: Option<Color> = Some(Color::Yellow);
 
-        let due = todo.due()?;
-        match LooseDateTime::position_in_range(
-            &now.naive_local(),
-            &Some(due),
-            &Some(LooseDateTime::DateOnly(due.date())), // End of today
-        ) {
-            RangePosition::Before => None,
-            RangePosition::InRange => COLOR_TODAY,
-            RangePosition::After => COLOR_OVERDUE,
-            RangePosition::InvalidRange => {
-                log::warn!("Invalid due date for todo: {}", todo.uid());
-                None
-            }
+        let t = now.naive_local();
+        match LooseDateTime::position_in_range(&t, &None, &Some(due)) {
+            RangePosition::InRange => match LooseDateTime::position_in_range(
+                &t,
+                &Some(LooseDateTime::DateOnly(due.date())),
+                &Some(due),
+            ) {
+                RangePosition::InRange => COLOR_TODAY, // due in today && 00:00 ~ due
+                _ => None,
+            },
+            _ => COLOR_OVERDUE,
         }
     }
 }
@@ -238,5 +241,72 @@ pub struct TodoColumnUid;
 impl TodoColumnUid {
     fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
         todo.uid().into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{Local, NaiveDate, TimeZone};
+    use colored::Color;
+
+    #[test]
+    fn test_compute_color_overdue_yesterday() {
+        let col = TodoColumnDue;
+        let due = LooseDateTime::Floating(
+            NaiveDate::from_ymd_opt(2025, 8, 4)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap(),
+        );
+        let now = Local.with_ymd_and_hms(2025, 8, 5, 10, 0, 0).unwrap();
+
+        let color = col.compute_color(due, &now);
+        assert_eq!(color, Some(Color::Red));
+    }
+
+    #[test]
+    fn test_compute_color_today_before_due_time() {
+        let col = TodoColumnDue;
+        let due = LooseDateTime::Floating(
+            NaiveDate::from_ymd_opt(2025, 8, 5)
+                .unwrap()
+                .and_hms_opt(18, 0, 0)
+                .unwrap(),
+        );
+        let now = Local.with_ymd_and_hms(2025, 8, 5, 12, 0, 0).unwrap();
+
+        let color = col.compute_color(due, &now);
+        assert_eq!(color, Some(Color::Yellow));
+    }
+
+    #[test]
+    fn test_compute_color_today_after_due_time() {
+        let col = TodoColumnDue;
+        let due = LooseDateTime::Floating(
+            NaiveDate::from_ymd_opt(2025, 8, 5)
+                .unwrap()
+                .and_hms_opt(10, 0, 0)
+                .unwrap(),
+        );
+        let now = Local.with_ymd_and_hms(2025, 8, 5, 12, 0, 0).unwrap();
+
+        let color = col.compute_color(due, &now);
+        assert_eq!(color, Some(Color::Red));
+    }
+
+    #[test]
+    fn test_compute_color_future_date() {
+        let col = TodoColumnDue;
+        let due = LooseDateTime::Floating(
+            NaiveDate::from_ymd_opt(2025, 8, 6)
+                .unwrap()
+                .and_hms_opt(10, 0, 0)
+                .unwrap(),
+        );
+        let now = Local.with_ymd_and_hms(2025, 8, 5, 10, 0, 0).unwrap();
+
+        let color = col.compute_color(due, &now);
+        assert_eq!(color, None);
     }
 }

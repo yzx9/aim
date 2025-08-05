@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Handle Unicode boundary in substring width calculation
+- Fix todo color
 
 ## [v0.3.1] - 2025-08-04
 
