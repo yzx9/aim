@@ -5,7 +5,7 @@
 use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
 use chrono::{DateTime, Local};
-use icalendar::Component;
+use icalendar::{Component, EventLike};
 
 use crate::LooseDateTime;
 
@@ -60,6 +60,126 @@ impl Event for icalendar::Event {
 
     fn summary(&self) -> &str {
         self.get_summary().unwrap_or("")
+    }
+}
+
+/// Darft for an event, used for creating new events.
+#[derive(Debug)]
+pub struct EventDraft {
+    /// The description of the event, if available.
+    pub description: Option<String>,
+
+    /// The start date and time of the event, if available.
+    pub start: Option<LooseDateTime>,
+
+    /// The end date and time of the event, if available.
+    pub end: Option<LooseDateTime>,
+
+    /// The status of the event, if available.
+    pub status: Option<EventStatus>,
+
+    /// The summary of the event.
+    pub summary: String,
+}
+
+impl EventDraft {
+    /// Creates a new empty patch.
+    pub(crate) fn default() -> Self {
+        Self {
+            description: None,
+            start: None,
+            end: None,
+            status: None,
+            summary: String::new(),
+        }
+    }
+
+    /// Converts the draft into a icalendar Event component.
+    pub(crate) fn into_ics(self, uid: &str) -> icalendar::Event {
+        let mut event = icalendar::Event::with_uid(uid);
+
+        if let Some(description) = self.description {
+            Component::description(&mut event, &description);
+        }
+
+        if let Some(start) = self.start {
+            EventLike::starts(&mut event, start);
+        }
+
+        if let Some(end) = self.end {
+            EventLike::ends(&mut event, end);
+        }
+
+        let status = self.status.unwrap_or(EventStatus::Confirmed).into();
+        icalendar::Event::status(&mut event, status);
+
+        Component::summary(&mut event, &self.summary);
+
+        event
+    }
+}
+
+/// Patch for an event, allowing partial updates.
+#[derive(Debug, Default, Clone)]
+pub struct EventPatch {
+    /// The description of the event, if available.
+    pub description: Option<Option<String>>,
+
+    /// The start date and time of the event, if available.
+    pub start: Option<Option<LooseDateTime>>,
+
+    /// The end date and time of the event, if available.
+    pub end: Option<Option<LooseDateTime>>,
+
+    /// The status of the event, if available.
+    pub status: Option<EventStatus>,
+
+    /// The summary of the event, if available.
+    pub summary: Option<String>,
+}
+
+impl EventPatch {
+    /// Is this patch empty, meaning no fields are set
+    pub fn is_empty(&self) -> bool {
+        self.description.is_none()
+            && self.start.is_none()
+            && self.end.is_none()
+            && self.status.is_none()
+            && self.summary.is_none()
+    }
+
+    /// Applies the patch to a mutable event, modifying it in place.
+    pub(crate) fn apply_to<'a>(&self, e: &'a mut icalendar::Event) -> &'a mut icalendar::Event {
+        if let Some(description) = &self.description {
+            match description {
+                Some(desc) => e.description(desc),
+                None => e.remove_description(),
+            };
+        }
+
+        if let Some(start) = &self.start {
+            match start {
+                Some(s) => e.starts(*s),
+                None => e.remove_starts(),
+            };
+        }
+
+        if let Some(end) = &self.end {
+            match end {
+                Some(ed) => e.ends(*ed),
+                None => e.remove_ends(),
+            };
+        }
+
+        if let Some(status) = self.status {
+            e.status(status.into());
+        }
+
+        if let Some(summary) = &self.summary {
+            e.summary(summary);
+        }
+
+        e
     }
 }
 

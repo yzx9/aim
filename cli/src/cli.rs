@@ -19,14 +19,14 @@ use crate::config::parse_config;
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
     env_logger::init();
-    match Cli::parse() {
-        Ok(cli) => {
-            if let Err(e) = cli.run().await {
-                println!("{} {}", "Error:".red(), e);
-            }
-        }
-        Err(e) => println!("{} {}", "Error:".red(), e),
+    let err = match Cli::parse() {
+        Ok(cli) => match cli.run().await {
+            Ok(()) => return Ok(()),
+            Err(e) => e,
+        },
+        Err(e) => e,
     };
+    println!("{} {}", "Error:".red(), err);
     Ok(())
 }
 

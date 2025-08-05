@@ -44,12 +44,29 @@ ON CONFLICT(uid) DO UPDATE SET
         Ok(())
     }
 
+    pub async fn get(&self, uid: &str) -> Result<Option<EventRecord>, sqlx::Error> {
+        const SQL: &str = "
+SELECT uid, path, summary, description, status, start, end
+FROM events
+WHERE uid = ?;
+";
+
+        sqlx::query_as(SQL)
+            .bind(uid)
+            .fetch_optional(&self.pool)
+            .await
+    }
+
     pub async fn list(
         &self,
         conds: &ParsedEventConditions,
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
-        let mut sql = "SELECT * FROM events".to_string();
+        let mut sql = "
+SELECT uid, path, summary, description, status, start, end
+FROM events
+"
+        .to_string();
 
         let mut where_clauses = Vec::new();
         if conds.end_after.is_some() {
@@ -124,6 +141,10 @@ impl EventRecord {
                 .map(|a| a.format_stable())
                 .unwrap_or("".to_string()),
         })
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
     }
 }
 

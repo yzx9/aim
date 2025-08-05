@@ -117,7 +117,7 @@ impl TodoDraft {
     }
 
     /// Converts the draft into a icalendar Todo component.
-    pub(crate) fn into_todo(
+    pub(crate) fn into_ics(
         self,
         config: &Config,
         now: DateTime<Local>,

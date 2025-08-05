@@ -76,7 +76,11 @@ WHERE uid = ?;
             where_clauses.push("due <= ?");
         }
 
-        let mut sql = "SELECT * FROM todos".to_string();
+        let mut sql = "
+SELECT uid, path, completed, description, percent, priority, status, summary, due
+FROM todos
+"
+        .to_string();
         if !where_clauses.is_empty() {
             sql += " WHERE ";
             sql += &where_clauses.join(" AND ");

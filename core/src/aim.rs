@@ -13,8 +13,11 @@ use uuid::Uuid;
 use crate::event::ParsedEventConditions;
 use crate::localdb::LocalDb;
 use crate::short_id::ShortIds;
-use crate::todo::{ParsedTodoConditions, ParsedTodoSort, TodoPatch};
-use crate::{Config, Event, EventConditions, Id, Pager, Todo, TodoConditions, TodoDraft, TodoSort};
+use crate::todo::{ParsedTodoConditions, ParsedTodoSort};
+use crate::{
+    Config, Event, EventConditions, EventDraft, EventPatch, Id, Pager, Todo, TodoConditions,
+    TodoDraft, TodoPatch, TodoSort,
+};
 
 /// AIM calendar application core.
 #[derive(Debug, Clone)]
@@ -82,6 +85,64 @@ impl Aim {
         self.db.events.count(&conds).await
     }
 
+    /// Create a default event draft based on the AIM configuration.
+    pub fn default_event_draft(&self) -> EventDraft {
+        EventDraft::default()
+    }
+
+    /// Add a new event from the given draft.
+    pub async fn new_event(&self, draft: EventDraft) -> Result<impl Event, Box<dyn Error>> {
+        let uid = self.generate_uid().await?;
+        let event = draft.into_ics(&uid);
+        let path = self.get_path(&uid);
+
+        let calendar = Calendar::new().push(event.clone()).done();
+        fs::write(&path, calendar.to_string())
+            .await
+            .map_err(|e| format!("Failed to write calendar file: {e}"))?;
+
+        self.db.upsert_event(&path, &event).await?;
+
+        let todo = self.short_ids.event(event).await?;
+        Ok(todo)
+    }
+
+    /// Upsert an event into the calendar.
+    pub async fn update_event(
+        &self,
+        id: &Id,
+        patch: EventPatch,
+    ) -> Result<impl Event, Box<dyn Error>> {
+        let uid = self.short_ids.get_uid(id).await?;
+        let event = match self.db.events.get(&uid).await? {
+            Some(todo) => todo,
+            None => return Err("Todo not found".into()),
+        };
+
+        let path: PathBuf = event.path().into();
+        let mut calendar = parse_ics(&path).await?;
+        let t = calendar
+            .components
+            .iter_mut()
+            .filter_map(|a| match a {
+                CalendarComponent::Event(a) => Some(a),
+                _ => None,
+            })
+            .find(|a| a.get_uid() == Some(event.uid()))
+            .ok_or("Event not found in calendar")?;
+
+        patch.apply_to(t);
+        let todo = t.clone();
+        fs::write(&path, calendar.done().to_string())
+            .await
+            .map_err(|e| format!("Failed to write calendar file: {e}"))?;
+
+        self.db.upsert_event(&path, &todo).await?;
+
+        let todo = self.short_ids.event(todo).await?;
+        Ok(todo)
+    }
+
     /// Create a default todo draft based on the AIM configuration.
     pub fn default_todo_draft(&self) -> TodoDraft {
         TodoDraft::default(&self.config, self.now)
@@ -90,7 +151,7 @@ impl Aim {
     /// Add a new todo from the given draft.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo, Box<dyn Error>> {
         let uid = self.generate_uid().await?;
-        let todo = draft.into_todo(&self.config, self.now, &uid);
+        let todo = draft.into_ics(&self.config, self.now, &uid);
         let path = self.get_path(&uid);
 
         let calendar = Calendar::new().push(todo.clone()).done();
