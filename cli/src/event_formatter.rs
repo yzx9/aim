@@ -190,8 +190,8 @@ impl EventColumnTimeRange {
         const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
         const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
 
-        let start = event.start()?;
-        match LooseDateTime::position_in_range(&now.naive_local(), &start, &event.end()) {
+        let start = event.start()?; // If no start time, no color
+        match LooseDateTime::position_in_range(&now.naive_local(), &Some(start), &event.end()) {
             RangePosition::Before => COLOR_TODAY_LATE,
             RangePosition::InRange => COLOR_CURRENT,
             RangePosition::After => None,

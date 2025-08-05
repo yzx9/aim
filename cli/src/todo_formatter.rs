@@ -168,7 +168,7 @@ impl TodoColumnDue {
         let due = todo.due()?;
         match LooseDateTime::position_in_range(
             &now.naive_local(),
-            &due,
+            &Some(due),
             &Some(LooseDateTime::DateOnly(due.date())), // End of today
         ) {
             RangePosition::Before => None,

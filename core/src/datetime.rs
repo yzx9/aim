@@ -63,27 +63,32 @@ impl LooseDateTime {
     /// Determines the position of a given datetime relative to a start and optional end date.
     pub fn position_in_range(
         t: &NaiveDateTime,
-        start: &LooseDateTime,
+        start: &Option<LooseDateTime>,
         end: &Option<LooseDateTime>,
     ) -> RangePosition {
-        let start_dt = start.with_start_of_day(); // 00:00
-        match end {
-            Some(end) => {
+        match (start, end) {
+            (Some(start), Some(end)) => {
+                let start_dt = start.with_start_of_day(); // 00:00
                 let end_dt = end.with_end_of_day(); // 23:59
                 if start_dt > end_dt {
                     RangePosition::InvalidRange
                 } else if t > &end_dt {
                     RangePosition::After
-                } else if t <= &start_dt {
+                } else if t < &start_dt {
                     RangePosition::Before
                 } else {
                     RangePosition::InRange
                 }
             }
-            None => match &start_dt <= t {
+            (Some(start), None) => match t >= &start.with_start_of_day() {
                 true => RangePosition::InRange,
                 false => RangePosition::Before,
             },
+            (None, Some(end)) => match t > &end.with_end_of_day() {
+                true => RangePosition::After,
+                false => RangePosition::InRange,
+            },
+            (None, None) => RangePosition::InvalidRange,
         }
     }
 
@@ -284,74 +289,154 @@ mod tests {
         assert_eq!(d3.with_end_of_day(), datetime);
     }
 
-    #[test]
-    fn test_position_in_range_with_end() {
-        let start = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
-        let end = Some(LooseDateTime::DateOnly(
-            NaiveDate::from_ymd_opt(2024, 1, 3).unwrap(),
-        ));
+    fn datetime(y: i32, m: u32, d: u32, h: u32, mm: u32, s: u32) -> Option<NaiveDateTime> {
+        NaiveDate::from_ymd_opt(y, m, d).and_then(|a| a.and_hms_opt(h, mm, s))
+    }
 
-        let t_before = NaiveDate::from_ymd_opt(2023, 12, 31)
-            .unwrap()
-            .and_hms_opt(23, 59, 59)
-            .unwrap();
-        let t_in = NaiveDate::from_ymd_opt(2024, 1, 2)
-            .unwrap()
-            .and_hms_opt(12, 0, 0)
-            .unwrap();
-        let t_after = NaiveDate::from_ymd_opt(2024, 1, 4)
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
-            .unwrap();
+    #[test]
+    fn test_position_in_range_date_date() {
+        let start = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
+        let end = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2024, 1, 3).unwrap());
+
+        let t_before = datetime(2023, 12, 31, 23, 59, 59).unwrap();
+        let t_in_s = datetime(2024, 1, 1, 12, 0, 0).unwrap();
+        let t_in_e = datetime(2024, 1, 3, 12, 0, 0).unwrap();
+        let t_after = datetime(2024, 1, 4, 0, 0, 0).unwrap();
 
         assert_eq!(
-            LooseDateTime::position_in_range(&t_before, &start, &end),
+            LooseDateTime::position_in_range(&t_before, &Some(start), &Some(end)),
             RangePosition::Before
         );
         assert_eq!(
-            LooseDateTime::position_in_range(&t_in, &start, &end),
+            LooseDateTime::position_in_range(&t_in_s, &Some(start), &Some(end)),
             RangePosition::InRange
         );
         assert_eq!(
-            LooseDateTime::position_in_range(&t_after, &start, &end),
+            LooseDateTime::position_in_range(&t_in_e, &Some(start), &Some(end)),
+            RangePosition::InRange
+        );
+        assert_eq!(
+            LooseDateTime::position_in_range(&t_after, &Some(start), &Some(end)),
             RangePosition::After
         );
     }
 
     #[test]
-    fn test_position_in_range_without_end() {
+    fn test_position_in_range_date_floating() {
         let start = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
+        let end = LooseDateTime::Floating(datetime(2024, 1, 3, 13, 0, 0).unwrap());
 
-        let t1 = NaiveDate::from_ymd_opt(2023, 12, 31)
-            .unwrap()
-            .and_hms_opt(23, 59, 59)
-            .unwrap();
-        let t2 = NaiveDate::from_ymd_opt(2024, 1, 1)
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
-            .unwrap();
+        let t_before = datetime(2023, 12, 31, 23, 59, 59).unwrap();
+        let t_in_s = datetime(2024, 1, 1, 12, 0, 0).unwrap();
+        let t_in_e = datetime(2024, 1, 3, 12, 0, 0).unwrap();
+        let t_after = datetime(2024, 1, 3, 14, 0, 0).unwrap();
 
         assert_eq!(
-            LooseDateTime::position_in_range(&t1, &start, &None),
+            LooseDateTime::position_in_range(&t_before, &Some(start), &Some(end)),
             RangePosition::Before
         );
         assert_eq!(
-            LooseDateTime::position_in_range(&t2, &start, &None),
+            LooseDateTime::position_in_range(&t_in_s, &Some(start), &Some(end)),
             RangePosition::InRange
         );
+        assert_eq!(
+            LooseDateTime::position_in_range(&t_in_e, &Some(start), &Some(end)),
+            RangePosition::InRange
+        );
+        assert_eq!(
+            LooseDateTime::position_in_range(&t_after, &Some(start), &Some(end)),
+            RangePosition::After
+        );
+    }
+
+    #[test]
+    fn test_position_in_range_floating_date() {
+        let start = LooseDateTime::Floating(datetime(2024, 1, 1, 13, 0, 0).unwrap());
+        let end = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
+
+        let t_before = datetime(2024, 1, 1, 12, 0, 0).unwrap();
+        let t_in_s = datetime(2024, 1, 1, 14, 0, 0).unwrap();
+        let t_in_e = datetime(2024, 1, 1, 23, 59, 59).unwrap();
+        let t_after = datetime(2024, 1, 2, 0, 0, 0).unwrap();
+
+        assert_eq!(
+            LooseDateTime::position_in_range(&t_before, &Some(start), &Some(end)),
+            RangePosition::Before
+        );
+        assert_eq!(
+            LooseDateTime::position_in_range(&t_in_s, &Some(start), &Some(end)),
+            RangePosition::InRange
+        );
+        assert_eq!(
+            LooseDateTime::position_in_range(&t_in_e, &Some(start), &Some(end)),
+            RangePosition::InRange
+        );
+        assert_eq!(
+            LooseDateTime::position_in_range(&t_after, &Some(start), &Some(end)),
+            RangePosition::After
+        );
+    }
+
+    #[test]
+    fn test_position_in_range_without_start() {
+        let t1 = datetime(2023, 12, 31, 23, 59, 59).unwrap();
+        let t2 = datetime(2024, 1, 1, 20, 0, 0).unwrap();
+
+        for end in [
+            LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2023, 12, 31).unwrap()),
+            LooseDateTime::Floating(datetime(2023, 12, 31, 23, 59, 59).unwrap()),
+            LooseDateTime::Local(Local.with_ymd_and_hms(2023, 12, 31, 23, 59, 59).unwrap()),
+        ] {
+            assert_eq!(
+                LooseDateTime::position_in_range(&t1, &None, &Some(end)),
+                RangePosition::InRange,
+                "end = {end:?}"
+            );
+            assert_eq!(
+                LooseDateTime::position_in_range(&t2, &None, &Some(end)),
+                RangePosition::After,
+                "end = {end:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_position_in_range_date_without_end() {
+        let t1 = datetime(2023, 12, 31, 23, 59, 59).unwrap();
+        let t2 = datetime(2024, 1, 1, 0, 0, 0).unwrap();
+
+        for start in [
+            LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()),
+            LooseDateTime::Floating(datetime(2024, 1, 1, 0, 0, 0).unwrap()),
+            LooseDateTime::Local(Local.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap()),
+        ] {
+            assert_eq!(
+                LooseDateTime::position_in_range(&t1, &Some(start), &None),
+                RangePosition::Before,
+                "start = {start:?}"
+            );
+            assert_eq!(
+                LooseDateTime::position_in_range(&t2, &Some(start), &None),
+                RangePosition::InRange,
+                "start = {start:?}"
+            );
+        }
     }
 
     #[test]
     fn test_invalid_range() {
         let start = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2024, 1, 5).unwrap());
         let end = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
-        let t = NaiveDate::from_ymd_opt(2024, 1, 3)
-            .unwrap()
-            .and_hms_opt(12, 0, 0)
-            .unwrap();
+
+        let t = datetime(2024, 1, 3, 12, 0, 0).unwrap();
 
         assert_eq!(
-            LooseDateTime::position_in_range(&t, &start, &Some(end)),
+            LooseDateTime::position_in_range(&t, &Some(start), &Some(end)),
+            RangePosition::InvalidRange
+        );
+
+        assert_eq!(
+            LooseDateTime::position_in_range(&t, &None, &None),
             RangePosition::InvalidRange
         );
     }
@@ -361,7 +446,7 @@ mod tests {
         let date = NaiveDate::from_ymd_opt(2024, 7, 18).unwrap();
         let time = NaiveTime::from_hms_opt(12, 30, 45).unwrap();
         let datetime = NaiveDateTime::new(date, time);
-        let local = TimeZone::with_ymd_and_hms(&Local, 2024, 7, 18, 12, 30, 45).unwrap();
+        let local = Local.with_ymd_and_hms(2024, 7, 18, 12, 30, 45).unwrap();
 
         let d1 = LooseDateTime::DateOnly(date);
         let d2 = LooseDateTime::Floating(datetime);
