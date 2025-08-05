@@ -51,6 +51,17 @@ impl ShortIds {
         uid: &str,
         kind: ShortIdKind,
     ) -> Result<NonZeroU32, sqlx::Error> {
+        // In SQLite, every table (unless declared WITHOUT ROWID) maintains a hidden ROWID column.
+        //
+        // When a column is defined as `INTEGER PRIMARY KEY`, it becomes an alias for the ROWID,
+        // and SQLite will automatically assign it a value one greater than the current maximum.
+        //
+        // `AUTOINCREMENT` is an alternative that guarantees IDs are never reused, even after
+        // deletions or conflicts. However, unlike ROWID, it may reserve or skip IDs when an insert
+        // fails or is ignored due to a conflict.
+        //
+        // In our case, we prefer `short_id` values to remain as small and compact as possible,
+        // so we intentionally avoid using AUTOINCREMENT.
         const SQL: &str = "
 INSERT INTO short_ids (uid, kind) VALUES (?, ?)
 ON CONFLICT(uid) DO NOTHING
