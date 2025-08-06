@@ -3,21 +3,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::error::Error;
-use std::rc::Rc;
 
 use aimcal_core::{Aim, Id, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
-use ratatui::symbols::border;
-use ratatui::widgets::Block;
 
-use super::component::{Component, FormItem, Input, Message, RadioGroup};
+use super::component::{Component, Form, FormItem, Input, Message, RadioGroup};
 use crate::util::{format_datetime, parse_datetime};
 
 /// TUI editor for editing todos.
 pub struct TodoEditor {
     store: TodoStore,
-    view: Form,
+    view: View,
 }
 
 impl TodoEditor {
@@ -44,7 +41,7 @@ impl TodoEditor {
     }
 
     fn new_with(data: Data) -> Self {
-        let fields = Form::new();
+        let fields = View::new();
         let store = TodoStore::new(data);
         Self {
             store,
@@ -171,27 +168,28 @@ struct Marker {
     summary: bool,
 }
 
-struct Form {
-    items: Vec<Box<dyn FormItem<TodoStore>>>,
-    item_index: usize,
+struct View {
     area: Rect, // TODO: support resize
     cursor_pos: Option<(u16, u16)>,
+    form: Form<TodoStore>,
 }
 
-impl Form {
+impl View {
     pub fn new() -> Self {
         Self {
-            items: vec![
-                Box::new(new_summary()),
-                Box::new(new_due()),
-                Box::new(new_percent_complete()),
-                Box::new(FieldPriority::new()),
-                Box::new(new_status()),
-                Box::new(new_description()),
-            ],
-            item_index: 0,
             area: Rect::default(),
             cursor_pos: None,
+            form: Form::new(
+                "Todo Editor".to_owned(),
+                vec![
+                    Box::new(new_summary()),
+                    Box::new(new_due()),
+                    Box::new(new_percent_complete()),
+                    Box::new(FieldPriority::new()),
+                    Box::new(new_status()),
+                    Box::new(new_description()),
+                ],
+            ),
         }
     }
 
@@ -201,8 +199,10 @@ impl Form {
         }
 
         // Activate the first item
-        let areas = self.layout().split(self.area);
-        self.activate_item(&areas, store);
+        self.form.activate();
+        if let Some(pos) = self.form.get_cursor_position(store, self.area) {
+            self.cursor_pos = Some(pos)
+        };
     }
 
     pub fn darw<B: Backend>(
@@ -227,87 +227,26 @@ impl Form {
             _ => None, // Ignore other kinds of events
         })
     }
-
-    fn layout(&self) -> Layout {
-        Layout::vertical(self.items.iter().map(|_| Constraint::Max(3))).margin(2)
-    }
-
-    fn activate_item(&mut self, areas: &Rc<[Rect]>, store: &TodoStore) {
-        self.cursor_pos = self.items.get_mut(self.item_index).and_then(|a| {
-            a.activate();
-
-            areas
-                .get(self.item_index)
-                .and_then(|b| a.get_cursor_position(store, *b))
-        });
-    }
 }
 
-impl Component<TodoStore> for Form {
+impl Component<TodoStore> for View {
     fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(" Todo Editor ".bold());
-        let instructions = Line::from(vec![
-            " Prev ".into(),
-            "<Up>".blue().bold(),
-            " Next ".into(),
-            "<Down>".blue().bold(),
-            " Exit ".into(),
-            "<Esc> ".blue().bold(),
-        ]);
-        Block::bordered()
-            .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::ROUNDED)
-            .white()
-            .render(area, buf);
-
-        let areas = self.layout().split(area);
-        for (field, area) in self.items.iter().zip(areas.iter()) {
-            field.render(store, *area, buf);
-        }
+        self.form.render(store, area, buf);
     }
 
     fn on_key(&mut self, store: &mut TodoStore, area: Rect, key: KeyCode) -> Option<Message> {
         // Handle key events for the current component
-        let areas = self.layout().split(area);
-        if let Some((comp, subarea)) = self
-            .items
-            .iter_mut()
-            .zip(areas.iter())
-            .take(self.item_index + 1)
-            .last()
-        {
-            if let Some(msg) = comp.on_key(store, *subarea, key) {
-                return match msg {
-                    Message::CursorUpdated => {
-                        self.cursor_pos = comp.get_cursor_position(store, *subarea);
-                        Some(Message::Handled)
-                    }
-                    _ => Some(msg),
-                };
-            }
-        };
+        if let Some(msg) = self.form.on_key(store, area, key) {
+            return match msg {
+                Message::CursorUpdated => {
+                    self.cursor_pos = self.form.get_cursor_position(store, area);
+                    Some(Message::Handled)
+                }
+                _ => Some(msg),
+            };
+        }
 
         match key {
-            KeyCode::Down | KeyCode::Tab | KeyCode::Up | KeyCode::BackTab => {
-                // deactivate current item
-                if let Some(a) = self.items.get_mut(self.item_index) {
-                    a.deactivate()
-                }
-
-                // move to next/previous item
-                let offset = match key {
-                    KeyCode::Down | KeyCode::Tab => 1,
-                    KeyCode::Up | KeyCode::BackTab => self.items.len() - 1,
-                    _ => 0,
-                };
-                self.item_index = (self.item_index + offset) % self.items.len();
-
-                // activate new item
-                self.activate_item(&areas, store);
-                Some(Message::Handled)
-            }
-            KeyCode::Enter => Some(Message::Submit),
             KeyCode::Esc => Some(Message::Exit),
             _ => None,
         }

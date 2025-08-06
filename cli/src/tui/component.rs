@@ -40,6 +40,106 @@ pub trait FormItem<S>: Component<S> {
     fn deactivate(&mut self);
 }
 
+pub struct Form<S> {
+    title: String,
+    items: Vec<Box<dyn FormItem<S>>>,
+    item_index: usize,
+}
+
+impl<S> Form<S> {
+    pub fn new(title: String, items: Vec<Box<dyn FormItem<S>>>) -> Self {
+        Self {
+            title,
+            items,
+            item_index: 0,
+        }
+    }
+
+    pub fn activate(&mut self) {
+        if let Some(item) = self.items.get_mut(self.item_index) {
+            item.activate();
+        }
+    }
+
+    fn layout(&self) -> Layout {
+        Layout::vertical(self.items.iter().map(|_| Constraint::Max(3))).margin(2)
+    }
+}
+
+impl<S> Component<S> for Form<S> {
+    fn render(&self, store: &S, area: Rect, buf: &mut Buffer) {
+        let title = Line::from(format!(" {} ", self.title).bold());
+        let instructions = Line::from(vec![
+            " Prev ".into(),
+            "<Up>".blue().bold(),
+            " Next ".into(),
+            "<Down>".blue().bold(),
+            " Exit ".into(),
+            "<Esc> ".blue().bold(),
+        ]);
+        Block::bordered()
+            .title(title.centered())
+            .title_bottom(instructions.centered())
+            .border_set(border::ROUNDED)
+            .white()
+            .render(area, buf);
+
+        let areas = self.layout().split(area);
+        for (field, area) in self.items.iter().zip(areas.iter()) {
+            field.render(store, *area, buf);
+        }
+    }
+
+    fn on_key(&mut self, store: &mut S, area: Rect, key: KeyCode) -> Option<Message> {
+        // Handle key events for the current component
+        let areas = self.layout().split(area);
+        if let Some((comp, subarea)) = self
+            .items
+            .iter_mut()
+            .zip(areas.iter())
+            .take(self.item_index + 1)
+            .last()
+        {
+            if let Some(msg) = comp.on_key(store, *subarea, key) {
+                return Some(msg);
+            }
+        };
+
+        match key {
+            KeyCode::Down | KeyCode::Tab | KeyCode::Up | KeyCode::BackTab => {
+                // deactivate current item
+                if let Some(a) = self.items.get_mut(self.item_index) {
+                    a.deactivate()
+                }
+
+                // move to next/previous item
+                let offset = match key {
+                    KeyCode::Down | KeyCode::Tab => 1,
+                    KeyCode::Up | KeyCode::BackTab => self.items.len() - 1,
+                    _ => 0,
+                };
+                self.item_index = (self.item_index + offset) % self.items.len();
+
+                // activate new item
+                if let Some(a) = self.items.get_mut(self.item_index) {
+                    a.activate()
+                }
+                Some(Message::CursorUpdated)
+            }
+            KeyCode::Enter => Some(Message::Submit),
+            _ => None,
+        }
+    }
+
+    fn get_cursor_position(&self, store: &S, area: Rect) -> Option<(u16, u16)> {
+        let areas = self.layout().split(area);
+        match (self.items.get(self.item_index), areas.get(self.item_index)) {
+            (Some(comp), Some(area)) => comp.get_cursor_position(store, *area),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Input<S> {
     title: String,
