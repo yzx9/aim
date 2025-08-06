@@ -4,12 +4,41 @@
 
 use std::rc::Rc;
 
+use ratatui::crossterm::event::KeyCode;
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::{self, Block, Paragraph, block};
 use unicode_width::UnicodeWidthStr;
 
 use crate::util::unicode_width_of_slice;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Message {
+    Handled,
+    CursorUpdated,
+    Submit,
+    Exit,
+}
+
+pub trait Component<S> {
+    /// Renders the component into the given area.
+    fn render(&self, store: &S, area: Rect, buf: &mut Buffer);
+
+    /// Handles key events for the component.
+    fn on_key(&mut self, _store: &mut S, _area: Rect, _key: KeyCode) -> Option<Message> {
+        None // Default implementation does nothing
+    }
+
+    /// Returns the cursor position (row, column) for the component, if applicable.
+    fn get_cursor_position(&self, _store: &S, _area: Rect) -> Option<(u16, u16)> {
+        None // Default implementation returns no cursor position
+    }
+}
+
+pub trait FormItem<S>: Component<S> {
+    fn activate(&mut self);
+    fn deactivate(&mut self);
+}
 
 #[derive(Debug)]
 pub struct Input<'a> {
@@ -35,24 +64,52 @@ impl Widget for &Input<'_> {
 }
 
 #[derive(Debug)]
-pub struct Switch<'a> {
-    pub title: &'a str,
-    pub values: &'a Vec<String>,
-    pub active: bool,
-    pub selected: usize,
+pub struct RadioGroup<S, T, Getter, Setter>
+where
+    T: Eq,
+    Getter: Fn(&S) -> T,
+    Setter: Fn(&mut S, &T),
+{
+    title: String,
+    values: Vec<T>,
+    options: Vec<String>,
+    get: Getter,
+    set: Setter,
+    active: bool,
+    _marker: std::marker::PhantomData<S>,
 }
 
-impl<'a> Switch<'a> {
-    pub fn get_cursor_position(&self, area: Rect, index: usize) -> Option<(u16, u16)> {
-        let (_, inners) = self.split(area);
-        inners.get(index).map(|area| {
-            let x = area.x + 2; // 2 = padding (1) + active marker [ (1)
-            (x, area.y)
-        })
+impl<S, T, Getter, Setter> RadioGroup<S, T, Getter, Setter>
+where
+    T: Eq,
+    Getter: Fn(&S) -> T,
+    Setter: Fn(&mut S, &T),
+{
+    pub fn new(
+        title: String,
+        values: Vec<T>,
+        options: Vec<String>,
+        get: Getter,
+        set: Setter,
+    ) -> Self {
+        Self {
+            title,
+            values,
+            options,
+            get,
+            set,
+            active: false,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    fn selected(&self, store: &S) -> usize {
+        let v = (self.get)(store);
+        self.values.iter().position(|s| s == &v).unwrap_or(0)
     }
 
     fn split(&self, area: Rect) -> (Block, Rc<[Rect]>) {
-        let outer_block = title_block(self.title, self.active);
+        let outer_block = title_block(&self.title, self.active);
         let inner = outer_block.inner(area);
         let inner_blocks = self.layout().split(inner);
         (outer_block, inner_blocks)
@@ -60,24 +117,81 @@ impl<'a> Switch<'a> {
 
     fn layout(&self) -> Layout {
         let constraints = self
-            .values
+            .options
             .iter()
             // 6 = border left (1) + active marker [ ] (3) + space (1) + border right (1)
-            .map(|s| Constraint::Min((6 + s.width()) as u16));
+            .map(|s| Constraint::Min(6 + s.width() as u16));
 
         Layout::horizontal(constraints)
     }
 }
 
-impl Widget for &Switch<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+impl<S, T, Getter, Setter> Component<S> for RadioGroup<S, T, Getter, Setter>
+where
+    T: Eq,
+    Getter: Fn(&S) -> T,
+    Setter: Fn(&mut S, &T),
+{
+    fn render(&self, store: &S, area: Rect, buf: &mut Buffer) {
         let (outer, inners) = self.split(area);
         outer.render(area, buf);
-        for (i, (value, area)) in self.values.iter().zip(inners.iter()).enumerate() {
-            let label = format!("[{}] {}", if self.selected == i { 'x' } else { ' ' }, value);
+        for (i, (value, area)) in self.options.iter().zip(inners.iter()).enumerate() {
+            let label = format!(
+                "[{}] {}",
+                if self.selected(store) == i { 'x' } else { ' ' },
+                value
+            );
             let inner_block = Block::default().padding(block::Padding::horizontal(1));
             Paragraph::new(label).block(inner_block).render(*area, buf);
         }
+    }
+
+    fn on_key(&mut self, store: &mut S, _area: Rect, key: KeyCode) -> Option<Message> {
+        if !self.active {
+            return None; // Only handle keys when the field is active
+        }
+
+        match key {
+            KeyCode::Left | KeyCode::Right => {
+                let offset = match key {
+                    KeyCode::Left => self.values.len() - 1,
+                    KeyCode::Right => 1,
+                    _ => 0,
+                };
+                let index = (self.selected(store) + offset) % self.values.len();
+                match self.values.get(index) {
+                    Some(a) => {
+                        (self.set)(store, a);
+                        Some(Message::CursorUpdated)
+                    }
+                    None => Some(Message::Handled),
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn get_cursor_position(&self, store: &S, area: Rect) -> Option<(u16, u16)> {
+        let (_, inners) = self.split(area);
+        inners.get(self.selected(store)).map(|area| {
+            let x = area.x + 2; // 2 = padding (1) + active marker [ (1)
+            (x, area.y)
+        })
+    }
+}
+
+impl<S, T, Getter, Setter> FormItem<S> for RadioGroup<S, T, Getter, Setter>
+where
+    T: Eq,
+    Getter: Fn(&S) -> T,
+    Setter: Fn(&mut S, &T),
+{
+    fn activate(&mut self) {
+        self.active = true;
+    }
+
+    fn deactivate(&mut self) {
+        self.active = false;
     }
 }
 
