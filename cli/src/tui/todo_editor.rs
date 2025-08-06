@@ -77,12 +77,18 @@ impl TodoEditor {
 struct TodoStore {
     data: Data,
     dirty: Marker,
+    verbose_priority: bool, // Whether to show verbose priority options
 }
 
 impl TodoStore {
     fn new(data: Data) -> Self {
-        let dirty = Marker::default();
-        Self { data, dirty }
+        use Priority::*;
+        let verbose_priority = matches!(data.priority, P1 | P3 | P4 | P6 | P7 | P9);
+        Self {
+            data,
+            dirty: Marker::default(),
+            verbose_priority,
+        }
     }
 
     fn submit_draft(self) -> Result<TodoDraft, Box<dyn Error>> {
@@ -446,21 +452,21 @@ trait FormRadioGroup {
     fn active(&self) -> bool;
     fn update_active(&mut self, active: bool);
 
-    fn values(&self) -> &Vec<Self::T>;
-    fn options(&self) -> &Vec<String>;
+    fn values(&self, store: &TodoStore) -> &Vec<Self::T>;
+    fn options(&self, store: &TodoStore) -> &Vec<String>;
 
     /// Pre-render hook for the field. This method can be overridden by specific fields if needed.
     fn before_render(&mut self, _store: &mut TodoStore) {}
 
     fn selected(&self, store: &TodoStore) -> usize {
         let v = Self::get_value(store);
-        self.values().iter().position(|s| s == &v).unwrap_or(0)
+        self.values(store).iter().position(|s| s == &v).unwrap_or(0)
     }
 
     fn switch(&self, store: &TodoStore) -> Switch {
         Switch {
             title: Self::get_title(),
-            values: self.options(),
+            values: self.options(store),
             active: self.active(),
             selected: self.selected(store),
         }
@@ -480,14 +486,14 @@ impl<T: FormRadioGroup> Component for T {
 
         match key {
             KeyCode::Left | KeyCode::Right => {
+                let values = self.values(store);
                 let offset = match key {
-                    KeyCode::Left => self.values().len() - 1,
+                    KeyCode::Left => values.len() - 1,
                     KeyCode::Right => 1,
                     _ => 0,
                 };
-                let index = (self.selected(store) + offset) % self.values().len();
-
-                match self.values().get(index) {
+                let index = (self.selected(store) + offset) % values.len();
+                match values.get(index) {
                     Some(a) => {
                         Self::update_value(store, a);
                         Some(Message::CursorUpdated)
@@ -518,40 +524,35 @@ impl<T: FormRadioGroup> FormItem for T {
 #[derive(Debug)]
 struct FieldPriority {
     active: bool,
-    verbose: bool,
-    values: Vec<Priority>,
-    options: Vec<String>,
+    values_verbose: Vec<Priority>,
+    values_concise: Vec<Priority>,
+    options_verbose: Vec<String>,
+    options_concise: Vec<String>,
 }
 
 impl FieldPriority {
     pub fn new() -> Self {
-        let (values, options) = Self::get_value_options(false);
-        Self {
-            active: false,
-            verbose: false,
-            values,
-            options,
-        }
-    }
-
-    fn need_verbose(priority: &Priority) -> bool {
         use Priority::*;
-        matches!(priority, P1 | P3 | P4 | P6 | P7 | P9)
-    }
+        let values_verbose = vec![P1, P2, P3, P4, P5, P6, P7, P8, P9, None];
+        let values_concise = vec![P2, P5, P8, None];
 
-    fn get_value_options(verbose: bool) -> (Vec<Priority>, Vec<String>) {
-        use Priority::*;
-        let values = match verbose {
-            true => vec![P1, P2, P3, P4, P5, P6, P7, P8, P9, None],
-            false => vec![P2, P5, P8, None],
-        };
-
-        let options = values
+        let options_verbose = values_verbose
             .iter()
-            .map(|a| Self::fmt(a, verbose).to_string())
+            .map(|a| Self::fmt(a, true).to_string())
             .collect();
 
-        (values, options)
+        let options_concise = values_concise
+            .iter()
+            .map(|a| Self::fmt(a, false).to_string())
+            .collect();
+
+        Self {
+            active: false,
+            values_verbose,
+            values_concise,
+            options_verbose,
+            options_concise,
+        }
     }
 
     fn fmt(priority: &Priority, verbose: bool) -> &'static str {
@@ -597,22 +598,21 @@ impl FormRadioGroup for FieldPriority {
         self.active = active;
     }
 
-    fn values(&self) -> &Vec<Self::T> {
-        &self.values
-    }
-
-    fn options(&self) -> &Vec<String> {
-        &self.options
-    }
-
-    fn before_render(&mut self, store: &mut TodoStore) {
-        let verbose = Self::need_verbose(&store.data.priority);
-        if self.verbose != verbose {
-            let (values, options) = Self::get_value_options(verbose);
-            self.values = values;
-            self.options = options;
+    fn values(&self, store: &TodoStore) -> &Vec<Self::T> {
+        match store.verbose_priority {
+            true => &self.values_verbose,
+            false => &self.values_concise,
         }
     }
+
+    fn options(&self, store: &TodoStore) -> &Vec<String> {
+        match store.verbose_priority {
+            true => &self.options_verbose,
+            false => &self.options_concise,
+        }
+    }
+
+    fn before_render(&mut self, _store: &mut TodoStore) {}
 }
 
 #[derive(Debug)]
@@ -649,6 +649,6 @@ impl FormRadioGroup for FieldStatus {
     fn active(&self) -> bool                  { self.active }
     fn update_active(&mut self, active: bool) { self.active = active; }
 
-    fn values(&self) -> &Vec<Self::T> { &self.values }
-    fn options(&self) -> &Vec<String> { &self.options }
+    fn values(&self, _store: &TodoStore) -> &Vec<Self::T> { &self.values }
+    fn options(&self, _store: &TodoStore) -> &Vec<String> { &self.options }
 }
