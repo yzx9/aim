@@ -171,7 +171,7 @@ struct Marker {
 
 trait Component {
     /// Renders the component into the given area.
-    fn render(&mut self, store: &mut TodoStore, area: Rect, buf: &mut Buffer);
+    fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer);
 
     /// Handles key events for the component.
     fn on_key(&mut self, _store: &mut TodoStore, _area: Rect, _key: KeyCode) -> Option<Message> {
@@ -265,7 +265,7 @@ impl Form {
 }
 
 impl Component for Form {
-    fn render(&mut self, store: &mut TodoStore, area: Rect, buf: &mut Buffer) {
+    fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer) {
         let title = Line::from(" Todo Editor ".bold());
         let instructions = Line::from(vec![
             " Prev ".into(),
@@ -283,7 +283,7 @@ impl Component for Form {
             .render(area, buf);
 
         let areas = self.layout().split(area);
-        for (field, area) in self.items.iter_mut().zip(areas.iter()) {
+        for (field, area) in self.items.iter().zip(areas.iter()) {
             field.render(store, *area, buf);
         }
     }
@@ -367,7 +367,7 @@ macro_rules! field_input {
         }
 
         impl Component for $name {
-            fn render(&mut self, store: &mut TodoStore, area: Rect, buf: &mut Buffer) {
+            fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer) {
                 self.input(store).render(area, buf);
             }
 
@@ -455,9 +455,6 @@ trait FormRadioGroup {
     fn values(&self, store: &TodoStore) -> &Vec<Self::T>;
     fn options(&self, store: &TodoStore) -> &Vec<String>;
 
-    /// Pre-render hook for the field. This method can be overridden by specific fields if needed.
-    fn before_render(&mut self, _store: &mut TodoStore) {}
-
     fn selected(&self, store: &TodoStore) -> usize {
         let v = Self::get_value(store);
         self.values(store).iter().position(|s| s == &v).unwrap_or(0)
@@ -474,8 +471,7 @@ trait FormRadioGroup {
 }
 
 impl<T: FormRadioGroup> Component for T {
-    fn render(&mut self, store: &mut TodoStore, area: Rect, buf: &mut Buffer) {
-        Self::before_render(self, store);
+    fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer) {
         self.switch(store).render(area, buf);
     }
 
@@ -611,8 +607,6 @@ impl FormRadioGroup for FieldPriority {
             false => &self.options_concise,
         }
     }
-
-    fn before_render(&mut self, _store: &mut TodoStore) {}
 }
 
 #[derive(Debug)]
