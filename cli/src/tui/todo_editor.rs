@@ -77,7 +77,9 @@ impl TodoEditor {
 struct TodoStore {
     data: Data,
     dirty: Marker,
-    verbose_priority: bool, // Whether to show verbose priority options
+
+    /// Whether to show verbose priority options
+    verbose_priority: bool,
 }
 
 impl TodoStore {
@@ -180,12 +182,12 @@ impl Form {
     pub fn new() -> Self {
         Self {
             items: vec![
-                Box::new(FieldSummary::new()),
-                Box::new(FieldDue::new()),
-                Box::new(FieldPercentComplete::new()),
+                Box::new(new_summary()),
+                Box::new(new_due()),
+                Box::new(new_percent_complete()),
                 Box::new(FieldPriority::new()),
                 Box::new(new_status()),
-                Box::new(FieldDescription::new()),
+                Box::new(new_description()),
             ],
             item_index: 0,
             area: Rect::default(),
@@ -312,115 +314,46 @@ impl Component<TodoStore> for Form {
     }
 }
 
-macro_rules! field_input {
+macro_rules! new_input {
     ($name: ident, $title:expr, $field: ident) => {
-        #[derive(Debug)]
-        struct $name {
-            active: bool,
-            character_index: usize,
-        }
-
-        impl $name {
-            pub fn new() -> Self {
-                Self {
-                    active: false,
-                    character_index: 0,
-                }
-            }
-
-            fn input<'a>(&self, store: &'a TodoStore) -> Input<'a> {
-                let value = store.data.$field.as_str();
-                Input {
-                    title: $title,
-                    value,
-                    active: self.active,
-                }
-            }
-        }
-
-        impl Component<TodoStore> for $name {
-            fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer) {
-                self.input(store).render(area, buf);
-            }
-
-            fn on_key(
-                &mut self,
-                store: &mut TodoStore,
-                _area: Rect,
-                key: KeyCode,
-            ) -> Option<Message> {
-                if !self.active {
-                    return None; // Only handle keys when the field is active
-                }
-
-                match key {
-                    KeyCode::Left => {
-                        if self.character_index > 0 {
-                            self.character_index -= 1;
-                        }
-                    }
-                    KeyCode::Right => {
-                        if self.character_index < store.data.$field.len() {
-                            self.character_index += 1;
-                        }
-                    }
-                    KeyCode::Backspace => {
-                        if self.character_index > 0 {
-                            let mut value = store.data.$field.to_owned();
-                            value.remove(self.character_index - 1);
-                            store.data.$field = value;
-                            store.dirty.$field = true;
-                            self.character_index -= 1;
-                        }
-                    }
-                    KeyCode::Char(c) => {
-                        let mut value = store.data.$field.to_owned();
-                        value.insert(self.character_index, c);
-                        store.data.$field = value;
-                        store.dirty.$field = true;
-                        self.character_index += 1;
-                    }
-                    _ => return None,
-                };
-
-                // Always update the cursor position for simplicity
-                Some(Message::CursorUpdated)
-            }
-
-            fn get_cursor_position(&self, store: &TodoStore, area: Rect) -> Option<(u16, u16)> {
-                let pos = self
-                    .input(store)
-                    .get_cursor_position(area, self.character_index);
-                Some(pos)
-            }
-        }
-
-        impl FormItem<TodoStore> for $name {
-            fn activate(&mut self) {
-                self.active = true;
-                self.character_index = 0; // Reset character index when activated
-            }
-
-            fn deactivate(&mut self) {
-                self.active = false;
-                self.character_index = 0; // Reset character index when deactivated
-            }
+        fn $name() -> Input<TodoStore> {
+            Input::new(
+                $title.to_string(),
+                |store: &TodoStore| &store.data.$field,
+                |store: &mut TodoStore, value: String| {
+                    store.data.$field = value;
+                    store.dirty.$field = true;
+                },
+            )
         }
     };
 }
 
-field_input!(FieldDescription, "Description", description);
-field_input!(FieldDue, "Due", due);
-field_input!(FieldPercentComplete, "Percent complete", percent_complete);
-field_input!(FieldSummary, "Summary", summary);
+new_input!(new_summary, "Summary", summary);
+new_input!(new_description, "Description", description);
+new_input!(new_due, "Due", due);
+new_input!(new_percent_complete, "Percent complete", percent_complete);
 
-type PriorityRadioGroup =
-    RadioGroup<TodoStore, Priority, fn(&TodoStore) -> Priority, fn(&mut TodoStore, &Priority)>;
+fn new_status() -> RadioGroup<TodoStore, TodoStatus> {
+    use TodoStatus::*;
+    let values = vec![NeedsAction, Completed, InProcess, Cancelled];
+    let options = values.iter().map(ToString::to_string).collect();
+    RadioGroup::new(
+        "Status".to_string(),
+        values,
+        options,
+        |store: &TodoStore| store.data.status,
+        |store: &mut TodoStore, value: &TodoStatus| {
+            store.data.status = *value;
+            store.dirty.status = true;
+        },
+    )
+}
 
 #[derive(Debug)]
 struct FieldPriority {
-    verbose: PriorityRadioGroup,
-    concise: PriorityRadioGroup,
+    verbose: RadioGroup<TodoStore, Priority>,
+    concise: RadioGroup<TodoStore, Priority>,
 }
 
 impl FieldPriority {
@@ -466,14 +399,14 @@ impl FieldPriority {
         }
     }
 
-    fn get(&self, store: &TodoStore) -> &PriorityRadioGroup {
+    fn get(&self, store: &TodoStore) -> &RadioGroup<TodoStore, Priority> {
         match store.verbose_priority {
             true => &self.verbose,
             false => &self.concise,
         }
     }
 
-    fn get_mut(&mut self, store: &TodoStore) -> &mut PriorityRadioGroup {
+    fn get_mut(&mut self, store: &TodoStore) -> &mut RadioGroup<TodoStore, Priority> {
         match store.verbose_priority {
             true => &mut self.verbose,
             false => &mut self.concise,
@@ -504,8 +437,8 @@ impl Component<TodoStore> for FieldPriority {
         self.get(store).render(store, area, buf)
     }
 
-    fn on_key(&mut self, store: &mut TodoStore, _area: Rect, key: KeyCode) -> Option<Message> {
-        self.get_mut(store).on_key(store, _area, key)
+    fn on_key(&mut self, store: &mut TodoStore, area: Rect, key: KeyCode) -> Option<Message> {
+        self.get_mut(store).on_key(store, area, key)
     }
 
     fn get_cursor_position(&self, store: &TodoStore, area: Rect) -> Option<(u16, u16)> {
@@ -523,25 +456,4 @@ impl FormItem<TodoStore> for FieldPriority {
         self.verbose.deactivate();
         self.concise.deactivate();
     }
-}
-
-fn new_status() -> RadioGroup<
-    TodoStore,
-    TodoStatus,
-    impl Fn(&TodoStore) -> TodoStatus,
-    impl Fn(&mut TodoStore, &TodoStatus),
-> {
-    use TodoStatus::*;
-    let values = vec![NeedsAction, Completed, InProcess, Cancelled];
-    let options = values.iter().map(ToString::to_string).collect();
-    RadioGroup::new(
-        "Status".to_string(),
-        values,
-        options,
-        |store: &TodoStore| store.data.status,
-        |store: &mut TodoStore, value: &TodoStatus| {
-            store.data.status = *value;
-            store.dirty.status = true;
-        },
-    )
 }
