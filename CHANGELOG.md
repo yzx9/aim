@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.2] - 2025-08-06
+
 ### Added
 
 - Add Command `event new` and `event edit`
@@ -152,7 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add events and todos command
 - Add dashboard command
 
-[unreleased]: https://github.com/yzx9/aim/compare/v0.3.1...HEAD
+[unreleased]: https://github.com/yzx9/aim/compare/v0.3.2...HEAD
+[v0.3.2]: https://github.com/yzx9/aim/compare/v0.3.0...v0.3.2
 [v0.3.1]: https://github.com/yzx9/aim/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/yzx9/aim/compare/v0.2.3...v0.3.0
 [v0.2.3]: https://github.com/yzx9/aim/compare/v0.2.2...v0.2.3
