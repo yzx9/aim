@@ -140,35 +140,37 @@ impl<S> Component<S> for Form<S> {
     }
 }
 
+pub trait Access<S, T> {
+    fn get(s: &S) -> &T;
+    fn set(s: &mut S, value: T);
+}
+
 #[derive(Debug)]
-pub struct Input<S> {
+pub struct Input<S, A: Access<S, String>> {
     title: String,
     active: bool,
     character_index: usize,
-    get: fn(&S) -> &str,
-    set: fn(&mut S, String),
-    _marker: std::marker::PhantomData<S>,
+    _marker_s: std::marker::PhantomData<S>,
+    _marker_a: std::marker::PhantomData<A>,
 }
 
-impl<S> Input<S> {
-    pub fn new(title: String, get: fn(&S) -> &str, set: fn(&mut S, String)) -> Self {
+impl<S, A: Access<S, String>> Input<S, A> {
+    pub fn new(title: String) -> Self {
         Self {
             title,
             active: false,
             character_index: 0,
-            get,
-            set,
-            _marker: std::marker::PhantomData,
+            _marker_a: std::marker::PhantomData,
+            _marker_s: std::marker::PhantomData,
         }
     }
 }
 
-impl<S> Component<S> for Input<S> {
+impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
     fn render(&self, store: &S, area: Rect, buf: &mut Buffer) {
         let block = title_block(&self.title, self.active);
-        Paragraph::new((self.get)(store))
-            .block(block)
-            .render(area, buf);
+        let v = A::get(store).as_str();
+        Paragraph::new(v).block(block).render(area, buf);
     }
 
     fn on_key(&mut self, store: &mut S, _area: Rect, key: KeyCode) -> Option<Message> {
@@ -183,22 +185,22 @@ impl<S> Component<S> for Input<S> {
                 }
             }
             KeyCode::Right => {
-                if self.character_index < (self.get)(store).len() {
+                if self.character_index < A::get(store).len() {
                     self.character_index += 1;
                 }
             }
             KeyCode::Backspace => {
                 if self.character_index > 0 {
-                    let mut value = (self.get)(store).to_owned();
+                    let mut value = A::get(store).to_owned();
                     value.remove(self.character_index - 1);
-                    (self.set)(store, value);
+                    A::set(store, value);
                     self.character_index -= 1;
                 }
             }
             KeyCode::Char(c) => {
-                let mut value = (self.get)(store).to_owned();
+                let mut value = A::get(store).to_owned();
                 value.insert(self.character_index, c);
-                (self.set)(store, value);
+                A::set(store, value);
                 self.character_index += 1;
             }
             _ => return None,
@@ -209,14 +211,14 @@ impl<S> Component<S> for Input<S> {
     }
 
     fn get_cursor_position(&self, store: &S, area: Rect) -> Option<(u16, u16)> {
-        let width = unicode_width_of_slice((self.get)(store), self.character_index);
+        let width = unicode_width_of_slice(A::get(store), self.character_index);
         let x = area.x + (width as u16) + 2; // border 1 + padding 1
         let y = area.y + 1; // title line: 1
         Some((x, y))
     }
 }
 
-impl<S> FormItem<S> for Input<S> {
+impl<S, A: Access<S, String>> FormItem<S> for Input<S, A> {
     fn activate(&mut self) {
         self.active = true;
         self.character_index = 0; // Reset character index when activated
@@ -229,38 +231,30 @@ impl<S> FormItem<S> for Input<S> {
 }
 
 #[derive(Debug)]
-pub struct RadioGroup<S, T: Eq> {
+pub struct RadioGroup<S, T: Eq + Clone, A: Access<S, T>> {
     title: String,
     values: Vec<T>,
     options: Vec<String>,
-    get: fn(&S) -> T,
-    set: fn(&mut S, &T),
     active: bool,
-    _marker: std::marker::PhantomData<S>,
+    _marker_s: std::marker::PhantomData<S>,
+    _marker_a: std::marker::PhantomData<A>,
 }
 
-impl<S, T: Eq> RadioGroup<S, T> {
-    pub fn new(
-        title: String,
-        values: Vec<T>,
-        options: Vec<String>,
-        get: fn(&S) -> T,
-        set: fn(&mut S, &T),
-    ) -> Self {
+impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
+    pub fn new(title: String, values: Vec<T>, options: Vec<String>) -> Self {
         Self {
             title,
             values,
             options,
-            get,
-            set,
             active: false,
-            _marker: std::marker::PhantomData,
+            _marker_s: std::marker::PhantomData,
+            _marker_a: std::marker::PhantomData,
         }
     }
 
     fn selected(&self, store: &S) -> usize {
-        let v = (self.get)(store);
-        self.values.iter().position(|s| s == &v).unwrap_or(0)
+        let v = A::get(store);
+        self.values.iter().position(|s| s == v).unwrap_or(0)
     }
 
     fn split(&self, area: Rect) -> (Block, Rc<[Rect]>) {
@@ -281,16 +275,13 @@ impl<S, T: Eq> RadioGroup<S, T> {
     }
 }
 
-impl<S, T: Eq> Component<S> for RadioGroup<S, T> {
+impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
     fn render(&self, store: &S, area: Rect, buf: &mut Buffer) {
         let (outer, inners) = self.split(area);
         outer.render(area, buf);
         for (i, (value, area)) in self.options.iter().zip(inners.iter()).enumerate() {
-            let label = format!(
-                "[{}] {}",
-                if self.selected(store) == i { 'x' } else { ' ' },
-                value
-            );
+            let icon = if self.selected(store) == i { 'x' } else { ' ' };
+            let label = format!("[{icon}] {value}");
             let inner_block = Block::default().padding(block::Padding::horizontal(1));
             Paragraph::new(label).block(inner_block).render(*area, buf);
         }
@@ -311,7 +302,7 @@ impl<S, T: Eq> Component<S> for RadioGroup<S, T> {
                 let index = (self.selected(store) + offset) % self.values.len();
                 match self.values.get(index) {
                     Some(a) => {
-                        (self.set)(store, a);
+                        A::set(store, a.to_owned());
                         Some(Message::CursorUpdated)
                     }
                     None => Some(Message::Handled),
@@ -330,7 +321,7 @@ impl<S, T: Eq> Component<S> for RadioGroup<S, T> {
     }
 }
 
-impl<S, T: Eq> FormItem<S> for RadioGroup<S, T> {
+impl<S, T: Eq + Clone, A: Access<S, T>> FormItem<S> for RadioGroup<S, T, A> {
     fn activate(&mut self) {
         self.active = true;
     }

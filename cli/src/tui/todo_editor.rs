@@ -8,7 +8,7 @@ use aimcal_core::{Aim, Id, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
 
-use super::component::{Component, Form, FormItem, Input, Message, RadioGroup};
+use super::component::{Access, Component, Form, FormItem, Input, Message, RadioGroup};
 use crate::util::{format_datetime, parse_datetime};
 
 /// TUI editor for editing todos.
@@ -254,45 +254,72 @@ impl Component<TodoStore> for View {
 }
 
 macro_rules! new_input {
-    ($name: ident, $title:expr, $field: ident) => {
-        fn $name() -> Input<TodoStore> {
-            Input::new(
-                $title.to_string(),
-                |store: &TodoStore| &store.data.$field,
-                |store: &mut TodoStore, value: String| {
-                    store.data.$field = value;
-                    store.dirty.$field = true;
-                },
-            )
+    ($name: ident, $title:expr, $field: ident, $acc: ident) => {
+        struct $acc;
+
+        impl Access<TodoStore, String> for $acc {
+            fn get(store: &TodoStore) -> &String {
+                &store.data.$field
+            }
+
+            fn set(store: &mut TodoStore, value: String) {
+                store.data.$field = value;
+                store.dirty.$field = true;
+            }
+        }
+
+        fn $name() -> Input<TodoStore, $acc> {
+            Input::new($title.to_string())
         }
     };
 }
 
-new_input!(new_summary, "Summary", summary);
-new_input!(new_description, "Description", description);
-new_input!(new_due, "Due", due);
-new_input!(new_percent_complete, "Percent complete", percent_complete);
+new_input!(new_summary, "Summary", summary, SummaryAccess);
+new_input!(new_description, "Description", description, DesAcc);
+new_input!(new_due, "Due", due, DueAccess);
+new_input!(
+    new_percent_complete,
+    "Percent complete",
+    percent_complete,
+    PercentCompleteAccess
+);
 
-fn new_status() -> RadioGroup<TodoStore, TodoStatus> {
+struct StatusAccess;
+
+impl Access<TodoStore, TodoStatus> for StatusAccess {
+    fn get(store: &TodoStore) -> &TodoStatus {
+        &store.data.status
+    }
+
+    fn set(store: &mut TodoStore, value: TodoStatus) {
+        store.data.status = value;
+        store.dirty.status = true;
+    }
+}
+
+fn new_status() -> RadioGroup<TodoStore, TodoStatus, StatusAccess> {
     use TodoStatus::*;
     let values = vec![NeedsAction, Completed, InProcess, Cancelled];
     let options = values.iter().map(ToString::to_string).collect();
-    RadioGroup::new(
-        "Status".to_string(),
-        values,
-        options,
-        |store: &TodoStore| store.data.status,
-        |store: &mut TodoStore, value: &TodoStatus| {
-            store.data.status = *value;
-            store.dirty.status = true;
-        },
-    )
+    RadioGroup::new("Status".to_string(), values, options)
 }
 
-#[derive(Debug)]
+struct PriorityAccess;
+
+impl Access<TodoStore, Priority> for PriorityAccess {
+    fn get(store: &TodoStore) -> &Priority {
+        &store.data.priority
+    }
+
+    fn set(store: &mut TodoStore, value: Priority) {
+        store.data.priority = value;
+        store.dirty.priority = true;
+    }
+}
+
 struct FieldPriority {
-    verbose: RadioGroup<TodoStore, Priority>,
-    concise: RadioGroup<TodoStore, Priority>,
+    verbose: RadioGroup<TodoStore, Priority, PriorityAccess>,
+    concise: RadioGroup<TodoStore, Priority, PriorityAccess>,
 }
 
 impl FieldPriority {
@@ -311,41 +338,23 @@ impl FieldPriority {
             .map(|a| Self::fmt(a, false).to_string())
             .collect();
 
-        fn get(store: &TodoStore) -> Priority {
-            store.data.priority
-        }
-
-        fn set(store: &mut TodoStore, value: &Priority) {
-            store.data.priority = *value;
-            store.dirty.priority = true;
-        }
-
         Self {
-            verbose: RadioGroup::new(
-                "Priority".to_string(),
-                values_verbose,
-                options_verbose,
-                get,
-                set,
-            ),
-            concise: RadioGroup::new(
-                "Priority".to_string(),
-                values_concise,
-                options_concise,
-                get,
-                set,
-            ),
+            verbose: RadioGroup::new("Priority".to_string(), values_verbose, options_verbose),
+            concise: RadioGroup::new("Priority".to_string(), values_concise, options_concise),
         }
     }
 
-    fn get(&self, store: &TodoStore) -> &RadioGroup<TodoStore, Priority> {
+    fn get(&self, store: &TodoStore) -> &RadioGroup<TodoStore, Priority, PriorityAccess> {
         match store.verbose_priority {
             true => &self.verbose,
             false => &self.concise,
         }
     }
 
-    fn get_mut(&mut self, store: &TodoStore) -> &mut RadioGroup<TodoStore, Priority> {
+    fn get_mut(
+        &mut self,
+        store: &TodoStore,
+    ) -> &mut RadioGroup<TodoStore, Priority, PriorityAccess> {
         match store.verbose_priority {
             true => &mut self.verbose,
             false => &mut self.concise,
