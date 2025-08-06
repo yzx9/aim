@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Cow;
 use std::error::Error;
 
 use aimcal_core::{Aim, Id, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
@@ -9,6 +10,7 @@ use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
 
 use super::component::{Access, Component, Form, FormItem, Input, Message, RadioGroup};
+use crate::tui::component::PositiveIntegerAccess;
 use crate::util::{format_datetime, parse_datetime};
 
 /// TUI editor for editing todos.
@@ -51,7 +53,7 @@ impl TodoEditor {
 
     fn run(&mut self, aim: &mut Aim) -> Result<bool, Box<dyn Error>> {
         let mut terminal = ratatui::init();
-        self.view.setup(&self.store, &mut terminal);
+        self.view.setup(&mut self.store, &mut terminal);
         let result = loop {
             if let Err(e) = self.view.darw(&mut self.store, &mut terminal) {
                 break Err(e);
@@ -94,11 +96,11 @@ impl TodoStore {
         Ok(TodoDraft {
             description: self.dirty.description.then_some(self.data.description),
             due: parse_datetime(&self.data.due)?,
-            percent_complete: match self.dirty.percent_complete {
-                true if self.data.percent_complete.is_empty() => None,
-                true => Some(self.data.percent_complete.parse::<u8>()?),
-                false => None,
-            },
+            percent_complete: self
+                .dirty
+                .percent_complete
+                .then_some(self.data.percent_complete)
+                .flatten(),
             priority: Some(self.data.priority), // Always commit since it was confirmed by the user
             status: Some(self.data.status),     // Always commit since it was confirmed by the user
             summary: if self.data.summary.is_empty() {
@@ -120,11 +122,10 @@ impl TodoStore {
                 true => Some(parse_datetime(&self.data.due)?),
                 false => None,
             },
-            percent_complete: match self.dirty.percent_complete {
-                true if self.data.percent_complete.is_empty() => Some(None),
-                true => Some(Some(self.data.percent_complete.parse::<u8>()?)),
-                false => None,
-            },
+            percent_complete: self
+                .dirty
+                .percent_complete
+                .then_some(self.data.percent_complete),
             priority: self.dirty.priority.then_some(self.data.priority),
             status: self.dirty.status.then_some(self.data.status),
             summary: self.dirty.summary.then(|| self.data.summary.clone()),
@@ -136,7 +137,7 @@ impl TodoStore {
 struct Data {
     description: String,
     due: String,
-    percent_complete: String,
+    percent_complete: Option<u8>,
     priority: Priority,
     status: TodoStatus,
     summary: String,
@@ -147,10 +148,7 @@ impl<T: Todo> From<T> for Data {
         Self {
             description: todo.description().unwrap_or("").to_owned(),
             due: todo.due().map(format_datetime).unwrap_or("".to_string()),
-            percent_complete: todo
-                .percent_complete()
-                .map(|a| a.to_string())
-                .unwrap_or("".to_string()),
+            percent_complete: todo.percent_complete(),
             priority: todo.priority(),
             status: todo.status(),
             summary: todo.summary().to_string(),
@@ -193,13 +191,13 @@ impl View {
         }
     }
 
-    pub fn setup<B: Backend>(&mut self, store: &TodoStore, terminal: &mut Terminal<B>) {
+    pub fn setup<B: Backend>(&mut self, store: &mut TodoStore, terminal: &mut Terminal<B>) {
         if let Ok(size) = terminal.size() {
             self.area = Rect::new(0, 0, size.width, size.height);
         }
 
         // Activate the first item
-        self.form.activate();
+        self.form.activate(store);
         if let Some(pos) = self.form.get_cursor_position(store, self.area) {
             self.cursor_pos = Some(pos)
         };
@@ -258,13 +256,14 @@ macro_rules! new_input {
         struct $acc;
 
         impl Access<TodoStore, String> for $acc {
-            fn get(store: &TodoStore) -> &String {
-                &store.data.$field
+            fn get(store: &TodoStore) -> Cow<'_, String> {
+                Cow::Borrowed(&store.data.$field)
             }
 
-            fn set(store: &mut TodoStore, value: String) {
+            fn set(store: &mut TodoStore, value: String) -> bool {
                 store.data.$field = value;
                 store.dirty.$field = true;
+                true
             }
         }
 
@@ -277,23 +276,37 @@ macro_rules! new_input {
 new_input!(new_summary, "Summary", summary, SummaryAccess);
 new_input!(new_description, "Description", description, DesAcc);
 new_input!(new_due, "Due", due, DueAccess);
-new_input!(
-    new_percent_complete,
-    "Percent complete",
-    percent_complete,
-    PercentCompleteAccess
-);
+
+struct PercentCompleteAccess;
+
+impl Access<TodoStore, Option<u8>> for PercentCompleteAccess {
+    fn get(store: &TodoStore) -> Cow<'_, Option<u8>> {
+        Cow::Borrowed(&store.data.percent_complete)
+    }
+
+    fn set(store: &mut TodoStore, value: Option<u8>) -> bool {
+        store.data.percent_complete = value;
+        store.dirty.percent_complete = true;
+        true
+    }
+}
+
+fn new_percent_complete()
+-> Input<TodoStore, PositiveIntegerAccess<TodoStore, u8, PercentCompleteAccess>> {
+    Input::new("Percent complete".to_string())
+}
 
 struct StatusAccess;
 
 impl Access<TodoStore, TodoStatus> for StatusAccess {
-    fn get(store: &TodoStore) -> &TodoStatus {
-        &store.data.status
+    fn get(store: &TodoStore) -> Cow<'_, TodoStatus> {
+        Cow::Borrowed(&store.data.status)
     }
 
-    fn set(store: &mut TodoStore, value: TodoStatus) {
+    fn set(store: &mut TodoStore, value: TodoStatus) -> bool {
         store.data.status = value;
         store.dirty.status = true;
+        true
     }
 }
 
@@ -307,13 +320,14 @@ fn new_status() -> RadioGroup<TodoStore, TodoStatus, StatusAccess> {
 struct PriorityAccess;
 
 impl Access<TodoStore, Priority> for PriorityAccess {
-    fn get(store: &TodoStore) -> &Priority {
-        &store.data.priority
+    fn get(store: &TodoStore) -> Cow<'_, Priority> {
+        Cow::Borrowed(&store.data.priority)
     }
 
-    fn set(store: &mut TodoStore, value: Priority) {
+    fn set(store: &mut TodoStore, value: Priority) -> bool {
         store.data.priority = value;
         store.dirty.priority = true;
+        true
     }
 }
 
@@ -395,13 +409,13 @@ impl Component<TodoStore> for FieldPriority {
 }
 
 impl FormItem<TodoStore> for FieldPriority {
-    fn activate(&mut self) {
-        self.verbose.activate();
-        self.concise.activate();
+    fn activate(&mut self, store: &mut TodoStore) {
+        self.verbose.activate(store);
+        self.concise.activate(store);
     }
 
-    fn deactivate(&mut self) {
-        self.verbose.deactivate();
-        self.concise.deactivate();
+    fn deactivate(&mut self, store: &mut TodoStore) {
+        self.verbose.deactivate(store);
+        self.concise.deactivate(store);
     }
 }

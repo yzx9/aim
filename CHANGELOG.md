@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Percent complete` now accepts only numeric input in todo editor
+
 ## [v0.3.2] - 2025-08-06
 
 ### Added

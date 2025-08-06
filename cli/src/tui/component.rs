@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Cow;
 use std::rc::Rc;
+use std::str::FromStr;
 
 use ratatui::crossterm::event::KeyCode;
 use ratatui::prelude::*;
@@ -36,8 +38,8 @@ pub trait Component<S> {
 }
 
 pub trait FormItem<S>: Component<S> {
-    fn activate(&mut self);
-    fn deactivate(&mut self);
+    fn activate(&mut self, store: &mut S);
+    fn deactivate(&mut self, store: &mut S);
 }
 
 pub struct Form<S> {
@@ -55,9 +57,9 @@ impl<S> Form<S> {
         }
     }
 
-    pub fn activate(&mut self) {
+    pub fn activate(&mut self, store: &mut S) {
         if let Some(item) = self.items.get_mut(self.item_index) {
-            item.activate();
+            item.activate(store);
         }
     }
 
@@ -109,7 +111,7 @@ impl<S> Component<S> for Form<S> {
             KeyCode::Down | KeyCode::Tab | KeyCode::Up | KeyCode::BackTab => {
                 // deactivate current item
                 if let Some(a) = self.items.get_mut(self.item_index) {
-                    a.deactivate()
+                    a.deactivate(store);
                 }
 
                 // move to next/previous item
@@ -122,7 +124,7 @@ impl<S> Component<S> for Form<S> {
 
                 // activate new item
                 if let Some(a) = self.items.get_mut(self.item_index) {
-                    a.activate()
+                    a.activate(store);
                 }
                 Some(Message::CursorUpdated)
             }
@@ -140,9 +142,9 @@ impl<S> Component<S> for Form<S> {
     }
 }
 
-pub trait Access<S, T> {
-    fn get(s: &S) -> &T;
-    fn set(s: &mut S, value: T);
+pub trait Access<S, T: ToOwned> {
+    fn get<'a>(s: &'a S) -> Cow<'a, T>;
+    fn set(s: &mut S, value: T) -> bool;
 }
 
 #[derive(Debug)]
@@ -169,49 +171,53 @@ impl<S, A: Access<S, String>> Input<S, A> {
 impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
     fn render(&self, store: &S, area: Rect, buf: &mut Buffer) {
         let block = title_block(&self.title, self.active);
-        let v = A::get(store).as_str();
-        Paragraph::new(v).block(block).render(area, buf);
+        let v = A::get(store);
+        Paragraph::new(v.as_str()).block(block).render(area, buf);
     }
 
     fn on_key(&mut self, store: &mut S, _area: Rect, key: KeyCode) -> Option<Message> {
-        if !self.active {
-            return None; // Only handle keys when the field is active
+        use KeyCode::*;
+        if !self.active || !matches!(key, Left | Right | Backspace | Char(_)) {
+            return None;
         }
 
+        // Ensure character index is within bounds, store may have changed
+        self.character_index = self.character_index.min(A::get(store).len());
+
         match key {
-            KeyCode::Left => {
-                if self.character_index > 0 {
+            Left if self.character_index > 0 => {
+                self.character_index -= 1;
+            }
+            Right if self.character_index < A::get(store).len() => {
+                self.character_index += 1;
+            }
+            Backspace if self.character_index > 0 => {
+                let mut value = A::get(store).into_owned();
+                value.remove(self.character_index - 1);
+                if A::set(store, value) {
                     self.character_index -= 1;
                 }
             }
-            KeyCode::Right => {
-                if self.character_index < A::get(store).len() {
+            Char(c) => {
+                let mut value = A::get(store).into_owned();
+                value.insert(self.character_index, c);
+                if A::set(store, value) {
                     self.character_index += 1;
                 }
             }
-            KeyCode::Backspace => {
-                if self.character_index > 0 {
-                    let mut value = A::get(store).to_owned();
-                    value.remove(self.character_index - 1);
-                    A::set(store, value);
-                    self.character_index -= 1;
-                }
-            }
-            KeyCode::Char(c) => {
-                let mut value = A::get(store).to_owned();
-                value.insert(self.character_index, c);
-                A::set(store, value);
-                self.character_index += 1;
-            }
-            _ => return None,
+            _ => {}
         };
+
+        // Ensure character index is within bounds, store may have changed
+        self.character_index = self.character_index.min(A::get(store).len());
 
         // Always update the cursor position for simplicity
         Some(Message::CursorUpdated)
     }
 
     fn get_cursor_position(&self, store: &S, area: Rect) -> Option<(u16, u16)> {
-        let width = unicode_width_of_slice(A::get(store), self.character_index);
+        let v = A::get(store);
+        let width = unicode_width_of_slice(v.as_str(), self.character_index);
         let x = area.x + (width as u16) + 2; // border 1 + padding 1
         let y = area.y + 1; // title line: 1
         Some((x, y))
@@ -219,14 +225,50 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
 }
 
 impl<S, A: Access<S, String>> FormItem<S> for Input<S, A> {
-    fn activate(&mut self) {
+    fn activate(&mut self, _store: &mut S) {
         self.active = true;
         self.character_index = 0; // Reset character index when activated
     }
 
-    fn deactivate(&mut self) {
+    fn deactivate(&mut self, _store: &mut S) {
         self.active = false;
         self.character_index = 0; // Reset character index when deactivated
+    }
+}
+
+pub struct PositiveIntegerAccess<S, T, A>
+where
+    T: ToString + FromStr + ToOwned + Clone,
+    A: Access<S, Option<T>>,
+{
+    _marker_s: std::marker::PhantomData<S>,
+    _marker_a: std::marker::PhantomData<A>,
+    _marker_t: std::marker::PhantomData<T>,
+}
+
+impl<S, T, A> Access<S, String> for PositiveIntegerAccess<S, T, A>
+where
+    T: ToString + FromStr + ToOwned + Clone,
+    A: Access<S, Option<T>>,
+{
+    fn get(s: &S) -> Cow<'_, String> {
+        let v = A::get(s);
+        Cow::Owned(match v.as_ref() {
+            Some(a) => a.to_string(),
+            None => "".to_string(),
+        })
+    }
+
+    fn set(s: &mut S, value: String) -> bool {
+        let v = value.trim();
+        if v.is_empty() {
+            A::set(s, None)
+        } else if let Ok(num) = v.parse::<T>() {
+            A::set(s, Some(num))
+        } else {
+            log::debug!("Failed to parse '{value}' as a positive integer");
+            false
+        }
     }
 }
 
@@ -254,7 +296,10 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
 
     fn selected(&self, store: &S) -> usize {
         let v = A::get(store);
-        self.values.iter().position(|s| s == v).unwrap_or(0)
+        self.values
+            .iter()
+            .position(|s| s == v.as_ref())
+            .unwrap_or(0)
     }
 
     fn split(&self, area: Rect) -> (Block, Rc<[Rect]>) {
@@ -322,11 +367,11 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
 }
 
 impl<S, T: Eq + Clone, A: Access<S, T>> FormItem<S> for RadioGroup<S, T, A> {
-    fn activate(&mut self) {
+    fn activate(&mut self, _store: &mut S) {
         self.active = true;
     }
 
-    fn deactivate(&mut self) {
+    fn deactivate(&mut self, _store: &mut S) {
         self.active = false;
     }
 }
