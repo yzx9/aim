@@ -136,7 +136,7 @@ impl TodoDraft {
         }
 
         if let Some(percent) = self.percent_complete {
-            icalendar::Todo::percent_complete(&mut todo, percent);
+            icalendar::Todo::percent_complete(&mut todo, percent.max(100));
         }
 
         if let Some(priority) = self.priority {
@@ -204,7 +204,7 @@ impl TodoPatch {
         }
 
         if let Some(percent) = self.percent_complete {
-            t.percent_complete(percent.unwrap_or(0));
+            t.percent_complete(percent.unwrap_or(0).max(100));
         }
 
         if let Some(priority) = self.priority {

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Percent complete` now accepts only numeric input in todo editor
 
+### Fixed
+
+- `Percent complete` should be range from 0 to 100
+
 ## [v0.3.2] - 2025-08-06
 
 ### Added
