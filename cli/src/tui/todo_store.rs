@@ -2,27 +2,31 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::error::Error;
+use std::{cell::RefCell, error::Error, rc::Rc};
 
 use aimcal_core::{Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 
+use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::{format_datetime, parse_datetime};
 
 #[derive(Debug)]
 pub struct TodoStore {
-    pub data: Data,
-    pub dirty: Marker,
+    pub data: TodoData,
+    pub dirty: TodoMarker,
 
     /// Whether to show verbose priority options
     pub verbose_priority: bool,
+
+    // Whether the user submit the changes
+    pub submit: bool,
 }
 
 impl TodoStore {
     pub fn new_by_draft(draft: TodoDraft) -> Self {
-        Self::new(Data {
+        Self::new(TodoData {
             due: draft.due.map(format_datetime).unwrap_or_default(),
             priority: draft.priority.unwrap_or_default(),
-            ..Data::default()
+            ..TodoData::default()
         })
     }
 
@@ -30,13 +34,14 @@ impl TodoStore {
         Self::new(todo.into())
     }
 
-    fn new(data: Data) -> Self {
+    fn new(data: TodoData) -> Self {
         use Priority::*;
         let verbose_priority = matches!(data.priority, P1 | P3 | P4 | P6 | P7 | P9);
         Self {
             data,
-            dirty: Marker::default(),
+            dirty: TodoMarker::default(),
             verbose_priority,
+            submit: false,
         }
     }
 
@@ -79,10 +84,50 @@ impl TodoStore {
             summary: self.dirty.summary.then(|| self.data.summary.clone()),
         })
     }
+
+    pub fn register_to(that: Rc<RefCell<Self>>, dispatcher: &mut Dispatcher) {
+        let callback = Rc::new(RefCell::new(move |action: &Action| match action {
+            Action::UpdateTodoDescription(v) => {
+                let mut that = that.borrow_mut();
+                that.data.description = v.clone();
+                that.dirty.description = true;
+            }
+            Action::UpdateTodoDue(v) => {
+                let mut that = that.borrow_mut();
+                that.data.due = v.clone();
+                that.dirty.due = true;
+            }
+            Action::UpdateTodoPercentComplete(v) => {
+                let mut that = that.borrow_mut();
+                that.data.percent_complete = *v;
+                that.dirty.percent_complete = true;
+            }
+            Action::UpdateTodoPriority(v) => {
+                let mut that = that.borrow_mut();
+                that.data.priority = *v;
+                that.dirty.priority = true;
+            }
+            Action::UpdateTodoStatus(v) => {
+                let mut that = that.borrow_mut();
+                that.data.status = *v;
+                that.dirty.status = true;
+            }
+            Action::UpdateTodoSummary(v) => {
+                let mut that = that.borrow_mut();
+                that.data.summary = v.clone();
+                that.dirty.summary = true;
+            }
+            Action::SubmitChanges => {
+                let mut that = that.borrow_mut();
+                that.submit = true;
+            }
+        }));
+        dispatcher.register(callback);
+    }
 }
 
 #[derive(Debug, Default)]
-pub struct Data {
+pub struct TodoData {
     pub description: String,
     pub due: String,
     pub percent_complete: Option<u8>,
@@ -91,7 +136,7 @@ pub struct Data {
     pub summary: String,
 }
 
-impl<T: Todo> From<&T> for Data {
+impl<T: Todo> From<&T> for TodoData {
     fn from(todo: &T) -> Self {
         Self {
             description: todo.description().unwrap_or("").to_owned(),
@@ -105,11 +150,11 @@ impl<T: Todo> From<&T> for Data {
 }
 
 #[derive(Debug, Default)]
-pub struct Marker {
-    pub description: bool,
-    pub due: bool,
-    pub percent_complete: bool,
-    pub priority: bool,
-    pub status: bool,
-    pub summary: bool,
+pub struct TodoMarker {
+    description: bool,
+    due: bool,
+    percent_complete: bool,
+    priority: bool,
+    status: bool,
+    summary: bool,
 }

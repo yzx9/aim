@@ -4,6 +4,7 @@
 
 mod app;
 mod component;
+mod dispatcher;
 mod todo_editor;
 mod todo_store;
 

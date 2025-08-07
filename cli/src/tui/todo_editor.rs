@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::borrow::Cow;
+use std::cell::RefCell;
 use std::error::Error;
+use std::rc::Rc;
 
 use aimcal_core::{Priority, TodoStatus};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
@@ -12,16 +13,24 @@ use ratatui::prelude::*;
 use crate::tui::component::{
     Access, Component, Form, FormItem, Input, Message, PositiveIntegerAccess, RadioGroup,
 };
+use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::tui::todo_store::TodoStore;
 
+type Store = Rc<RefCell<TodoStore>>;
+
 pub struct TodoEditor {
+    dispatcher: Dispatcher,
     area: Rect, // TODO: support resize
     cursor_pos: Option<(u16, u16)>,
     form: Form<TodoStore>,
 }
 
 impl TodoEditor {
-    pub fn new<B: Backend>(store: &mut TodoStore, terminal: &mut Terminal<B>) -> Self {
+    pub fn new<B: Backend>(
+        mut dispatcher: Dispatcher,
+        store: &Store,
+        terminal: &mut Terminal<B>,
+    ) -> Self {
         let area = match terminal.size() {
             Ok(size) => Rect::new(0, 0, size.width, size.height),
             Err(_) => Rect::default(),
@@ -40,9 +49,10 @@ impl TodoEditor {
         );
 
         // Activate the first item
-        form.activate(store);
+        form.activate(&mut dispatcher);
 
         Self {
+            dispatcher,
             area,
             cursor_pos: form.get_cursor_position(store, area),
             form,
@@ -51,12 +61,12 @@ impl TodoEditor {
 
     pub fn darw<B: Backend>(
         &mut self,
-        store: &mut TodoStore,
+        store: &Store,
         terminal: &mut Terminal<B>,
     ) -> Result<(), Box<dyn Error>> {
         terminal.draw(|frame| {
             self.area = frame.area();
-            self.render(store, frame.area(), frame.buffer_mut());
+            self.form.render(store, frame.area(), frame.buffer_mut());
 
             if let Some(pos) = self.cursor_pos {
                 frame.set_cursor_position(pos);
@@ -65,74 +75,78 @@ impl TodoEditor {
         Ok(())
     }
 
-    pub fn read_event(&mut self, store: &mut TodoStore) -> Result<Option<Message>, Box<dyn Error>> {
+    pub fn read_event(&mut self, store: &Store) -> Result<Option<Message>, Box<dyn Error>> {
         Ok(match event::read()? {
-            Event::Key(e) if e.kind == KeyEventKind::Press => self.on_key(store, self.area, e.code),
+            Event::Key(e) if e.kind == KeyEventKind::Press => {
+                // Handle key events for the current component
+                let (form, dispatcher, area) = (&mut self.form, &mut self.dispatcher, self.area);
+                if let Some(msg) = form.on_key(dispatcher, store, self.area, e.code) {
+                    return Ok(match msg {
+                        Message::CursorUpdated => {
+                            self.cursor_pos = self.form.get_cursor_position(store, area);
+                            Some(Message::Handled)
+                        }
+                        _ => Some(msg),
+                    });
+                }
+
+                match e.code {
+                    KeyCode::Esc => Some(Message::Exit),
+                    _ => None,
+                }
+                // self.on_key(&mut self.dispatcher, store, self.area, e.code)
+            }
             _ => None, // Ignore other kinds of events
         })
     }
 }
 
-impl Component<TodoStore> for TodoEditor {
-    fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer) {
-        self.form.render(store, area, buf);
-    }
-
-    fn on_key(&mut self, store: &mut TodoStore, area: Rect, key: KeyCode) -> Option<Message> {
-        // Handle key events for the current component
-        if let Some(msg) = self.form.on_key(store, area, key) {
-            return match msg {
-                Message::CursorUpdated => {
-                    self.cursor_pos = self.form.get_cursor_position(store, area);
-                    Some(Message::Handled)
-                }
-                _ => Some(msg),
-            };
-        }
-
-        match key {
-            KeyCode::Esc => Some(Message::Exit),
-            _ => None,
-        }
-    }
-}
-
 macro_rules! new_input {
-    ($name: ident, $title:expr, $field: ident, $acc: ident) => {
+    ($fn: ident, $title:expr, $acc: ident, $field: ident, $action: ident) => {
+        fn $fn() -> Input<TodoStore, $acc> {
+            Input::new($title.to_string())
+        }
+
         struct $acc;
 
         impl Access<TodoStore, String> for $acc {
-            fn get(store: &TodoStore) -> Cow<'_, String> {
-                Cow::Borrowed(&store.data.$field)
+            fn get(store: &Store) -> String {
+                store.borrow().data.$field.clone()
             }
 
-            fn set(store: &mut TodoStore, value: String) -> bool {
-                store.data.$field = value;
-                store.dirty.$field = true;
+            fn set(dispatcher: &mut Dispatcher, value: String) -> bool {
+                dispatcher.dispatch(Action::$action(value));
                 true
             }
-        }
-
-        fn $name() -> Input<TodoStore, $acc> {
-            Input::new($title.to_string())
         }
     };
 }
 
-new_input!(new_summary, "Summary", summary, SummaryAccess);
-new_input!(new_description, "Description", description, DesAcc);
-new_input!(new_due, "Due", due, DueAccess);
+new_input!(
+    new_summary,
+    "Summary",
+    SummaryAccess,
+    summary,
+    UpdateTodoSummary
+);
+new_input!(
+    new_description,
+    "Description",
+    DescriptionAccess,
+    description,
+    UpdateTodoDescription
+);
+new_input!(new_due, "Due", DueAccess, due, UpdateTodoDue);
 
 struct PercentCompleteAccess;
 
 impl Access<TodoStore, Option<u8>> for PercentCompleteAccess {
-    fn get(store: &TodoStore) -> Cow<'_, Option<u8>> {
-        Cow::Borrowed(&store.data.percent_complete)
+    fn get(store: &Store) -> Option<u8> {
+        store.borrow().data.percent_complete
     }
 
-    fn set(store: &mut TodoStore, value: Option<u8>) -> bool {
-        store.data.percent_complete = value;
-        store.dirty.percent_complete = true;
+    fn set(dispatcher: &mut Dispatcher, value: Option<u8>) -> bool {
+        dispatcher.dispatch(Action::UpdateTodoPercentComplete(value));
         true
     }
 }
@@ -142,20 +156,6 @@ fn new_percent_complete()
     Input::new("Percent complete".to_string())
 }
 
-struct StatusAccess;
-
-impl Access<TodoStore, TodoStatus> for StatusAccess {
-    fn get(store: &TodoStore) -> Cow<'_, TodoStatus> {
-        Cow::Borrowed(&store.data.status)
-    }
-
-    fn set(store: &mut TodoStore, value: TodoStatus) -> bool {
-        store.data.status = value;
-        store.dirty.status = true;
-        true
-    }
-}
-
 fn new_status() -> RadioGroup<TodoStore, TodoStatus, StatusAccess> {
     use TodoStatus::*;
     let values = vec![NeedsAction, Completed, InProcess, Cancelled];
@@ -163,16 +163,15 @@ fn new_status() -> RadioGroup<TodoStore, TodoStatus, StatusAccess> {
     RadioGroup::new("Status".to_string(), values, options)
 }
 
-struct PriorityAccess;
+struct StatusAccess;
 
-impl Access<TodoStore, Priority> for PriorityAccess {
-    fn get(store: &TodoStore) -> Cow<'_, Priority> {
-        Cow::Borrowed(&store.data.priority)
+impl Access<TodoStore, TodoStatus> for StatusAccess {
+    fn get(store: &Store) -> TodoStatus {
+        store.borrow().data.status
     }
 
-    fn set(store: &mut TodoStore, value: Priority) -> bool {
-        store.data.priority = value;
-        store.dirty.priority = true;
+    fn set(dispatcher: &mut Dispatcher, value: TodoStatus) -> bool {
+        dispatcher.dispatch(Action::UpdateTodoStatus(value));
         true
     }
 }
@@ -185,37 +184,34 @@ struct FieldPriority {
 impl FieldPriority {
     pub fn new() -> Self {
         use Priority::*;
-        let values_verbose = vec![P1, P2, P3, P4, P5, P6, P7, P8, P9, None];
-        let values_concise = vec![P2, P5, P8, None];
+        let values_verb = vec![P1, P2, P3, P4, P5, P6, P7, P8, P9, None];
+        let values = vec![P2, P5, P8, None];
 
-        let options_verbose = values_verbose
+        let options_verb = values_verb
             .iter()
             .map(|a| Self::fmt(a, true).to_string())
             .collect();
 
-        let options_concise = values_concise
+        let options = values
             .iter()
             .map(|a| Self::fmt(a, false).to_string())
             .collect();
 
         Self {
-            verbose: RadioGroup::new("Priority".to_string(), values_verbose, options_verbose),
-            concise: RadioGroup::new("Priority".to_string(), values_concise, options_concise),
+            verbose: RadioGroup::new("Priority".to_string(), values_verb, options_verb),
+            concise: RadioGroup::new("Priority".to_string(), values, options),
         }
     }
 
-    fn get(&self, store: &TodoStore) -> &RadioGroup<TodoStore, Priority, PriorityAccess> {
-        match store.verbose_priority {
+    fn get(&self, store: &Store) -> &RadioGroup<TodoStore, Priority, PriorityAccess> {
+        match store.borrow().verbose_priority {
             true => &self.verbose,
             false => &self.concise,
         }
     }
 
-    fn get_mut(
-        &mut self,
-        store: &TodoStore,
-    ) -> &mut RadioGroup<TodoStore, Priority, PriorityAccess> {
-        match store.verbose_priority {
+    fn get_mut(&mut self, store: &Store) -> &mut RadioGroup<TodoStore, Priority, PriorityAccess> {
+        match store.borrow().verbose_priority {
             true => &mut self.verbose,
             false => &mut self.concise,
         }
@@ -241,27 +237,46 @@ impl FieldPriority {
 }
 
 impl Component<TodoStore> for FieldPriority {
-    fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer) {
+    fn render(&self, store: &Store, area: Rect, buf: &mut Buffer) {
         self.get(store).render(store, area, buf)
     }
 
-    fn on_key(&mut self, store: &mut TodoStore, area: Rect, key: KeyCode) -> Option<Message> {
-        self.get_mut(store).on_key(store, area, key)
+    fn on_key(
+        &mut self,
+        dispatcher: &mut Dispatcher,
+        store: &Store,
+        area: Rect,
+        key: KeyCode,
+    ) -> Option<Message> {
+        self.get_mut(store).on_key(dispatcher, store, area, key)
     }
 
-    fn get_cursor_position(&self, store: &TodoStore, area: Rect) -> Option<(u16, u16)> {
+    fn get_cursor_position(&self, store: &Store, area: Rect) -> Option<(u16, u16)> {
         self.get(store).get_cursor_position(store, area)
     }
 }
 
 impl FormItem<TodoStore> for FieldPriority {
-    fn activate(&mut self, store: &mut TodoStore) {
-        self.verbose.activate(store);
-        self.concise.activate(store);
+    fn activate(&mut self, dispatcher: &mut Dispatcher) {
+        self.verbose.activate(dispatcher);
+        self.concise.activate(dispatcher);
     }
 
-    fn deactivate(&mut self, store: &mut TodoStore) {
-        self.verbose.deactivate(store);
-        self.concise.deactivate(store);
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
+        self.verbose.deactivate(dispatcher);
+        self.concise.deactivate(dispatcher);
+    }
+}
+
+struct PriorityAccess;
+
+impl Access<TodoStore, Priority> for PriorityAccess {
+    fn get(store: &Store) -> Priority {
+        store.borrow().data.priority
+    }
+
+    fn set(dispatcher: &mut Dispatcher, value: Priority) -> bool {
+        dispatcher.dispatch(Action::UpdateTodoPriority(value));
+        true
     }
 }
