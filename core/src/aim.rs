@@ -202,7 +202,7 @@ impl Aim {
     }
 
     /// Get a todo by its UID.
-    pub async fn get_todo(&self, id: &Id) -> Result<Option<impl Todo>, Box<dyn Error>> {
+    pub async fn get_todo(&self, id: &Id) -> Result<Option<impl 'static + Todo>, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
         match self.db.todos.get(&uid).await {
             Ok(Some(todo)) => {

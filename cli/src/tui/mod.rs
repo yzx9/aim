@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+mod app;
 mod component;
 mod todo_editor;
+mod todo_store;
 
-pub use todo_editor::TodoEditor;
+pub use app::{draft_todo, patch_todo};

@@ -13,7 +13,7 @@ use clap_num::number_range;
 use colored::Colorize;
 
 use crate::todo_formatter::TodoFormatter;
-use crate::tui::TodoEditor;
+use crate::tui;
 use crate::util::{ArgOutputFormat, parse_datetime};
 
 #[derive(Debug, Clone)]
@@ -105,7 +105,7 @@ impl CmdTodoNew {
                 summary,
             }
         } else {
-            match TodoEditor::run_draft(aim)? {
+            match tui::draft_todo(aim)? {
                 Some(data) => data,
                 None => {
                     log::info!("User canceled the todo edit");
@@ -181,7 +181,8 @@ impl CmdTodoEdit {
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         let patch = if self.is_empty() {
-            match TodoEditor::run_patch(aim, &self.id).await? {
+            let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
+            match tui::patch_todo(aim, &todo)? {
                 Some(data) => data,
                 None => {
                     log::info!("User canceled the todo edit");

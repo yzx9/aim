@@ -5,202 +5,48 @@
 use std::borrow::Cow;
 use std::error::Error;
 
-use aimcal_core::{Aim, Id, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
+use aimcal_core::{Priority, TodoStatus};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
 
-use super::component::{Access, Component, Form, FormItem, Input, Message, RadioGroup};
-use crate::tui::component::PositiveIntegerAccess;
-use crate::util::{format_datetime, parse_datetime};
+use crate::tui::component::{
+    Access, Component, Form, FormItem, Input, Message, PositiveIntegerAccess, RadioGroup,
+};
+use crate::tui::todo_store::TodoStore;
 
-/// TUI editor for editing todos.
 pub struct TodoEditor {
-    store: TodoStore,
-    view: View,
-}
-
-impl TodoEditor {
-    pub fn run_draft(aim: &mut Aim) -> Result<Option<TodoDraft>, Box<dyn Error>> {
-        let draft = aim.default_todo_draft();
-        let mut that = Self::new_with(Data {
-            due: draft.due.map(format_datetime).unwrap_or_default(),
-            priority: draft.priority.unwrap_or_default(),
-            ..Data::default()
-        });
-        match that.run(aim)? {
-            true => that.store.submit_draft().map(Some),
-            false => Ok(None),
-        }
-    }
-
-    pub async fn run_patch(aim: &mut Aim, uid: &Id) -> Result<Option<TodoPatch>, Box<dyn Error>> {
-        let todo = aim.get_todo(uid).await?.ok_or("Todo not found")?;
-        let mut that = Self::new_with(todo.into());
-        match that.run(aim)? {
-            true => that.store.submit_patch().map(Some),
-            false => Ok(None),
-        }
-    }
-
-    fn new_with(data: Data) -> Self {
-        let fields = View::new();
-        let store = TodoStore::new(data);
-        Self {
-            store,
-            view: fields,
-        }
-    }
-
-    fn run(&mut self, aim: &mut Aim) -> Result<bool, Box<dyn Error>> {
-        let mut terminal = ratatui::init();
-        self.view.setup(&mut self.store, &mut terminal);
-        let result = loop {
-            if let Err(e) = self.view.darw(&mut self.store, &mut terminal) {
-                break Err(e);
-            }
-
-            match self.view.read_event(&mut self.store) {
-                Err(e) => break Err(e),
-                Ok(Some(Message::Exit)) => break Ok(false),
-                Ok(Some(Message::Submit)) => break Ok(true),
-                Ok(_) => {} // Continue the loop to render the next frame
-            }
-        };
-        ratatui::restore();
-        aim.refresh_now(); // Ensure the current time is updated
-        result
-    }
-}
-
-#[derive(Debug)]
-struct TodoStore {
-    data: Data,
-    dirty: Marker,
-
-    /// Whether to show verbose priority options
-    verbose_priority: bool,
-}
-
-impl TodoStore {
-    fn new(data: Data) -> Self {
-        use Priority::*;
-        let verbose_priority = matches!(data.priority, P1 | P3 | P4 | P6 | P7 | P9);
-        Self {
-            data,
-            dirty: Marker::default(),
-            verbose_priority,
-        }
-    }
-
-    fn submit_draft(self) -> Result<TodoDraft, Box<dyn Error>> {
-        Ok(TodoDraft {
-            description: self.dirty.description.then_some(self.data.description),
-            due: parse_datetime(&self.data.due)?,
-            percent_complete: self
-                .dirty
-                .percent_complete
-                .then_some(self.data.percent_complete)
-                .flatten(),
-            priority: Some(self.data.priority), // Always commit since it was confirmed by the user
-            status: Some(self.data.status),     // Always commit since it was confirmed by the user
-            summary: if self.data.summary.is_empty() {
-                "New todo".to_string()
-            } else {
-                self.data.summary
-            },
-        })
-    }
-
-    fn submit_patch(self) -> Result<TodoPatch, Box<dyn Error>> {
-        Ok(TodoPatch {
-            description: match self.dirty.description {
-                true if self.data.description.is_empty() => Some(None),
-                true => Some(Some(self.data.description.clone())),
-                false => None,
-            },
-            due: match self.dirty.due {
-                true => Some(parse_datetime(&self.data.due)?),
-                false => None,
-            },
-            percent_complete: self
-                .dirty
-                .percent_complete
-                .then_some(self.data.percent_complete),
-            priority: self.dirty.priority.then_some(self.data.priority),
-            status: self.dirty.status.then_some(self.data.status),
-            summary: self.dirty.summary.then(|| self.data.summary.clone()),
-        })
-    }
-}
-
-#[derive(Debug, Default)]
-struct Data {
-    description: String,
-    due: String,
-    percent_complete: Option<u8>,
-    priority: Priority,
-    status: TodoStatus,
-    summary: String,
-}
-
-impl<T: Todo> From<T> for Data {
-    fn from(todo: T) -> Self {
-        Self {
-            description: todo.description().unwrap_or("").to_owned(),
-            due: todo.due().map(format_datetime).unwrap_or("".to_string()),
-            percent_complete: todo.percent_complete(),
-            priority: todo.priority(),
-            status: todo.status(),
-            summary: todo.summary().to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-struct Marker {
-    description: bool,
-    due: bool,
-    percent_complete: bool,
-    priority: bool,
-    status: bool,
-    summary: bool,
-}
-
-struct View {
     area: Rect, // TODO: support resize
     cursor_pos: Option<(u16, u16)>,
     form: Form<TodoStore>,
 }
 
-impl View {
-    pub fn new() -> Self {
-        Self {
-            area: Rect::default(),
-            cursor_pos: None,
-            form: Form::new(
-                "Todo Editor".to_owned(),
-                vec![
-                    Box::new(new_summary()),
-                    Box::new(new_due()),
-                    Box::new(new_percent_complete()),
-                    Box::new(FieldPriority::new()),
-                    Box::new(new_status()),
-                    Box::new(new_description()),
-                ],
-            ),
-        }
-    }
+impl TodoEditor {
+    pub fn new<B: Backend>(store: &mut TodoStore, terminal: &mut Terminal<B>) -> Self {
+        let area = match terminal.size() {
+            Ok(size) => Rect::new(0, 0, size.width, size.height),
+            Err(_) => Rect::default(),
+        };
 
-    pub fn setup<B: Backend>(&mut self, store: &mut TodoStore, terminal: &mut Terminal<B>) {
-        if let Ok(size) = terminal.size() {
-            self.area = Rect::new(0, 0, size.width, size.height);
-        }
+        let mut form = Form::new(
+            "Todo Editor".to_owned(),
+            vec![
+                Box::new(new_summary()),
+                Box::new(new_due()),
+                Box::new(new_percent_complete()),
+                Box::new(FieldPriority::new()),
+                Box::new(new_status()),
+                Box::new(new_description()),
+            ],
+        );
 
         // Activate the first item
-        self.form.activate(store);
-        if let Some(pos) = self.form.get_cursor_position(store, self.area) {
-            self.cursor_pos = Some(pos)
-        };
+        form.activate(store);
+
+        Self {
+            area,
+            cursor_pos: form.get_cursor_position(store, area),
+            form,
+        }
     }
 
     pub fn darw<B: Backend>(
@@ -227,7 +73,7 @@ impl View {
     }
 }
 
-impl Component<TodoStore> for View {
+impl Component<TodoStore> for TodoEditor {
     fn render(&self, store: &TodoStore, area: Rect, buf: &mut Buffer) {
         self.form.render(store, area, buf);
     }
