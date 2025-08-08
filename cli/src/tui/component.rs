@@ -214,7 +214,12 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
             }
             Char(c) => {
                 let mut v = A::get(store);
-                v.insert(self.character_index, c);
+                let byte_index = v
+                    .char_indices()
+                    .nth(self.character_index)
+                    .map(|(i, _)| i)
+                    .unwrap_or(v.len());
+                v.insert(byte_index, c);
                 if A::set(dispatcher, v) {
                     self.character_index += 1;
                 }

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `Percent complete` should be range from 0 to 100
+- Fix CJK font input panic in the TUI editor
 
 ## [v0.3.2] - 2025-08-06
 
