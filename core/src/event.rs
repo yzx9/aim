@@ -75,8 +75,8 @@ pub struct EventDraft {
     /// The end date and time of the event, if available.
     pub end: Option<LooseDateTime>,
 
-    /// The status of the event, if available.
-    pub status: Option<EventStatus>,
+    /// The status of the event.
+    pub status: EventStatus,
 
     /// The summary of the event.
     pub summary: String,
@@ -89,7 +89,7 @@ impl EventDraft {
             description: None,
             start: None,
             end: None,
-            status: None,
+            status: EventStatus::default(),
             summary: String::new(),
         }
     }
@@ -110,8 +110,7 @@ impl EventDraft {
             EventLike::ends(&mut event, end);
         }
 
-        let status = self.status.unwrap_or(EventStatus::Confirmed).into();
-        icalendar::Event::status(&mut event, status);
+        icalendar::Event::status(&mut event, self.status.into());
 
         Component::summary(&mut event, &self.summary);
 

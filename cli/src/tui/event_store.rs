@@ -24,7 +24,7 @@ impl EventStore {
             description: draft.description.unwrap_or_default(),
             end: draft.end.map(format_datetime).unwrap_or_default(),
             start: draft.start.map(format_datetime).unwrap_or_default(),
-            status: draft.status.unwrap_or_default(),
+            status: draft.status,
             summary: draft.summary,
         })
     }
@@ -52,7 +52,7 @@ impl EventStore {
             description: self.dirty.description.then_some(self.data.description),
             start: parse_datetime(&self.data.start)?,
             end: parse_datetime(&self.data.end)?,
-            status: Some(self.data.status), // Always commit since it was confirmed by the user
+            status: self.data.status,
             summary: if self.data.summary.is_empty() {
                 "New event".to_string()
             } else {

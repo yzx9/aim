@@ -18,8 +18,8 @@ pub fn draft_event(aim: &mut Aim) -> Result<Option<EventDraft>, Box<dyn Error>> 
         description: None,
         end: None,
         start: None,
-        status: Some(EventStatus::Confirmed),
-        summary: "".to_string(),
+        status: EventStatus::default(),
+        summary: String::new(),
     });
     let store = run_event_editor(aim, store)?;
     match store.submit {

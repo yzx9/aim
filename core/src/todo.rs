@@ -94,8 +94,8 @@ pub struct TodoDraft {
     /// The priority of the todo item, if available.
     pub priority: Option<Priority>,
 
-    /// The status of the todo item, if available.
-    pub status: Option<TodoStatus>,
+    /// The status of the todo item.
+    pub status: TodoStatus,
 
     /// The summary of the todo item.
     pub summary: String,
@@ -111,7 +111,7 @@ impl TodoDraft {
                 .map(|d| LooseDateTime::Local(d.datetime(now))),
             percent_complete: None,
             priority: Some(config.default_priority),
-            status: Some(TodoStatus::NeedsAction),
+            status: TodoStatus::default(),
             summary: "".to_string(),
         }
     }
@@ -145,8 +145,7 @@ impl TodoDraft {
             Component::priority(&mut todo, config.default_priority.into());
         }
 
-        let status = self.status.unwrap_or(TodoStatus::NeedsAction).into();
-        icalendar::Todo::status(&mut todo, status);
+        icalendar::Todo::status(&mut todo, self.status.into());
 
         Component::summary(&mut todo, &self.summary);
 

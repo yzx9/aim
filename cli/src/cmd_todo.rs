@@ -101,7 +101,7 @@ impl CmdTodoNew {
                 due: self.due.map(|a| parse_datetime(&a)).transpose()?.flatten(),
                 percent_complete: self.percent_complete,
                 priority: self.priority,
-                status: self.status,
+                status: self.status.unwrap_or_default(),
                 summary,
             }
         } else {

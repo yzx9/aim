@@ -94,7 +94,7 @@ impl CmdEventNew {
                     .map(|a| parse_datetime(&a))
                     .transpose()?
                     .flatten(),
-                status: self.status,
+                status: self.status.unwrap_or_default(),
                 summary,
             }
         } else {

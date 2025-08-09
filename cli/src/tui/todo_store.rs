@@ -28,7 +28,7 @@ impl TodoStore {
             due: draft.due.map(format_datetime).unwrap_or_default(),
             percent_complete: draft.percent_complete,
             priority: draft.priority.unwrap_or_default(),
-            status: draft.status.unwrap_or_default(),
+            status: draft.status,
             summary: draft.summary,
         })
     }
@@ -65,7 +65,7 @@ impl TodoStore {
                 .then_some(self.data.percent_complete)
                 .flatten(),
             priority: Some(self.data.priority), // Always commit since it was confirmed by the user
-            status: Some(self.data.status),     // Always commit since it was confirmed by the user
+            status: self.data.status,
             summary: if self.data.summary.is_empty() {
                 "New todo".to_string()
             } else {
