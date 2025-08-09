@@ -67,24 +67,6 @@ impl Aim {
         self.now = Local::now();
     }
 
-    /// List events matching the given conditions.
-    pub async fn list_events(
-        &self,
-        conds: &EventConditions,
-        pager: &Pager,
-    ) -> Result<Vec<impl Event>, Box<dyn Error>> {
-        let conds = ParsedEventConditions::parse(&self.now, conds);
-        let events = self.db.events.list(&conds, pager).await?;
-        let events = self.short_ids.events(events).await?;
-        Ok(events)
-    }
-
-    /// Counts the number of events matching the given conditions.
-    pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, sqlx::Error> {
-        let conds = ParsedEventConditions::parse(&self.now, conds);
-        self.db.events.count(&conds).await
-    }
-
     /// Create a default event draft based on the AIM configuration.
     pub fn default_event_draft(&self) -> EventDraft {
         EventDraft::default()
@@ -141,6 +123,34 @@ impl Aim {
 
         let todo = self.short_ids.event(todo).await?;
         Ok(todo)
+    }
+
+    /// Get a event by its id.
+    pub async fn get_event(&self, id: &Id) -> Result<Option<impl Event + 'static>, Box<dyn Error>> {
+        let uid = self.short_ids.get_uid(id).await?;
+        match self.db.events.get(&uid).await {
+            Ok(Some(event)) => Ok(Some(self.short_ids.event(event).await?)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// List events matching the given conditions.
+    pub async fn list_events(
+        &self,
+        conds: &EventConditions,
+        pager: &Pager,
+    ) -> Result<Vec<impl Event>, Box<dyn Error>> {
+        let conds = ParsedEventConditions::parse(&self.now, conds);
+        let events = self.db.events.list(&conds, pager).await?;
+        let events = self.short_ids.events(events).await?;
+        Ok(events)
+    }
+
+    /// Counts the number of events matching the given conditions.
+    pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, sqlx::Error> {
+        let conds = ParsedEventConditions::parse(&self.now, conds);
+        self.db.events.count(&conds).await
     }
 
     /// Create a default todo draft based on the AIM configuration.
@@ -201,14 +211,11 @@ impl Aim {
         Ok(todo)
     }
 
-    /// Get a todo by its UID.
-    pub async fn get_todo(&self, id: &Id) -> Result<Option<impl 'static + Todo>, Box<dyn Error>> {
+    /// Get a todo by its id.
+    pub async fn get_todo(&self, id: &Id) -> Result<Option<impl Todo + 'static>, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
         match self.db.todos.get(&uid).await {
-            Ok(Some(todo)) => {
-                let todo = self.short_ids.todo(todo).await?;
-                Ok(Some(todo))
-            }
+            Ok(Some(todo)) => Ok(Some(self.short_ids.todo(todo).await?)),
             Ok(None) => Ok(None),
             Err(e) => Err(e.into()),
         }

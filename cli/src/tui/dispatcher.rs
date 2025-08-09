@@ -4,7 +4,7 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use aimcal_core::{Priority, TodoStatus};
+use aimcal_core::{EventStatus, Priority, TodoStatus};
 
 type Callback = Rc<RefCell<dyn FnMut(&Action)>>;
 
@@ -38,5 +38,10 @@ pub enum Action {
     UpdateTodoPriority(Priority),
     UpdateTodoStatus(TodoStatus),
     UpdateTodoSummary(String),
+    UpdateEventDescription(String),
+    UpdateEventStart(String),
+    UpdateEventEnd(String),
+    UpdateEventStatus(EventStatus),
+    UpdateEventSummary(String),
     SubmitChanges,
 }

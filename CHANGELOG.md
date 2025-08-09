@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add event TUI editor, `event new` and `event edit` now work without arguments to open the TUI.
 - `Percent complete` now accepts only numeric input in todo editor
 
 ### Fixed
@@ -20,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add Command `event new` and `event edit`
+- Add command `event new` and `event edit`
 
 ### Fixed
 

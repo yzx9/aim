@@ -5,7 +5,9 @@
 mod app;
 mod component;
 mod dispatcher;
+mod event_editor;
+mod event_store;
 mod todo_editor;
 mod todo_store;
 
-pub use app::{draft_todo, patch_todo};
+pub use app::{draft_event, draft_todo, patch_event, patch_todo};

@@ -17,21 +17,31 @@ pub struct TodoStore {
     /// Whether to show verbose priority options
     pub verbose_priority: bool,
 
-    // Whether the user submit the changes
+    /// Whether the user submit the changes
     pub submit: bool,
 }
 
 impl TodoStore {
     pub fn new_by_draft(draft: TodoDraft) -> Self {
         Self::new(TodoData {
+            description: draft.description.unwrap_or_default(),
             due: draft.due.map(format_datetime).unwrap_or_default(),
+            percent_complete: draft.percent_complete,
             priority: draft.priority.unwrap_or_default(),
-            ..TodoData::default()
+            status: draft.status.unwrap_or_default(),
+            summary: draft.summary,
         })
     }
 
     pub fn new_by_todo(todo: &impl Todo) -> Self {
-        Self::new(todo.into())
+        Self::new(TodoData {
+            description: todo.description().unwrap_or_default().to_owned(),
+            due: todo.due().map(format_datetime).unwrap_or_default(),
+            percent_complete: todo.percent_complete(),
+            priority: todo.priority(),
+            status: todo.status(),
+            summary: todo.summary().to_string(),
+        })
     }
 
     fn new(data: TodoData) -> Self {
@@ -121,6 +131,7 @@ impl TodoStore {
                 let mut that = that.borrow_mut();
                 that.submit = true;
             }
+            _ => {}
         }));
         dispatcher.register(callback);
     }
@@ -134,19 +145,6 @@ pub struct TodoData {
     pub priority: Priority,
     pub status: TodoStatus,
     pub summary: String,
-}
-
-impl<T: Todo> From<&T> for TodoData {
-    fn from(todo: &T) -> Self {
-        Self {
-            description: todo.description().unwrap_or("").to_owned(),
-            due: todo.due().map(format_datetime).unwrap_or("".to_string()),
-            percent_complete: todo.percent_complete(),
-            priority: todo.priority(),
-            status: todo.status(),
-            summary: todo.summary().to_string(),
-        }
-    }
 }
 
 #[derive(Debug, Default)]

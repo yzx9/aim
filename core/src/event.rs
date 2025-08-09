@@ -184,13 +184,14 @@ impl EventPatch {
 }
 
 /// The status of an event, which can be tentative, confirmed, or cancelled.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum EventStatus {
     /// The event is tentative.
     Tentative,
 
     /// The event is confirmed.
+    #[default]
     Confirmed,
 
     /// The event is cancelled.

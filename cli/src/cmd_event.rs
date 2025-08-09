@@ -9,6 +9,7 @@ use clap::{Arg, ArgMatches, Command, arg};
 use colored::Colorize;
 
 use crate::event_formatter::EventFormatter;
+use crate::tui;
 use crate::util::{ArgOutputFormat, parse_datetime};
 
 #[derive(Debug, Clone)]
@@ -30,8 +31,8 @@ impl CmdEventNew {
             .alias("add")
             .about("Add a new event")
             .arg(arg_summary(true))
-            .arg(arg_start().required(true))
-            .arg(arg_end().required(true))
+            .arg(arg_start())
+            .arg(arg_end())
             .arg(arg_description())
             .arg(arg_status())
             .arg(ArgOutputFormat::arg())
@@ -43,23 +44,20 @@ impl CmdEventNew {
         let end = get_end(matches);
         let status = get_status(matches);
 
-        // TODO: TUI
-        let summary = get_summary(matches);
-        // let summary = match matches.get_one::<String>("summary") {
-        //     Some(summary) => Some(summary.clone()),
-        //
-        //     None if description.is_none()
-        //         && due.is_none()
-        //         && percent_complete.is_none()
-        //         && priority.is_none()
-        //         && status.is_none() =>
-        //     {
-        //         None
-        //     }
-        //
-        //     // If summary is not provided but other fields are set, we still require a summary.
-        //     None => return Err("Summary is required for new event".into()),
-        // };
+        let summary = match get_summary(matches) {
+            Some(summary) => Some(summary.clone()), // TODO: is start/end required?
+
+            None if description.is_none()
+                && end.is_none()
+                && start.is_none()
+                && status.is_none() =>
+            {
+                None
+            }
+
+            // If summary is not provided but other fields are set, we still require a summary.
+            None => return Err("Summary is required for new event".into()),
+        };
 
         Ok(Self {
             description,
@@ -100,14 +98,13 @@ impl CmdEventNew {
                 summary,
             }
         } else {
-            unimplemented!("Summary is required for new event");
-            // match TodoEditor::run_draft(aim)? {
-            //     Some(data) => data,
-            //     None => {
-            //         log::info!("User canceled the todo edit");
-            //         return Ok(());
-            //     }
-            // }
+            match tui::draft_event(aim)? {
+                Some(data) => data,
+                None => {
+                    log::info!("User canceled the event edit");
+                    return Ok(());
+                }
+            }
         };
         let todo = aim.new_event(draft).await?;
 
@@ -173,15 +170,14 @@ impl CmdEventEdit {
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         let patch = if self.is_empty() {
-            // TODO: TUI
-            unimplemented!("No fields to edit, please provide at least one field to edit");
-            // match TodoEditor::run_patch(aim, &self.id).await? {
-            //     Some(data) => data,
-            //     None => {
-            //         log::info!("User canceled the todo edit");
-            //         return Ok(());
-            //     }
-            // }
+            let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
+            match tui::patch_event(aim, &event)? {
+                Some(data) => data,
+                None => {
+                    log::info!("User canceled the todo edit");
+                    return Ok(());
+                }
+            }
         } else {
             EventPatch {
                 description: self.description.map(|d| (!d.is_empty()).then_some(d)),
@@ -308,7 +304,7 @@ fn get_status(matches: &ArgMatches) -> Option<EventStatus> {
 
 fn arg_summary(positional: bool) -> Arg {
     match positional {
-        true => arg!(summary: <SUMMARY> "Summary of the todo"), //.required(false), TODO:TUI
+        true => arg!(summary: <SUMMARY> "Summary of the todo").required(false),
         false => arg!(summary: -s --summary <SUMMARY> "Summary of the event"),
     }
 }
@@ -350,6 +346,36 @@ mod tests {
         assert_eq!(parsed.start, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.status, Some(EventStatus::Tentative));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
+    }
+
+    #[test]
+    fn test_parse_event_new_tui() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdEventNew::command());
+
+        let matches = cmd.try_get_matches_from(["test", "new"]).unwrap();
+        let sub_matches = matches.subcommand_matches("new").unwrap();
+        let parsed = CmdEventNew::from(sub_matches).unwrap();
+        assert_eq!(parsed.description, None);
+        assert_eq!(parsed.end, None);
+        assert_eq!(parsed.start, None);
+        assert_eq!(parsed.status, None);
+        assert_eq!(parsed.summary, None);
+    }
+
+    #[test]
+    fn test_parse_event_new_tui_invalid() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdEventNew::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "new", "--start", "2025-01-01 12:00"])
+            .unwrap();
+        let sub_matches = matches.subcommand_matches("new").unwrap();
+        let parsed = CmdEventNew::from(sub_matches);
+        assert!(parsed.is_err());
     }
 
     #[test]
