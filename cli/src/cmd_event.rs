@@ -161,6 +161,20 @@ impl CmdEventEdit {
         }
     }
 
+    pub fn new_tui(id: Id, output_format: ArgOutputFormat) -> Self {
+        Self {
+            id,
+            description: None,
+            end: None,
+            start: None,
+            status: None,
+            summary: None,
+
+            tui: true,
+            output_format,
+        }
+    }
+
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         let patch = if self.tui {
             let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;

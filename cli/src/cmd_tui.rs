@@ -7,9 +7,10 @@
 
 use std::error::Error;
 
-use aimcal_core::{Aim, Id};
+use aimcal_core::{Aim, Id, Kind};
 use clap::{Arg, ArgMatches, Command, arg};
 
+use crate::cmd_event::CmdEventEdit;
 use crate::cmd_todo::{CmdTodoEdit, CmdTodoNew};
 use crate::util::ArgOutputFormat;
 
@@ -42,7 +43,7 @@ impl CmdNew {
 
 #[derive(Debug, Clone)]
 pub struct CmdEdit {
-    pub uid_or_short_id: Id,
+    pub id: Id,
     pub output_format: ArgOutputFormat,
 }
 
@@ -58,16 +59,25 @@ impl CmdEdit {
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            uid_or_short_id: get_id(matches),
+            id: get_id(matches),
             output_format: ArgOutputFormat::from(matches),
         }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        // TODO: check is it a event / todo
-        CmdTodoEdit::new_tui(self.uid_or_short_id, self.output_format)
-            .run(aim)
-            .await
+        let kind = aim.get_kind(&self.id).await?;
+        match kind {
+            Kind::Event => {
+                CmdEventEdit::new_tui(self.id, self.output_format)
+                    .run(aim)
+                    .await
+            }
+            Kind::Todo => {
+                CmdTodoEdit::new_tui(self.id, self.output_format)
+                    .run(aim)
+                    .await
+            }
+        }
     }
 }
 
