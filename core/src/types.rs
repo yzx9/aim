@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::num::NonZeroU32;
+
 /// The unique identifier for a todo item, which can be either a UID or a short ID.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Id {
@@ -9,6 +11,34 @@ pub enum Id {
     Uid(String),
     /// Either a short identifier or a unique identifier.
     ShortIdOrUid(String),
+}
+
+impl Id {
+    /// Weather the ID is a short ID or a UID.
+    pub fn maybe_short_id(&self) -> Option<NonZeroU32> {
+        match self {
+            Id::ShortIdOrUid(id) => id.parse::<NonZeroU32>().ok(),
+            Id::Uid(_) => None,
+        }
+    }
+
+    /// Returns the ID as a string slice.
+    pub fn as_uid(&self) -> &str {
+        match self {
+            Id::Uid(uid) => uid,
+            Id::ShortIdOrUid(id) => id,
+        }
+    }
+}
+
+/// Kind of item, either an event or a todo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    /// An event item.
+    Event,
+
+    /// A todo item.
+    Todo,
 }
 
 /// Sort order, either ascending or descending.
@@ -210,6 +240,18 @@ impl<'de> serde::Deserialize<'de> for Priority {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_id_maybe_short_id() {
+        let id1 = Id::ShortIdOrUid("123".to_string());
+        let id2 = Id::ShortIdOrUid("0".to_string());
+        let id3 = Id::ShortIdOrUid("abc".to_string());
+        let id4 = Id::Uid("unique-id".to_string());
+        assert_eq!(id1.maybe_short_id(), NonZeroU32::new(123));
+        assert_eq!(id2.maybe_short_id(), None);
+        assert_eq!(id3.maybe_short_id(), None);
+        assert_eq!(id4.maybe_short_id(), None);
+    }
 
     #[test]
     fn test_sort_order_sql_keyword() {

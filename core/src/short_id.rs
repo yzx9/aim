@@ -6,7 +6,8 @@ use std::{error::Error, num::NonZeroU32};
 
 use chrono::{DateTime, Local};
 
-use crate::{Event, EventStatus, Id, LooseDateTime, Priority, Todo, TodoStatus, localdb::LocalDb};
+use crate::localdb::LocalDb;
+use crate::{Event, EventStatus, Id, Kind, LooseDateTime, Priority, Todo, TodoStatus};
 
 #[derive(Debug, Clone)]
 pub struct ShortIds {
@@ -18,10 +19,16 @@ impl ShortIds {
         Self { db }
     }
 
+    pub async fn get(&self, id: &Id) -> Result<Option<UidAndShortId>, Box<dyn Error>> {
+        Ok(match id.maybe_short_id() {
+            Some(short_id) => self.db.short_ids.get_by_short_id(short_id).await?,
+            None => None,
+        })
+    }
+
     /// Converts the Id to a UID.
     pub async fn get_uid(&self, id: &Id) -> Result<String, Box<dyn Error>> {
-        if let Id::ShortIdOrUid(id) = id
-            && let Ok(short_id) = id.parse::<NonZeroU32>()
+        if let Some(short_id) = id.maybe_short_id()
             && let Some(data) = self.db.short_ids.get_by_short_id(short_id).await?
         {
             return Ok(data.uid);
@@ -40,7 +47,7 @@ impl ShortIds {
         } else {
             self.db
                 .short_ids
-                .get_or_assign_short_id(event.uid(), ShortIdKind::Event)
+                .get_or_assign_short_id(event.uid(), Kind::Event)
                 .await?
         };
 
@@ -67,7 +74,7 @@ impl ShortIds {
         } else {
             self.db
                 .short_ids
-                .get_or_assign_short_id(todo.uid(), ShortIdKind::Todo)
+                .get_or_assign_short_id(todo.uid(), Kind::Todo)
                 .await?
         };
 
@@ -161,11 +168,5 @@ pub struct UidAndShortId {
     #[allow(dead_code)]
     pub short_id: NonZeroU32,
     #[allow(dead_code)]
-    pub kind: ShortIdKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShortIdKind {
-    Event,
-    Todo,
+    pub kind: Kind,
 }

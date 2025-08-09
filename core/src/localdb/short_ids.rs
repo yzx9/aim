@@ -6,7 +6,8 @@ use std::num::NonZeroU32;
 
 use sqlx::SqlitePool;
 
-use crate::short_id::{ShortIdKind, UidAndShortId};
+use crate::Kind;
+use crate::short_id::UidAndShortId;
 
 #[derive(Debug, Clone)]
 pub struct ShortIds {
@@ -49,7 +50,7 @@ impl ShortIds {
     pub async fn get_or_assign_short_id(
         &self,
         uid: &str,
-        kind: ShortIdKind,
+        kind: Kind,
     ) -> Result<NonZeroU32, sqlx::Error> {
         // In SQLite, every table (unless declared WITHOUT ROWID) maintains a hidden ROWID column.
         //
@@ -88,17 +89,17 @@ RETURNING short_id
     }
 }
 
-fn kind_to_str(kind: ShortIdKind) -> &'static str {
+fn kind_to_str(kind: Kind) -> &'static str {
     match kind {
-        ShortIdKind::Todo => "todo",
-        ShortIdKind::Event => "event",
+        Kind::Todo => "todo",
+        Kind::Event => "event",
     }
 }
 
-fn kind_from_str(kind: &str) -> Option<ShortIdKind> {
+fn kind_from_str(kind: &str) -> Option<Kind> {
     match kind {
-        "todo" => Some(ShortIdKind::Todo),
-        "event" => Some(ShortIdKind::Event),
+        "todo" => Some(Kind::Todo),
+        "event" => Some(Kind::Event),
         _ => None,
     }
 }

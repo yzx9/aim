@@ -15,7 +15,7 @@ use crate::localdb::LocalDb;
 use crate::short_id::ShortIds;
 use crate::todo::{ParsedTodoConditions, ParsedTodoSort};
 use crate::{
-    Config, Event, EventConditions, EventDraft, EventPatch, Id, Pager, Todo, TodoConditions,
+    Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo, TodoConditions,
     TodoDraft, TodoPatch, TodoSort,
 };
 
@@ -123,6 +123,27 @@ impl Aim {
 
         let todo = self.short_ids.event(todo).await?;
         Ok(todo)
+    }
+
+    /// Get the kind of the given id, which can be either an event or a todo.
+    pub async fn get_kind(&self, id: &Id) -> Result<Kind, Box<dyn Error>> {
+        if let Some(data) = self.short_ids.get(id).await? {
+            return Ok(data.kind);
+        }
+
+        let uid = id.as_uid();
+
+        log::debug!("Checking if id is an event: {uid}");
+        if self.db.events.get(uid).await?.is_some() {
+            return Ok(Kind::Event);
+        }
+
+        log::debug!("Checking if id is a todo: {uid}");
+        if self.db.todos.get(uid).await?.is_some() {
+            return Ok(Kind::Todo);
+        }
+
+        Err("Id not found".into())
     }
 
     /// Get a event by its id.

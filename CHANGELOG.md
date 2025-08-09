@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- core: Add api for get the kind of the given id, which can be either an event or a todo.
+
 ## [v0.4.0] - 2025-08-09
 
 ### Added
