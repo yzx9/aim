@@ -317,7 +317,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
         self.values.iter().position(|s| s == &v).unwrap_or(0)
     }
 
-    fn split(&self, area: Rect) -> (Block, Rc<[Rect]>) {
+    fn split(&self, area: Rect) -> (Block<'_>, Rc<[Rect]>) {
         let outer_block = title_block(&self.title, self.active);
         let inner = outer_block.inner(area);
         let inner_blocks = self.layout().split(inner);
@@ -401,7 +401,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> FormItem<S> for RadioGroup<S, T, A> {
     }
 }
 
-fn title_block(title: &str, active: bool) -> Block {
+fn title_block(title: &str, active: bool) -> Block<'_> {
     let block = Block::bordered()
         .border_set(border::ROUNDED)
         .borders(widgets::Borders::ALL)
