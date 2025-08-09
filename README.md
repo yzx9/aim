@@ -71,7 +71,7 @@ nix run . -- --help
 ### 📅 Calendar Features
 
 - [x] Todo query & edting – Support CLI queries, add, edit, and delete todos
-- [ ] Event query & edting – Support CLI queries, add, edit, and delete events
+- [x] Event query & edting – Support CLI queries, add, edit, and delete events
 - [ ] Revert editing - Undo history action, including adding, edit and delete
 - [ ] Recurring events – Handle creation and editing of repeating events
 
