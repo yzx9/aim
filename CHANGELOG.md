@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Status is now required for drafts since it has a default value
 
+### Removed
+
+- Command `undo` has been removed, please use `todo undo` instead.
+
 ### Fixed
 
 - `Percent complete` should be range from 0 to 100
@@ -60,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
-- Command `undo` is a deprecated shortcut of `aim todo undo` now, will be remove in v0.4.0
+- Command `undo` is a deprecated shortcut of `todo undo` now, will be remove in v0.4.0
 
 ## [v0.2.3] - 2025-07-30
 
