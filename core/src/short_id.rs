@@ -20,12 +20,11 @@ impl ShortIds {
 
     /// Converts the Id to a UID.
     pub async fn get_uid(&self, id: &Id) -> Result<String, Box<dyn Error>> {
-        if let Id::ShortIdOrUid(id) = id {
-            if let Ok(short_id) = id.parse::<NonZeroU32>() {
-                if let Some(data) = self.db.short_ids.get_by_short_id(short_id).await? {
-                    return Ok(data.uid);
-                }
-            }
+        if let Id::ShortIdOrUid(id) = id
+            && let Ok(short_id) = id.parse::<NonZeroU32>()
+            && let Some(data) = self.db.short_ids.get_by_short_id(short_id).await?
+        {
+            return Ok(data.uid);
         };
 
         let uid = match id {

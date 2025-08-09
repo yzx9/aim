@@ -113,10 +113,9 @@ impl<S> Component<S> for Form<S> {
             .zip(areas.iter())
             .take(self.item_index + 1)
             .last()
+            && let Some(msg) = comp.on_key(dispatcher, store, *subarea, key)
         {
-            if let Some(msg) = comp.on_key(dispatcher, store, *subarea, key) {
-                return Some(msg);
-            }
+            return Some(msg);
         };
 
         match key {

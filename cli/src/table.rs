@@ -272,8 +272,8 @@ fn get_column_max_width(table: &[Vec<Cow<'_, str>>]) -> Vec<usize> {
     let mut max_width = vec![0; table.first().map(Vec::len).unwrap_or(0)];
     for row in table {
         for (i, cell) in row.iter().enumerate() {
-            let width = cell.width();
             if let Some(max_width) = max_width.get_mut(i) {
+                let width = cell.width();
                 if width > *max_width {
                     *max_width = width;
                 }
