@@ -36,7 +36,7 @@ impl CmdNew {
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
-        CmdTodoNew::new().run(aim).await
+        CmdTodoNew::new_tui().run(aim).await
     }
 }
 
@@ -65,7 +65,7 @@ impl CmdEdit {
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
-        CmdTodoEdit::new(self.uid_or_short_id, self.output_format)
+        CmdTodoEdit::new_tui(self.uid_or_short_id, self.output_format)
             .run(aim)
             .await
     }

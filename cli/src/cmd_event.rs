@@ -20,6 +20,7 @@ pub struct CmdEventNew {
     pub status: Option<EventStatus>,
     pub summary: Option<String>,
 
+    pub tui: bool,
     pub output_format: ArgOutputFormat,
 }
 
@@ -59,6 +60,7 @@ impl CmdEventNew {
             None => return Err("Summary is required for new event".into()),
         };
 
+        let tui = summary.is_none();
         Ok(Self {
             description,
             start,
@@ -66,26 +68,23 @@ impl CmdEventNew {
             status,
             summary,
 
+            tui,
             output_format: ArgOutputFormat::from(matches),
         })
-    }
-
-    pub fn new() -> Self {
-        Self {
-            description: None,
-            end: None,
-            start: None,
-            status: None,
-            summary: None,
-
-            output_format: ArgOutputFormat::Table,
-        }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Adding new todo...");
 
-        let draft = if let Some(summary) = self.summary {
+        let draft = if self.tui {
+            match tui::draft_event(aim)? {
+                Some(data) => data,
+                None => {
+                    log::info!("User canceled the event edit");
+                    return Ok(());
+                }
+            }
+        } else {
             EventDraft {
                 description: self.description,
                 end: self.end.map(|a| parse_datetime(&a)).transpose()?.flatten(),
@@ -95,15 +94,7 @@ impl CmdEventNew {
                     .transpose()?
                     .flatten(),
                 status: self.status.unwrap_or_default(),
-                summary,
-            }
-        } else {
-            match tui::draft_event(aim)? {
-                Some(data) => data,
-                None => {
-                    log::info!("User canceled the event edit");
-                    return Ok(());
-                }
+                summary: self.summary.unwrap_or_default(),
             }
         };
         let todo = aim.new_event(draft).await?;
@@ -124,6 +115,7 @@ pub struct CmdEventEdit {
     pub status: Option<EventStatus>,
     pub summary: Option<String>,
 
+    pub tui: bool,
     pub output_format: ArgOutputFormat,
 }
 
@@ -143,33 +135,34 @@ impl CmdEventEdit {
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
-        Self {
-            id: get_id(matches),
-            description: get_description(matches),
-            start: get_start(matches),
-            end: get_end(matches),
-            status: get_status(matches),
-            summary: get_summary(matches),
+        let id = get_id(matches);
+        let description = get_description(matches);
+        let start = get_start(matches);
+        let end = get_end(matches);
+        let status = get_status(matches);
+        let summary = get_summary(matches);
 
+        let tui = description.is_none()
+            && end.is_none()
+            && start.is_none()
+            && status.is_none()
+            && summary.is_none();
+
+        Self {
+            id,
+            description,
+            start,
+            end,
+            status,
+            summary,
+
+            tui,
             output_format: ArgOutputFormat::from(matches),
         }
     }
 
-    pub fn new(id: Id, output_format: ArgOutputFormat) -> Self {
-        Self {
-            id,
-            description: None,
-            end: None,
-            start: None,
-            status: None,
-            summary: None,
-
-            output_format,
-        }
-    }
-
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        let patch = if self.is_empty() {
+        let patch = if self.tui {
             let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
             match tui::patch_event(aim, &event)? {
                 Some(data) => data,
@@ -193,14 +186,6 @@ impl CmdEventEdit {
         let formatter = EventFormatter::new(aim.now()).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
         Ok(())
-    }
-
-    fn is_empty(&self) -> bool {
-        self.description.is_none()
-            && self.end.is_none()
-            && self.start.is_none()
-            && self.status.is_none()
-            && self.summary.is_none()
     }
 }
 
@@ -341,6 +326,7 @@ mod tests {
             .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
         let parsed = CmdEventNew::from(sub_matches).unwrap();
+        assert!(!parsed.tui);
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.end, Some("2025-01-01 14:00:00".to_string()));
         assert_eq!(parsed.start, Some("2025-01-01 12:00:00".to_string()));
@@ -349,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_new_tui() {
+    fn test_parse_new_tui() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdEventNew::command());
@@ -357,15 +343,11 @@ mod tests {
         let matches = cmd.try_get_matches_from(["test", "new"]).unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
         let parsed = CmdEventNew::from(sub_matches).unwrap();
-        assert_eq!(parsed.description, None);
-        assert_eq!(parsed.end, None);
-        assert_eq!(parsed.start, None);
-        assert_eq!(parsed.status, None);
-        assert_eq!(parsed.summary, None);
+        assert!(parsed.tui);
     }
 
     #[test]
-    fn test_parse_event_new_tui_invalid() {
+    fn test_parse_new_tui_invalid() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdEventNew::command());
@@ -379,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_edit() {
+    fn test_parse_edit() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdEventEdit::command());
@@ -403,6 +385,7 @@ mod tests {
             .unwrap();
         let sub_matches = matches.subcommand_matches("edit").unwrap();
         let parsed = CmdEventEdit::from(sub_matches);
+        assert!(!parsed.tui);
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.end, Some("2025-01-01 14:00:00".to_string()));
@@ -412,7 +395,22 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_list() {
+    fn test_parse_edit_tui() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdEventEdit::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "edit", "test_id"])
+            .unwrap();
+        let sub_matches = matches.subcommand_matches("edit").unwrap();
+        let parsed = CmdEventEdit::from(sub_matches);
+        assert!(parsed.tui);
+        assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
+    }
+
+    #[test]
+    fn test_parse_list() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdEventList::command());

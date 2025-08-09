@@ -25,6 +25,7 @@ pub struct CmdTodoNew {
     pub status: Option<TodoStatus>,
     pub summary: Option<String>,
 
+    pub tui: bool,
     pub output_format: ArgOutputFormat,
 }
 
@@ -67,6 +68,7 @@ impl CmdTodoNew {
             None => return Err("Summary is required for new todo".into()),
         };
 
+        let tui = summary.is_none();
         Ok(Self {
             description,
             due,
@@ -75,11 +77,12 @@ impl CmdTodoNew {
             status,
             summary,
 
+            tui,
             output_format: ArgOutputFormat::from(matches),
         })
     }
 
-    pub fn new() -> Self {
+    pub fn new_tui() -> Self {
         Self {
             description: None,
             due: None,
@@ -88,6 +91,7 @@ impl CmdTodoNew {
             status: None,
             summary: None,
 
+            tui: true,
             output_format: ArgOutputFormat::Table,
         }
     }
@@ -95,22 +99,22 @@ impl CmdTodoNew {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         log::debug!("Adding new todo...");
 
-        let draft = if let Some(summary) = self.summary {
-            TodoDraft {
-                description: self.description,
-                due: self.due.map(|a| parse_datetime(&a)).transpose()?.flatten(),
-                percent_complete: self.percent_complete,
-                priority: self.priority,
-                status: self.status.unwrap_or_default(),
-                summary,
-            }
-        } else {
+        let draft = if self.tui {
             match tui::draft_todo(aim)? {
                 Some(data) => data,
                 None => {
                     log::info!("User canceled the todo edit");
                     return Ok(());
                 }
+            }
+        } else {
+            TodoDraft {
+                description: self.description,
+                due: self.due.map(|a| parse_datetime(&a)).transpose()?.flatten(),
+                percent_complete: self.percent_complete,
+                priority: self.priority,
+                status: self.status.unwrap_or_default(),
+                summary: self.summary.unwrap_or_default(),
             }
         };
         let todo = aim.new_todo(draft).await?;
@@ -132,6 +136,7 @@ pub struct CmdTodoEdit {
     pub status: Option<TodoStatus>,
     pub summary: Option<String>,
 
+    pub tui: bool,
     pub output_format: ArgOutputFormat,
 }
 
@@ -152,20 +157,36 @@ impl CmdTodoEdit {
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
-        Self {
-            id: get_id(matches),
-            description: get_description(matches),
-            due: get_due(matches),
-            percent_complete: get_percent_complete(matches),
-            priority: get_priority(matches),
-            status: get_status(matches),
-            summary: get_summary(matches),
+        let id = get_id(matches);
+        let description = get_description(matches);
+        let due = get_due(matches);
+        let percent_complete = get_percent_complete(matches);
+        let priority = get_priority(matches);
+        let status = get_status(matches);
+        let summary = get_summary(matches);
 
+        let tui = description.is_none()
+            && due.is_none()
+            && percent_complete.is_none()
+            && priority.is_none()
+            && status.is_none()
+            && summary.is_none();
+
+        Self {
+            id,
+            description,
+            due,
+            percent_complete,
+            priority,
+            status,
+            summary,
+
+            tui,
             output_format: ArgOutputFormat::from(matches),
         }
     }
 
-    pub fn new(id: Id, output_format: ArgOutputFormat) -> Self {
+    pub fn new_tui(id: Id, output_format: ArgOutputFormat) -> Self {
         Self {
             id,
             description: None,
@@ -175,12 +196,13 @@ impl CmdTodoEdit {
             status: None,
             summary: None,
 
+            tui: true,
             output_format,
         }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        let patch = if self.is_empty() {
+        let patch = if self.tui {
             let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
             match tui::patch_todo(aim, &todo)? {
                 Some(data) => data,
@@ -207,15 +229,6 @@ impl CmdTodoEdit {
         }
         .run(aim)
         .await
-    }
-
-    fn is_empty(&self) -> bool {
-        self.description.is_none()
-            && self.due.is_none()
-            && self.percent_complete.is_none()
-            && self.priority.is_none()
-            && self.status.is_none()
-            && self.summary.is_none()
     }
 }
 
@@ -474,7 +487,7 @@ mod tests {
     use clap::Command;
 
     #[test]
-    fn test_parse_todo_new() {
+    fn test_parse_new() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoNew::command());
@@ -498,6 +511,7 @@ mod tests {
             .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
         let parsed = CmdTodoNew::from(sub_matches).unwrap();
+        assert!(!parsed.tui);
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.percent_complete, Some(66));
@@ -507,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_new_tui() {
+    fn test_parse_new_tui() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoNew::command());
@@ -515,16 +529,11 @@ mod tests {
         let matches = cmd.try_get_matches_from(["test", "new"]).unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
         let parsed = CmdTodoNew::from(sub_matches).unwrap();
-        assert_eq!(parsed.description, None);
-        assert_eq!(parsed.due, None);
-        assert_eq!(parsed.percent_complete, None);
-        assert_eq!(parsed.priority, None);
-        assert_eq!(parsed.status, None);
-        assert_eq!(parsed.summary, None);
+        assert!(parsed.tui);
     }
 
     #[test]
-    fn test_parse_todo_new_tui_invalid() {
+    fn test_parse_new_tui_invalid() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoNew::command());
@@ -538,7 +547,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_edit() {
+    fn test_parse_edit() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoEdit::command());
@@ -574,7 +583,22 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_done() {
+    fn test_parse_edit_tui() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoEdit::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "edit", "test_id"])
+            .unwrap();
+        let sub_matches = matches.subcommand_matches("edit").unwrap();
+        let parsed = CmdTodoEdit::from(sub_matches);
+        assert!(parsed.tui);
+        assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
+    }
+
+    #[test]
+    fn test_parse_done() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoDone::command());
@@ -589,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_done_multi() {
+    fn test_parse_done_multi() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoDone::command());
@@ -611,7 +635,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_undo() {
+    fn test_parse_undo() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoUndo::command());
@@ -627,7 +651,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_undo_multi() {
+    fn test_parse_undo_multi() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoUndo::command());
@@ -650,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_list() {
+    fn test_parse_list() {
         let cmd = Command::new("test")
             .subcommand_required(true)
             .subcommand(CmdTodoList::command());
