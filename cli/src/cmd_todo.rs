@@ -145,7 +145,7 @@ impl CmdTodoEdit {
 
     pub fn command() -> Command {
         Command::new(Self::NAME)
-            .about("Edit a todo item")
+            .about("Edit a todo")
             .arg(arg_id())
             .arg(arg_summary(false))
             .arg(arg_due())
@@ -232,95 +232,55 @@ impl CmdTodoEdit {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CmdTodoDone {
-    pub ids: Vec<Id>,
-    pub output_format: ArgOutputFormat,
-}
-
-impl CmdTodoDone {
-    pub const NAME: &str = "done";
-
-    pub fn command() -> Command {
-        Command::new(Self::NAME)
-            .about("Mark a todo item as done")
-            .arg(arg_ids())
-            .arg(ArgOutputFormat::arg())
-    }
-
-    pub fn from(matches: &ArgMatches) -> Self {
-        Self {
-            ids: get_ids(matches),
-            output_format: ArgOutputFormat::from(matches),
+macro_rules! cmd_status {
+    ($cmd: ident, $status:ident, $name: expr, $description: expr) => {
+        #[derive(Debug, Clone)]
+        pub struct $cmd {
+            pub ids: Vec<Id>,
+            pub output_format: ArgOutputFormat,
         }
-    }
 
-    pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        for id in self.ids {
-            match &id {
-                Id::ShortIdOrUid(id) => log::debug!("Marking todo {id} as done"),
-                Id::Uid(uid) => log::debug!("Marking todo {uid} as done"),
+        impl $cmd {
+            pub const NAME: &str = $name;
+
+            pub fn command() -> Command {
+                Command::new(Self::NAME)
+                    .about(format!("Mark a todo as {}", $description))
+                    .arg(arg_ids())
+                    .arg(ArgOutputFormat::arg())
             }
 
-            TodoEdit {
-                id,
-                output_format: self.output_format,
-                patch: TodoPatch {
-                    status: Some(TodoStatus::Completed),
-                    ..Default::default()
-                },
-            }
-            .run(aim)
-            .await?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct CmdTodoUndo {
-    pub ids: Vec<Id>,
-    pub output_format: ArgOutputFormat,
-}
-
-impl CmdTodoUndo {
-    pub const NAME: &str = "undo";
-
-    pub fn command() -> Command {
-        Command::new(Self::NAME)
-            .about("Mark a todo item as undone")
-            .arg(arg_ids())
-            .arg(ArgOutputFormat::arg())
-    }
-
-    pub fn from(matches: &ArgMatches) -> Self {
-        Self {
-            ids: get_ids(matches),
-            output_format: ArgOutputFormat::from(matches),
-        }
-    }
-
-    pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        for id in self.ids {
-            match &id {
-                Id::ShortIdOrUid(id) => log::debug!("Marking todo {id} as undone"),
-                Id::Uid(uid) => log::debug!("Marking todo {uid} as undone"),
+            pub fn from(matches: &ArgMatches) -> Self {
+                Self {
+                    ids: get_ids(matches),
+                    output_format: ArgOutputFormat::from(matches),
+                }
             }
 
-            TodoEdit {
-                id,
-                output_format: self.output_format,
-                patch: TodoPatch {
-                    status: Some(TodoStatus::NeedsAction),
-                    ..Default::default()
-                },
+            pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
+                for id in self.ids {
+                    log::debug!("Marking todo {} as {}", id.as_uid(), $description);
+
+                    TodoEdit {
+                        id,
+                        output_format: self.output_format,
+                        patch: TodoPatch {
+                            status: Some(TodoStatus::$status),
+                            ..Default::default()
+                        },
+                    }
+                    .run(aim)
+                    .await?;
+                }
+                Ok(())
             }
-            .run(aim)
-            .await?;
         }
-        Ok(())
-    }
+    };
 }
+
+cmd_status!(CmdTodoUndo, NeedsAction, "undo", "needs-action");
+cmd_status!(CmdTodoDone, Completed, "done", "completed");
+cmd_status!(CmdTodoCancel, Cancelled, "cancel", "canceled");
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdTodoList {
@@ -662,6 +622,45 @@ mod tests {
 
         let sub_matches = matches.subcommand_matches("undo").unwrap();
         let parsed = CmdTodoUndo::from(sub_matches);
+        assert_eq!(
+            parsed.ids,
+            vec![
+                Id::ShortIdOrUid("a".to_string()),
+                Id::ShortIdOrUid("b".to_string()),
+                Id::ShortIdOrUid("c".to_string())
+            ]
+        );
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+    }
+
+    #[test]
+    fn test_parse_cancel() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoCancel::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "cancel", "abc", "--output-format", "json"])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("cancel").unwrap();
+        let parsed = CmdTodoCancel::from(sub_matches);
+        assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+    }
+
+    #[test]
+    fn test_parse_cancel_multi() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoCancel::command());
+
+        let matches = cmd
+            .try_get_matches_from(["test", "cancel", "a", "b", "c", "--output-format", "json"])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("cancel").unwrap();
+        let parsed = CmdTodoCancel::from(sub_matches);
         assert_eq!(
             parsed.ids,
             vec![

@@ -12,7 +12,9 @@ use futures::{FutureExt, future::BoxFuture};
 use crate::cmd_dashboard::CmdDashboard;
 use crate::cmd_event::{CmdEventEdit, CmdEventList, CmdEventNew};
 use crate::cmd_generate_completion::CmdGenerateCompletion;
-use crate::cmd_todo::{CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo};
+use crate::cmd_todo::{
+    CmdTodoCancel, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo,
+};
 use crate::cmd_tui::{CmdEdit, CmdNew};
 use crate::config::parse_config;
 
@@ -89,6 +91,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .subcommand(CmdTodoEdit::command())
                     .subcommand(CmdTodoDone::command())
                     .subcommand(CmdTodoUndo::command())
+                    .subcommand(CmdTodoCancel::command())
                     .subcommand(CmdTodoList::command()),
             )
             .subcommand(CmdTodoDone::command())
@@ -129,8 +132,9 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             Some(("todo", matches)) => match matches.subcommand() {
                 Some((CmdTodoNew::NAME, matches)) => TodoNew(CmdTodoNew::from(matches)?),
                 Some((CmdTodoEdit::NAME, matches)) => TodoEdit(CmdTodoEdit::from(matches)),
-                Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::from(matches)),
                 Some((CmdTodoUndo::NAME, matches)) => TodoUndo(CmdTodoUndo::from(matches)),
+                Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::from(matches)),
+                Some((CmdTodoCancel::NAME, matches)) => TodoCancel(CmdTodoCancel::from(matches)),
                 Some((CmdTodoList::NAME, matches)) => TodoList(CmdTodoList::from(matches)),
                 _ => unreachable!(),
             },
@@ -179,11 +183,14 @@ pub enum Commands {
     /// Edit a todo
     TodoEdit(CmdTodoEdit),
 
-    /// Mark a todo as done
+    /// Mark a todo as needs-action
+    TodoUndo(CmdTodoUndo),
+
+    /// Mark a todo as completed
     TodoDone(CmdTodoDone),
 
-    /// Mark a todo as undone
-    TodoUndo(CmdTodoUndo),
+    /// Mark a todo as cancelled
+    TodoCancel(CmdTodoCancel),
 
     /// List todos
     TodoList(CmdTodoList),
@@ -198,17 +205,18 @@ impl Commands {
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         use Commands::*;
         match self {
-            Dashboard(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
-            New(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
-            Edit(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventNew(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventEdit(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventList(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoNew(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoEdit(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoDone(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoUndo(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoList(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Dashboard(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            New(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Edit(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventNew(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventEdit(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventList(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoNew(a)    => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoEdit(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoUndo(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoDone(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoCancel(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoList(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
             GenerateCompletion(a) => a.run(),
         }
     }
@@ -354,6 +362,23 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_todo_undo() {
+        let cli = Cli::try_parse_from(vec!["test", "todo", "undo", "id1", "id2"]).unwrap();
+        match cli.command {
+            Commands::TodoUndo(cmd) => {
+                assert_eq!(
+                    cmd.ids,
+                    vec![
+                        Id::ShortIdOrUid("id1".to_string()),
+                        Id::ShortIdOrUid("id2".to_string())
+                    ]
+                );
+            }
+            _ => panic!("Expected TodoUndo command"),
+        }
+    }
+
+    #[test]
     fn test_parse_todo_done() {
         let cli = Cli::try_parse_from(vec!["test", "todo", "done", "id1", "id2"]).unwrap();
         match cli.command {
@@ -371,13 +396,19 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_undo() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "undo", "id1"]).unwrap();
+    fn test_parse_todo_cancel() {
+        let cli = Cli::try_parse_from(vec!["test", "todo", "cancel", "id1", "id2"]).unwrap();
         match cli.command {
-            Commands::TodoUndo(cmd) => {
-                assert_eq!(cmd.ids, vec![Id::ShortIdOrUid("id1".to_string())]);
+            Commands::TodoCancel(cmd) => {
+                assert_eq!(
+                    cmd.ids,
+                    vec![
+                        Id::ShortIdOrUid("id1".to_string()),
+                        Id::ShortIdOrUid("id2".to_string())
+                    ]
+                );
             }
-            _ => panic!("Expected TodoUndo command"),
+            _ => panic!("Expected TodoDone command"),
         }
     }
 
