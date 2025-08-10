@@ -96,14 +96,15 @@ impl CmdTodoNew {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        log::debug!("Adding new todo...");
+        tracing::debug!(?self, "Adding new todo...");
 
         let draft = if self.tui {
             match tui::draft_todo(aim)? {
                 Some(data) => data,
                 None => {
-                    log::info!("User canceled the todo edit");
+                    tracing::info!("User canceled the todo edit");
                     return Ok(());
                 }
             }
@@ -201,13 +202,14 @@ impl CmdTodoEdit {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         let patch = if self.tui {
             let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
             match tui::patch_todo(aim, &todo)? {
                 Some(data) => data,
                 None => {
-                    log::info!("User canceled the todo edit");
+                    tracing::info!("User canceled the todo edit");
                     return Ok(());
                 }
             }
@@ -233,7 +235,7 @@ impl CmdTodoEdit {
 }
 
 macro_rules! cmd_status {
-    ($cmd: ident, $status:ident, $name: expr, $description: expr) => {
+    ($cmd: ident, $status:ident, $name: expr, $desc: expr) => {
         #[derive(Debug, Clone)]
         pub struct $cmd {
             pub ids: Vec<Id>,
@@ -245,7 +247,7 @@ macro_rules! cmd_status {
 
             pub fn command() -> Command {
                 Command::new(Self::NAME)
-                    .about(format!("Mark a todo as {}", $description))
+                    .about(concat!("Mark a todo as ", $desc))
                     .arg(arg_ids())
                     .arg(ArgOutputFormat::arg())
             }
@@ -257,9 +259,10 @@ macro_rules! cmd_status {
                 }
             }
 
+            #[tracing::instrument(skip_all)]
             pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
                 for id in self.ids {
-                    log::debug!("Marking todo {} as {}", id.as_uid(), $description);
+                    tracing::debug!(?id, concat!("Marking todo as ", $desc));
 
                     TodoEdit {
                         id,
@@ -307,8 +310,9 @@ impl CmdTodoList {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        log::debug!("Listing todos...");
+        tracing::debug!(?self, "Listing todos...");
         Self::list(aim, &self.conds, self.output_format).await?;
         Ok(())
     }
@@ -343,6 +347,7 @@ impl CmdTodoList {
     }
 }
 
+#[derive(Debug, Clone)]
 struct TodoEdit {
     id: Id,
     patch: TodoPatch,
@@ -350,8 +355,9 @@ struct TodoEdit {
 }
 
 impl TodoEdit {
+    #[tracing::instrument(skip_all)]
     async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        log::debug!("Edit todo ...");
+        tracing::debug!(?self, "Edit todo ...");
         let todo = aim.update_todo(&self.id, self.patch).await?;
         let formatter = TodoFormatter::new(aim.now()).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));

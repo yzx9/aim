@@ -28,8 +28,9 @@ impl CmdDashboard {
     }
 
     /// Show the dashboard with events and todos.
+    #[tracing::instrument(skip_all)]
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        log::debug!("Generating dashboard...");
+        tracing::debug!(?self, "Generating dashboard...");
         println!("🗓️ {}", "Events".bold());
         let conds = EventConditions { startable: true };
         CmdEventList::list(aim, &conds, ArgOutputFormat::Table).await?;

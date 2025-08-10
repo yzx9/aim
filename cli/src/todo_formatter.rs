@@ -142,12 +142,13 @@ impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
 pub struct TodoColumnId;
 
 impl TodoColumnId {
+    #[tracing::instrument(skip_all)]
     fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
         if let Some(short_id) = todo.short_id() {
             short_id.to_string().into()
         } else {
             let uid = todo.uid(); // Fallback to the full UID if no short ID is available
-            log::warn!("Todo {uid} does not have a short ID, using UID instead.",);
+            tracing::warn!(uid, "Todo does not have a short ID, using UID instead.",);
             uid.into()
         }
     }

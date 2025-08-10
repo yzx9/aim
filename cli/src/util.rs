@@ -36,11 +36,11 @@ pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &'static str> {
         Ok(Some(match Local.from_local_datetime(&dt) {
             LocalResult::Single(dt) => dt.into(),
             LocalResult::Ambiguous(dt1, _) => {
-                log::warn!("Ambiguous local time for {dt} in local, picking earliest");
+                tracing::warn!(?dt, "Ambiguous local time in local, picking earliest");
                 dt1.into()
             }
             LocalResult::None => {
-                log::warn!("Invalid local time for {dt} in local, falling back to floating");
+                tracing::warn!(?dt, "Invalid local time in local, falling back to floating");
                 dt.into()
             }
         }))
@@ -49,7 +49,7 @@ pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &'static str> {
         match Local::now().with_time(time) {
             LocalResult::Single(dt) => Ok(Some(dt.into())),
             LocalResult::Ambiguous(dt1, _) => {
-                log::warn!("Ambiguous local time for {dt} in local, picking earliest");
+                tracing::warn!("Ambiguous local time for {dt} in local, picking earliest");
                 Ok(Some(dt1.into()))
             }
             LocalResult::None => Err("Invalid local time"),

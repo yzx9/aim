@@ -126,6 +126,7 @@ impl Aim {
     }
 
     /// Get the kind of the given id, which can be either an event or a todo.
+    #[tracing::instrument(skip(self))]
     pub async fn get_kind(&self, id: &Id) -> Result<Kind, Box<dyn Error>> {
         if let Some(data) = self.short_ids.get(id).await? {
             return Ok(data.kind);
@@ -133,12 +134,12 @@ impl Aim {
 
         let uid = id.as_uid();
 
-        log::debug!("Checking if id is an event: {uid}");
+        tracing::debug!(uid, "Checking if id is an event");
         if self.db.events.get(uid).await?.is_some() {
             return Ok(Kind::Event);
         }
 
-        log::debug!("Checking if id is a todo: {uid}");
+        tracing::debug!(uid, "Checking if id is a todo");
         if self.db.todos.get(uid).await?.is_some() {
             return Ok(Kind::Todo);
         }
@@ -268,6 +269,7 @@ impl Aim {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     async fn add_calendar(&self, calendar_path: &PathBuf) -> Result<(), Box<dyn Error>> {
         let mut reader = fs::read_dir(calendar_path)
             .await
@@ -283,8 +285,8 @@ impl Aim {
                     count_ics += 1;
                     let that = self.clone();
                     handles.push(tokio::spawn(async move {
-                        if let Err(e) = that.add_ics(&path).await {
-                            log::error!("Failed to process file {}: {}", path.display(), e);
+                        if let Err(err) = that.add_ics(&path).await {
+                            tracing::error!(path = %path.display(), err, "Failed to process file");
                         }
                     }));
                 }
@@ -296,25 +298,22 @@ impl Aim {
             handle.await?;
         }
 
-        log::debug!("Total .ics files processed: {count_ics}");
+        tracing::debug!("Total .ics files processed: {count_ics}");
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, path))]
     async fn add_ics(self, path: &Path) -> Result<(), Box<dyn Error>> {
-        log::debug!("Parsing file: {}", path.display());
+        tracing::debug!(path = %path.display(), "Parsing file");
         let calendar = parse_ics(path).await?;
-        log::debug!(
-            "Found {} components in {}.",
-            calendar.components.len(),
-            path.display()
-        );
 
+        tracing::debug!(path = %path.display(), components = calendar.components.len(), "Found components");
         for component in calendar.components {
-            log::debug!("Processing component: {component:?}");
+            tracing::debug!(?component, "Processing component");
             match component {
                 CalendarComponent::Event(event) => self.db.upsert_event(path, &event).await?,
                 CalendarComponent::Todo(todo) => self.db.upsert_todo(path, &todo).await?,
-                _ => log::warn!("Ignoring unsupported component type: {component:?}"),
+                _ => tracing::warn!(?component, "Ignoring unsupported component type"),
             }
         }
 
@@ -340,9 +339,10 @@ impl Aim {
     }
 }
 
+#[tracing::instrument]
 async fn prepare(config: &Config) -> Result<(), Box<dyn Error>> {
     if let Some(parent) = &config.state_dir {
-        log::info!("Ensuring state directory exists: {}", parent.display());
+        tracing::info!(path = %parent.display(), "Ensuring state directory exists");
         fs::create_dir_all(parent).await?;
     }
     Ok(())

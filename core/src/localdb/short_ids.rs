@@ -19,6 +19,7 @@ impl ShortIds {
         Self { pool }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn get_by_short_id(
         &self,
         short_id: NonZeroU32,
@@ -33,7 +34,7 @@ impl ShortIds {
             Some((uid, kind)) => {
                 let parsed_kind = kind_from_str(&kind);
                 if parsed_kind.is_none() {
-                    log::warn!("Unknown short_id kind: {kind}");
+                    tracing::warn!(kind, "Unknown short_id kind");
                     return Ok(None);
                 }
 

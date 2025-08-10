@@ -136,7 +136,7 @@ impl EventColumnId {
             short_id.to_string().into()
         } else {
             let uid = event.uid(); // Fallback to the full UID if no short ID is available
-            log::warn!("Event {uid} does not have a short ID, using UID instead.",);
+            tracing::warn!(uid, "Event does not have a short ID, using UID instead.",);
             uid.into()
         }
     }
@@ -196,7 +196,7 @@ impl EventColumnTimeRange {
             RangePosition::InRange => COLOR_CURRENT,
             RangePosition::After => None,
             RangePosition::InvalidRange => {
-                log::warn!("Invalid range for event: {}", event.uid());
+                tracing::warn!(uid = event.uid(), "Invalid range for event");
                 None
             }
         }

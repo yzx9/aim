@@ -129,6 +129,7 @@ impl LooseDateTime {
 }
 
 impl From<DatePerhapsTime> for LooseDateTime {
+    #[tracing::instrument]
     fn from(dt: DatePerhapsTime) -> Self {
         match dt {
             DatePerhapsTime::DateTime(dt) => match dt {
@@ -141,20 +142,16 @@ impl From<DatePerhapsTime> for LooseDateTime {
                             LooseDateTime::Local(dt_in_tz.with_timezone(&Local))
                         }
                         LocalResult::Ambiguous(dt1, _) => {
-                            log::warn!(
-                                "Ambiguous local time for {date_time} in {tzid}, picking earliest"
-                            );
+                            tracing::warn!(tzid, "Ambiguous local time, picking earliest");
                             LooseDateTime::Local(dt1.with_timezone(&Local))
                         }
                         LocalResult::None => {
-                            log::warn!(
-                                "Invalid local time for {date_time} in {tzid}, falling back to floating"
-                            );
+                            tracing::warn!(tzid, "Invalid local time, falling back to floating");
                             LooseDateTime::Floating(date_time)
                         }
                     },
                     _ => {
-                        log::warn!("Unknown timezone, treating as floating: {tzid}");
+                        tracing::warn!(tzid, "Unknown timezone, treating as floating");
                         LooseDateTime::Floating(date_time)
                     }
                 },

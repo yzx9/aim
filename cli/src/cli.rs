@@ -8,6 +8,7 @@ use aimcal_core::{APP_NAME, Aim};
 use clap::{ArgMatches, Command, ValueHint, arg, builder::styling, crate_version, value_parser};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
+use tracing_subscriber::EnvFilter;
 
 use crate::cmd_dashboard::CmdDashboard;
 use crate::cmd_event::{CmdEventEdit, CmdEventList, CmdEventNew};
@@ -20,7 +21,10 @@ use crate::config::parse_config;
 
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
     let err = match Cli::parse() {
         Ok(cli) => match cli.run().await {
             Ok(()) => return Ok(()),
@@ -221,11 +225,12 @@ impl Commands {
         }
     }
 
+    #[tracing::instrument(skip(f))]
     async fn run_with<F>(config: Option<PathBuf>, f: F) -> Result<(), Box<dyn Error>>
     where
         F: for<'a> FnOnce(&'a mut Aim) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
     {
-        log::debug!("Parsing configuration...");
+        tracing::debug!("Parsing configuration...");
         let (core_config, _config) = parse_config(config).await?;
         let mut aim = Aim::new(core_config).await?;
 

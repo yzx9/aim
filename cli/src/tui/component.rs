@@ -277,6 +277,7 @@ where
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn set(dispatcher: &mut Dispatcher, value: String) -> bool {
         let v = value.trim();
         if v.is_empty() {
@@ -284,7 +285,7 @@ where
         } else if let Ok(num) = v.parse::<T>() {
             A::set(dispatcher, Some(num))
         } else {
-            log::debug!("Failed to parse '{value}' as a positive integer");
+            tracing::debug!(value, "Failed to parse as a positive integer");
             false
         }
     }
