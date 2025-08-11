@@ -285,7 +285,7 @@ where
         } else if let Ok(num) = v.parse::<T>() {
             A::set(dispatcher, Some(num))
         } else {
-            tracing::debug!(value, "Failed to parse as a positive integer");
+            tracing::debug!(value, "failed to parse as a positive integer");
             false
         }
     }

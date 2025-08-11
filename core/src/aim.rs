@@ -134,12 +134,12 @@ impl Aim {
 
         let uid = id.as_uid();
 
-        tracing::debug!(uid, "Checking if id is an event");
+        tracing::debug!(uid, "checking if id is an event");
         if self.db.events.get(uid).await?.is_some() {
             return Ok(Kind::Event);
         }
 
-        tracing::debug!(uid, "Checking if id is a todo");
+        tracing::debug!(uid, "checking if id is a todo");
         if self.db.todos.get(uid).await?.is_some() {
             return Ok(Kind::Todo);
         }
@@ -286,7 +286,7 @@ impl Aim {
                     let that = self.clone();
                     handles.push(tokio::spawn(async move {
                         if let Err(err) = that.add_ics(&path).await {
-                            tracing::error!(path = %path.display(), err, "Failed to process file");
+                            tracing::error!(path = %path.display(), err, "failed to process file");
                         }
                     }));
                 }
@@ -298,22 +298,21 @@ impl Aim {
             handle.await?;
         }
 
-        tracing::debug!("Total .ics files processed: {count_ics}");
+        tracing::debug!(count = count_ics, "total .ics files processed");
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, path))]
     async fn add_ics(self, path: &Path) -> Result<(), Box<dyn Error>> {
-        tracing::debug!(path = %path.display(), "Parsing file");
+        tracing::debug!(path = %path.display(), "parsing file");
         let calendar = parse_ics(path).await?;
 
-        tracing::debug!(path = %path.display(), components = calendar.components.len(), "Found components");
+        tracing::debug!(path = %path.display(), components = calendar.components.len(), "found components");
         for component in calendar.components {
-            tracing::debug!(?component, "Processing component");
+            tracing::debug!(?component, "processing component");
             match component {
                 CalendarComponent::Event(event) => self.db.upsert_event(path, &event).await?,
                 CalendarComponent::Todo(todo) => self.db.upsert_todo(path, &todo).await?,
-                _ => tracing::warn!(?component, "Ignoring unsupported component type"),
+                _ => tracing::warn!(?component, "ignoring unsupported component type"),
             }
         }
 
@@ -339,10 +338,9 @@ impl Aim {
     }
 }
 
-#[tracing::instrument]
 async fn prepare(config: &Config) -> Result<(), Box<dyn Error>> {
     if let Some(parent) = &config.state_dir {
-        tracing::info!(path = %parent.display(), "Ensuring state directory exists");
+        tracing::debug!(path = %parent.display(), "ensuring state directory exists");
         fs::create_dir_all(parent).await?;
     }
     Ok(())

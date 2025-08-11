@@ -148,7 +148,7 @@ impl TodoColumnId {
             short_id.to_string().into()
         } else {
             let uid = todo.uid(); // Fallback to the full UID if no short ID is available
-            tracing::warn!(uid, "Todo does not have a short ID, using UID instead.",);
+            tracing::warn!(uid, "todo does not have a short ID, using UID instead.",);
             uid.into()
         }
     }

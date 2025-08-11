@@ -9,6 +9,7 @@ use std::str::FromStr;
 use aimcal_core::{APP_NAME, Config as CoreConfig};
 use colored::Colorize;
 
+#[tracing::instrument]
 pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config), Box<dyn Error>> {
     let path = match path {
         Some(path) => path,

@@ -73,15 +73,13 @@ impl CmdEventNew {
         })
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        tracing::debug!("Adding new todo...");
-
+        tracing::debug!(?self, "adding new todo...");
         let draft = if self.tui {
             match tui::draft_event(aim)? {
                 Some(data) => data,
                 None => {
-                    tracing::info!(?self, "User canceled the event edit");
+                    tracing::info!("user cancel the event creation");
                     return Ok(());
                 }
             }
@@ -176,14 +174,14 @@ impl CmdEventEdit {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+        tracing::debug!(?self, "editing event...");
         let patch = if self.tui {
             let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
             match tui::patch_event(aim, &event)? {
                 Some(data) => data,
                 None => {
-                    tracing::info!(?self, "User canceled the todo edit");
+                    tracing::info!(?self, "user cancel the todo editing");
                     return Ok(());
                 }
             }
@@ -197,7 +195,6 @@ impl CmdEventEdit {
             }
         };
 
-        tracing::debug!("Edit todo ...");
         let todo = aim.update_event(&self.id, patch).await?;
         let formatter = EventFormatter::new(aim.now()).with_output_format(self.output_format);
         println!("{}", formatter.format(&[todo]));
@@ -227,9 +224,8 @@ impl CmdEventList {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        tracing::debug!(?self, "Listing events...");
+        tracing::debug!(?self, "listing events...");
         Self::list(aim, &self.conds, self.output_format).await
     }
 

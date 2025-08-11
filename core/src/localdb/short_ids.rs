@@ -34,7 +34,7 @@ impl ShortIds {
             Some((uid, kind)) => {
                 let parsed_kind = kind_from_str(&kind);
                 if parsed_kind.is_none() {
-                    tracing::warn!(kind, "Unknown short_id kind");
+                    tracing::warn!(kind, "unknown short_id kind");
                     return Ok(None);
                 }
 

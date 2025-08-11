@@ -24,20 +24,19 @@ pub struct LocalDb {
 impl LocalDb {
     /// Opens a sqlite database connection.
     /// If `state_dir` is `None`, it opens an in-memory database.
-    #[tracing::instrument]
     pub async fn open(state_dir: &Option<PathBuf>) -> Result<Self, Box<dyn Error>> {
         let options = match state_dir {
             Some(dir) => {
                 const NAME: &str = "aim.db";
 
-                tracing::info!(dir = %dir.display(), "Connecting to SQLite database");
+                tracing::info!(dir = %dir.display(), "connecting to SQLite database");
                 let dir = dir.to_str().ok_or("Invalid path encoding")?;
                 SqliteConnectOptions::new()
                     .filename(format!("{dir}/{NAME}"))
                     .create_if_missing(true)
             }
             None => {
-                tracing::info!("Connecting to in-memory SQLite database");
+                tracing::info!("connecting to in-memory SQLite database");
                 SqliteConnectOptions::new().in_memory(true)
             }
         };
@@ -52,7 +51,7 @@ impl LocalDb {
             .await
             .map_err(|e| format!("Failed to run migrations: {e}"))?;
 
-        tracing::debug!("Creating tables in the database");
+        tracing::debug!("ensuring tables in the database");
         let events = Events::new(pool.clone()).await?;
         let todos = Todos::new(pool.clone()).await?;
         let short_ids = ShortIds::new(pool.clone());
@@ -88,7 +87,7 @@ impl LocalDb {
 
     #[tracing::instrument(skip(self))]
     pub async fn close(self) -> Result<(), Box<dyn Error>> {
-        tracing::debug!("Closing database connection");
+        tracing::debug!("closing database connection");
         self.pool.close().await;
         Ok(())
     }

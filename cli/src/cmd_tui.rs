@@ -37,6 +37,7 @@ impl CmdNew {
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
+        tracing::debug!(?self, "adding new item using TUI...");
         CmdTodoNew::new_tui().run(aim).await
     }
 }
@@ -65,14 +66,17 @@ impl CmdEdit {
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+        tracing::debug!(?self, "editing item using TUI...");
         let kind = aim.get_kind(&self.id).await?;
         match kind {
             Kind::Event => {
+                tracing::info!("editing event");
                 CmdEventEdit::new_tui(self.id, self.output_format)
                     .run(aim)
                     .await
             }
             Kind::Todo => {
+                tracing::info!("editing todo");
                 CmdTodoEdit::new_tui(self.id, self.output_format)
                     .run(aim)
                     .await

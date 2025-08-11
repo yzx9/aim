@@ -55,7 +55,7 @@ impl Config {
 
             None => match get_state_dir() {
                 Ok(a) => self.state_dir = Some(a.join(APP_NAME)),
-                Err(err) => tracing::warn!(err, "Failed to get state directory"),
+                Err(err) => tracing::warn!(err, "failed to get state directory"),
             },
         };
 

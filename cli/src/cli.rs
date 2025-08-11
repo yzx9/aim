@@ -206,8 +206,10 @@ pub enum Commands {
 impl Commands {
     /// Run the command with the given configuration
     #[rustfmt::skip]
+    #[tracing::instrument(skip_all, fields(trace_id = %uuid::Uuid::new_v4()))]
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         use Commands::*;
+        tracing::info!(?self, "running command");
         match self {
             Dashboard(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
             New(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
@@ -225,17 +227,20 @@ impl Commands {
         }
     }
 
-    #[tracing::instrument(skip(f))]
     async fn run_with<F>(config: Option<PathBuf>, f: F) -> Result<(), Box<dyn Error>>
     where
         F: for<'a> FnOnce(&'a mut Aim) -> BoxFuture<'a, Result<(), Box<dyn Error>>>,
     {
-        tracing::debug!("Parsing configuration...");
+        tracing::debug!("parsing configuration...");
         let (core_config, _config) = parse_config(config).await?;
+
+        tracing::debug!("instantiating...");
         let mut aim = Aim::new(core_config).await?;
 
+        tracing::debug!("running command...");
         f(&mut aim).await?;
 
+        tracing::debug!("closing...");
         aim.close().await?;
         Ok(())
     }

@@ -35,6 +35,7 @@ impl CmdGenerateCompletion {
     }
 
     pub fn run(self) -> Result<(), Box<dyn Error>> {
+        tracing::debug!(?self, "generating shell completion...");
         self.generate(&mut io::stdout());
         Ok(())
     }
