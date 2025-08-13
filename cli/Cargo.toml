@@ -37,7 +37,7 @@ toml = "0.9.4"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt"] }
 unicode-width = "0.2.0"
-uuid = "1.17.0"
+uuid = "1.18.0"
 
 [target.'cfg(unix)'.dependencies]
 xdg = "3.0.0"
