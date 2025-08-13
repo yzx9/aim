@@ -61,7 +61,10 @@
           buildNoDefaultFeatures = true;
           buildFeatures = [ "sqlite-unbundled" ];
 
-          nativeBuildInputs = [ installShellFiles ];
+          nativeBuildInputs = [
+            rustPlatform.bindgenHook
+            installShellFiles
+          ];
 
           buildInputs = [
             sqlite
