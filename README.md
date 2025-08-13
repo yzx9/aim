@@ -66,25 +66,33 @@ aim --help
 nix run . -- --help
 ```
 
-## Roadmap (by priority)
+## Goals
+
+- **Enable command-line calendar management**: Perform queries and manage events and todos directly from the CLI.
+- **Leverage LLMs for intelligent assistance**: Offer smart scheduling and reminder suggestions tailored to user preferences.
+- **Integrate with external systems**: Support CalDAV providers and expose Webhook/REST APIs for triggers and calendar access.
+
+## Roadmap
 
 ### 📅 Calendar Features
 
-- [x] Todo query & edting – Support CLI queries, add, edit, and delete todos
-- [x] Event query & edting – Support CLI queries, add, edit, and delete events
-- [ ] Revert editing - Undo history action, including adding, edit and delete
-- [ ] Recurring events – Handle creation and editing of repeating events
+- [x] Event & Todo query
+- [x] Event & Todo edit
+- [ ] Undo history editing
+- [ ] Markdown support
+- [ ] Full text search (grepping)
+- [ ] Recurring events
 
 ### 🤖 AI Capabilities
 
-- [ ] AI operation – Parse and execute user commands on calendar
-- [ ] AI suggestions – Provide intelligent scheduling and reminder suggestions
-- [ ] AI memory (long-term) – Store user preferences and interaction history
+- [ ] AI operation, parse and execute user commands on calendar
+- [ ] Intelligent suggestions
+- [ ] Personalized
 
 ### 🔌 Integrations
 
-- [ ] CalDAV support – Work with Google, Outlook, iCloud, CalDAV, etc.
-- [ ] Webhook/REST API – Allow external triggers and calendar access via API
+- [ ] CalDAV support
+- [ ] Webhook/REST API
 
 ## LICENSE
 
