@@ -5,8 +5,12 @@
 use std::{cell::RefCell, error::Error, rc::Rc};
 
 use aimcal_core::{Aim, Event, EventDraft, EventPatch, EventStatus, Todo, TodoDraft, TodoPatch};
+use ratatui::Terminal;
+use ratatui::crossterm::event::{self, KeyEventKind};
+use ratatui::layout::Rect;
+use ratatui::prelude::Backend;
 
-use crate::tui::component::Message;
+use crate::tui::component::{Component, Message};
 use crate::tui::dispatcher::Dispatcher;
 use crate::tui::event_editor::EventEditor;
 use crate::tui::event_store::EventStore;
@@ -60,7 +64,7 @@ pub fn patch_todo(aim: &mut Aim, todo: &impl Todo) -> Result<Option<TodoPatch>, 
 }
 
 macro_rules! run_editor {
-    ($fn: ident, $editor: ident, $store: ident) => {
+    ($fn: ident, $view: ident, $store: ident) => {
         fn $fn(aim: &mut Aim, store: $store) -> Result<$store, Box<dyn Error>> {
             let store = Rc::new(RefCell::new(store));
 
@@ -68,14 +72,14 @@ macro_rules! run_editor {
             let result = {
                 let mut dispatcher = Dispatcher::new();
                 $store::register_to(store.clone(), &mut dispatcher);
-                let mut view = $editor::new(dispatcher, &store, &mut terminal);
+                let mut app = App::new($view::new(), dispatcher, &store, &mut terminal);
 
                 loop {
-                    if let Err(e) = view.darw(&store, &mut terminal) {
+                    if let Err(e) = app.darw(&store, &mut terminal) {
                         break Err(e);
                     }
 
-                    match view.read_event(&store) {
+                    match app.read_event(&store) {
                         Err(e) => break Err(e),
                         Ok(Some(Message::Exit)) => break Ok(()),
                         Ok(_) => {} // Continue the loop to render the next frame
@@ -96,3 +100,75 @@ macro_rules! run_editor {
 
 run_editor!(run_event_editor, EventEditor, EventStore);
 run_editor!(run_todo_editor, TodoEditor, TodoStore);
+
+struct App<S, C: Component<S>> {
+    dispatcher: Dispatcher,
+    area: Rect, // TODO: support resize
+    cursor_pos: Option<(u16, u16)>,
+    view: C,
+    _phantom: std::marker::PhantomData<S>,
+}
+
+impl<S, C: Component<S>> App<S, C> {
+    pub fn new<B: Backend>(
+        mut view: C,
+        mut dispatcher: Dispatcher,
+        store: &Rc<RefCell<S>>,
+        terminal: &mut Terminal<B>,
+    ) -> Self {
+        let area = match terminal.size() {
+            Ok(size) => Rect::new(0, 0, size.width, size.height),
+            Err(_) => Rect::default(),
+        };
+
+        // Activate the first item
+        view.activate(&mut dispatcher);
+
+        Self {
+            dispatcher,
+            area,
+            cursor_pos: view.get_cursor_position(store, area),
+            view,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    pub fn darw<B: Backend>(
+        &mut self,
+        store: &Rc<RefCell<S>>,
+        terminal: &mut Terminal<B>,
+    ) -> Result<(), Box<dyn Error>> {
+        terminal.draw(|frame| {
+            self.area = frame.area();
+            self.view.render(store, frame.area(), frame.buffer_mut());
+
+            if let Some(pos) = self.cursor_pos {
+                frame.set_cursor_position(pos);
+            }
+        })?;
+        Ok(())
+    }
+
+    pub fn read_event(
+        &mut self,
+        store: &Rc<RefCell<S>>,
+    ) -> Result<Option<Message>, Box<dyn Error>> {
+        Ok(match event::read()? {
+            event::Event::Key(e) if e.kind == KeyEventKind::Press => {
+                // Handle key events for the current component
+                let (form, dispatcher, area) = (&mut self.view, &mut self.dispatcher, self.area);
+                match form.on_key(dispatcher, store, self.area, e.code) {
+                    Some(msg) => match msg {
+                        Message::CursorUpdated => {
+                            self.cursor_pos = self.view.get_cursor_position(store, area);
+                            Some(Message::Handled)
+                        }
+                        _ => Some(msg),
+                    },
+                    None => None,
+                }
+            }
+            _ => None, // Ignore other kinds of events
+        })
+    }
+}

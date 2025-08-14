@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use aimcal_core::{Priority, TodoStatus};
-use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use ratatui::crossterm::event::KeyCode;
 use ratatui::prelude::*;
 
 use crate::tui::component::{Component, Message};
@@ -16,71 +16,39 @@ use crate::tui::todo_store::TodoStore;
 
 type Store = Rc<RefCell<TodoStore>>;
 
-pub struct TodoEditor {
-    dispatcher: Dispatcher,
-    area: Rect, // TODO: support resize
-    cursor_pos: Option<(u16, u16)>,
-    page: SinglePage<TodoStore, TodoForm>,
-}
+pub struct TodoEditor(SinglePage<TodoStore, TodoForm>);
 
 impl TodoEditor {
-    pub fn new<B: Backend>(
-        mut dispatcher: Dispatcher,
-        store: &Store,
-        terminal: &mut Terminal<B>,
-    ) -> Self {
-        let area = match terminal.size() {
-            Ok(size) => Rect::new(0, 0, size.width, size.height),
-            Err(_) => Rect::default(),
-        };
+    pub fn new() -> Self {
+        Self(SinglePage::new("Todo Editor".to_owned(), TodoForm::new()))
+    }
+}
 
-        let mut page = SinglePage::new("Todo Editor".to_owned(), TodoForm::new());
-
-        // Activate the first item
-        page.activate(&mut dispatcher);
-
-        Self {
-            dispatcher,
-            area,
-            cursor_pos: page.get_cursor_position(store, area),
-            page,
-        }
+impl Component<TodoStore> for TodoEditor {
+    fn render(&self, store: &Store, area: Rect, buf: &mut Buffer) {
+        self.0.render(store, area, buf);
     }
 
-    pub fn darw<B: Backend>(
+    fn get_cursor_position(&self, store: &Store, area: Rect) -> Option<(u16, u16)> {
+        self.0.get_cursor_position(store, area)
+    }
+
+    fn on_key(
         &mut self,
+        dispatcher: &mut Dispatcher,
         store: &Store,
-        terminal: &mut Terminal<B>,
-    ) -> Result<(), Box<dyn Error>> {
-        terminal.draw(|frame| {
-            self.area = frame.area();
-            self.page.render(store, frame.area(), frame.buffer_mut());
-
-            if let Some(pos) = self.cursor_pos {
-                frame.set_cursor_position(pos);
-            }
-        })?;
-        Ok(())
+        area: Rect,
+        key: KeyCode,
+    ) -> Option<Message> {
+        self.0.on_key(dispatcher, store, area, key)
     }
 
-    pub fn read_event(&mut self, store: &Store) -> Result<Option<Message>, Box<dyn Error>> {
-        Ok(match event::read()? {
-            Event::Key(e) if e.kind == KeyEventKind::Press => {
-                // Handle key events for the current component
-                let (form, dispatcher, area) = (&mut self.page, &mut self.dispatcher, self.area);
-                match form.on_key(dispatcher, store, self.area, e.code) {
-                    Some(msg) => match msg {
-                        Message::CursorUpdated => {
-                            self.cursor_pos = self.page.get_cursor_position(store, area);
-                            Some(Message::Handled)
-                        }
-                        _ => Some(msg),
-                    },
-                    None => None,
-                }
-            }
-            _ => None, // Ignore other kinds of events
-        })
+    fn activate(&mut self, dispatcher: &mut Dispatcher) {
+        self.0.activate(dispatcher);
+    }
+
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
+        self.0.deactivate(dispatcher);
     }
 }
 
