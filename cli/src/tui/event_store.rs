@@ -6,7 +6,7 @@ use std::{cell::RefCell, error::Error, rc::Rc};
 
 use aimcal_core::{Event, EventDraft, EventPatch, EventStatus};
 
-use crate::tui::dispatcher::{Action, Dispatcher};
+use super::dispatcher::{Action, Dispatcher};
 use crate::util::{format_datetime, parse_datetime};
 
 #[derive(Debug)]

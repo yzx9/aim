@@ -10,11 +10,10 @@ use aimcal_core::{Priority, TodoStatus};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
 
-use crate::tui::component::{
-    Access, Component, Form, FormItem, Input, Message, PositiveIntegerAccess, RadioGroup,
-};
-use crate::tui::dispatcher::{Action, Dispatcher};
-use crate::tui::todo_store::TodoStore;
+use super::component::{Component, Message};
+use super::component_form::{Access, Form, FormItem, Input, PositiveIntegerAccess, RadioGroup};
+use super::dispatcher::{Action, Dispatcher};
+use super::todo_store::TodoStore;
 
 type Store = Rc<RefCell<TodoStore>>;
 

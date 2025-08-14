@@ -2,17 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::cell::RefCell;
-use std::error::Error;
-use std::rc::Rc;
+use std::{cell::RefCell, error::Error, rc::Rc};
 
 use aimcal_core::EventStatus;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
 
-use crate::tui::component::{Access, Component, Form, Input, Message, RadioGroup};
-use crate::tui::dispatcher::{Action, Dispatcher};
-use crate::tui::event_store::EventStore;
+use super::component::{Component, Message};
+use super::component_form::{Access, Form, Input, RadioGroup};
+use super::dispatcher::{Action, Dispatcher};
+use super::event_store::EventStore;
 
 type Store = Rc<RefCell<EventStore>>;
 
