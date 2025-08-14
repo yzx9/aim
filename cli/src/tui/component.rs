@@ -4,10 +4,9 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use ratatui::crossterm::event::KeyCode;
-use ratatui::prelude::*;
+use ratatui::{crossterm::event::KeyCode, prelude::*};
 
-use super::dispatcher::Dispatcher;
+use crate::tui::dispatcher::Dispatcher;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Message {
@@ -20,6 +19,11 @@ pub trait Component<S> {
     /// Renders the component into the given area.
     fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer);
 
+    /// Returns the cursor position (row, column) for the component, if applicable.
+    fn get_cursor_position(&self, _store: &Rc<RefCell<S>>, _area: Rect) -> Option<(u16, u16)> {
+        None // Default implementation returns no cursor position
+    }
+
     /// Handles key events for the component.
     fn on_key(
         &mut self,
@@ -31,8 +35,9 @@ pub trait Component<S> {
         None // Default implementation does nothing
     }
 
-    /// Returns the cursor position (row, column) for the component, if applicable.
-    fn get_cursor_position(&self, _store: &Rc<RefCell<S>>, _area: Rect) -> Option<(u16, u16)> {
-        None // Default implementation returns no cursor position
-    }
+    /// Activates the component, allowing it to initialize resources or state.
+    fn activate(&mut self, _dispatcher: &mut Dispatcher) {}
+
+    /// Deactivates the component, allowing it to clean up resources or state.
+    fn deactivate(&mut self, _dispatcher: &mut Dispatcher) {}
 }

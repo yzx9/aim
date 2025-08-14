@@ -5,6 +5,7 @@
 mod app;
 mod component;
 mod component_form;
+mod component_page;
 mod dispatcher;
 mod event_editor;
 mod event_store;

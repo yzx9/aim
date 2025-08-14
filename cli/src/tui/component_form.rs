@@ -10,57 +10,41 @@ use ratatui::symbols::border;
 use ratatui::widgets::{self, Block, Paragraph, block};
 use unicode_width::UnicodeWidthStr;
 
-use super::component::{Component, Message};
-use super::dispatcher::{Action, Dispatcher};
+use crate::tui::component::{Component, Message};
+use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::unicode_width_of_slice;
 
 pub struct Form<S> {
-    title: String,
-    items: Vec<Box<dyn FormItem<S>>>,
+    items: Vec<Box<dyn Component<S>>>,
     item_index: usize,
 }
 
 impl<S> Form<S> {
-    pub fn new(title: String, items: Vec<Box<dyn FormItem<S>>>) -> Self {
+    pub fn new(items: Vec<Box<dyn Component<S>>>) -> Self {
         Self {
-            title,
             items,
             item_index: 0,
         }
     }
 
-    pub fn activate(&mut self, dispatcher: &mut Dispatcher) {
-        if let Some(item) = self.items.get_mut(self.item_index) {
-            item.activate(dispatcher);
-        }
-    }
-
     fn layout(&self) -> Layout {
-        Layout::vertical(self.items.iter().map(|_| Constraint::Max(3))).margin(2)
+        Layout::vertical(self.items.iter().map(|_| Constraint::Max(3))).margin(1)
     }
 }
 
 impl<S> Component<S> for Form<S> {
     fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(format!(" {} ", self.title).bold());
-        let instructions = Line::from(vec![
-            " Prev ".into(),
-            "<Up>".blue().bold(),
-            " Next ".into(),
-            "<Down>".blue().bold(),
-            " Exit ".into(),
-            "<Esc> ".blue().bold(),
-        ]);
-        Block::bordered()
-            .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::ROUNDED)
-            .white()
-            .render(area, buf);
-
         let areas = self.layout().split(area);
         for (field, area) in self.items.iter().zip(areas.iter()) {
             field.render(store, *area, buf);
+        }
+    }
+
+    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+        let areas = self.layout().split(area);
+        match (self.items.get(self.item_index), areas.get(self.item_index)) {
+            (Some(comp), Some(area)) => comp.get_cursor_position(store, *area),
+            _ => None,
         }
     }
 
@@ -113,11 +97,15 @@ impl<S> Component<S> for Form<S> {
         }
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
-        let areas = self.layout().split(area);
-        match (self.items.get(self.item_index), areas.get(self.item_index)) {
-            (Some(comp), Some(area)) => comp.get_cursor_position(store, *area),
-            _ => None,
+    fn activate(&mut self, dispatcher: &mut Dispatcher) {
+        if let Some(item) = self.items.get_mut(self.item_index) {
+            item.activate(dispatcher);
+        }
+    }
+
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
+        if let Some(item) = self.items.get_mut(self.item_index) {
+            item.deactivate(dispatcher);
         }
     }
 }
@@ -127,18 +115,13 @@ pub trait Access<S, T: ToOwned> {
     fn set(dispatcher: &mut Dispatcher, value: T) -> bool;
 }
 
-pub trait FormItem<S>: Component<S> {
-    fn activate(&mut self, dispatcher: &mut Dispatcher);
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher);
-}
-
 #[derive(Debug)]
 pub struct Input<S, A: Access<S, String>> {
     title: String,
     active: bool,
     character_index: usize,
-    _marker_s: std::marker::PhantomData<S>,
-    _marker_a: std::marker::PhantomData<A>,
+    _phantom_s: std::marker::PhantomData<S>,
+    _phantom_a: std::marker::PhantomData<A>,
 }
 
 impl<S, A: Access<S, String>> Input<S, A> {
@@ -147,8 +130,8 @@ impl<S, A: Access<S, String>> Input<S, A> {
             title,
             active: false,
             character_index: 0,
-            _marker_a: std::marker::PhantomData,
-            _marker_s: std::marker::PhantomData,
+            _phantom_a: std::marker::PhantomData,
+            _phantom_s: std::marker::PhantomData,
         }
     }
 }
@@ -158,6 +141,18 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
         let block = title_block(&self.title, self.active);
         let v = A::get(store);
         Paragraph::new(v.as_str()).block(block).render(area, buf);
+    }
+
+    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+        if !self.active {
+            return None; // No cursor position when not active
+        }
+
+        let v = A::get(store);
+        let width = unicode_width_of_slice(v.as_str(), self.character_index);
+        let x = area.x + (width as u16) + 2; // border 1 + padding 1
+        let y = area.y + 1; // title line: 1
+        Some((x, y))
     }
 
     fn on_key(
@@ -201,20 +196,6 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
         Some(Message::CursorUpdated)
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
-        if !self.active {
-            return None; // No cursor position when not active
-        }
-
-        let v = A::get(store);
-        let width = unicode_width_of_slice(v.as_str(), self.character_index);
-        let x = area.x + (width as u16) + 2; // border 1 + padding 1
-        let y = area.y + 1; // title line: 1
-        Some((x, y))
-    }
-}
-
-impl<S, A: Access<S, String>> FormItem<S> for Input<S, A> {
     fn activate(&mut self, _dispatcher: &mut Dispatcher) {
         self.active = true;
         self.character_index = 0; // Reset character index when activated
@@ -268,8 +249,8 @@ pub struct RadioGroup<S, T: Eq + Clone, A: Access<S, T>> {
     values: Vec<T>,
     options: Vec<String>,
     active: bool,
-    _marker_s: std::marker::PhantomData<S>,
-    _marker_a: std::marker::PhantomData<A>,
+    _phantom_s: std::marker::PhantomData<S>,
+    _phantom_a: std::marker::PhantomData<A>,
 }
 
 impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
@@ -279,8 +260,8 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
             values,
             options,
             active: false,
-            _marker_s: std::marker::PhantomData,
-            _marker_a: std::marker::PhantomData,
+            _phantom_s: std::marker::PhantomData,
+            _phantom_a: std::marker::PhantomData,
         }
     }
 
@@ -319,6 +300,18 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
         }
     }
 
+    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+        if !self.active {
+            return None; // No cursor position when not active
+        }
+
+        let (_, inners) = self.split(area);
+        inners.get(self.selected(store)).map(|area| {
+            let x = area.x + 2; // 2 = padding (1) + active marker [ (1)
+            (x, area.y)
+        })
+    }
+
     fn on_key(
         &mut self,
         dispatcher: &mut Dispatcher,
@@ -350,20 +343,6 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
         }
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
-        if !self.active {
-            return None; // No cursor position when not active
-        }
-
-        let (_, inners) = self.split(area);
-        inners.get(self.selected(store)).map(|area| {
-            let x = area.x + 2; // 2 = padding (1) + active marker [ (1)
-            (x, area.y)
-        })
-    }
-}
-
-impl<S, T: Eq + Clone, A: Access<S, T>> FormItem<S> for RadioGroup<S, T, A> {
     fn activate(&mut self, _: &mut Dispatcher) {
         self.active = true;
     }

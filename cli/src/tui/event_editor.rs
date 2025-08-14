@@ -8,10 +8,11 @@ use aimcal_core::EventStatus;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
 
-use super::component::{Component, Message};
-use super::component_form::{Access, Form, Input, RadioGroup};
-use super::dispatcher::{Action, Dispatcher};
-use super::event_store::EventStore;
+use crate::tui::component::{Component, Message};
+use crate::tui::component_form::{Access, Form, Input, RadioGroup};
+use crate::tui::component_page::SinglePage;
+use crate::tui::dispatcher::{Action, Dispatcher};
+use crate::tui::event_store::EventStore;
 
 type Store = Rc<RefCell<EventStore>>;
 
@@ -19,7 +20,7 @@ pub struct EventEditor {
     dispatcher: Dispatcher,
     area: Rect,
     cursor_pos: Option<(u16, u16)>,
-    form: Form<EventStore>,
+    page: SinglePage<EventStore, EventForm>,
 }
 
 impl EventEditor {
@@ -33,25 +34,16 @@ impl EventEditor {
             Err(_) => Rect::default(),
         };
 
-        let mut form = Form::new(
-            "Event Editor".to_owned(),
-            vec![
-                Box::new(new_summary()),
-                Box::new(new_start()),
-                Box::new(new_end()),
-                Box::new(new_status()),
-                Box::new(new_description()),
-            ],
-        );
+        let mut page = SinglePage::new("Event Editor".to_owned(), EventForm::new());
 
         // Activate the first item
-        form.activate(&mut dispatcher);
+        page.activate(&mut dispatcher);
 
         Self {
             dispatcher,
             area,
-            cursor_pos: form.get_cursor_position(store, area),
-            form,
+            cursor_pos: page.get_cursor_position(store, area),
+            page,
         }
     }
 
@@ -62,7 +54,7 @@ impl EventEditor {
     ) -> Result<(), Box<dyn Error>> {
         terminal.draw(|frame| {
             self.area = frame.area();
-            self.form.render(store, frame.area(), frame.buffer_mut());
+            self.page.render(store, frame.area(), frame.buffer_mut());
 
             if let Some(pos) = self.cursor_pos {
                 frame.set_cursor_position(pos);
@@ -75,24 +67,63 @@ impl EventEditor {
         Ok(match event::read()? {
             Event::Key(e) if e.kind == KeyEventKind::Press => {
                 // Handle key events for the current component
-                let (form, dispatcher, area) = (&mut self.form, &mut self.dispatcher, self.area);
+                let (form, dispatcher, area) = (&mut self.page, &mut self.dispatcher, self.area);
                 if let Some(msg) = form.on_key(dispatcher, store, self.area, e.code) {
                     return Ok(match msg {
                         Message::CursorUpdated => {
-                            self.cursor_pos = self.form.get_cursor_position(store, area);
+                            self.cursor_pos = self.page.get_cursor_position(store, area);
                             Some(Message::Handled)
                         }
                         _ => Some(msg),
                     });
-                }
-
-                match e.code {
-                    KeyCode::Esc => Some(Message::Exit),
-                    _ => None,
+                } else {
+                    None
                 }
             }
             _ => None, // Ignore other kinds of events
         })
+    }
+}
+
+pub struct EventForm(Form<EventStore>);
+
+impl EventForm {
+    pub fn new() -> Self {
+        Self(Form::new(vec![
+            Box::new(new_summary()),
+            Box::new(new_start()),
+            Box::new(new_end()),
+            Box::new(new_status()),
+            Box::new(new_description()),
+        ]))
+    }
+}
+
+impl Component<EventStore> for EventForm {
+    fn render(&self, store: &Store, area: Rect, buf: &mut Buffer) {
+        self.0.render(store, area, buf);
+    }
+
+    fn get_cursor_position(&self, store: &Store, area: Rect) -> Option<(u16, u16)> {
+        self.0.get_cursor_position(store, area)
+    }
+
+    fn on_key(
+        &mut self,
+        dispatcher: &mut Dispatcher,
+        store: &Store,
+        area: Rect,
+        key: KeyCode,
+    ) -> Option<Message> {
+        self.0.on_key(dispatcher, store, area, key)
+    }
+
+    fn activate(&mut self, dispatcher: &mut Dispatcher) {
+        self.0.activate(dispatcher);
+    }
+
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
+        self.0.deactivate(dispatcher);
     }
 }
 

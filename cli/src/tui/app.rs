@@ -6,12 +6,12 @@ use std::{cell::RefCell, error::Error, rc::Rc};
 
 use aimcal_core::{Aim, Event, EventDraft, EventPatch, EventStatus, Todo, TodoDraft, TodoPatch};
 
-use super::component::Message;
-use super::dispatcher::Dispatcher;
-use super::event_editor::EventEditor;
-use super::event_store::EventStore;
-use super::todo_editor::TodoEditor;
-use super::todo_store::TodoStore;
+use crate::tui::component::Message;
+use crate::tui::dispatcher::Dispatcher;
+use crate::tui::event_editor::EventEditor;
+use crate::tui::event_store::EventStore;
+use crate::tui::todo_editor::TodoEditor;
+use crate::tui::todo_store::TodoStore;
 
 pub fn draft_event(aim: &mut Aim) -> Result<Option<EventDraft>, Box<dyn Error>> {
     let store = EventStore::new_by_draft(EventDraft {
