@@ -59,64 +59,40 @@ pub fn patch_todo(aim: &mut Aim, todo: &impl Todo) -> Result<Option<TodoPatch>, 
     }
 }
 
-fn run_event_editor(aim: &mut Aim, store: EventStore) -> Result<EventStore, Box<dyn Error>> {
-    let store = Rc::new(RefCell::new(store));
+macro_rules! run_editor {
+    ($fn: ident, $editor: ident, $store: ident) => {
+        fn $fn(aim: &mut Aim, store: $store) -> Result<$store, Box<dyn Error>> {
+            let store = Rc::new(RefCell::new(store));
 
-    let mut terminal = ratatui::init();
-    let result = {
-        let mut dispatcher = Dispatcher::new();
-        EventStore::register_to(store.clone(), &mut dispatcher);
-        let mut view = EventEditor::new(dispatcher, &store, &mut terminal);
+            let mut terminal = ratatui::init();
+            let result = {
+                let mut dispatcher = Dispatcher::new();
+                $store::register_to(store.clone(), &mut dispatcher);
+                let mut view = $editor::new(dispatcher, &store, &mut terminal);
 
-        loop {
-            if let Err(e) = view.darw(&store, &mut terminal) {
-                break Err(e);
-            }
+                loop {
+                    if let Err(e) = view.darw(&store, &mut terminal) {
+                        break Err(e);
+                    }
 
-            match view.read_event(&store) {
-                Err(e) => break Err(e),
-                Ok(Some(Message::Exit)) => break Ok(()),
-                Ok(_) => {} // Continue the loop to render the next frame
-            }
+                    match view.read_event(&store) {
+                        Err(e) => break Err(e),
+                        Ok(Some(Message::Exit)) => break Ok(()),
+                        Ok(_) => {} // Continue the loop to render the next frame
+                    }
+                }
+            }; // release dispatcher and view here to avoid borrow conflicts
+            ratatui::restore();
+            aim.refresh_now(); // Ensure the current time is updated
+            result?;
+
+            let owned_store = Rc::try_unwrap(store)
+                .map_err(|_| "Store still has references")?
+                .into_inner();
+            Ok(owned_store)
         }
-    }; // release dispatcher and view here to avoid borrow conflicts
-    ratatui::restore();
-    aim.refresh_now(); // Ensure the current time is updated
-    result?;
-
-    let owned_store = Rc::try_unwrap(store)
-        .map_err(|_| "Store still has references")?
-        .into_inner();
-    Ok(owned_store)
+    };
 }
 
-fn run_todo_editor(aim: &mut Aim, store: TodoStore) -> Result<TodoStore, Box<dyn Error>> {
-    let store = Rc::new(RefCell::new(store));
-
-    let mut terminal = ratatui::init();
-    let result = {
-        let mut dispatcher = Dispatcher::new();
-        TodoStore::register_to(store.clone(), &mut dispatcher);
-        let mut view = TodoEditor::new(dispatcher, &store, &mut terminal);
-
-        loop {
-            if let Err(e) = view.darw(&store, &mut terminal) {
-                break Err(e);
-            }
-
-            match view.read_event(&store) {
-                Err(e) => break Err(e),
-                Ok(Some(Message::Exit)) => break Ok(()),
-                Ok(_) => {} // Continue the loop to render the next frame
-            }
-        }
-    }; // release dispatcher and view here to avoid borrow conflicts
-    ratatui::restore();
-    aim.refresh_now(); // Ensure the current time is updated
-    result?;
-
-    let owned_store = Rc::try_unwrap(store)
-        .map_err(|_| "Store still has references")?
-        .into_inner();
-    Ok(owned_store)
-}
+run_editor!(run_event_editor, EventEditor, EventStore);
+run_editor!(run_todo_editor, TodoEditor, TodoStore);
