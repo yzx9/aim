@@ -9,6 +9,10 @@ use aimcal_core::{Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::{format_datetime, parse_datetime};
 
+pub trait TodoStoreLike {
+    fn todo(&self) -> &TodoStore;
+}
+
 #[derive(Debug)]
 pub struct TodoStore {
     pub data: TodoData,
@@ -134,6 +138,12 @@ impl TodoStore {
             _ => {}
         }));
         dispatcher.register(callback);
+    }
+}
+
+impl TodoStoreLike for TodoStore {
+    fn todo(&self) -> &TodoStore {
+        self
     }
 }
 

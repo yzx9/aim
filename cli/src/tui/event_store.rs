@@ -9,6 +9,10 @@ use aimcal_core::{Event, EventDraft, EventPatch, EventStatus};
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::{format_datetime, parse_datetime};
 
+pub trait EventStoreLike {
+    fn event(&self) -> &EventStore;
+}
+
 #[derive(Debug)]
 pub struct EventStore {
     pub data: EventData,
@@ -115,6 +119,12 @@ impl EventStore {
             _ => (),
         }));
         dispatcher.register(callback);
+    }
+}
+
+impl EventStoreLike for EventStore {
+    fn event(&self) -> &EventStore {
+        self
     }
 }
 
