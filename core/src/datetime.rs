@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chrono::offset::LocalResult;
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 use chrono_tz::Tz;
 use icalendar::{CalendarDateTime, DatePerhapsTime};
 
@@ -133,46 +133,47 @@ impl From<DatePerhapsTime> for LooseDateTime {
     fn from(dt: DatePerhapsTime) -> Self {
         match dt {
             DatePerhapsTime::DateTime(dt) => match dt {
-                CalendarDateTime::Floating(dt) => LooseDateTime::Floating(dt),
-                CalendarDateTime::Utc(dt) => LooseDateTime::Local(dt.into()),
+                CalendarDateTime::Floating(dt) => dt.into(),
+                CalendarDateTime::Utc(dt) => dt.into(),
                 CalendarDateTime::WithTimezone { date_time, tzid } => match tzid.parse::<Tz>() {
                     Ok(tz) => match tz.from_local_datetime(&date_time) {
                         // Use the parsed timezone to interpret the datetime
-                        LocalResult::Single(dt_in_tz) => {
-                            LooseDateTime::Local(dt_in_tz.with_timezone(&Local))
-                        }
+                        LocalResult::Single(dt_in_tz) => dt_in_tz.into(),
                         LocalResult::Ambiguous(dt1, _) => {
                             tracing::warn!(tzid, "ambiguous local time, picking earliest");
-                            LooseDateTime::Local(dt1.with_timezone(&Local))
+                            dt1.into()
                         }
                         LocalResult::None => {
                             tracing::warn!(tzid, "invalid local time, falling back to floating");
-                            LooseDateTime::Floating(date_time)
+                            date_time.into()
                         }
                     },
-                    _ => {
+                    Err(_) => {
                         tracing::warn!(tzid, "unknown timezone, treating as floating");
-                        LooseDateTime::Floating(date_time)
+                        date_time.into()
                     }
                 },
             },
-            DatePerhapsTime::Date(d) => LooseDateTime::DateOnly(d),
+            DatePerhapsTime::Date(d) => d.into(),
         }
     }
 }
 
 impl From<LooseDateTime> for DatePerhapsTime {
     fn from(dt: LooseDateTime) -> Self {
-        use DatePerhapsTime::*;
         match dt {
-            LooseDateTime::DateOnly(d) => Date(d),
-            LooseDateTime::Floating(dt) => DateTime(CalendarDateTime::Floating(dt)),
+            LooseDateTime::DateOnly(d) => d.into(),
+            LooseDateTime::Floating(dt) => CalendarDateTime::Floating(dt).into(),
             LooseDateTime::Local(dt) => match iana_time_zone::get_timezone() {
-                Ok(tzid) => DateTime(CalendarDateTime::WithTimezone {
+                Ok(tzid) => CalendarDateTime::WithTimezone {
                     date_time: dt.naive_local(),
                     tzid,
-                }),
-                Err(_) => DateTime(CalendarDateTime::Utc(dt.into())),
+                }
+                .into(),
+                Err(_) => {
+                    tracing::warn!("Failed to get timezone, using UTC");
+                    CalendarDateTime::Utc(dt.into()).into()
+                }
             },
         }
     }
@@ -190,14 +191,8 @@ impl From<NaiveDateTime> for LooseDateTime {
     }
 }
 
-impl From<DateTime<Local>> for LooseDateTime {
-    fn from(dt: DateTime<Local>) -> Self {
-        LooseDateTime::Local(dt)
-    }
-}
-
-impl From<DateTime<Utc>> for LooseDateTime {
-    fn from(dt: DateTime<Utc>) -> Self {
+impl<Tz: TimeZone> From<DateTime<Tz>> for LooseDateTime {
+    fn from(dt: DateTime<Tz>) -> Self {
         LooseDateTime::Local(dt.with_timezone(&Local))
     }
 }

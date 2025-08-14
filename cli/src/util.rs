@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use aimcal_core::LooseDateTime;
-use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
 use clap::{Arg, ArgMatches, arg, value_parser};
 use unicode_width::UnicodeWidthStr;
 
@@ -33,31 +33,71 @@ pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &'static str> {
     if dt.is_empty() {
         Ok(None)
     } else if let Ok(dt) = NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M") {
-        Ok(Some(match Local.from_local_datetime(&dt) {
-            LocalResult::Single(dt) => dt.into(),
-            LocalResult::Ambiguous(dt1, _) => {
-                tracing::warn!(?dt, "ambiguous local time in local, picking earliest");
-                dt1.into()
-            }
-            LocalResult::None => {
-                tracing::warn!(?dt, "invalid local time in local, falling back to floating");
-                dt.into()
-            }
-        }))
+        Ok(Some(local_from_datetime(dt)))
     } else if let Ok(time) = NaiveTime::parse_from_str(dt, "%H:%M") {
         // If the input is just a time, we assume it's today
-        match Local::now().with_time(time) {
-            LocalResult::Single(dt) => Ok(Some(dt.into())),
-            LocalResult::Ambiguous(dt1, _) => {
-                tracing::warn!(?dt, "ambiguous local time in local, picking earliest");
-                Ok(Some(dt1.into()))
-            }
-            LocalResult::None => Err("Invalid local time"),
-        }
+        local_with_time(Local::now(), time)
     } else if let Ok(date) = NaiveDate::parse_from_str(dt, "%Y-%m-%d") {
         Ok(Some(date.into()))
     } else {
         Err("Invalid date format. Expected format: YYYY-MM-DD, HH:MM and YYYY-MM-DD HH:MM")
+    }
+}
+
+/// Parses a date range from two strings, where the first is the start date and the second is the end date.
+///
+/// NOTE: Don't assert that the start date is before the end date, as this function does not enforce that.
+pub fn parse_datetime_range(
+    start: &str,
+    end: &str,
+) -> Result<(Option<LooseDateTime>, Option<LooseDateTime>), &'static str> {
+    let start = parse_datetime(start)?;
+
+    if end.is_empty() {
+        Ok((start, None))
+    } else if let Ok(dt) = NaiveDateTime::parse_from_str(end, "%Y-%m-%d %H:%M") {
+        Ok((start, Some(local_from_datetime(dt))))
+    } else if let Ok(time) = NaiveTime::parse_from_str(end, "%H:%M") {
+        // If the input is just a time, we assume it's the same day as start or today if start is None
+        let end = match start {
+            Some(LooseDateTime::Floating(dt)) => Some(NaiveDateTime::new(dt.date(), time).into()),
+            Some(LooseDateTime::DateOnly(date)) => Some(NaiveDateTime::new(date, time).into()),
+            Some(LooseDateTime::Local(dt)) => local_with_time(dt, time)?,
+            None => local_with_time(Local::now(), time)?,
+        };
+        Ok((start, end))
+    } else if let Ok(date) = NaiveDate::parse_from_str(end, "%Y-%m-%d") {
+        Ok((start, Some(date.into())))
+    } else {
+        Err("Invalid date format. Expected format: YYYY-MM-DD, HH:MM and YYYY-MM-DD HH:MM")
+    }
+}
+
+fn local_from_datetime(dt: NaiveDateTime) -> LooseDateTime {
+    match Local.from_local_datetime(&dt) {
+        LocalResult::Single(dt) => dt.into(),
+        LocalResult::Ambiguous(dt1, _) => {
+            tracing::warn!(?dt, "ambiguous local time in local, picking earliest");
+            dt1.into()
+        }
+        LocalResult::None => {
+            tracing::warn!(?dt, "invalid local time in local, falling back to floating");
+            dt.into()
+        }
+    }
+}
+
+fn local_with_time<Tz: TimeZone>(
+    dt: DateTime<Tz>,
+    time: NaiveTime,
+) -> Result<Option<LooseDateTime>, &'static str> {
+    match dt.with_time(time) {
+        LocalResult::Single(dt) => Ok(Some(dt.into())),
+        LocalResult::Ambiguous(dt1, _) => {
+            tracing::warn!(?dt, "ambiguous local time in local, picking earliest");
+            Ok(Some(dt1.into()))
+        }
+        LocalResult::None => Err("Invalid local time"),
     }
 }
 
@@ -127,5 +167,124 @@ mod tests {
     fn test_unicode_width_full_width_characters() {
         let s = "ＡＢＣ"; // Full-width Latin letters
         assert_eq!(unicode_width_of_slice(s, 2), "ＡＢ".width());
+    }
+
+    #[test]
+    fn test_parse_datetime_empty() {
+        assert_eq!(parse_datetime("").unwrap(), None);
+    }
+
+    #[test]
+    fn test_parse_datetime_date_only() {
+        let result = parse_datetime("2023-12-25").unwrap().unwrap();
+        match result {
+            LooseDateTime::DateOnly(date) => {
+                assert_eq!(date, NaiveDate::from_ymd_opt(2023, 12, 25).unwrap());
+            }
+            _ => panic!("Expected DateOnly variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_datetime_date_time() {
+        let result = parse_datetime("2023-12-25 14:30").unwrap().unwrap();
+        match result {
+            LooseDateTime::Local(dt) => {
+                assert_eq!(
+                    dt.date_naive(),
+                    NaiveDate::from_ymd_opt(2023, 12, 25).unwrap()
+                );
+                assert_eq!(dt.time(), NaiveTime::from_hms_opt(14, 30, 0).unwrap());
+            }
+            _ => panic!("Expected Local variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_datetime_time_only() {
+        let now = Local::now();
+        let result = parse_datetime("14:30").unwrap().unwrap();
+        match result {
+            LooseDateTime::Local(dt) => {
+                assert_eq!(dt.date_naive(), now.date_naive());
+                assert_eq!(dt.time(), NaiveTime::from_hms_opt(14, 30, 0).unwrap());
+            }
+            _ => panic!("Expected Local variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_datetime_invalid() {
+        assert!(parse_datetime("invalid").is_err());
+        assert!(parse_datetime("25:00").is_err());
+        assert!(parse_datetime("2023-13-01").is_err());
+    }
+
+    #[test]
+    fn test_parse_datetime_range_both_empty() {
+        let (start, end) = parse_datetime_range("", "").unwrap();
+        assert_eq!(start, None);
+        assert_eq!(end, None);
+    }
+
+    #[test]
+    fn test_parse_datetime_range_start_only() {
+        let (start, end) = parse_datetime_range("2023-12-25", "").unwrap();
+        assert!(start.is_some());
+        assert_eq!(end, None);
+    }
+
+    #[test]
+    fn test_parse_datetime_range_both_dates() {
+        let (start, end) = parse_datetime_range("2023-12-25", "2023-12-26").unwrap();
+        assert!(start.is_some());
+        assert!(end.is_some());
+    }
+
+    #[test]
+    fn test_parse_datetime_range_date_and_time() {
+        let (start, end) = parse_datetime_range("2023-12-25", "14:30").unwrap();
+        assert!(start.is_some());
+        assert!(end.is_some());
+
+        match start.unwrap() {
+            LooseDateTime::DateOnly(date) => {
+                assert_eq!(date, NaiveDate::from_ymd_opt(2023, 12, 25).unwrap());
+            }
+            _ => panic!("Expected DateOnly variant for start"),
+        }
+
+        match end.unwrap() {
+            LooseDateTime::Floating(dt) => {
+                assert_eq!(dt.date(), NaiveDate::from_ymd_opt(2023, 12, 25).unwrap());
+                assert_eq!(dt.time(), NaiveTime::from_hms_opt(14, 30, 0).unwrap());
+            }
+            _ => panic!("Expected Floating variant for end"),
+        }
+    }
+
+    #[test]
+    fn test_format_datetime_date_only() {
+        let date = NaiveDate::from_ymd_opt(2023, 12, 25).unwrap();
+        let formatted = format_datetime(LooseDateTime::DateOnly(date));
+        assert_eq!(formatted, "2023-12-25");
+    }
+
+    #[test]
+    fn test_format_datetime_floating() {
+        let dt = NaiveDateTime::new(
+            NaiveDate::from_ymd_opt(2023, 12, 25).unwrap(),
+            NaiveTime::from_hms_opt(14, 30, 0).unwrap(),
+        );
+        let formatted = format_datetime(LooseDateTime::Floating(dt));
+        assert_eq!(formatted, "2023-12-25 14:30");
+    }
+
+    #[test]
+    fn test_format_datetime_local() {
+        let dt: DateTime<Local> = Local::now();
+        let formatted = format_datetime(LooseDateTime::Local(dt));
+        // Just check that it produces a non-empty string with expected format
+        assert!(formatted.contains("202") && formatted.contains(":"));
     }
 }

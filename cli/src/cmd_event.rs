@@ -10,7 +10,7 @@ use colored::Colorize;
 
 use crate::event_formatter::EventFormatter;
 use crate::tui;
-use crate::util::{ArgOutputFormat, parse_datetime};
+use crate::util::{ArgOutputFormat, parse_datetime, parse_datetime_range};
 
 #[derive(Debug, Clone)]
 pub struct CmdEventNew {
@@ -186,10 +186,19 @@ impl CmdEventEdit {
                 }
             }
         } else {
+            let (start, end) = match (self.start, self.end) {
+                (Some(start), Some(end)) => {
+                    let (a, b) = parse_datetime_range(&start, &end)?;
+                    (Some(a), Some(b))
+                }
+                (Some(start), None) => (Some(parse_datetime(&start)?), None),
+                (None, Some(end)) => (None, Some(parse_datetime(&end)?)),
+                (None, None) => (None, None),
+            };
             EventPatch {
                 description: self.description.map(|d| (!d.is_empty()).then_some(d)),
-                end: self.end.as_ref().map(|a| parse_datetime(a)).transpose()?,
-                start: self.start.as_ref().map(|a| parse_datetime(a)).transpose()?,
+                end,
+                start,
                 status: self.status,
                 summary: self.summary,
             }
