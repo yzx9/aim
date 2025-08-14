@@ -8,9 +8,10 @@ use std::path::{Path, PathBuf};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{SqlitePool, migrate};
 
-use super::events::{EventRecord, Events};
-use super::todos::{TodoRecord, Todos};
-use crate::{Event, Todo, localdb::short_ids::ShortIds};
+use crate::localdb::events::{EventRecord, Events};
+use crate::localdb::short_ids::ShortIds;
+use crate::localdb::todos::{TodoRecord, Todos};
+use crate::{Event, Todo};
 
 #[derive(Debug, Clone)]
 pub struct LocalDb {
@@ -85,7 +86,6 @@ impl LocalDb {
             .map_err(|e| format!("Failed to upsert todo: {e}").into())
     }
 
-    #[tracing::instrument(skip(self))]
     pub async fn close(self) -> Result<(), Box<dyn Error>> {
         tracing::debug!("closing database connection");
         self.pool.close().await;

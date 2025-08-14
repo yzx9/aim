@@ -6,8 +6,7 @@ use std::num::NonZeroU32;
 
 use sqlx::SqlitePool;
 
-use crate::Kind;
-use crate::short_id::UidAndShortId;
+use crate::{Kind, short_id::UidAndShortId};
 
 #[derive(Debug, Clone)]
 pub struct ShortIds {

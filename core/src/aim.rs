@@ -126,8 +126,8 @@ impl Aim {
     }
 
     /// Get the kind of the given id, which can be either an event or a todo.
-    #[tracing::instrument(skip(self))]
     pub async fn get_kind(&self, id: &Id) -> Result<Kind, Box<dyn Error>> {
+        tracing::debug!(?id, "getting kind of id");
         if let Some(data) = self.short_ids.get(id).await? {
             return Ok(data.kind);
         }
