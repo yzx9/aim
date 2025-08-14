@@ -45,7 +45,7 @@ pub trait Todo {
 
 impl Todo for icalendar::Todo {
     fn uid(&self) -> &str {
-        self.get_uid().unwrap_or("")
+        self.get_uid().unwrap_or_default()
     }
 
     fn completed(&self) -> Option<DateTime<Local>> {
@@ -75,7 +75,7 @@ impl Todo for icalendar::Todo {
     }
 
     fn summary(&self) -> &str {
-        self.get_summary().unwrap_or("")
+        self.get_summary().unwrap_or_default()
     }
 }
 

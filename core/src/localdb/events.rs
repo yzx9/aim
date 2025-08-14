@@ -127,19 +127,10 @@ impl EventRecord {
             description: event
                 .description()
                 .map(ToString::to_string)
-                .unwrap_or("".to_string()),
-            status: event
-                .status()
-                .map(|s| s.to_string())
-                .unwrap_or("".to_string()),
-            start: event
-                .start()
-                .map(|a| a.format_stable())
-                .unwrap_or("".to_string()),
-            end: event
-                .end()
-                .map(|a| a.format_stable())
-                .unwrap_or("".to_string()),
+                .unwrap_or_default(),
+            status: event.status().map(|s| s.to_string()).unwrap_or_default(),
+            start: event.start().map(|a| a.format_stable()).unwrap_or_default(),
+            end: event.end().map(|a| a.format_stable()).unwrap_or_default(),
         })
     }
 

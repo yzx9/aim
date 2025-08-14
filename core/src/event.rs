@@ -39,7 +39,7 @@ pub trait Event {
 
 impl Event for icalendar::Event {
     fn uid(&self) -> &str {
-        self.get_uid().unwrap_or("")
+        self.get_uid().unwrap_or_default()
     }
 
     fn description(&self) -> Option<&str> {
@@ -59,7 +59,7 @@ impl Event for icalendar::Event {
     }
 
     fn summary(&self) -> &str {
-        self.get_summary().unwrap_or("")
+        self.get_summary().unwrap_or_default()
     }
 }
 

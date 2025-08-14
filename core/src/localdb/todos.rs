@@ -172,12 +172,9 @@ impl TodoRecord {
             uid: todo.uid().to_string(),
             path,
             summary: todo.summary().to_string(),
-            description: todo.description().unwrap_or("").to_string(),
-            due: todo
-                .due()
-                .map(|a| a.format_stable())
-                .unwrap_or("".to_string()),
-            completed: todo.completed().map(format_dt).unwrap_or("".to_string()),
+            description: todo.description().unwrap_or_default().to_string(),
+            due: todo.due().map(|a| a.format_stable()).unwrap_or_default(),
+            completed: todo.completed().map(format_dt).unwrap_or_default(),
             percent: todo.percent_complete(),
             priority: todo.priority().into(),
             status: todo.status().to_string(),
