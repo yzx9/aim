@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use ratatui::crossterm::event::KeyCode;
 use ratatui::prelude::*;
@@ -31,7 +31,7 @@ impl<S, C: Component<S>> SinglePage<S, C> {
 }
 
 impl<S, C: Component<S>> Component<S> for SinglePage<S, C> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let title = Line::from(format!(" {} ", self.title).bold());
         let block = block()
             .title(title.centered())
@@ -43,7 +43,7 @@ impl<S, C: Component<S>> Component<S> for SinglePage<S, C> {
         self.inner.render(store, inner_area, buf);
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+    fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
         let inner_area = block().inner(area);
         self.inner.get_cursor_position(store, inner_area)
     }
@@ -51,7 +51,7 @@ impl<S, C: Component<S>> Component<S> for SinglePage<S, C> {
     fn on_key(
         &mut self,
         dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
+        store: &RefCell<S>,
         area: Rect,
         key: KeyCode,
     ) -> Option<Message> {
@@ -65,11 +65,11 @@ impl<S, C: Component<S>> Component<S> for SinglePage<S, C> {
         }
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         self.inner.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         self.inner.deactivate(dispatcher, store);
     }
 }
@@ -114,14 +114,14 @@ impl<S, A: Access<S, EventOrTodo>> TabPages<S, A> {
         Layout::vertical([Constraint::Max(1), Constraint::Fill(1)])
     }
 
-    fn active_index(&self, store: &Rc<RefCell<S>>) -> Option<usize> {
+    fn active_index(&self, store: &RefCell<S>) -> Option<usize> {
         let id = A::get(store);
         self.identifiers.iter().position(|x| x == &id)
     }
 }
 
 impl<S, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, A> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let active_index = match self.active_index(store) {
             Some(index) => index,
             None => return, // No active page found
@@ -165,7 +165,7 @@ impl<S, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, A> {
         }
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+    fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
         if !self.active || self.tab_active {
             return None; // No cursor in tab bar
         }
@@ -185,7 +185,7 @@ impl<S, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, A> {
     fn on_key(
         &mut self,
         dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
+        store: &RefCell<S>,
         area: Rect,
         key: KeyCode,
     ) -> Option<Message> {
@@ -233,7 +233,7 @@ impl<S, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, A> {
         }
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         self.active = true;
         if !self.tab_active
             && let Some(active_index) = self.active_index(store)
@@ -243,7 +243,7 @@ impl<S, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, A> {
         }
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         self.active = false;
         if !self.tab_active
             && let Some(active_index) = self.active_index(store)

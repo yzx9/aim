@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use aimcal_core::{Priority, TodoStatus};
 use ratatui::crossterm::event::KeyCode;
@@ -38,7 +38,7 @@ macro_rules! new_input {
         struct $acc;
 
         impl<S: TodoStoreLike> Access<S, String> for $acc {
-            fn get(store: &Rc<RefCell<S>>) -> String {
+            fn get(store: &RefCell<S>) -> String {
                 store.borrow().todo().data.$field.clone()
             }
 
@@ -69,7 +69,7 @@ new_input!(new_due, "Due", DueAccess, due, UpdateTodoDue);
 struct PercentCompleteAccess;
 
 impl<S: TodoStoreLike> Access<S, Option<u8>> for PercentCompleteAccess {
-    fn get(store: &Rc<RefCell<S>>) -> Option<u8> {
+    fn get(store: &RefCell<S>) -> Option<u8> {
         store.borrow().todo().data.percent_complete
     }
 
@@ -94,7 +94,7 @@ fn new_status<S: TodoStoreLike>() -> RadioGroup<S, TodoStatus, StatusAccess> {
 struct StatusAccess;
 
 impl<S: TodoStoreLike> Access<S, TodoStatus> for StatusAccess {
-    fn get(store: &Rc<RefCell<S>>) -> TodoStatus {
+    fn get(store: &RefCell<S>) -> TodoStatus {
         store.borrow().todo().data.status
     }
 
@@ -131,14 +131,14 @@ impl<S: TodoStoreLike> FieldPriority<S> {
         }
     }
 
-    fn get(&self, store: &Rc<RefCell<S>>) -> &RadioGroup<S, Priority, PriorityAccess> {
+    fn get(&self, store: &RefCell<S>) -> &RadioGroup<S, Priority, PriorityAccess> {
         match store.borrow().todo().verbose_priority {
             true => &self.verbose,
             false => &self.concise,
         }
     }
 
-    fn get_mut(&mut self, store: &Rc<RefCell<S>>) -> &mut RadioGroup<S, Priority, PriorityAccess> {
+    fn get_mut(&mut self, store: &RefCell<S>) -> &mut RadioGroup<S, Priority, PriorityAccess> {
         match store.borrow().todo().verbose_priority {
             true => &mut self.verbose,
             false => &mut self.concise,
@@ -165,30 +165,30 @@ impl<S: TodoStoreLike> FieldPriority<S> {
 }
 
 impl<S: TodoStoreLike> Component<S> for FieldPriority<S> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         self.get(store).render(store, area, buf)
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+    fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
         self.get(store).get_cursor_position(store, area)
     }
 
     fn on_key(
         &mut self,
         dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
+        store: &RefCell<S>,
         area: Rect,
         key: KeyCode,
     ) -> Option<Message> {
         self.get_mut(store).on_key(dispatcher, store, area, key)
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         self.verbose.activate(dispatcher, store);
         self.concise.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         self.verbose.deactivate(dispatcher, store);
         self.concise.deactivate(dispatcher, store);
     }
@@ -197,7 +197,7 @@ impl<S: TodoStoreLike> Component<S> for FieldPriority<S> {
 struct PriorityAccess;
 
 impl<S: TodoStoreLike> Access<S, Priority> for PriorityAccess {
-    fn get(store: &Rc<RefCell<S>>) -> Priority {
+    fn get(store: &RefCell<S>) -> Priority {
         store.borrow().todo().data.priority
     }
 

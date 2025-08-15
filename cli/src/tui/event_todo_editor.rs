@@ -95,7 +95,7 @@ impl EventTodoStoreLike for EventTodoStore {
 pub struct EventTodoStoreActiveAccess<S: EventTodoStoreLike>(std::marker::PhantomData<S>);
 
 impl<S: EventTodoStoreLike> Access<S, EventOrTodo> for EventTodoStoreActiveAccess<S> {
-    fn get(store: &Rc<RefCell<S>>) -> EventOrTodo {
+    fn get(store: &RefCell<S>) -> EventOrTodo {
         store.borrow().active()
     }
 

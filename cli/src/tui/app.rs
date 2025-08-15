@@ -124,7 +124,7 @@ impl<S, C: Component<S>> App<S, C> {
     pub fn new<B: Backend>(
         mut view: C,
         mut dispatcher: Dispatcher,
-        store: &Rc<RefCell<S>>,
+        store: &RefCell<S>,
         terminal: &mut Terminal<B>,
     ) -> Self {
         let area = match terminal.size() {
@@ -146,7 +146,7 @@ impl<S, C: Component<S>> App<S, C> {
 
     pub fn darw<B: Backend>(
         &mut self,
-        store: &Rc<RefCell<S>>,
+        store: &RefCell<S>,
         terminal: &mut Terminal<B>,
     ) -> Result<(), Box<dyn Error>> {
         terminal.draw(|frame| {
@@ -160,10 +160,7 @@ impl<S, C: Component<S>> App<S, C> {
         Ok(())
     }
 
-    pub fn read_event(
-        &mut self,
-        store: &Rc<RefCell<S>>,
-    ) -> Result<Option<Message>, Box<dyn Error>> {
+    pub fn read_event(&mut self, store: &RefCell<S>) -> Result<Option<Message>, Box<dyn Error>> {
         Ok(match event::read()? {
             event::Event::Key(e) if e.kind == KeyEventKind::Press => {
                 // Handle key events for the current component

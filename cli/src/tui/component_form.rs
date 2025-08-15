@@ -31,7 +31,7 @@ impl<S> Form<S> {
         Layout::vertical(self.items.iter().map(|_| Constraint::Max(3))).margin(1)
     }
 
-    fn navigate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>, offset: isize) {
+    fn navigate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>, offset: isize) {
         // deactivate current item
         if let Some(a) = self.items.get_mut(self.item_index) {
             a.deactivate(dispatcher, store);
@@ -56,14 +56,14 @@ impl<S> Form<S> {
 }
 
 impl<S> Component<S> for Form<S> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let areas = self.layout().split(area);
         for (field, area) in self.items.iter().zip(areas.iter()) {
             field.render(store, *area, buf);
         }
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+    fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
         let areas = self.layout().split(area);
         match (self.items.get(self.item_index), areas.get(self.item_index)) {
             (Some(comp), Some(area)) => comp.get_cursor_position(store, *area),
@@ -74,7 +74,7 @@ impl<S> Component<S> for Form<S> {
     fn on_key(
         &mut self,
         dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
+        store: &RefCell<S>,
         area: Rect,
         key: KeyCode,
     ) -> Option<Message> {
@@ -108,13 +108,13 @@ impl<S> Component<S> for Form<S> {
         }
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         if let Some(item) = self.items.get_mut(self.item_index) {
             item.activate(dispatcher, store);
         }
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         if let Some(item) = self.items.get_mut(self.item_index) {
             item.deactivate(dispatcher, store);
         }
@@ -122,7 +122,7 @@ impl<S> Component<S> for Form<S> {
 }
 
 pub trait Access<S, T: ToOwned> {
-    fn get(store: &Rc<RefCell<S>>) -> T;
+    fn get(store: &RefCell<S>) -> T;
     fn set(dispatcher: &mut Dispatcher, value: T) -> bool;
 }
 
@@ -148,13 +148,13 @@ impl<S, A: Access<S, String>> Input<S, A> {
 }
 
 impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let block = form_item_block(&self.title, self.active);
         let v = A::get(store);
         Paragraph::new(v.as_str()).block(block).render(area, buf);
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+    fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
         if !self.active {
             return None; // No cursor position when not active
         }
@@ -169,7 +169,7 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
     fn on_key(
         &mut self,
         dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
+        store: &RefCell<S>,
         _area: Rect,
         key: KeyCode,
     ) -> Option<Message> {
@@ -207,12 +207,12 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
         Some(Message::CursorUpdated)
     }
 
-    fn activate(&mut self, _dispatcher: &mut Dispatcher, _store: &Rc<RefCell<S>>) {
+    fn activate(&mut self, _dispatcher: &mut Dispatcher, _store: &RefCell<S>) {
         self.active = true;
         self.character_index = 0; // Reset character index when activated
     }
 
-    fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &Rc<RefCell<S>>) {
+    fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &RefCell<S>) {
         self.active = false;
         self.character_index = 0; // Reset character index when deactivated
     }
@@ -233,7 +233,7 @@ where
     T: Eq + ToString + FromStr + ToOwned + Clone,
     A: Access<S, Option<T>>,
 {
-    fn get(s: &Rc<RefCell<S>>) -> String {
+    fn get(s: &RefCell<S>) -> String {
         match A::get(s) {
             Some(a) => a.to_string(),
             None => "".to_string(),
@@ -276,7 +276,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
         }
     }
 
-    fn selected(&self, store: &Rc<RefCell<S>>) -> usize {
+    fn selected(&self, store: &RefCell<S>) -> usize {
         let v = A::get(store);
         self.values.iter().position(|s| s == &v).unwrap_or(0)
     }
@@ -300,7 +300,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
 }
 
 impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let (outer, inners) = self.split(area);
         outer.render(area, buf);
         for (i, (value, area)) in self.options.iter().zip(inners.iter()).enumerate() {
@@ -311,7 +311,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
         }
     }
 
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
+    fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
         if !self.active {
             return None; // No cursor position when not active
         }
@@ -326,7 +326,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
     fn on_key(
         &mut self,
         dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
+        store: &RefCell<S>,
         _area: Rect,
         key: KeyCode,
     ) -> Option<Message> {
@@ -354,11 +354,11 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
         }
     }
 
-    fn activate(&mut self, _: &mut Dispatcher, _store: &Rc<RefCell<S>>) {
+    fn activate(&mut self, _: &mut Dispatcher, _store: &RefCell<S>) {
         self.active = true;
     }
 
-    fn deactivate(&mut self, _: &mut Dispatcher, _store: &Rc<RefCell<S>>) {
+    fn deactivate(&mut self, _: &mut Dispatcher, _store: &RefCell<S>) {
         self.active = false;
     }
 }

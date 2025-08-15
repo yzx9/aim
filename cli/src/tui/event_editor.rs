@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use aimcal_core::EventStatus;
 
@@ -34,7 +34,7 @@ macro_rules! new_input {
         struct $acc;
 
         impl<S: EventStoreLike> Access<S, String> for $acc {
-            fn get(store: &Rc<RefCell<S>>) -> String {
+            fn get(store: &RefCell<S>) -> String {
                 store.borrow().event().data.$field.clone()
             }
 
@@ -73,7 +73,7 @@ fn new_status<S: EventStoreLike>() -> RadioGroup<S, EventStatus, StatusAccess> {
 struct StatusAccess;
 
 impl<S: EventStoreLike> Access<S, EventStatus> for StatusAccess {
-    fn get(store: &Rc<RefCell<S>>) -> EventStatus {
+    fn get(store: &RefCell<S>) -> EventStatus {
         store.borrow().event().data.status
     }
 

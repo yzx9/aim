@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use ratatui::{crossterm::event::KeyCode, prelude::*};
 
@@ -17,10 +17,10 @@ pub enum Message {
 
 pub trait Component<S> {
     /// Renders the component into the given area.
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer);
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer);
 
     /// Returns the cursor position (row, column) for the component, if applicable.
-    fn get_cursor_position(&self, _store: &Rc<RefCell<S>>, _area: Rect) -> Option<(u16, u16)> {
+    fn get_cursor_position(&self, _store: &RefCell<S>, _area: Rect) -> Option<(u16, u16)> {
         None // Default implementation returns no cursor position
     }
 
@@ -28,7 +28,7 @@ pub trait Component<S> {
     fn on_key(
         &mut self,
         _dispatcher: &mut Dispatcher,
-        _store: &Rc<RefCell<S>>,
+        _store: &RefCell<S>,
         _area: Rect,
         _key: KeyCode,
     ) -> Option<Message> {
@@ -36,8 +36,8 @@ pub trait Component<S> {
     }
 
     /// Activates the component, allowing it to initialize resources or state.
-    fn activate(&mut self, _dispatcher: &mut Dispatcher, _store: &Rc<RefCell<S>>) {}
+    fn activate(&mut self, _dispatcher: &mut Dispatcher, _store: &RefCell<S>) {}
 
     /// Deactivates the component, allowing it to clean up resources or state.
-    fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &Rc<RefCell<S>>) {}
+    fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &RefCell<S>) {}
 }
