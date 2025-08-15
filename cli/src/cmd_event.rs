@@ -96,9 +96,17 @@ impl CmdEventNew {
                 summary: self.summary.unwrap_or_default(),
             }
         };
+        Self::new_event(aim, draft, self.output_format).await
+    }
+
+    pub async fn new_event(
+        aim: &mut Aim,
+        draft: EventDraft,
+        output_format: ArgOutputFormat,
+    ) -> Result<(), Box<dyn Error>> {
         let todo = aim.new_event(draft).await?;
 
-        let formatter = EventFormatter::new(aim.now()).with_output_format(self.output_format);
+        let formatter = EventFormatter::new(aim.now()).with_output_format(output_format);
         println!("{}", formatter.format(&[todo]));
 
         Ok(())

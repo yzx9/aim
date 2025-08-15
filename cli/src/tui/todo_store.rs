@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::cell::RefCell;
+use std::error::Error;
+use std::ops::Deref;
+use std::rc::Rc;
 
 use aimcal_core::{Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 
@@ -10,7 +13,11 @@ use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::{format_datetime, parse_datetime};
 
 pub trait TodoStoreLike {
-    fn todo(&self) -> &TodoStore;
+    type Output<'a>: Deref<Target = TodoStore>
+    where
+        Self: 'a;
+
+    fn todo<'a>(&'a self) -> Self::Output<'a>;
 }
 
 #[derive(Debug)]
@@ -142,7 +149,9 @@ impl TodoStore {
 }
 
 impl TodoStoreLike for TodoStore {
-    fn todo(&self) -> &TodoStore {
+    type Output<'a> = &'a Self;
+
+    fn todo(&self) -> &Self {
         self
     }
 }

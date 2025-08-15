@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::ops::Deref;
 use std::{cell::RefCell, error::Error, rc::Rc};
 
 use aimcal_core::{Event, EventDraft, EventPatch, EventStatus};
@@ -10,7 +11,11 @@ use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::{format_datetime, parse_datetime};
 
 pub trait EventStoreLike {
-    fn event(&self) -> &EventStore;
+    type Output<'a>: Deref<Target = EventStore>
+    where
+        Self: 'a;
+
+    fn event<'a>(&'a self) -> Self::Output<'a>;
 }
 
 #[derive(Debug)]
@@ -123,6 +128,8 @@ impl EventStore {
 }
 
 impl EventStoreLike for EventStore {
+    type Output<'a> = &'a EventStore;
+
     fn event(&self) -> &EventStore {
         self
     }

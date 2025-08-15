@@ -116,11 +116,18 @@ impl CmdTodoNew {
                 summary: self.summary.unwrap_or_default(),
             }
         };
+        Self::new_todo(aim, draft, self.output_format).await
+    }
+
+    pub async fn new_todo(
+        aim: &mut Aim,
+        draft: TodoDraft,
+        output_format: ArgOutputFormat,
+    ) -> Result<(), Box<dyn Error>> {
         let todo = aim.new_todo(draft).await?;
 
-        let formatter = TodoFormatter::new(aim.now()).with_output_format(self.output_format);
+        let formatter = TodoFormatter::new(aim.now()).with_output_format(output_format);
         println!("{}", formatter.format(&[todo]));
-
         Ok(())
     }
 }

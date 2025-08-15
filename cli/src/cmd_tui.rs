@@ -10,8 +10,9 @@ use std::error::Error;
 use aimcal_core::{Aim, Id, Kind};
 use clap::{Arg, ArgMatches, Command, arg};
 
-use crate::cmd_event::CmdEventEdit;
+use crate::cmd_event::{CmdEventEdit, CmdEventNew};
 use crate::cmd_todo::{CmdTodoEdit, CmdTodoNew};
+use crate::tui::{EventOrTodoDraft, draft_event_or_todo};
 use crate::util::ArgOutputFormat;
 
 #[derive(Debug, Clone, Copy)]
@@ -38,7 +39,21 @@ impl CmdNew {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         // TODO: check is it a event / todo
         tracing::debug!(?self, "adding new item using TUI...");
-        CmdTodoNew::new_tui().run(aim).await
+        let draft = draft_event_or_todo(aim)?;
+        match draft {
+            Some(EventOrTodoDraft::Event(draft)) => {
+                tracing::info!("creating new event");
+                CmdEventNew::new_event(aim, draft, self.output_format).await
+            }
+            Some(EventOrTodoDraft::Todo(draft)) => {
+                tracing::info!("creating new todo");
+                CmdTodoNew::new_todo(aim, draft, self.output_format).await
+            }
+            None => {
+                tracing::info!("user cancel the drafting");
+                Ok(())
+            }
+        }
     }
 }
 

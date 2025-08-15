@@ -32,6 +32,7 @@ impl Dispatcher {
 
 #[derive(Debug, Clone)]
 pub enum Action {
+    Activate(EventOrTodo),
     UpdateTodoDescription(String),
     UpdateTodoDue(String),
     UpdateTodoPercentComplete(Option<u8>),
@@ -44,4 +45,10 @@ pub enum Action {
     UpdateEventStatus(EventStatus),
     UpdateEventSummary(String),
     SubmitChanges,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventOrTodo {
+    Event,
+    Todo,
 }

@@ -12,7 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cli: Add event support for command `edit`
 - cli: Add command `todo cancel` to cancel a todo
 - cli: When only time is provided, the end time defaults to the same date as the start time
+- cli: Add TUI editor for draft event and todo with tab
 - core: Add api for get the kind of the given id, which can be either an event or a todo
+
+### Changed
+
+- cli: The TUI form no longer supports wrapping navigation
 
 ## [v0.4.0] - 2025-08-09
 

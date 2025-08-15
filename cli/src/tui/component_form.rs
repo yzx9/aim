@@ -30,6 +30,29 @@ impl<S> Form<S> {
     fn layout(&self) -> Layout {
         Layout::vertical(self.items.iter().map(|_| Constraint::Max(3))).margin(1)
     }
+
+    fn navigate(&mut self, dispatcher: &mut Dispatcher, offset: isize) {
+        // deactivate current item
+        if let Some(a) = self.items.get_mut(self.item_index) {
+            a.deactivate(dispatcher);
+        }
+
+        // move to next/previous item
+        let len = self.items.len();
+        let offset = if offset < 0 {
+            let k = div_floor(offset, len as isize);
+            (offset - k * (len as isize)) as usize
+        } else {
+            offset as usize
+        };
+
+        self.item_index = (self.item_index + len + offset) % len;
+
+        // activate new item
+        if let Some(a) = self.items.get_mut(self.item_index) {
+            a.activate(dispatcher);
+        }
+    }
 }
 
 impl<S> Component<S> for Form<S> {
@@ -69,24 +92,12 @@ impl<S> Component<S> for Form<S> {
         };
 
         match key {
-            KeyCode::Down | KeyCode::Tab | KeyCode::Up | KeyCode::BackTab => {
-                // deactivate current item
-                if let Some(a) = self.items.get_mut(self.item_index) {
-                    a.deactivate(dispatcher);
-                }
-
-                // move to next/previous item
-                let offset = match key {
-                    KeyCode::Down | KeyCode::Tab => 1,
-                    KeyCode::Up | KeyCode::BackTab => self.items.len() - 1,
-                    _ => 0,
-                };
-                self.item_index = (self.item_index + offset) % self.items.len();
-
-                // activate new item
-                if let Some(a) = self.items.get_mut(self.item_index) {
-                    a.activate(dispatcher);
-                }
+            KeyCode::Up | KeyCode::BackTab if self.item_index > 0 => {
+                self.navigate(dispatcher, -1);
+                Some(Message::CursorUpdated)
+            }
+            KeyCode::Down | KeyCode::Tab if self.item_index < self.items.len() - 1 => {
+                self.navigate(dispatcher, 1);
                 Some(Message::CursorUpdated)
             }
             KeyCode::Enter => {
@@ -138,7 +149,7 @@ impl<S, A: Access<S, String>> Input<S, A> {
 
 impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
     fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
-        let block = title_block(&self.title, self.active);
+        let block = form_item_block(&self.title, self.active);
         let v = A::get(store);
         Paragraph::new(v.as_str()).block(block).render(area, buf);
     }
@@ -212,9 +223,9 @@ where
     T: ToString + FromStr + ToOwned + Clone,
     A: Access<S, Option<T>>,
 {
-    _marker_s: std::marker::PhantomData<S>,
-    _marker_a: std::marker::PhantomData<A>,
-    _marker_t: std::marker::PhantomData<T>,
+    _phantom_s: std::marker::PhantomData<S>,
+    _phantom_a: std::marker::PhantomData<A>,
+    _phantom_t: std::marker::PhantomData<T>,
 }
 
 impl<S, T, A> Access<S, String> for PositiveIntegerAccess<S, T, A>
@@ -271,7 +282,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
     }
 
     fn split(&self, area: Rect) -> (Block<'_>, Rc<[Rect]>) {
-        let outer_block = title_block(&self.title, self.active);
+        let outer_block = form_item_block(&self.title, self.active);
         let inner = outer_block.inner(area);
         let inner_blocks = self.layout().split(inner);
         (outer_block, inner_blocks)
@@ -352,7 +363,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
     }
 }
 
-fn title_block(title: &str, active: bool) -> Block<'_> {
+fn form_item_block(title: &str, active: bool) -> Block<'_> {
     let block = Block::bordered()
         .border_set(border::ROUNDED)
         .borders(widgets::Borders::ALL)
@@ -363,5 +374,15 @@ fn title_block(title: &str, active: bool) -> Block<'_> {
     match active {
         true => block.blue(),
         false => block.white(),
+    }
+}
+
+fn div_floor(a: isize, b: isize) -> isize {
+    let d = a / b; // Truncated division toward zero
+    let r = a % b;
+    if (r != 0) && ((r < 0) != (b < 0)) {
+        d - 1
+    } else {
+        d
     }
 }

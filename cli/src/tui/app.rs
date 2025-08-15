@@ -14,6 +14,7 @@ use crate::tui::component::{Component, Message};
 use crate::tui::dispatcher::Dispatcher;
 use crate::tui::event_editor::EventEditor;
 use crate::tui::event_store::EventStore;
+use crate::tui::event_todo_editor::{EventOrTodoDraft, EventTodoEditor, EventTodoStore};
 use crate::tui::todo_editor::TodoEditor;
 use crate::tui::todo_store::TodoStore;
 
@@ -63,6 +64,15 @@ pub fn patch_todo(aim: &mut Aim, todo: &impl Todo) -> Result<Option<TodoPatch>, 
     }
 }
 
+pub fn draft_event_or_todo(aim: &mut Aim) -> Result<Option<EventOrTodoDraft>, Box<dyn Error>> {
+    let store = EventTodoStore::new(aim.default_event_draft(), aim.default_todo_draft());
+    let store = run_event_todo_editor(aim, store)?;
+    match store.submit {
+        true => store.submit_draft().map(Some),
+        false => Ok(None),
+    }
+}
+
 macro_rules! run_editor {
     ($fn: ident, $view: ident, $store: ident) => {
         fn $fn(aim: &mut Aim, store: $store) -> Result<$store, Box<dyn Error>> {
@@ -100,6 +110,7 @@ macro_rules! run_editor {
 
 run_editor!(run_event_editor, EventEditor, EventStore);
 run_editor!(run_todo_editor, TodoEditor, TodoStore);
+run_editor!(run_event_todo_editor, EventTodoEditor, EventTodoStore);
 
 struct App<S, C: Component<S>> {
     dispatcher: Dispatcher,
