@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cli: The TUI form no longer supports wrapping navigation
 
+### Deprecated
+
+- Remove the `'HH:MM'` format for the default `due` configuration
+
 ## [v0.4.0] - 2025-08-09
 
 ### Added
@@ -63,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - The `'HH:MM'` format for the default `due` configuration is now deprecated and will be removed
-  in v0.5.0.
+  in v0.5.0
 
 ## [v0.3.0] - 2025-08-02
 
@@ -108,14 +112,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Set default status for todo if not available
-- TodoDraft no longer contains a uid. Instead, an ID will be generated when it's added.
+- TodoDraft no longer contains a uid. Instead, an ID will be generated when it's added
 
 ## [v0.2.1] - 2025-07-27
 
 ### Added
 
 - Old events are now filtered when listing
-- Display a hint when nothing is found during listing.
+- Display a hint when nothing is found during listing
 - Enable colored output for clap
 - Add default priority configuration
 - Add TUI-based todo editor

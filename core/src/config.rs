@@ -157,17 +157,8 @@ fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
 
 /// Parse a duration string in the format "HH:MM" / "1d" / "24h" / "60m" / "1800s".
 fn parse_duration(s: &str) -> Result<Duration, Box<dyn Error>> {
-    // Try to parse "HH:MM" format
-    if let Some((h, m)) = s.split_once(':') {
-        // TODO: remove in v0.5.0
-        let hours: i64 = h.trim().parse()?;
-        let minutes: i64 = m.trim().parse()?;
-        let minutes = hours * 60 + minutes;
-        println!("Deprecated duration format: {s}. Use '{minutes}m' instead.");
-        Ok(Duration::minutes(minutes))
-    }
     // Match suffix-based formats
-    else if let Some(rest) = s.strip_suffix("d") {
+    if let Some(rest) = s.strip_suffix("d") {
         let days: i64 = rest.trim().parse()?;
         Ok(Duration::days(days))
     } else if let Some(rest) = s.strip_suffix("h") {
@@ -262,18 +253,6 @@ calendar_path = "calendar"
         let relative_path = PathBuf::from("relative/path/to/file");
         let result = expand_path(&relative_path).unwrap();
         assert_eq!(result, relative_path);
-    }
-
-    #[test]
-    fn test_parse_duration_colon_format() {
-        let d = parse_duration("01:30").unwrap();
-        assert_eq!(d, Duration::minutes(90));
-
-        let d = parse_duration("00:00").unwrap();
-        assert_eq!(d, Duration::minutes(0));
-
-        let d = parse_duration("12:00").unwrap();
-        assert_eq!(d, Duration::hours(12));
     }
 
     #[test]
