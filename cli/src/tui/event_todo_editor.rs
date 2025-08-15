@@ -7,16 +7,13 @@ use std::error::Error;
 use std::rc::Rc;
 
 use aimcal_core::{EventDraft, TodoDraft};
-use ratatui::crossterm::event::KeyCode;
-use ratatui::prelude::*;
 
-use crate::tui::component::{Component, Message};
 use crate::tui::component_form::Access;
 use crate::tui::component_page::TabPages;
 use crate::tui::dispatcher::{Action, Dispatcher, EventOrTodo};
-use crate::tui::event_editor::EventForm;
+use crate::tui::event_editor::new_event_form;
 use crate::tui::event_store::{EventStore, EventStoreLike};
-use crate::tui::todo_editor::TodoForm;
+use crate::tui::todo_editor::new_todo_form;
 use crate::tui::todo_store::{TodoStore, TodoStoreLike};
 
 pub trait EventTodoStoreLike: EventStoreLike + TodoStoreLike {
@@ -95,9 +92,9 @@ impl EventTodoStoreLike for EventTodoStore {
     }
 }
 
-struct ActiveAccess<S: EventTodoStoreLike>(std::marker::PhantomData<S>);
+pub struct EventTodoStoreActiveAccess<S: EventTodoStoreLike>(std::marker::PhantomData<S>);
 
-impl<S: EventTodoStoreLike> Access<S, EventOrTodo> for ActiveAccess<S> {
+impl<S: EventTodoStoreLike> Access<S, EventOrTodo> for EventTodoStoreActiveAccess<S> {
     fn get(store: &Rc<RefCell<S>>) -> EventOrTodo {
         store.borrow().active()
     }
@@ -108,48 +105,18 @@ impl<S: EventTodoStoreLike> Access<S, EventOrTodo> for ActiveAccess<S> {
     }
 }
 
-pub struct EventTodoEditor<S: EventTodoStoreLike>(TabPages<S, ActiveAccess<S>>);
-
-impl<S: EventTodoStoreLike + 'static> EventTodoEditor<S> {
-    pub fn new() -> Self {
-        Self(TabPages::new(vec![
-            (
-                EventOrTodo::Event,
-                "Event".to_owned(),
-                Box::new(EventForm::new()),
-            ),
-            (
-                EventOrTodo::Todo,
-                "Todo".to_owned(),
-                Box::new(TodoForm::new()),
-            ),
-        ]))
-    }
-}
-
-impl<S: EventTodoStoreLike + 'static> Component<S> for EventTodoEditor<S> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
-        self.0.render(store, area, buf);
-    }
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
-        self.0.get_cursor_position(store, area)
-    }
-
-    fn on_key(
-        &mut self,
-        dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
-        area: Rect,
-        key: KeyCode,
-    ) -> Option<Message> {
-        self.0.on_key(dispatcher, store, area, key)
-    }
-
-    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
-        self.0.activate(dispatcher, store);
-    }
-
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
-        self.0.deactivate(dispatcher, store);
-    }
+pub fn new_event_todo_editor<S: EventTodoStoreLike + 'static>()
+-> TabPages<S, EventTodoStoreActiveAccess<S>> {
+    TabPages::new(vec![
+        (
+            EventOrTodo::Event,
+            "Event".to_owned(),
+            Box::new(new_event_form()),
+        ),
+        (
+            EventOrTodo::Todo,
+            "Todo".to_owned(),
+            Box::new(new_todo_form()),
+        ),
+    ])
 }

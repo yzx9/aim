@@ -14,83 +14,19 @@ use crate::tui::component_page::SinglePage;
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::tui::todo_store::TodoStoreLike;
 
-pub struct TodoEditor<S: TodoStoreLike>(SinglePage<S, TodoForm<S>>);
-
-impl<S: TodoStoreLike + 'static> TodoEditor<S> {
-    pub fn new() -> Self {
-        Self(SinglePage::new("Todo Editor".to_owned(), TodoForm::new()))
-    }
+pub fn new_todo_editor<S: TodoStoreLike + 'static>() -> SinglePage<S, Form<S>> {
+    SinglePage::new("Todo Editor".to_owned(), new_todo_form())
 }
 
-impl<S: TodoStoreLike> Component<S> for TodoEditor<S> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
-        self.0.render(store, area, buf);
-    }
-
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
-        self.0.get_cursor_position(store, area)
-    }
-
-    fn on_key(
-        &mut self,
-        dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
-        area: Rect,
-        key: KeyCode,
-    ) -> Option<Message> {
-        self.0.on_key(dispatcher, store, area, key)
-    }
-
-    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
-        self.0.activate(dispatcher, store);
-    }
-
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
-        self.0.deactivate(dispatcher, store);
-    }
-}
-
-pub struct TodoForm<S: TodoStoreLike>(Form<S>);
-
-impl<S: TodoStoreLike + 'static> TodoForm<S> {
-    pub fn new() -> Self {
-        Self(Form::new(vec![
-            Box::new(new_summary()),
-            Box::new(new_due()),
-            Box::new(new_percent_complete()),
-            Box::new(FieldPriority::new()),
-            Box::new(new_status()),
-            Box::new(new_description()),
-        ]))
-    }
-}
-
-impl<S: TodoStoreLike> Component<S> for TodoForm<S> {
-    fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
-        self.0.render(store, area, buf);
-    }
-
-    fn get_cursor_position(&self, store: &Rc<RefCell<S>>, area: Rect) -> Option<(u16, u16)> {
-        self.0.get_cursor_position(store, area)
-    }
-
-    fn on_key(
-        &mut self,
-        dispatcher: &mut Dispatcher,
-        store: &Rc<RefCell<S>>,
-        area: Rect,
-        key: KeyCode,
-    ) -> Option<Message> {
-        self.0.on_key(dispatcher, store, area, key)
-    }
-
-    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
-        self.0.activate(dispatcher, store);
-    }
-
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
-        self.0.deactivate(dispatcher, store);
-    }
+pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S> {
+    Form::new(vec![
+        Box::new(new_summary()),
+        Box::new(new_due()),
+        Box::new(new_percent_complete()),
+        Box::new(FieldPriority::new()),
+        Box::new(new_status()),
+        Box::new(new_description()),
+    ])
 }
 
 macro_rules! new_input {

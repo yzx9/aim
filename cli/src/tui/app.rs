@@ -12,10 +12,10 @@ use ratatui::prelude::Backend;
 
 use crate::tui::component::{Component, Message};
 use crate::tui::dispatcher::Dispatcher;
-use crate::tui::event_editor::EventEditor;
+use crate::tui::event_editor::new_event_editor;
 use crate::tui::event_store::EventStore;
-use crate::tui::event_todo_editor::{EventOrTodoDraft, EventTodoEditor, EventTodoStore};
-use crate::tui::todo_editor::TodoEditor;
+use crate::tui::event_todo_editor::{EventOrTodoDraft, EventTodoStore, new_event_todo_editor};
+use crate::tui::todo_editor::new_todo_editor;
 use crate::tui::todo_store::TodoStore;
 
 pub fn draft_event(aim: &mut Aim) -> Result<Option<EventDraft>, Box<dyn Error>> {
@@ -82,7 +82,7 @@ macro_rules! run_editor {
             let result = {
                 let mut dispatcher = Dispatcher::new();
                 $store::register_to(store.clone(), &mut dispatcher);
-                let mut app = App::new($view::new(), dispatcher, &store, &mut terminal);
+                let mut app = App::new($view(), dispatcher, &store, &mut terminal);
 
                 loop {
                     if let Err(e) = app.darw(&store, &mut terminal) {
@@ -108,9 +108,9 @@ macro_rules! run_editor {
     };
 }
 
-run_editor!(run_event_editor, EventEditor, EventStore);
-run_editor!(run_todo_editor, TodoEditor, TodoStore);
-run_editor!(run_event_todo_editor, EventTodoEditor, EventTodoStore);
+run_editor!(run_event_editor, new_event_editor, EventStore);
+run_editor!(run_todo_editor, new_todo_editor, TodoStore);
+run_editor!(run_event_todo_editor, new_event_todo_editor, EventTodoStore);
 
 struct App<S, C: Component<S>> {
     dispatcher: Dispatcher,
