@@ -1,7 +1,7 @@
 [package]
 authors = ["Zexin Yuan <aim@yzx9.xyz>"]
 name = "aimcal-cli"
-version = "0.4.0"
+version = "0.5.0"
 license = "Apache-2.0"
 edition = "2024"
 
@@ -19,7 +19,7 @@ name = "aim"
 path = "src/main.rs"
 
 [dependencies]
-aimcal-core = { path = "../core", version = "0.4.0", default-features = false, features = [
+aimcal-core = { path = "../core", version = "0.5.0", default-features = false, features = [
   "clap",
 ] }
 chrono = { version = "0.4.41", features = ["serde"] }

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.0] - 2025-08-15
+
 ### Added
 
 - cli: Add event support for command `edit`
@@ -190,7 +192,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add events and todos command
 - Add dashboard command
 
-[unreleased]: https://github.com/yzx9/aim/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/yzx9/aim/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/yzx9/aim/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/yzx9/aim/compare/v0.3.2...v0.4.0
 [v0.3.2]: https://github.com/yzx9/aim/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://github.com/yzx9/aim/compare/v0.3.0...v0.3.1
