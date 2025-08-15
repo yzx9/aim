@@ -21,3 +21,4 @@ jobs:
         uses: DeterminateSystems/update-flake-lock@v24
         with:
           pr-title: "⬆️ Bump flake.lock"
+          commit-msg: "⬆️ Bump flake.lock"
