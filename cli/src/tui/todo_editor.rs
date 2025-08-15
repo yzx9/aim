@@ -41,12 +41,12 @@ impl<S: TodoStoreLike> Component<S> for TodoEditor<S> {
         self.0.on_key(dispatcher, store, area, key)
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher) {
-        self.0.activate(dispatcher);
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
-        self.0.deactivate(dispatcher);
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.deactivate(dispatcher, store);
     }
 }
 
@@ -84,12 +84,12 @@ impl<S: TodoStoreLike> Component<S> for TodoForm<S> {
         self.0.on_key(dispatcher, store, area, key)
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher) {
-        self.0.activate(dispatcher);
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
-        self.0.deactivate(dispatcher);
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.deactivate(dispatcher, store);
     }
 }
 
@@ -247,14 +247,14 @@ impl<S: TodoStoreLike> Component<S> for FieldPriority<S> {
         self.get_mut(store).on_key(dispatcher, store, area, key)
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher) {
-        self.verbose.activate(dispatcher);
-        self.concise.activate(dispatcher);
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.verbose.activate(dispatcher, store);
+        self.concise.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
-        self.verbose.deactivate(dispatcher);
-        self.concise.deactivate(dispatcher);
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.verbose.deactivate(dispatcher, store);
+        self.concise.deactivate(dispatcher, store);
     }
 }
 

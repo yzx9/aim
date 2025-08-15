@@ -11,12 +11,17 @@ use ratatui::crossterm::event::KeyCode;
 use ratatui::prelude::*;
 
 use crate::tui::component::{Component, Message};
+use crate::tui::component_form::Access;
 use crate::tui::component_page::TabPages;
 use crate::tui::dispatcher::{Action, Dispatcher, EventOrTodo};
 use crate::tui::event_editor::EventForm;
 use crate::tui::event_store::{EventStore, EventStoreLike};
 use crate::tui::todo_editor::TodoForm;
 use crate::tui::todo_store::{TodoStore, TodoStoreLike};
+
+pub trait EventTodoStoreLike: EventStoreLike + TodoStoreLike {
+    fn active(&self) -> EventOrTodo;
+}
 
 pub enum EventOrTodoDraft {
     Event(EventDraft),
@@ -84,9 +89,28 @@ impl TodoStoreLike for EventTodoStore {
     }
 }
 
-pub struct EventTodoEditor<S: EventStoreLike + TodoStoreLike>(TabPages<S>);
+impl EventTodoStoreLike for EventTodoStore {
+    fn active(&self) -> EventOrTodo {
+        self.active
+    }
+}
 
-impl<S: EventStoreLike + TodoStoreLike + 'static> EventTodoEditor<S> {
+struct ActiveAccess<S: EventTodoStoreLike>(std::marker::PhantomData<S>);
+
+impl<S: EventTodoStoreLike> Access<S, EventOrTodo> for ActiveAccess<S> {
+    fn get(store: &Rc<RefCell<S>>) -> EventOrTodo {
+        store.borrow().active()
+    }
+
+    fn set(dispatcher: &mut Dispatcher, value: EventOrTodo) -> bool {
+        dispatcher.dispatch(Action::Activate(value));
+        true
+    }
+}
+
+pub struct EventTodoEditor<S: EventTodoStoreLike>(TabPages<S, ActiveAccess<S>>);
+
+impl<S: EventTodoStoreLike + 'static> EventTodoEditor<S> {
     pub fn new() -> Self {
         Self(TabPages::new(vec![
             (
@@ -103,7 +127,7 @@ impl<S: EventStoreLike + TodoStoreLike + 'static> EventTodoEditor<S> {
     }
 }
 
-impl<S: EventStoreLike + TodoStoreLike + 'static> Component<S> for EventTodoEditor<S> {
+impl<S: EventTodoStoreLike + 'static> Component<S> for EventTodoEditor<S> {
     fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
         self.0.render(store, area, buf);
     }
@@ -121,12 +145,11 @@ impl<S: EventStoreLike + TodoStoreLike + 'static> Component<S> for EventTodoEdit
         self.0.on_key(dispatcher, store, area, key)
     }
 
-    /// Activates the component, allowing it to initialize resources or state.
-    fn activate(&mut self, _dispatcher: &mut Dispatcher) {
-        self.0.activate(_dispatcher);
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, _dispatcher: &mut Dispatcher) {
-        self.0.deactivate(_dispatcher);
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.deactivate(dispatcher, store);
     }
 }

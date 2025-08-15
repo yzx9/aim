@@ -11,6 +11,7 @@ use ratatui::widgets::{Block, Paragraph};
 use unicode_width::UnicodeWidthStr;
 
 use crate::tui::component::{Component, Message};
+use crate::tui::component_form::Access;
 use crate::tui::dispatcher::{Action, Dispatcher, EventOrTodo};
 
 pub struct SinglePage<S, C: Component<S>> {
@@ -64,25 +65,25 @@ impl<S, C: Component<S>> Component<S> for SinglePage<S, C> {
         }
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher) {
-        self.inner.activate(dispatcher);
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.inner.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
-        self.inner.deactivate(dispatcher);
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.inner.deactivate(dispatcher, store);
     }
 }
 
-pub struct TabPages<S> {
+pub struct TabPages<S, A: Access<S, EventOrTodo>> {
     identifiers: Vec<EventOrTodo>,
     titles: Vec<String>,
     pages: Vec<Box<dyn Component<S>>>,
-    active_index: usize,
     active: bool,
     tab_active: bool,
+    _phantom: std::marker::PhantomData<A>,
 }
 
-impl<S> TabPages<S> {
+impl<S, A: Access<S, EventOrTodo>> TabPages<S, A> {
     pub fn new(pages: Vec<(EventOrTodo, String, Box<dyn Component<S>>)>) -> Self {
         let len = pages.len();
         let (identifiers, titles, pages) = pages.into_iter().fold(
@@ -103,22 +104,31 @@ impl<S> TabPages<S> {
             identifiers,
             titles,
             pages,
-            active_index: 0,
             active: false,
-            tab_active: true,
+            tab_active: true, // select tab by default
+            _phantom: std::marker::PhantomData,
         }
     }
 
     fn layout(&self) -> Layout {
         Layout::vertical([Constraint::Max(1), Constraint::Fill(1)])
     }
+
+    fn active_index(&self, store: &Rc<RefCell<S>>) -> Option<usize> {
+        let id = A::get(store);
+        self.identifiers.iter().position(|x| x == &id)
+    }
 }
 
-impl<S> Component<S> for TabPages<S> {
+impl<S, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, A> {
     fn render(&self, store: &Rc<RefCell<S>>, area: Rect, buf: &mut Buffer) {
-        let areas = self.layout().split(area);
+        let active_index = match self.active_index(store) {
+            Some(index) => index,
+            None => return, // No active page found
+        };
 
-        if let Some(area) = areas.get(0) {
+        let areas = self.layout().split(area);
+        if let Some(area) = areas.first() {
             let tabs = Layout::horizontal(
                 self.titles
                     .iter()
@@ -131,7 +141,7 @@ impl<S> Component<S> for TabPages<S> {
                 const STYLE_ACTIVE: Style = Style::new().fg(Color::Black).bg(Color::Blue);
                 const STYLE_INACTIVE: Style = Style::new().fg(Color::White);
 
-                let style = if !self.active || i != self.active_index {
+                let style = if !self.active || i != active_index {
                     STYLE_INACTIVE
                 } else if self.tab_active {
                     STYLE_ACTIVE
@@ -147,7 +157,7 @@ impl<S> Component<S> for TabPages<S> {
         }
 
         if let Some(area) = areas.get(1)
-            && let Some(active_page) = self.pages.get(self.active_index)
+            && let Some(active_page) = self.pages.get(active_index)
         {
             let block = block();
             active_page.render(store, block.inner(*area), buf);
@@ -160,8 +170,9 @@ impl<S> Component<S> for TabPages<S> {
             return None; // No cursor in tab bar
         }
 
+        let active_index = self.active_index(store)?;
         let areas = self.layout().split(area);
-        if let Some(active_page) = self.pages.get(self.active_index)
+        if let Some(active_page) = self.pages.get(active_index)
             && let Some(area) = areas.get(1)
         {
             let inner_area = block().inner(*area);
@@ -178,40 +189,39 @@ impl<S> Component<S> for TabPages<S> {
         area: Rect,
         key: KeyCode,
     ) -> Option<Message> {
+        let active_index = self.active_index(store)?;
         let len = self.pages.len();
         if self.tab_active {
             match key {
                 KeyCode::Down => {
                     self.tab_active = false;
-                    if let Some(page) = self.pages.get_mut(self.active_index) {
-                        page.activate(dispatcher);
+                    if let Some(page) = self.pages.get_mut(active_index) {
+                        page.activate(dispatcher, store);
                     }
                     Some(Message::CursorUpdated)
                 }
-                KeyCode::Left if self.tab_active && self.active_index > 0 => {
-                    self.active_index -= 1;
-                    if let Some(id) = self.identifiers.get_mut(self.active_index) {
-                        dispatcher.dispatch(Action::Activate(id.clone()));
+                KeyCode::Left if self.tab_active && active_index > 0 => {
+                    if let Some(id) = self.identifiers.get_mut(active_index - 1) {
+                        dispatcher.dispatch(Action::Activate(*id));
                     }
                     Some(Message::Handled)
                 }
-                KeyCode::Right if self.tab_active && self.active_index < len - 1 => {
-                    self.active_index += 1;
-                    if let Some(id) = self.identifiers.get_mut(self.active_index) {
-                        dispatcher.dispatch(Action::Activate(id.clone()));
+                KeyCode::Right if self.tab_active && active_index < len - 1 => {
+                    if let Some(id) = self.identifiers.get_mut(active_index + 1) {
+                        dispatcher.dispatch(Action::Activate(*id));
                     }
                     Some(Message::Handled)
                 }
                 KeyCode::Esc => Some(Message::Exit),
                 _ => None,
             }
-        } else if let Some(page) = self.pages.get_mut(self.active_index) {
+        } else if let Some(page) = self.pages.get_mut(active_index) {
             match page.on_key(dispatcher, store, area, key) {
                 Some(msg) => Some(msg),
                 None => match key {
                     KeyCode::Up if !self.tab_active => {
                         self.tab_active = true;
-                        page.deactivate(dispatcher);
+                        page.deactivate(dispatcher, store);
                         Some(Message::CursorUpdated)
                     }
                     KeyCode::Esc => Some(Message::Exit),
@@ -223,21 +233,23 @@ impl<S> Component<S> for TabPages<S> {
         }
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher) {
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
         self.active = true;
         if !self.tab_active
-            && let Some(active_page) = self.pages.get_mut(self.active_index)
+            && let Some(active_index) = self.active_index(store)
+            && let Some(active_page) = self.pages.get_mut(active_index)
         {
-            active_page.activate(dispatcher);
+            active_page.activate(dispatcher, store);
         }
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
         self.active = false;
         if !self.tab_active
-            && let Some(active_page) = self.pages.get_mut(self.active_index)
+            && let Some(active_index) = self.active_index(store)
+            && let Some(active_page) = self.pages.get_mut(active_index)
         {
-            active_page.deactivate(dispatcher);
+            active_page.deactivate(dispatcher, store);
         }
     }
 }

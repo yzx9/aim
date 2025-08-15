@@ -31,10 +31,10 @@ impl<S> Form<S> {
         Layout::vertical(self.items.iter().map(|_| Constraint::Max(3))).margin(1)
     }
 
-    fn navigate(&mut self, dispatcher: &mut Dispatcher, offset: isize) {
+    fn navigate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>, offset: isize) {
         // deactivate current item
         if let Some(a) = self.items.get_mut(self.item_index) {
-            a.deactivate(dispatcher);
+            a.deactivate(dispatcher, store);
         }
 
         // move to next/previous item
@@ -50,7 +50,7 @@ impl<S> Form<S> {
 
         // activate new item
         if let Some(a) = self.items.get_mut(self.item_index) {
-            a.activate(dispatcher);
+            a.activate(dispatcher, store);
         }
     }
 }
@@ -93,11 +93,11 @@ impl<S> Component<S> for Form<S> {
 
         match key {
             KeyCode::Up | KeyCode::BackTab if self.item_index > 0 => {
-                self.navigate(dispatcher, -1);
+                self.navigate(dispatcher, store, -1);
                 Some(Message::CursorUpdated)
             }
             KeyCode::Down | KeyCode::Tab if self.item_index < self.items.len() - 1 => {
-                self.navigate(dispatcher, 1);
+                self.navigate(dispatcher, store, 1);
                 Some(Message::CursorUpdated)
             }
             KeyCode::Enter => {
@@ -108,15 +108,15 @@ impl<S> Component<S> for Form<S> {
         }
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher) {
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
         if let Some(item) = self.items.get_mut(self.item_index) {
-            item.activate(dispatcher);
+            item.activate(dispatcher, store);
         }
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
         if let Some(item) = self.items.get_mut(self.item_index) {
-            item.deactivate(dispatcher);
+            item.deactivate(dispatcher, store);
         }
     }
 }
@@ -207,12 +207,12 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
         Some(Message::CursorUpdated)
     }
 
-    fn activate(&mut self, _dispatcher: &mut Dispatcher) {
+    fn activate(&mut self, _dispatcher: &mut Dispatcher, _store: &Rc<RefCell<S>>) {
         self.active = true;
         self.character_index = 0; // Reset character index when activated
     }
 
-    fn deactivate(&mut self, _dispatcher: &mut Dispatcher) {
+    fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &Rc<RefCell<S>>) {
         self.active = false;
         self.character_index = 0; // Reset character index when deactivated
     }
@@ -354,11 +354,11 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
         }
     }
 
-    fn activate(&mut self, _: &mut Dispatcher) {
+    fn activate(&mut self, _: &mut Dispatcher, _store: &Rc<RefCell<S>>) {
         self.active = true;
     }
 
-    fn deactivate(&mut self, _: &mut Dispatcher) {
+    fn deactivate(&mut self, _: &mut Dispatcher, _store: &Rc<RefCell<S>>) {
         self.active = false;
     }
 }

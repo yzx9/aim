@@ -41,12 +41,12 @@ impl<S: EventStoreLike> Component<S> for EventEditor<S> {
         self.0.on_key(dispatcher, store, area, key)
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher) {
-        self.0.activate(dispatcher);
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
-        self.0.deactivate(dispatcher);
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.deactivate(dispatcher, store);
     }
 }
 
@@ -83,12 +83,12 @@ impl<S: EventStoreLike> Component<S> for EventForm<S> {
         self.0.on_key(dispatcher, store, area, key)
     }
 
-    fn activate(&mut self, dispatcher: &mut Dispatcher) {
-        self.0.activate(dispatcher);
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.activate(dispatcher, store);
     }
 
-    fn deactivate(&mut self, dispatcher: &mut Dispatcher) {
-        self.0.deactivate(dispatcher);
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &Rc<RefCell<S>>) {
+        self.0.deactivate(dispatcher, store);
     }
 }
 

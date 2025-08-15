@@ -36,8 +36,8 @@ pub trait Component<S> {
     }
 
     /// Activates the component, allowing it to initialize resources or state.
-    fn activate(&mut self, _dispatcher: &mut Dispatcher) {}
+    fn activate(&mut self, _dispatcher: &mut Dispatcher, _store: &Rc<RefCell<S>>) {}
 
     /// Deactivates the component, allowing it to clean up resources or state.
-    fn deactivate(&mut self, _dispatcher: &mut Dispatcher) {}
+    fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &Rc<RefCell<S>>) {}
 }

@@ -133,7 +133,7 @@ impl<S, C: Component<S>> App<S, C> {
         };
 
         // Activate the first item
-        view.activate(&mut dispatcher);
+        view.activate(&mut dispatcher, store);
 
         Self {
             dispatcher,
