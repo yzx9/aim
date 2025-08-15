@@ -14,16 +14,18 @@ use crate::tui::component::{Component, Message};
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::unicode_width_of_slice;
 
-pub struct Form<S> {
-    items: Vec<Box<dyn Component<S>>>,
+pub struct Form<S, C: Component<S>> {
+    items: Vec<C>,
     item_index: usize,
+    _phantom: std::marker::PhantomData<S>,
 }
 
-impl<S> Form<S> {
-    pub fn new(items: Vec<Box<dyn Component<S>>>) -> Self {
+impl<S, C: Component<S>> Form<S, C> {
+    pub fn new(items: Vec<C>) -> Self {
         Self {
             items,
             item_index: 0,
+            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -55,7 +57,7 @@ impl<S> Form<S> {
     }
 }
 
-impl<S> Component<S> for Form<S> {
+impl<S, C: Component<S>> Component<S> for Form<S, C> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let areas = self.layout().split(area);
         for (field, area) in self.items.iter().zip(areas.iter()) {

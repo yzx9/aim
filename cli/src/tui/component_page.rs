@@ -74,17 +74,18 @@ impl<S, C: Component<S>> Component<S> for SinglePage<S, C> {
     }
 }
 
-pub struct TabPages<S, A: Access<S, EventOrTodo>> {
+pub struct TabPages<S, C: Component<S>, A: Access<S, EventOrTodo>> {
     identifiers: Vec<EventOrTodo>,
     titles: Vec<String>,
-    pages: Vec<Box<dyn Component<S>>>,
+    pages: Vec<C>,
     active: bool,
     tab_active: bool,
-    _phantom: std::marker::PhantomData<A>,
+    _phantom_a: std::marker::PhantomData<A>,
+    _phantom_s: std::marker::PhantomData<S>,
 }
 
-impl<S, A: Access<S, EventOrTodo>> TabPages<S, A> {
-    pub fn new(pages: Vec<(EventOrTodo, String, Box<dyn Component<S>>)>) -> Self {
+impl<S, C: Component<S>, A: Access<S, EventOrTodo>> TabPages<S, C, A> {
+    pub fn new(pages: Vec<(EventOrTodo, String, C)>) -> Self {
         let len = pages.len();
         let (identifiers, titles, pages) = pages.into_iter().fold(
             (
@@ -106,7 +107,8 @@ impl<S, A: Access<S, EventOrTodo>> TabPages<S, A> {
             pages,
             active: false,
             tab_active: true, // select tab by default
-            _phantom: std::marker::PhantomData,
+            _phantom_a: std::marker::PhantomData,
+            _phantom_s: std::marker::PhantomData,
         }
     }
 
@@ -120,7 +122,7 @@ impl<S, A: Access<S, EventOrTodo>> TabPages<S, A> {
     }
 }
 
-impl<S, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, A> {
+impl<S, C: Component<S>, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, C, A> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let active_index = match self.active_index(store) {
             Some(index) => index,

@@ -41,3 +41,34 @@ pub trait Component<S> {
     /// Deactivates the component, allowing it to clean up resources or state.
     fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &RefCell<S>) {}
 }
+
+impl<S, T> Component<S> for Box<T>
+where
+    T: Component<S> + ?Sized,
+{
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
+        (**self).render(store, area, buf);
+    }
+
+    fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
+        (**self).get_cursor_position(store, area)
+    }
+
+    fn on_key(
+        &mut self,
+        dispatcher: &mut Dispatcher,
+        store: &RefCell<S>,
+        area: Rect,
+        key: KeyCode,
+    ) -> Option<Message> {
+        (**self).on_key(dispatcher, store, area, key)
+    }
+
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
+        (**self).activate(dispatcher, store);
+    }
+
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
+        (**self).deactivate(dispatcher, store);
+    }
+}

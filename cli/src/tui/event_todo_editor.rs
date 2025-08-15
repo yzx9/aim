@@ -8,7 +8,8 @@ use std::rc::Rc;
 
 use aimcal_core::{EventDraft, TodoDraft};
 
-use crate::tui::component_form::Access;
+use crate::tui::component::Component;
+use crate::tui::component_form::{Access, Form};
 use crate::tui::component_page::TabPages;
 use crate::tui::dispatcher::{Action, Dispatcher, EventOrTodo};
 use crate::tui::event_editor::new_event_form;
@@ -105,18 +106,12 @@ impl<S: EventTodoStoreLike> Access<S, EventOrTodo> for EventTodoStoreActiveAcces
     }
 }
 
-pub fn new_event_todo_editor<S: EventTodoStoreLike + 'static>()
--> TabPages<S, EventTodoStoreActiveAccess<S>> {
+type EventTodoEditor<S> =
+    TabPages<S, Form<S, Box<dyn Component<S>>>, EventTodoStoreActiveAccess<S>>;
+
+pub fn new_event_todo_editor<S: EventTodoStoreLike + 'static>() -> EventTodoEditor<S> {
     TabPages::new(vec![
-        (
-            EventOrTodo::Event,
-            "Event".to_owned(),
-            Box::new(new_event_form()),
-        ),
-        (
-            EventOrTodo::Todo,
-            "Todo".to_owned(),
-            Box::new(new_todo_form()),
-        ),
+        (EventOrTodo::Event, "Event".to_owned(), new_event_form()),
+        (EventOrTodo::Todo, "Todo".to_owned(), new_todo_form()),
     ])
 }

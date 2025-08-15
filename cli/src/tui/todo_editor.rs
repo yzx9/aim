@@ -14,11 +14,12 @@ use crate::tui::component_page::SinglePage;
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::tui::todo_store::TodoStoreLike;
 
-pub fn new_todo_editor<S: TodoStoreLike + 'static>() -> SinglePage<S, Form<S>> {
+pub fn new_todo_editor<S: TodoStoreLike + 'static>() -> SinglePage<S, Form<S, Box<dyn Component<S>>>>
+{
     SinglePage::new("Todo Editor".to_owned(), new_todo_form())
 }
 
-pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S> {
+pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S, Box<dyn Component<S>>> {
     Form::new(vec![
         Box::new(new_summary()),
         Box::new(new_due()),
