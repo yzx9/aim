@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::error::Error;
+
 use aimcal_core::LooseDateTime;
-use chrono::{
-    DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, offset::LocalResult,
-};
+use chrono::offset::LocalResult;
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
 use clap::{Arg, ArgMatches, arg, value_parser};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -88,6 +89,40 @@ pub fn parse_datetime_range(
     } else {
         Err("Invalid date format. Expected format: YYYY-MM-DD, HH:MM and YYYY-MM-DD HH:MM")
     }
+}
+
+pub fn parse_timedelta(
+    timedelta: &str,
+    now: DateTime<Local>,
+) -> Result<LooseDateTime, Box<dyn Error>> {
+    // Handle "tomorrow" keyword (tomorrow at 9:00 AM)
+    if timedelta == "tomorrow" {
+        let tomorrow = now.date_naive() + TimeDelta::days(1);
+        let time = NaiveTime::from_hms_opt(9, 0, 0).ok_or("Failed to create time")?;
+        let dt = NaiveDateTime::new(tomorrow, time);
+        return Ok(local_from_datetime(dt));
+    }
+
+    // Try to parse as datetime
+    if let Ok(dt) = NaiveDateTime::parse_from_str(timedelta, "%Y-%m-%d %H:%M") {
+        return Ok(local_from_datetime(dt));
+    }
+
+    // Try to parse as time only
+    if let Ok(time) = NaiveTime::parse_from_str(timedelta, "%H:%M") {
+        let date = now.date_naive();
+
+        // If the time has already passed today, use tomorrow
+        let delta = if now.time() <= time {
+            TimeDelta::zero()
+        } else {
+            TimeDelta::days(1)
+        };
+        let dt = NaiveDateTime::new(date, time) + delta;
+        return Ok(local_from_datetime(dt));
+    }
+
+    Err(format!("Invalid timedelta format: {timedelta}").into())
 }
 
 fn local_from_datetime(dt: NaiveDateTime) -> LooseDateTime {
@@ -358,6 +393,47 @@ mod tests {
             }
             _ => panic!("Expected Local variant for end"),
         }
+    }
+
+    #[test]
+    fn test_parse_delay_timedelta() {
+        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
+
+        // Test "tomorrow"
+        let expected_tomorrow = Local.with_ymd_and_hms(2025, 1, 2, 9, 0, 0).unwrap();
+        let result = parse_timedelta("tomorrow", now).unwrap();
+        match result {
+            LooseDateTime::Local(dt) => assert_eq!(dt, expected_tomorrow),
+            _ => panic!("Expected LooseDateTime::Local for 'tomorrow'"),
+        }
+
+        // Test "YYYY-MM-DD HH:MM"
+        let expected_datetime = Local.with_ymd_and_hms(2025, 1, 3, 15, 0, 0).unwrap();
+        let result = parse_timedelta("2025-01-3 15:00", now).unwrap();
+        match result {
+            LooseDateTime::Local(dt) => assert_eq!(dt, expected_datetime),
+            _ => panic!("Expected LooseDateTime::Local for datetime string"),
+        }
+
+        // Test "HH:MM" (before now, should be tomorrow)
+        let expected_time_before = Local.with_ymd_and_hms(2025, 1, 2, 10, 0, 0).unwrap();
+        let result = parse_timedelta("10:00", now).unwrap();
+        match result {
+            LooseDateTime::Local(dt) => assert_eq!(dt, expected_time_before),
+            _ => panic!("Expected LooseDateTime::Local for time before now"),
+        }
+
+        // Test "HH:MM" (after now, should be today)
+        let expected_time_after = Local.with_ymd_and_hms(2025, 1, 1, 14, 0, 0).unwrap();
+        let result = parse_timedelta("14:00", now).unwrap();
+        match result {
+            LooseDateTime::Local(dt) => assert_eq!(dt, expected_time_after),
+            _ => panic!("Expected LooseDateTime::Local for time after now"),
+        }
+
+        // Test invalid format
+        let result = parse_timedelta("invalid", now);
+        assert!(result.is_err());
     }
 
     #[test]

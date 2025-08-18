@@ -7,13 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v0.5.1] - 2025-08-19
+### Added
 
-### Changed
-
-- cli: Show all events in today by default
-- core: `EventConditions.startable` expect a `DateTimeAnchor` now
-- core: `TodoConditions.due` expect a `DateTimeAnchor` now
+- cli: Add delay command to update todo due with datetime, time, or tomorrow keyword
 
 ### Fixed
 
