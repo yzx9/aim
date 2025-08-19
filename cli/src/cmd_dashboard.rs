@@ -32,7 +32,7 @@ impl CmdDashboard {
         tracing::debug!(?self, "generating dashboard...");
         println!("🗓️ {}", "Events".bold());
         let conds = EventConditions {
-            startable: Some(DateTimeAnchor::now()),
+            startable: Some(DateTimeAnchor::today()),
         };
         CmdEventList::list(aim, &conds, ArgOutputFormat::Table).await?;
         println!();

@@ -239,7 +239,7 @@ impl CmdEventList {
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             conds: EventConditions {
-                startable: Some(DateTimeAnchor::now()),
+                startable: Some(DateTimeAnchor::today()),
             },
             output_format: ArgOutputFormat::from(matches),
         }

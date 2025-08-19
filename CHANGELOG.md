@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- cli: Show all events in today by default
 - core: `EventConditions.startable` expect a `DateTimeAnchor` now
 
 ### Fixed
