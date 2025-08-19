@@ -14,7 +14,7 @@ use crate::cmd_dashboard::CmdDashboard;
 use crate::cmd_event::{CmdEventEdit, CmdEventList, CmdEventNew};
 use crate::cmd_generate_completion::CmdGenerateCompletion;
 use crate::cmd_todo::{
-    CmdTodoCancel, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo,
+    CmdTodoCancel, CmdTodoDelay, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo,
 };
 use crate::cmd_tui::{CmdEdit, CmdNew};
 use crate::config::parse_config;
@@ -96,6 +96,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .subcommand(CmdTodoDone::command())
                     .subcommand(CmdTodoUndo::command())
                     .subcommand(CmdTodoCancel::command())
+                    .subcommand(CmdTodoDelay::command())
                     .subcommand(CmdTodoList::command()),
             )
             .subcommand(CmdTodoDone::command())
@@ -139,6 +140,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 Some((CmdTodoUndo::NAME, matches)) => TodoUndo(CmdTodoUndo::from(matches)),
                 Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::from(matches)),
                 Some((CmdTodoCancel::NAME, matches)) => TodoCancel(CmdTodoCancel::from(matches)),
+                Some((CmdTodoDelay::NAME, matches)) => TodoDelay(CmdTodoDelay::from(matches)),
                 Some((CmdTodoList::NAME, matches)) => TodoList(CmdTodoList::from(matches)),
                 _ => unreachable!(),
             },
@@ -196,6 +198,9 @@ pub enum Commands {
     /// Mark a todo as cancelled
     TodoCancel(CmdTodoCancel),
 
+    /// Delay a todo
+    TodoDelay(CmdTodoDelay),
+
     /// List todos
     TodoList(CmdTodoList),
 
@@ -222,6 +227,7 @@ impl Commands {
             TodoUndo(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoDone(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoCancel(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoDelay(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoList(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
             GenerateCompletion(a) => a.run(),
         }

@@ -14,7 +14,7 @@ use colored::Colorize;
 
 use crate::todo_formatter::TodoFormatter;
 use crate::tui;
-use crate::util::{ArgOutputFormat, parse_datetime};
+use crate::util::{ArgOutputFormat, parse_datetime, parse_timedelta};
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
@@ -287,6 +287,60 @@ macro_rules! cmd_status {
 cmd_status!(CmdTodoUndo, NeedsAction, "undo", "needs-action");
 cmd_status!(CmdTodoDone, Completed, "done", "completed");
 cmd_status!(CmdTodoCancel, Cancelled, "cancel", "canceled");
+
+#[derive(Debug, Clone)]
+pub struct CmdTodoDelay {
+    pub id: Id,
+    pub timedelta: String,
+    pub output_format: ArgOutputFormat,
+}
+
+impl CmdTodoDelay {
+    pub const NAME: &str = "delay";
+
+    pub fn command() -> Command {
+        Command::new(Self::NAME)
+            .about("Delay a todo's due date by a specified time")
+            .arg(arg_id())
+            .arg(arg!(<TIMEDELTA> "Time to delay (datetime, time, or 'tomorrow')"))
+            .arg(ArgOutputFormat::arg())
+    }
+
+    pub fn from(matches: &ArgMatches) -> Self {
+        Self {
+            id: get_id(matches),
+            timedelta: matches
+                .get_one::<String>("TIMEDELTA")
+                .expect("timedelta is required")
+                .clone(),
+            output_format: ArgOutputFormat::from(matches),
+        }
+    }
+
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+        tracing::debug!(?self, "delaying todo...");
+
+        // Get the current todo
+        aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
+
+        // Parse the timedelta
+        let new_due = parse_timedelta(&self.timedelta, aim.now())?;
+
+        // Update the todo
+        let patch = TodoPatch {
+            due: Some(Some(new_due)),
+            ..Default::default()
+        };
+
+        TodoEdit {
+            id: self.id,
+            patch,
+            output_format: self.output_format,
+        }
+        .run(aim)
+        .await
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdTodoList {
@@ -676,6 +730,30 @@ mod tests {
                 Id::ShortIdOrUid("c".to_string())
             ]
         );
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+    }
+
+    #[test]
+    fn test_parse_delay() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoDelay::command());
+
+        let matches = cmd
+            .try_get_matches_from([
+                "test",
+                "delay",
+                "abc",
+                "timedelta",
+                "--output-format",
+                "json",
+            ])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("delay").unwrap();
+        let parsed = CmdTodoDelay::from(sub_matches);
+        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
+        assert_eq!(parsed.timedelta, "timedelta");
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
     }
 
