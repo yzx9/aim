@@ -12,7 +12,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::tui::component::{Component, Message};
 use crate::tui::dispatcher::{Action, Dispatcher};
-use crate::util::{byte_range_of_grapheme_at, unicode_width_of_slice};
+use crate::util::{byte_range_of_grapheme_at, div_floor, unicode_width_of_slice};
 
 pub struct Form<S, C: Component<S>> {
     items: Vec<C>,
@@ -378,15 +378,5 @@ fn form_item_block(title: &str, active: bool) -> Block<'_> {
     match active {
         true => block.blue(),
         false => block.white(),
-    }
-}
-
-fn div_floor(a: isize, b: isize) -> isize {
-    let d = a / b; // Truncated division toward zero
-    let r = a % b;
-    if (r != 0) && ((r < 0) != (b < 0)) {
-        d - 1
-    } else {
-        d
     }
 }
