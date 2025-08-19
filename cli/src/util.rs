@@ -7,6 +7,7 @@ use chrono::{
     DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, offset::LocalResult,
 };
 use clap::{Arg, ArgMatches, arg, value_parser};
+use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 /// The output format for commands
@@ -137,10 +138,21 @@ pub fn unicode_width_of_slice(s: &str, first_n_chars: usize) -> usize {
     }
 }
 
+/// Return the byte range of the grapheme cluster at index `g_idx` in `s`.
+/// If out of bounds, returns None.
+pub fn byte_range_of_grapheme_at(s: &str, g_idx: usize) -> Option<std::ops::Range<usize>> {
+    for (i, (byte_start, g)) in s.grapheme_indices(true).enumerate() {
+        if i == g_idx {
+            let byte_end = byte_start + g.len();
+            return Some(byte_start..byte_end);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use unicode_width::UnicodeWidthStr;
 
     #[test]
     fn test_unicode_width_ascii_only() {
@@ -360,5 +372,55 @@ mod tests {
         let formatted = format_datetime(LooseDateTime::Local(dt));
         // Just check that it produces a non-empty string with expected format
         assert!(formatted.contains("202") && formatted.contains(":"));
+    }
+
+    #[test]
+    fn test_byte_range_ascii_basic() {
+        let s = "hello";
+        assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..1)); // 'h'
+        assert_eq!(byte_range_of_grapheme_at(s, 4), Some(4..5)); // 'o'
+        assert_eq!(byte_range_of_grapheme_at(s, 5), None); // out of bounds
+    }
+
+    #[test]
+    fn test_byte_range_chinese_multibyte() {
+        let s = "a中b";
+        // UTF-8: 'a' = 1 byte, '中' = 3 bytes, 'b' = 1 byte
+        assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..1)); // 'a'
+        assert_eq!(byte_range_of_grapheme_at(s, 1), Some(1..4)); // '中'
+        assert_eq!(byte_range_of_grapheme_at(s, 2), Some(4..5)); // 'b'
+        assert_eq!(byte_range_of_grapheme_at(s, 3), None); // out of bounds
+    }
+
+    #[test]
+    fn test_byte_range_emoji_with_skin_tone() {
+        let s = "👍🏻a";
+        // "👍🏻" is 1 grapheme cluster, composed of two code points (8 bytes)
+        assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..8));
+        assert_eq!(byte_range_of_grapheme_at(s, 1), Some(8..9)); // 'a'
+    }
+
+    #[test]
+    fn test_byte_range_emoji_family_zwj() {
+        let s = "👨‍👩‍👧"; // ZWJ sequence, treated as 1 grapheme cluster
+        let len = s.len();
+        assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..len));
+        assert_eq!(byte_range_of_grapheme_at(s, 1), None); // out of bounds
+    }
+
+    #[test]
+    fn test_byte_range_combining_mark() {
+        let s = "e\u{0301}b"; // 'e' + combining acute accent = 1 grapheme cluster, then 'b'
+        // UTF-8: 'e' (1 byte) + U+0301 (2 bytes) = 3 bytes total
+        assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..3));
+        assert_eq!(byte_range_of_grapheme_at(s, 1), Some(3..4)); // 'b'
+        assert_eq!(byte_range_of_grapheme_at(s, 2), None); // out of bounds
+    }
+
+    #[test]
+    fn test_byte_range_empty_string() {
+        let s = "";
+        assert_eq!(byte_range_of_grapheme_at(s, 0), None);
+        assert_eq!(byte_range_of_grapheme_at(s, 1), None);
     }
 }

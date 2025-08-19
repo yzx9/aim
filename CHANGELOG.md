@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cli: When the end timestamp is date-only and its time precedes the start, adjust it to the
   following day.
+- cli: Fix grapheme deletion logic to correctly handle multi-byte characters (e.g. Chinese and
+  emoji) in TUI.
 
 ## [v0.5.0] - 2025-08-15
 

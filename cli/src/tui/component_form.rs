@@ -12,7 +12,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::tui::component::{Component, Message};
 use crate::tui::dispatcher::{Action, Dispatcher};
-use crate::util::unicode_width_of_slice;
+use crate::util::{byte_range_of_grapheme_at, unicode_width_of_slice};
 
 pub struct Form<S, C: Component<S>> {
     items: Vec<C>,
@@ -185,9 +185,11 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
             Right if self.character_index < A::get(store).len() => self.character_index += 1,
             Backspace if self.character_index > 0 => {
                 let mut v = A::get(store);
-                v.remove(self.character_index - 1);
-                if A::set(dispatcher, v) {
-                    self.character_index -= 1;
+                if let Some(range) = byte_range_of_grapheme_at(&v, self.character_index - 1) {
+                    v.replace_range(range, "");
+                    if A::set(dispatcher, v) {
+                        self.character_index -= 1;
+                    }
                 }
             }
             Char(c) => {
