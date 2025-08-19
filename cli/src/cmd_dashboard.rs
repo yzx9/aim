@@ -5,7 +5,6 @@
 use std::error::Error;
 
 use aimcal_core::{Aim, DateTimeAnchor, EventConditions, TodoConditions, TodoStatus};
-use chrono::Duration;
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 
@@ -40,7 +39,7 @@ impl CmdDashboard {
         println!("✅ {}", "Todos".bold());
         let conds = TodoConditions {
             status: Some(TodoStatus::NeedsAction),
-            due: Some(Duration::days(2)),
+            due: Some(DateTimeAnchor::InDays(2)),
         };
         CmdTodoList::list(aim, &conds, ArgOutputFormat::Table).await?;
         Ok(())

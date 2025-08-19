@@ -4,10 +4,10 @@
 
 use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
-use chrono::{DateTime, Duration, Local, Utc};
+use chrono::{DateTime, Local, Utc};
 use icalendar::Component;
 
-use crate::{Config, LooseDateTime, Priority, SortOrder};
+use crate::{Config, DateTimeAnchor, LooseDateTime, Priority, SortOrder};
 
 /// Trait representing a todo item.
 pub trait Todo {
@@ -311,7 +311,7 @@ pub struct TodoConditions {
     pub status: Option<TodoStatus>,
 
     /// The priority of the todo item to filter by, if any.
-    pub due: Option<Duration>,
+    pub due: Option<DateTimeAnchor>,
 }
 
 /// Conditions for filtering todo items, such as current time, status, and due date.
@@ -327,7 +327,7 @@ pub(crate) struct ParsedTodoConditions {
 impl ParsedTodoConditions {
     pub fn parse(now: &DateTime<Local>, conds: &TodoConditions) -> Self {
         let status = conds.status;
-        let due = conds.due.map(|d| *now + d);
+        let due = conds.due.map(|a| a.parse_as_end_of_day(now));
         ParsedTodoConditions { status, due }
     }
 }

@@ -5,9 +5,9 @@
 use std::error::Error;
 
 use aimcal_core::{
-    Aim, Id, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus,
+    Aim, DateTimeAnchor, Id, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
+    TodoStatus,
 };
-use chrono::Duration;
 use clap::{Arg, ArgMatches, Command, arg};
 use clap_num::number_range;
 use colored::Colorize;
@@ -307,7 +307,7 @@ impl CmdTodoList {
         Self {
             conds: TodoConditions {
                 status: Some(TodoStatus::NeedsAction),
-                due: Some(Duration::days(2)),
+                due: Some(DateTimeAnchor::InDays(2)),
             },
             output_format: ArgOutputFormat::from(matches),
         }
