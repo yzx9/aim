@@ -9,6 +9,7 @@ use std::num::NonZeroU32;
 pub enum Id {
     /// The unique identifier for the todo item.
     Uid(String),
+
     /// Either a short identifier or a unique identifier.
     ShortIdOrUid(String),
 }

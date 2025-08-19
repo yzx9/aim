@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chrono::offset::LocalResult;
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
 use chrono_tz::Tz;
 use icalendar::{CalendarDateTime, DatePerhapsTime};
 
@@ -42,22 +42,12 @@ impl LooseDateTime {
 
     /// Converts to a datetime with default start time (00:00:00) if time is missing.
     pub fn with_start_of_day(&self) -> NaiveDateTime {
-        NaiveDateTime::new(
-            self.date(),
-            self.time()
-                .unwrap_or_else(|| NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
-        )
+        NaiveDateTime::new(self.date(), self.time().unwrap_or_else(start_of_day_naive))
     }
 
     /// Converts to a datetime with default end time (23:59:59.999999999) if time is missing.
     pub fn with_end_of_day(&self) -> NaiveDateTime {
-        NaiveDateTime::new(
-            self.date(),
-            self.time().unwrap_or_else(|| {
-                // Using a leap second to represent the end of the day
-                NaiveTime::from_hms_nano_opt(23, 59, 59, 1_999_999_999).unwrap()
-            }),
-        )
+        NaiveDateTime::new(self.date(), self.time().unwrap_or_else(end_of_day_naive))
     }
 
     /// Determines the position of a given datetime relative to a start and optional end date.
@@ -213,10 +203,101 @@ pub enum RangePosition {
     InvalidRange,
 }
 
+/// Represents a date and time anchor that can be used to calculate relative dates and times.
+#[derive(Debug, Clone, Copy)]
+pub enum DateTimeAnchor {
+    /// A specific number of hours in the future or past.
+    InHours(i64),
+
+    /// A specific number of days in the future or past.
+    InDays(i64),
+}
+
+impl DateTimeAnchor {
+    /// Represents the current time.
+    pub fn now() -> Self {
+        DateTimeAnchor::InHours(0)
+    }
+
+    /// Represents the current date.
+    pub fn today() -> Self {
+        DateTimeAnchor::InDays(0)
+    }
+
+    /// Represents tomorrow, which is one day after today.
+    pub fn tomorrow() -> Self {
+        DateTimeAnchor::InDays(1)
+    }
+
+    /// Represents yesterday, which is one day before today.
+    pub fn yesterday() -> Self {
+        DateTimeAnchor::InDays(-1)
+    }
+
+    /// Parses the `When` enum based on the current time.
+    pub fn parse_as_start_of_day<Tz: TimeZone>(&self, now: &DateTime<Tz>) -> DateTime<Tz> {
+        match self {
+            DateTimeAnchor::InHours(n) => now.clone() + TimeDelta::hours(*n),
+            DateTimeAnchor::InDays(n) => start_of_day(now) + TimeDelta::days(*n),
+        }
+    }
+
+    /// Parses the `When` enum based on the current time.
+    pub fn parse_as_end_of_day<Tz: TimeZone>(&self, now: &DateTime<Tz>) -> DateTime<Tz> {
+        match self {
+            DateTimeAnchor::InHours(n) => now.clone() + TimeDelta::hours(*n),
+            DateTimeAnchor::InDays(n) => end_of_day(now) + TimeDelta::days(*n),
+        }
+    }
+}
+
+/// Returns the start of the day (00:00:00) for the given `DateTime` in the same timezone.
+fn start_of_day<Tz: TimeZone>(dt: &DateTime<Tz>) -> DateTime<Tz> {
+    let naive = NaiveDateTime::new(dt.date_naive(), start_of_day_naive());
+    from_local_datetime(&dt.timezone(), naive)
+}
+
+/// Returns the end of the day (23:59:59) for the given `DateTime` in the same timezone.
+fn end_of_day<Tz: TimeZone>(dt: &DateTime<Tz>) -> DateTime<Tz> {
+    let last_nano_sec = end_of_day_naive();
+    let naive = NaiveDateTime::new(dt.date_naive(), last_nano_sec);
+    from_local_datetime(&dt.timezone(), naive)
+}
+
+const fn start_of_day_naive() -> NaiveTime {
+    NaiveTime::from_hms_opt(0, 0, 0).expect("00:00:00 must exist in NaiveTime")
+}
+
+/// Using a leap second to represent the end of the day
+const fn end_of_day_naive() -> NaiveTime {
+    NaiveTime::from_hms_nano_opt(23, 59, 59, 1_999_999_999)
+        .expect("23:59:59:1_999_999_999 must exist in NaiveTime")
+}
+
+/// Convert the `NaiveDateTime` to the local timezone, handles local time ambiguities:
+/// - `Single(dt)` returns directly;
+/// - `Ambiguous(a, b)` takes the earlier one;
+/// - `None` (local time does not exist, e.g., due to DST transition): falls back to UTC
+///   combination and then converts.
+fn from_local_datetime<Tz: TimeZone>(tz: &Tz, naive: NaiveDateTime) -> DateTime<Tz> {
+    match tz.from_local_datetime(&naive) {
+        LocalResult::Single(x) => x,
+        LocalResult::Ambiguous(a, b) => {
+            // Choose the earlier one
+            if a <= b { a } else { b }
+        }
+        LocalResult::None => {
+            let utc = chrono::Utc.from_utc_datetime(&naive);
+            utc.with_timezone(tz)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use super::*;
-    use chrono::{NaiveDate, TimeZone};
 
     #[test]
     fn test_date_and_time_methods() {
@@ -462,5 +543,70 @@ mod tests {
         } else {
             panic!("Failed to parse local datetime");
         }
+    }
+
+    #[test]
+    fn test_when_now() {
+        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
+        assert_eq!(DateTimeAnchor::now().parse_as_start_of_day(&now), now);
+        assert_eq!(DateTimeAnchor::now().parse_as_end_of_day(&now), now);
+    }
+
+    #[test]
+    fn test_when_in_hours() {
+        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
+        let anchor = DateTimeAnchor::InHours(1);
+
+        let parsed = anchor.parse_as_start_of_day(&now);
+        let expected = Utc.with_ymd_and_hms(2025, 1, 1, 16, 30, 45).unwrap();
+        assert_eq!(parsed, expected);
+
+        let parsed = anchor.parse_as_end_of_day(&now);
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_when_in_days() {
+        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
+        let anchor = DateTimeAnchor::InDays(1);
+
+        let parsed = anchor.parse_as_start_of_day(&now);
+        let expected = Utc.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap();
+        assert_eq!(parsed, expected);
+
+        let parsed = anchor.parse_as_end_of_day(&now);
+        assert!(parsed > Utc.with_ymd_and_hms(2025, 1, 2, 23, 59, 59).unwrap());
+        assert!(parsed < Utc.with_ymd_and_hms(2025, 1, 3, 0, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_start_of_day() {
+        let now = Utc.with_ymd_and_hms(2025, 1, 1, 10, 30, 59).unwrap();
+        let parsed = start_of_day(&now);
+        let expected = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_end_of_day() {
+        let now = Utc.with_ymd_and_hms(2025, 1, 1, 10, 30, 0).unwrap();
+        let parsed = end_of_day(&now);
+        let last_sec = Utc.with_ymd_and_hms(2025, 1, 1, 23, 59, 59).unwrap();
+        let next_day = Utc.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap();
+        assert!(parsed > last_sec);
+        assert!(parsed < next_day);
+    }
+
+    #[test]
+    fn test_from_local_datetime_dst_ambiguity_pick_earliest() {
+        let tz = chrono_tz::America::New_York; // DST
+        let now = NaiveDateTime::new(
+            NaiveDate::from_ymd_opt(2025, 11, 2).unwrap(),
+            NaiveTime::from_hms_opt(1, 30, 0).unwrap(),
+        );
+
+        let parsed = from_local_datetime(&tz, now).with_timezone(&Utc);
+        let expected = Utc.with_ymd_and_hms(2025, 11, 2, 5, 30, 0).unwrap();
+        assert_eq!(parsed, expected);
     }
 }

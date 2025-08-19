@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- core: `EventConditions.startable` expect a `DateTimeAnchor` now
+
 ### Fixed
 
 - cli: When the end timestamp is date-only and its time precedes the start, adjust it to the

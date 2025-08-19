@@ -4,7 +4,7 @@
 
 use std::error::Error;
 
-use aimcal_core::{Aim, EventConditions, TodoConditions, TodoStatus};
+use aimcal_core::{Aim, DateTimeAnchor, EventConditions, TodoConditions, TodoStatus};
 use chrono::Duration;
 use clap::{ArgMatches, Command};
 use colored::Colorize;
@@ -31,7 +31,9 @@ impl CmdDashboard {
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "generating dashboard...");
         println!("🗓️ {}", "Events".bold());
-        let conds = EventConditions { startable: true };
+        let conds = EventConditions {
+            startable: Some(DateTimeAnchor::now()),
+        };
         CmdEventList::list(aim, &conds, ArgOutputFormat::Table).await?;
         println!();
 

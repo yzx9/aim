@@ -31,7 +31,7 @@ mod types;
 
 pub use crate::aim::Aim;
 pub use crate::config::{APP_NAME, Config};
-pub use crate::datetime::{LooseDateTime, RangePosition};
+pub use crate::datetime::{DateTimeAnchor, LooseDateTime, RangePosition};
 pub use crate::event::{Event, EventConditions, EventDraft, EventPatch, EventStatus};
 pub use crate::todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus};
 pub use crate::types::{Id, Kind, Pager, Priority, SortOrder};

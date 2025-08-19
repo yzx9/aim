@@ -4,7 +4,9 @@
 
 use std::error::Error;
 
-use aimcal_core::{Aim, EventConditions, EventDraft, EventPatch, EventStatus, Id, Pager};
+use aimcal_core::{
+    Aim, DateTimeAnchor, EventConditions, EventDraft, EventPatch, EventStatus, Id, Pager,
+};
 use clap::{Arg, ArgMatches, Command, arg};
 use colored::Colorize;
 
@@ -236,7 +238,9 @@ impl CmdEventList {
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            conds: EventConditions { startable: true },
+            conds: EventConditions {
+                startable: Some(DateTimeAnchor::now()),
+            },
             output_format: ArgOutputFormat::from(matches),
         }
     }

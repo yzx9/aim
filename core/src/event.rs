@@ -7,7 +7,7 @@ use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 use chrono::{DateTime, Local};
 use icalendar::{Component, EventLike};
 
-use crate::LooseDateTime;
+use crate::{DateTimeAnchor, LooseDateTime};
 
 /// Trait representing a calendar event.
 pub trait Event {
@@ -254,7 +254,7 @@ impl From<icalendar::EventStatus> for EventStatus {
 #[derive(Debug, Clone, Copy)]
 pub struct EventConditions {
     /// Whether to include only startable events.
-    pub startable: bool,
+    pub startable: Option<DateTimeAnchor>,
 }
 
 #[derive(Debug)]
@@ -266,7 +266,7 @@ pub(crate) struct ParsedEventConditions {
 impl ParsedEventConditions {
     pub fn parse(now: &DateTime<Local>, conds: &EventConditions) -> Self {
         Self {
-            end_after: conds.startable.then_some(*now),
+            end_after: conds.startable.map(|w| w.parse_as_start_of_day(now)),
         }
     }
 }
