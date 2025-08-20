@@ -3,6 +3,27 @@ resolver = "3"
 members = ["aimcal", "cli", "core"]
 default-members = ["cli"]
 
+[workspace.package]
+authors = ["Zexin Yuan <aim@yzx9.xyz>"]
+version = "0.5.1"
+edition = "2024"
+
+description = "AIM - Analyze. Interact. Manage Your Time, with calendar support"
+license = "Apache-2.0"
+keywords = ["calendar", "time-management", "productivity"]
+categories = ["command-line-interface", "date-and-time"]
+
+documentation = "https://docs.rs/aimcal/"
+homepage = "https://github.com/yzx9/aim"
+repository = "https://github.com/yzx9/aim"
+readme = "./README.md"
+
+[workspace.dependencies]
+aimcal-core = { path = "core", version = "0.5.1", default-features = false, features = [
+  "clap",
+] }
+aimcal-cli = { version = "0.5.1", path = "cli", default-features = false }
+
 [profile.release]
 strip = true # Automatically strip symbols from the binary.
 lto = true   # Enable Link Time Optimization (LTO)

@@ -1,25 +1,25 @@
 [package]
-authors = ["Zexin Yuan <aim@yzx9.xyz>"]
 name = "aimcal"
-version = "0.5.1"
-license = "Apache-2.0"
-edition = "2024"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
-description = "AIM - Analyze. Interact. Manage Your Time, with calendar support"
-keywords = ["calendar", "time-management", "productivity"]
-categories = ["command-line-interface", "date-and-time"]
+description.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
-documentation = "https://docs.rs/aimcal/"
-homepage = "https://github.com/yzx9/aim"
-repository = "https://github.com/yzx9/aim"
-readme = "../README.md"
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
 
 [[bin]]
 name = "aim"
 path = "src/main.rs"
 
 [dependencies]
-aimcal-cli = { path = "../cli", version = "0.5.1", default-features = false }
+aimcal-cli.workspace = true
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [features]
