@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::Deref;
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::{cell::RefCell, error::Error, ops::Deref, rc::Rc};
 
 use aimcal_core::{Event, EventDraft, EventPatch, EventStatus};
 

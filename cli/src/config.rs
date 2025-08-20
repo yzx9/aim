@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::error::Error;
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{error::Error, path::PathBuf, str::FromStr};
 
 use aimcal_core::{APP_NAME, Config as CoreConfig};
 use colored::Colorize;

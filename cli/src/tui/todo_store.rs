@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::cell::RefCell;
-use std::error::Error;
-use std::ops::Deref;
-use std::rc::Rc;
+use std::{cell::RefCell, error::Error, ops::Deref, rc::Rc};
 
 use aimcal_core::{Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 
