@@ -69,6 +69,9 @@ FROM events
         .to_string();
 
         let mut where_clauses = Vec::new();
+        if conds.start_before.is_some() {
+            where_clauses.push("start <= ?");
+        }
         if conds.end_after.is_some() {
             where_clauses.push("end >= ?");
         }
@@ -80,6 +83,9 @@ FROM events
         sql += "ORDER BY start ASC LIMIT ? OFFSET ?";
 
         let mut executable = sqlx::query_as(&sql);
+        if let Some(start_before) = conds.start_before {
+            executable = executable.bind(format_dt(start_before));
+        }
         if let Some(end_after) = conds.end_after {
             executable = executable.bind(format_dt(end_after));
         }
@@ -94,6 +100,9 @@ FROM events
     pub async fn count(&self, conds: &ParsedEventConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM events".to_string();
         let mut where_clauses = Vec::new();
+        if conds.start_before.is_some() {
+            where_clauses.push("start <= ?");
+        }
         if conds.end_after.is_some() {
             where_clauses.push("end >= ?");
         }
@@ -102,7 +111,15 @@ FROM events
             sql += &where_clauses.join(" AND ");
         }
 
-        let row: (i64,) = sqlx::query_as(&sql).fetch_one(&self.pool).await?;
+        let mut executable = sqlx::query_as(&sql);
+        if let Some(start_before) = conds.start_before {
+            executable = executable.bind(format_dt(start_before));
+        }
+        if let Some(end_after) = conds.end_after {
+            executable = executable.bind(format_dt(end_after));
+        }
+
+        let row: (i64,) = executable.fetch_one(&self.pool).await?;
         Ok(row.0)
     }
 }

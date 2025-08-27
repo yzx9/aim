@@ -250,6 +250,7 @@ impl CmdEventList {
         Self {
             conds: EventConditions {
                 startable: Some(DateTimeAnchor::today()),
+                ..Default::default()
             },
             output_format: ArgOutputFormat::from(matches),
             verbose: get_verbose(matches),

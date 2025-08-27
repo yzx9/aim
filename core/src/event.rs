@@ -273,21 +273,28 @@ impl From<icalendar::EventStatus> for EventStatus {
 }
 
 /// Conditions for filtering events in a calendar.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct EventConditions {
     /// Whether to include only startable events.
     pub startable: Option<DateTimeAnchor>,
+
+    /// The cutoff date and time, events ending after this will be excluded.
+    pub cutoff: Option<DateTimeAnchor>,
 }
 
 #[derive(Debug)]
 pub(crate) struct ParsedEventConditions {
-    /// The date and time after which the event must end to be considered startable.
+    /// The date and time after which the event must start
+    pub start_before: Option<DateTime<Local>>,
+
+    /// The date and time after which the event must end
     pub end_after: Option<DateTime<Local>>,
 }
 
 impl ParsedEventConditions {
     pub fn parse(now: &DateTime<Local>, conds: &EventConditions) -> Self {
         Self {
+            start_before: conds.cutoff.map(|w| w.parse_as_end_of_day(now)),
             end_after: conds.startable.map(|w| w.parse_as_start_of_day(now)),
         }
     }

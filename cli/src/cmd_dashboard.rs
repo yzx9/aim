@@ -32,6 +32,7 @@ impl CmdDashboard {
         println!("🗓️ {}", "Events".bold());
         let conds = EventConditions {
             startable: Some(DateTimeAnchor::today()),
+            ..Default::default()
         };
         CmdEventList::list(aim, &conds, ArgOutputFormat::Table, false).await?;
         println!();

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cli: Add delay command to update todo due with datetime, time, or tomorrow keyword
 - cli: Add verbose argument to show uid
 - core: Set default time range for event if not specified
+- core: Add cutoff condition to filter events
 
 ### Fixed
 
