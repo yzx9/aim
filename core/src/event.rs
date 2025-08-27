@@ -4,7 +4,7 @@
 
 use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Duration, Local};
 use icalendar::{Component, EventLike};
 
 use crate::{DateTimeAnchor, LooseDateTime};
@@ -102,13 +102,35 @@ impl EventDraft {
             Component::description(&mut event, &description);
         }
 
-        if let Some(start) = self.start {
-            EventLike::starts(&mut event, start);
-        }
-
-        if let Some(end) = self.end {
-            EventLike::ends(&mut event, end);
-        }
+        let default_duration = Duration::hours(1);
+        let (start, end) = match (self.start, self.end) {
+            (Some(start), Some(end)) => (start, end),
+            (None, Some(end)) => {
+                // If start is not specified, but end is, set start to end - duration
+                let start = match end {
+                    LooseDateTime::DateOnly(d) => d.into(),
+                    LooseDateTime::Floating(dt) => (dt - default_duration).into(),
+                    LooseDateTime::Local(dt) => (dt - default_duration).into(),
+                };
+                (start, end)
+            }
+            (Some(start), None) => {
+                // If end is not specified, but start is, set it to start + duration
+                let end = match start {
+                    LooseDateTime::DateOnly(d) => d.into(),
+                    LooseDateTime::Floating(dt) => (dt + default_duration).into(),
+                    LooseDateTime::Local(dt) => (dt + default_duration).into(),
+                };
+                (start, end)
+            }
+            (None, None) => {
+                let start = Local::now();
+                let end = (start + default_duration).into();
+                (start.into(), end)
+            }
+        };
+        EventLike::starts(&mut event, start);
+        EventLike::ends(&mut event, end);
 
         icalendar::Event::status(&mut event, self.status.into());
 
