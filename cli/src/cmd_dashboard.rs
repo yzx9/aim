@@ -4,11 +4,13 @@
 
 use std::error::Error;
 
-use aimcal_core::{Aim, DateTimeAnchor, EventConditions, TodoConditions, TodoStatus};
+use aimcal_core::{Aim, DateTimeAnchor, EventConditions, Pager, TodoConditions, TodoStatus};
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 
-use crate::{cmd_event::CmdEventList, cmd_todo::CmdTodoList, util::ArgOutputFormat};
+use crate::cmd_todo::CmdTodoList;
+use crate::event_formatter::{EventColumn, EventFormatter};
+use crate::util::ArgOutputFormat;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CmdDashboard;
@@ -19,7 +21,6 @@ impl CmdDashboard {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("Show the dashboard, which includes upcoming events and todos")
-            .arg(ArgOutputFormat::arg())
     }
 
     pub fn from(_matches: &ArgMatches) -> Self {
@@ -29,15 +30,63 @@ impl CmdDashboard {
     /// Show the dashboard with events and todos.
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "generating dashboard...");
-        println!("🗓️ {}", "Events".bold());
-        let conds = EventConditions {
-            startable: Some(DateTimeAnchor::today()),
-            ..Default::default()
-        };
-        CmdEventList::list(aim, &conds, ArgOutputFormat::Table, false).await?;
+
+        Self::list_events(aim).await?;
         println!();
 
-        println!("✅ {}", "Todos".bold());
+        Self::list_todos(aim).await?;
+        Ok(())
+    }
+
+    async fn list_events(aim: &Aim) -> Result<(), Box<dyn Error>> {
+        const MAX: i64 = 128;
+
+        let pager: Pager = (MAX, 0).into();
+        let columns = vec![
+            EventColumn::id(),
+            EventColumn::time_span(),
+            EventColumn::summary(),
+        ];
+        let formatter = EventFormatter::new(aim.now(), columns);
+
+        println!("🗓️ {}", "Events".bold());
+
+        let mut flag = true;
+        for (title, anchor) in [
+            ("Tomorrow", DateTimeAnchor::tomorrow()),
+            ("Today", DateTimeAnchor::today()),
+        ] {
+            let conds = EventConditions {
+                startable: Some(anchor),
+                cutoff: Some(anchor),
+            };
+            let events = aim.list_events(&conds, &pager).await?;
+            if !events.is_empty() {
+                if !flag {
+                    println!();
+                }
+
+                println!(" {} {}", "►".green(), title.italic());
+                if events.len() >= (MAX as usize) {
+                    let total = aim.count_events(&conds).await?;
+                    if total > MAX {
+                        println!("Displaying the {total}/{MAX} events");
+                    }
+                }
+
+                println!("{}", formatter.format(&events));
+                flag = false;
+            }
+        }
+
+        if flag {
+            println!("No upcoming events");
+        }
+        Ok(())
+    }
+
+    async fn list_todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
+        println!("✅ {}", "Todos: in 2 days".bold());
         let conds = TodoConditions {
             status: Some(TodoStatus::NeedsAction),
             due: Some(DateTimeAnchor::InDays(2)),

@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - core: Set default time range for event if not specified
 - core: Add cutoff condition to filter events
 
+### Changed
+
+- cli: Update dashboard style
+
 ### Fixed
 
 - cli: When the end timestamp is date-only and its time precedes the start, adjust it to the

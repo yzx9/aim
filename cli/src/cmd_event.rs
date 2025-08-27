@@ -269,7 +269,7 @@ impl CmdEventList {
         output_format: ArgOutputFormat,
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
-        const MAX: i64 = 16;
+        const MAX: i64 = 128;
         let pager: Pager = (MAX, 0).into();
         let events = aim.list_events(conds, &pager).await?;
         if events.len() >= (MAX as usize) {

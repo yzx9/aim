@@ -78,12 +78,17 @@ pub enum EventColumn {
     DateTimeSpan(EventColumnDateTimeSpan),
     Id(EventColumnId),
     Summary(EventColumnSummary),
+    TimeSpan(EventColumnTimeSpan),
     Uid(EventColumnUid),
 }
 
 impl EventColumn {
     pub fn datetime_span() -> Self {
         EventColumn::DateTimeSpan(EventColumnDateTimeSpan)
+    }
+
+    pub fn time_span() -> Self {
+        EventColumn::TimeSpan(EventColumnTimeSpan)
     }
 
     pub fn id() -> Self {
@@ -108,9 +113,10 @@ struct ColumnMeta<'a> {
 impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match self.column {
-            EventColumn::DateTimeSpan(_) => "Time Range",
+            EventColumn::DateTimeSpan(_) => "Date Time",
             EventColumn::Id(_) => "ID",
             EventColumn::Summary(_) => "Summary",
+            EventColumn::TimeSpan(_) => "Time",
             EventColumn::Uid(_) => "UID",
         }
         .into()
@@ -121,6 +127,7 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
             EventColumn::DateTimeSpan(a) => a.format(data),
             EventColumn::Id(a) => a.format(data),
             EventColumn::Summary(a) => a.format(data),
+            EventColumn::TimeSpan(a) => a.format(data),
             EventColumn::Uid(a) => a.format(data),
         }
     }
@@ -135,6 +142,7 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
     fn get_color(&self, data: &E) -> Option<Color> {
         match &self.column {
             EventColumn::DateTimeSpan(v) => v.get_color(data, &self.now),
+            EventColumn::TimeSpan(v) => v.get_color(data, &self.now),
             _ => None,
         }
     }
@@ -200,6 +208,10 @@ impl EventColumnDateTimeSpan {
     }
 
     fn get_color(&self, event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
+        Self::event_color(event, now)
+    }
+
+    fn event_color(event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
         const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
         const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
 
@@ -213,6 +225,32 @@ impl EventColumnDateTimeSpan {
                 None
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct EventColumnTimeSpan;
+
+impl EventColumnTimeSpan {
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        match (event.start(), event.end()) {
+            (Some(start), Some(end)) => match (start.time(), end.time()) {
+                (Some(stime), Some(etime)) => {
+                    format!("{}~{}", stime.format("%H:%M"), etime.format("%H:%M"))
+                }
+                (Some(stime), None) => format!("{}~24:00", stime.format("%H:%M")),
+                (None, Some(etime)) => format!("00:00~{}", etime.format("%H:%M")),
+                (None, None) => start.date().format("%Y-%m-%d").to_string(),
+            }
+            .into(),
+            (Some(start), None) => format_datetime(start).into(),
+            (None, Some(end)) => format!("~{}", format_datetime(end)).into(),
+            (None, None) => "".to_string().into(),
+        }
+    }
+
+    fn get_color(&self, event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
+        EventColumnDateTimeSpan::event_color(event, now)
     }
 }
 
