@@ -8,16 +8,17 @@
 use std::error::Error;
 
 use aimcal_core::{Aim, Id, Kind};
-use clap::{Arg, ArgMatches, Command, arg};
+use clap::{arg, Arg, ArgMatches, Command};
 
 use crate::cmd_event::{CmdEventEdit, CmdEventNew};
 use crate::cmd_todo::{CmdTodoEdit, CmdTodoNew};
-use crate::tui::{EventOrTodoDraft, draft_event_or_todo};
-use crate::util::ArgOutputFormat;
+use crate::tui::{draft_event_or_todo, EventOrTodoDraft};
+use crate::util::{arg_verbose, get_verbose, ArgOutputFormat};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdNew {
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdNew {
@@ -28,11 +29,13 @@ impl CmdNew {
             .alias("add")
             .about("Add a new event or todo using TUI")
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         }
     }
 
@@ -43,11 +46,11 @@ impl CmdNew {
         match draft {
             Some(EventOrTodoDraft::Event(draft)) => {
                 tracing::info!("creating new event");
-                CmdEventNew::new_event(aim, draft, self.output_format).await
+                CmdEventNew::new_event(aim, draft, self.output_format, self.verbose).await
             }
             Some(EventOrTodoDraft::Todo(draft)) => {
                 tracing::info!("creating new todo");
-                CmdTodoNew::new_todo(aim, draft, self.output_format).await
+                CmdTodoNew::new_todo(aim, draft, self.output_format, self.verbose).await
             }
             None => {
                 tracing::info!("user cancel the drafting");
@@ -61,6 +64,7 @@ impl CmdNew {
 pub struct CmdEdit {
     pub id: Id,
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdEdit {
@@ -71,12 +75,14 @@ impl CmdEdit {
             .about("Edit a event or todo using TUI")
             .arg(arg_id())
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             id: get_id(matches),
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         }
     }
 
@@ -86,13 +92,13 @@ impl CmdEdit {
         match kind {
             Kind::Event => {
                 tracing::info!("editing event");
-                CmdEventEdit::new_tui(self.id, self.output_format)
+                CmdEventEdit::new_tui(self.id, self.output_format, self.verbose)
                     .run(aim)
                     .await
             }
             Kind::Todo => {
                 tracing::info!("editing todo");
-                CmdTodoEdit::new_tui(self.id, self.output_format)
+                CmdTodoEdit::new_tui(self.id, self.output_format, self.verbose)
                     .run(aim)
                     .await
             }

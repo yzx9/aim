@@ -9,7 +9,7 @@ use chrono::{DateTime, Local};
 use colored::Color;
 
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
-use crate::util::{ArgOutputFormat, format_datetime};
+use crate::util::{format_datetime, ArgOutputFormat};
 
 #[derive(Debug, Clone)]
 pub struct TodoFormatter {
@@ -19,16 +19,10 @@ pub struct TodoFormatter {
 }
 
 impl TodoFormatter {
-    pub fn new(now: DateTime<Local>) -> Self {
+    pub fn new(now: DateTime<Local>, columns: Vec<TodoColumn>) -> Self {
         Self {
             now,
-            columns: vec![
-                TodoColumn::Status(TodoColumnStatus),
-                TodoColumn::Id(TodoColumnId),
-                TodoColumn::Priority(TodoColumnPriority),
-                TodoColumn::Due(TodoColumnDue),
-                TodoColumn::Summary(TodoColumnSummary),
-            ],
+            columns,
             format: ArgOutputFormat::Table,
         }
     }
@@ -81,12 +75,11 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum TodoColumn {
-    Id(TodoColumnId),
     Due(TodoColumnDue),
+    Id(TodoColumnShortId),
     Priority(TodoColumnPriority),
     Status(TodoColumnStatus),
     Summary(TodoColumnSummary),
-    #[allow(dead_code)]
     Uid(TodoColumnUid),
 }
 
@@ -99,8 +92,8 @@ struct ColumnMeta<'a> {
 impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match &self.column {
-            TodoColumn::Id(_) => "ID",
             TodoColumn::Due(_) => "Due",
+            TodoColumn::Id(_) => "ID",
             TodoColumn::Priority(_) => "Priority",
             TodoColumn::Status(_) => "Status",
             TodoColumn::Summary(_) => "Summary",
@@ -111,8 +104,8 @@ impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
 
     fn format<'b>(&self, data: &'b T) -> Cow<'b, str> {
         match &self.column {
-            TodoColumn::Id(a) => a.format(data),
             TodoColumn::Due(a) => a.format(data),
+            TodoColumn::Id(a) => a.format(data),
             TodoColumn::Priority(a) => a.format(data),
             TodoColumn::Status(a) => a.format(data),
             TodoColumn::Summary(a) => a.format(data),
@@ -121,10 +114,9 @@ impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
     }
 
     fn padding_direction(&self) -> PaddingDirection {
+        use TodoColumn::*;
         match &self.column {
-            TodoColumn::Id(_) | TodoColumn::Priority(_) | TodoColumn::Uid(_) => {
-                PaddingDirection::Right
-            }
+            Id(_) | Priority(_) | Uid(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
@@ -139,10 +131,9 @@ impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct TodoColumnId;
+pub struct TodoColumnShortId;
 
-impl TodoColumnId {
-    #[tracing::instrument(skip_all)]
+impl TodoColumnShortId {
     fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
         if let Some(short_id) = todo.short_id() {
             short_id.to_string().into()

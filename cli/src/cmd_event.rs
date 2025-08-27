@@ -10,9 +10,14 @@ use aimcal_core::{
 use clap::{arg, Arg, ArgMatches, Command};
 use colored::Colorize;
 
-use crate::event_formatter::EventFormatter;
+use crate::event_formatter::{
+    EventColumn, EventColumnId, EventColumnSummary, EventColumnTimeRange, EventColumnUid,
+    EventFormatter,
+};
 use crate::tui;
-use crate::util::{parse_datetime, parse_datetime_range, ArgOutputFormat};
+use crate::util::{
+    arg_verbose, get_verbose, parse_datetime, parse_datetime_range, ArgOutputFormat,
+};
 
 #[derive(Debug, Clone)]
 pub struct CmdEventNew {
@@ -24,6 +29,7 @@ pub struct CmdEventNew {
 
     pub tui: bool,
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdEventNew {
@@ -39,6 +45,7 @@ impl CmdEventNew {
             .arg(arg_description())
             .arg(arg_status())
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
@@ -72,6 +79,7 @@ impl CmdEventNew {
 
             tui,
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         })
     }
 
@@ -100,19 +108,17 @@ impl CmdEventNew {
                 summary: self.summary.unwrap_or_default(),
             }
         };
-        Self::new_event(aim, draft, self.output_format).await
+        Self::new_event(aim, draft, self.output_format, self.verbose).await
     }
 
     pub async fn new_event(
         aim: &mut Aim,
         draft: EventDraft,
         output_format: ArgOutputFormat,
+        verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
-        let todo = aim.new_event(draft).await?;
-
-        let formatter = EventFormatter::new(aim.now()).with_output_format(output_format);
-        println!("{}", formatter.format(&[todo]));
-
+        let event = aim.new_event(draft).await?;
+        print_events(aim, &[event], output_format, verbose);
         Ok(())
     }
 }
@@ -128,6 +134,7 @@ pub struct CmdEventEdit {
 
     pub tui: bool,
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdEventEdit {
@@ -143,6 +150,7 @@ impl CmdEventEdit {
             .arg(arg_description())
             .arg(arg_status())
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -169,10 +177,11 @@ impl CmdEventEdit {
 
             tui,
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         }
     }
 
-    pub fn new_tui(id: Id, output_format: ArgOutputFormat) -> Self {
+    pub fn new_tui(id: Id, output_format: ArgOutputFormat, verbose: bool) -> Self {
         Self {
             id,
             description: None,
@@ -183,6 +192,7 @@ impl CmdEventEdit {
 
             tui: true,
             output_format,
+            verbose,
         }
     }
 
@@ -216,9 +226,8 @@ impl CmdEventEdit {
             }
         };
 
-        let todo = aim.update_event(&self.id, patch).await?;
-        let formatter = EventFormatter::new(aim.now()).with_output_format(self.output_format);
-        println!("{}", formatter.format(&[todo]));
+        let event = aim.update_event(&self.id, patch).await?;
+        print_events(aim, &[event], self.output_format, self.verbose);
         Ok(())
     }
 }
@@ -227,6 +236,7 @@ impl CmdEventEdit {
 pub struct CmdEventList {
     pub conds: EventConditions,
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdEventList {
@@ -236,6 +246,7 @@ impl CmdEventList {
         Command::new(Self::NAME)
             .about("List events")
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -244,12 +255,13 @@ impl CmdEventList {
                 startable: Some(DateTimeAnchor::today()),
             },
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         }
     }
 
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "listing events...");
-        Self::list(aim, &self.conds, self.output_format).await
+        Self::list(aim, &self.conds, self.output_format, self.verbose).await
     }
 
     /// List events with the given conditions and output format.
@@ -257,6 +269,7 @@ impl CmdEventList {
         aim: &Aim,
         conds: &EventConditions,
         output_format: ArgOutputFormat,
+        verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         const MAX: i64 = 16;
         let pager: Pager = (MAX, 0).into();
@@ -271,8 +284,7 @@ impl CmdEventList {
             return Ok(());
         }
 
-        let formatter = EventFormatter::new(aim.now()).with_output_format(output_format);
-        println!("{}", formatter.format(&events));
+        print_events(aim, &events, output_format, verbose);
         Ok(())
     }
 }
@@ -334,6 +346,30 @@ fn get_summary(matches: &ArgMatches) -> Option<String> {
     matches.get_one::<String>("summary").cloned()
 }
 
+fn print_events(
+    aim: &Aim,
+    events: &[impl aimcal_core::Event],
+    output_format: ArgOutputFormat,
+    verbose: bool,
+) {
+    let columns = if verbose {
+        vec![
+            EventColumn::Id(EventColumnId),
+            EventColumn::Uid(EventColumnUid),
+            EventColumn::TimeRange(EventColumnTimeRange),
+            EventColumn::Summary(EventColumnSummary),
+        ]
+    } else {
+        vec![
+            EventColumn::Id(EventColumnId),
+            EventColumn::TimeRange(EventColumnTimeRange),
+            EventColumn::Summary(EventColumnSummary),
+        ]
+    };
+    let formatter = EventFormatter::new(aim.now(), columns).with_output_format(output_format);
+    println!("{}", formatter.format(events));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -358,16 +394,23 @@ mod tests {
                 "2025-01-01 14:00:00",
                 "--status",
                 "tentative",
+                "--output-format",
+                "json",
+                "--verbose",
             ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
         let parsed = CmdEventNew::from(sub_matches).unwrap();
-        assert!(!parsed.tui);
+
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.end, Some("2025-01-01 14:00:00".to_string()));
         assert_eq!(parsed.start, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.status, Some(EventStatus::Tentative));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
+
+        assert!(!parsed.tui);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -417,17 +460,24 @@ mod tests {
                 "tentative",
                 "--summary",
                 "Another summary",
+                "--output-format",
+                "json",
+                "--verbose",
             ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("edit").unwrap();
         let parsed = CmdEventEdit::from(sub_matches);
-        assert!(!parsed.tui);
+
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.end, Some("2025-01-01 14:00:00".to_string()));
         assert_eq!(parsed.start, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.status, Some(EventStatus::Tentative));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
+
+        assert!(!parsed.tui);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -452,11 +502,12 @@ mod tests {
             .subcommand(CmdEventList::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "list", "--output-format", "json"])
+            .try_get_matches_from(["test", "list", "--output-format", "json", "--verbose"])
             .unwrap();
 
         let sub_matches = matches.subcommand_matches("list").unwrap();
         let parsed = CmdEventList::from(sub_matches);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 }

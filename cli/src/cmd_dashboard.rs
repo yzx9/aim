@@ -33,7 +33,7 @@ impl CmdDashboard {
         let conds = EventConditions {
             startable: Some(DateTimeAnchor::today()),
         };
-        CmdEventList::list(aim, &conds, ArgOutputFormat::Table).await?;
+        CmdEventList::list(aim, &conds, ArgOutputFormat::Table, false).await?;
         println!();
 
         println!("✅ {}", "Todos".bold());
@@ -41,7 +41,7 @@ impl CmdDashboard {
             status: Some(TodoStatus::NeedsAction),
             due: Some(DateTimeAnchor::InDays(2)),
         };
-        CmdTodoList::list(aim, &conds, ArgOutputFormat::Table).await?;
+        CmdTodoList::list(aim, &conds, ArgOutputFormat::Table, false).await?;
         Ok(())
     }
 }

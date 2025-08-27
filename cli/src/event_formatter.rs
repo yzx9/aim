@@ -9,7 +9,7 @@ use chrono::{DateTime, Local};
 use colored::Color;
 
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
-use crate::util::{ArgOutputFormat, format_datetime};
+use crate::util::{format_datetime, ArgOutputFormat};
 
 #[derive(Debug, Clone)]
 pub struct EventFormatter {
@@ -19,14 +19,10 @@ pub struct EventFormatter {
 }
 
 impl EventFormatter {
-    pub fn new(now: DateTime<Local>) -> Self {
+    pub fn new(now: DateTime<Local>, columns: Vec<EventColumn>) -> Self {
         Self {
             now,
-            columns: vec![
-                EventColumn::ShortId(EventColumnId),
-                EventColumn::TimeRange(EventColumnTimeRange),
-                EventColumn::Summary(EventColumnSummary),
-            ],
+            columns,
             format: ArgOutputFormat::Table,
         }
     }
@@ -79,10 +75,9 @@ impl<'a, E: Event> fmt::Display for Display<'a, E> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum EventColumn {
-    ShortId(EventColumnId),
+    Id(EventColumnId),
     Summary(EventColumnSummary),
     TimeRange(EventColumnTimeRange),
-    #[allow(dead_code)]
     Uid(EventColumnUid),
 }
 
@@ -95,7 +90,7 @@ struct ColumnMeta<'a> {
 impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match self.column {
-            EventColumn::ShortId(_) => "ID",
+            EventColumn::Id(_) => "ID",
             EventColumn::Summary(_) => "Summary",
             EventColumn::TimeRange(_) => "Time Range",
             EventColumn::Uid(_) => "UID",
@@ -105,7 +100,7 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
 
     fn format<'b>(&self, data: &'b E) -> Cow<'b, str> {
         match self.column {
-            EventColumn::ShortId(a) => a.format(data),
+            EventColumn::Id(a) => a.format(data),
             EventColumn::Summary(a) => a.format(data),
             EventColumn::TimeRange(a) => a.format(data),
             EventColumn::Uid(a) => a.format(data),
@@ -114,7 +109,7 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
 
     fn padding_direction(&self) -> PaddingDirection {
         match self.column {
-            EventColumn::ShortId(_) | EventColumn::Uid(_) => PaddingDirection::Right,
+            EventColumn::Id(_) | EventColumn::Uid(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }

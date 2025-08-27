@@ -8,13 +8,16 @@ use aimcal_core::{
     Aim, DateTimeAnchor, Id, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
     TodoStatus,
 };
-use clap::{Arg, ArgMatches, Command, arg};
+use clap::{arg, Arg, ArgMatches, Command};
 use clap_num::number_range;
 use colored::Colorize;
 
-use crate::todo_formatter::TodoFormatter;
+use crate::todo_formatter::{
+    TodoColumn, TodoColumnDue, TodoColumnPriority, TodoColumnShortId, TodoColumnStatus,
+    TodoColumnSummary, TodoColumnUid, TodoFormatter,
+};
 use crate::tui;
-use crate::util::{ArgOutputFormat, parse_datetime, parse_timedelta};
+use crate::util::{arg_verbose, get_verbose, parse_datetime, parse_timedelta, ArgOutputFormat};
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
@@ -27,6 +30,7 @@ pub struct CmdTodoNew {
 
     pub tui: bool,
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdTodoNew {
@@ -43,6 +47,7 @@ impl CmdTodoNew {
             .arg(arg_priority())
             .arg(arg_status())
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
@@ -79,6 +84,7 @@ impl CmdTodoNew {
 
             tui,
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         })
     }
 
@@ -93,6 +99,7 @@ impl CmdTodoNew {
 
             tui: true,
             output_format: ArgOutputFormat::Table,
+            verbose: false,
         }
     }
 
@@ -116,18 +123,17 @@ impl CmdTodoNew {
                 summary: self.summary.unwrap_or_default(),
             }
         };
-        Self::new_todo(aim, draft, self.output_format).await
+        Self::new_todo(aim, draft, self.output_format, self.verbose).await
     }
 
     pub async fn new_todo(
         aim: &mut Aim,
         draft: TodoDraft,
         output_format: ArgOutputFormat,
+        verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         let todo = aim.new_todo(draft).await?;
-
-        let formatter = TodoFormatter::new(aim.now()).with_output_format(output_format);
-        println!("{}", formatter.format(&[todo]));
+        print_todos(aim, &[todo], output_format, verbose);
         Ok(())
     }
 }
@@ -144,6 +150,7 @@ pub struct CmdTodoEdit {
 
     pub tui: bool,
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdTodoEdit {
@@ -160,6 +167,7 @@ impl CmdTodoEdit {
             .arg(arg_priority())
             .arg(arg_status())
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -189,10 +197,11 @@ impl CmdTodoEdit {
 
             tui,
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         }
     }
 
-    pub fn new_tui(id: Id, output_format: ArgOutputFormat) -> Self {
+    pub fn new_tui(id: Id, output_format: ArgOutputFormat, verbose: bool) -> Self {
         Self {
             id,
             description: None,
@@ -204,6 +213,7 @@ impl CmdTodoEdit {
 
             tui: true,
             output_format,
+            verbose,
         }
     }
 
@@ -233,6 +243,7 @@ impl CmdTodoEdit {
             id: self.id,
             patch,
             output_format: self.output_format,
+            verbose: self.verbose,
         }
         .run(aim)
         .await
@@ -245,6 +256,7 @@ macro_rules! cmd_status {
         pub struct $cmd {
             pub ids: Vec<Id>,
             pub output_format: ArgOutputFormat,
+            pub verbose: bool,
         }
 
         impl $cmd {
@@ -255,12 +267,14 @@ macro_rules! cmd_status {
                     .about(concat!("Mark a todo as ", $desc))
                     .arg(arg_ids())
                     .arg(ArgOutputFormat::arg())
+                    .arg(arg_verbose())
             }
 
             pub fn from(matches: &ArgMatches) -> Self {
                 Self {
                     ids: get_ids(matches),
                     output_format: ArgOutputFormat::from(matches),
+                    verbose: get_verbose(matches),
                 }
             }
 
@@ -269,11 +283,12 @@ macro_rules! cmd_status {
                 for id in self.ids {
                     TodoEdit {
                         id,
-                        output_format: self.output_format,
                         patch: TodoPatch {
                             status: Some(TodoStatus::$status),
                             ..Default::default()
                         },
+                        output_format: self.output_format,
+                        verbose: self.verbose,
                     }
                     .run(aim)
                     .await?;
@@ -293,6 +308,7 @@ pub struct CmdTodoDelay {
     pub id: Id,
     pub timedelta: String,
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdTodoDelay {
@@ -304,6 +320,7 @@ impl CmdTodoDelay {
             .arg(arg_id())
             .arg(arg!(<TIMEDELTA> "Time to delay (datetime, time, or 'tomorrow')"))
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -314,6 +331,7 @@ impl CmdTodoDelay {
                 .expect("timedelta is required")
                 .clone(),
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         }
     }
 
@@ -336,6 +354,7 @@ impl CmdTodoDelay {
             id: self.id,
             patch,
             output_format: self.output_format,
+            verbose: self.verbose,
         }
         .run(aim)
         .await
@@ -346,6 +365,7 @@ impl CmdTodoDelay {
 pub struct CmdTodoList {
     pub conds: TodoConditions,
     pub output_format: ArgOutputFormat,
+    pub verbose: bool,
 }
 
 impl CmdTodoList {
@@ -355,6 +375,7 @@ impl CmdTodoList {
         Command::new(Self::NAME)
             .about("List todos")
             .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -364,12 +385,13 @@ impl CmdTodoList {
                 due: Some(DateTimeAnchor::InDays(2)),
             },
             output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
         }
     }
 
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "listing todos...");
-        Self::list(aim, &self.conds, self.output_format).await?;
+        Self::list(aim, &self.conds, self.output_format, self.verbose).await?;
         Ok(())
     }
 
@@ -377,6 +399,7 @@ impl CmdTodoList {
         aim: &Aim,
         conds: &TodoConditions,
         output_format: ArgOutputFormat,
+        verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         const MAX: i64 = 16;
         let pager = (MAX, 0).into();
@@ -397,8 +420,7 @@ impl CmdTodoList {
             println!("{}", "No todos found".italic());
         }
 
-        let formatter = TodoFormatter::new(aim.now()).with_output_format(output_format);
-        println!("{}", formatter.format(&todos));
+        print_todos(aim, &todos, output_format, verbose);
         Ok(())
     }
 }
@@ -408,14 +430,14 @@ struct TodoEdit {
     id: Id,
     patch: TodoPatch,
     output_format: ArgOutputFormat,
+    verbose: bool,
 }
 
 impl TodoEdit {
     async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "edit todo ...");
         let todo = aim.update_todo(&self.id, self.patch).await?;
-        let formatter = TodoFormatter::new(aim.now()).with_output_format(self.output_format);
-        println!("{}", formatter.format(&[todo]));
+        print_todos(aim, &[todo], self.output_format, self.verbose);
         Ok(())
     }
 }
@@ -501,6 +523,34 @@ fn get_summary(matches: &ArgMatches) -> Option<String> {
     matches.get_one::<String>("summary").cloned()
 }
 
+fn print_todos(
+    aim: &Aim,
+    todos: &[impl aimcal_core::Todo],
+    output_format: ArgOutputFormat,
+    verbose: bool,
+) {
+    let columns = if verbose {
+        vec![
+            TodoColumn::Status(TodoColumnStatus),
+            TodoColumn::Id(TodoColumnShortId),
+            TodoColumn::Uid(TodoColumnUid),
+            TodoColumn::Priority(TodoColumnPriority),
+            TodoColumn::Due(TodoColumnDue),
+            TodoColumn::Summary(TodoColumnSummary),
+        ]
+    } else {
+        vec![
+            TodoColumn::Status(TodoColumnStatus),
+            TodoColumn::Id(TodoColumnShortId),
+            TodoColumn::Priority(TodoColumnPriority),
+            TodoColumn::Due(TodoColumnDue),
+            TodoColumn::Summary(TodoColumnSummary),
+        ]
+    };
+    let formatter = TodoFormatter::new(aim.now(), columns).with_output_format(output_format);
+    println!("{}", formatter.format(todos));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,17 +578,24 @@ mod tests {
                 "1",
                 "--status",
                 "completed",
+                "--output-format",
+                "json",
+                "--verbose",
             ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
         let parsed = CmdTodoNew::from(sub_matches).unwrap();
-        assert!(!parsed.tui);
+
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.percent_complete, Some(66));
         assert_eq!(parsed.priority, Some(Priority::P1));
         assert_eq!(parsed.status, Some(TodoStatus::Completed));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
+
+        assert!(!parsed.tui);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -547,10 +604,14 @@ mod tests {
             .subcommand_required(true)
             .subcommand(CmdTodoNew::command());
 
-        let matches = cmd.try_get_matches_from(["test", "new"]).unwrap();
+        let matches = cmd
+            .try_get_matches_from(["test", "new", "--output-format", "json", "--verbose"])
+            .unwrap();
         let sub_matches = matches.subcommand_matches("new").unwrap();
         let parsed = CmdTodoNew::from(sub_matches).unwrap();
         assert!(parsed.tui);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -590,10 +651,14 @@ mod tests {
                 "needs-action",
                 "--summary",
                 "Another summary",
+                "--output-format",
+                "json",
+                "--verbose",
             ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("edit").unwrap();
         let parsed = CmdTodoEdit::from(sub_matches);
+
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
@@ -601,6 +666,10 @@ mod tests {
         assert_eq!(parsed.percent_complete, Some(66));
         assert_eq!(parsed.status, Some(TodoStatus::NeedsAction));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
+
+        assert!(!parsed.tui);
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -610,12 +679,22 @@ mod tests {
             .subcommand(CmdTodoEdit::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "edit", "test_id"])
+            .try_get_matches_from([
+                "test",
+                "edit",
+                "test_id",
+                "--output-format",
+                "json",
+                "--verbose",
+            ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("edit").unwrap();
         let parsed = CmdTodoEdit::from(sub_matches);
+
         assert!(parsed.tui);
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -625,12 +704,20 @@ mod tests {
             .subcommand(CmdTodoDone::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "done", "abc", "--output-format", "json"])
+            .try_get_matches_from([
+                "test",
+                "done",
+                "abc",
+                "--output-format",
+                "json",
+                "--verbose",
+            ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("done").unwrap();
         let parsed = CmdTodoDone::from(sub_matches);
         assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -640,7 +727,16 @@ mod tests {
             .subcommand(CmdTodoDone::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "done", "a", "b", "c", "--output-format", "json"])
+            .try_get_matches_from([
+                "test",
+                "done",
+                "a",
+                "b",
+                "c",
+                "--output-format",
+                "json",
+                "--verbose",
+            ])
             .unwrap();
         let sub_matches = matches.subcommand_matches("done").unwrap();
         let parsed = CmdTodoDone::from(sub_matches);
@@ -653,6 +749,7 @@ mod tests {
             ]
         );
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -662,13 +759,21 @@ mod tests {
             .subcommand(CmdTodoUndo::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "undo", "abc", "--output-format", "json"])
+            .try_get_matches_from([
+                "test",
+                "undo",
+                "abc",
+                "--output-format",
+                "json",
+                "--verbose",
+            ])
             .unwrap();
 
         let sub_matches = matches.subcommand_matches("undo").unwrap();
         let parsed = CmdTodoUndo::from(sub_matches);
         assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -701,13 +806,21 @@ mod tests {
             .subcommand(CmdTodoCancel::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "cancel", "abc", "--output-format", "json"])
+            .try_get_matches_from([
+                "test",
+                "cancel",
+                "abc",
+                "--output-format",
+                "json",
+                "--verbose",
+            ])
             .unwrap();
 
         let sub_matches = matches.subcommand_matches("cancel").unwrap();
         let parsed = CmdTodoCancel::from(sub_matches);
         assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -747,6 +860,7 @@ mod tests {
                 "timedelta",
                 "--output-format",
                 "json",
+                "--verbose",
             ])
             .unwrap();
 
@@ -755,6 +869,7 @@ mod tests {
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.timedelta, "timedelta");
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]
@@ -764,11 +879,12 @@ mod tests {
             .subcommand(CmdTodoList::command());
 
         let matches = cmd
-            .try_get_matches_from(["test", "list", "--output-format", "json"])
+            .try_get_matches_from(["test", "list", "--output-format", "json", "--verbose"])
             .unwrap();
 
         let sub_matches = matches.subcommand_matches("list").unwrap();
         let parsed = CmdTodoList::from(sub_matches);
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
     }
 }
