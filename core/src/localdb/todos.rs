@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chrono::{DateTime, Local};
-use sqlx::sqlite::SqlitePool;
+use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 
 use crate::todo::{ParsedTodoConditions, ParsedTodoSort};
 use crate::{LooseDateTime, Pager, Priority, Todo, TodoStatus};
@@ -68,23 +68,12 @@ WHERE uid = ?;
         sort: &[ParsedTodoSort],
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
-        let mut where_clauses = Vec::new();
-        if conds.status.is_some() {
-            where_clauses.push("status = ?");
-        }
-        if conds.due.is_some() {
-            where_clauses.push("due <= ?");
-        }
-
         let mut sql = "
 SELECT uid, path, completed, description, percent, priority, status, summary, due
 FROM todos
 "
         .to_string();
-        if !where_clauses.is_empty() {
-            sql += " WHERE ";
-            sql += &where_clauses.join(" AND ");
-        }
+        sql += &self.build_where(conds);
 
         if !sort.is_empty() {
             sql += " ORDER BY ";
@@ -127,7 +116,15 @@ FROM todos
 
     pub async fn count(&self, conds: &ParsedTodoConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM todos".to_string();
+        sql += &self.build_where(conds);
 
+        let mut query = sqlx::query_as(&sql);
+        query = self.bind_conditions(conds, query);
+        let row: (i64,) = query.fetch_one(&self.pool).await?;
+        Ok(row.0)
+    }
+
+    fn build_where(&self, conds: &ParsedTodoConditions) -> String {
         let mut where_clauses = Vec::new();
         if conds.status.is_some() {
             where_clauses.push("status = ?");
@@ -135,21 +132,27 @@ FROM todos
         if conds.due.is_some() {
             where_clauses.push("due <= ?");
         }
-        if !where_clauses.is_empty() {
-            sql += " WHERE ";
-            sql += &where_clauses.join(" AND ");
-        }
 
-        let mut executable = sqlx::query_as(&sql);
+        if !where_clauses.is_empty() {
+            format!(" WHERE {}", where_clauses.join(" AND "))
+        } else {
+            "".to_string()
+        }
+    }
+
+    fn bind_conditions<'a, O>(
+        &self,
+        conds: &'a ParsedTodoConditions,
+        mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
+    ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
         if let Some(status) = &conds.status {
             let status: &str = status.as_ref();
-            executable = executable.bind(status);
+            query = query.bind(status);
         }
         if let Some(due) = conds.due {
-            executable = executable.bind(format_dt(due));
+            query = query.bind(format_dt(due));
         }
-        let row: (i64,) = executable.fetch_one(&self.pool).await?;
-        Ok(row.0)
+        query
     }
 }
 

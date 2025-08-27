@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chrono::{DateTime, Local};
-use sqlx::SqlitePool;
+use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 
 use crate::{Event, EventStatus, LooseDateTime, Pager, event::ParsedEventConditions};
 
@@ -67,28 +67,11 @@ SELECT uid, path, summary, description, status, start, end
 FROM events
 "
         .to_string();
-
-        let mut where_clauses = Vec::new();
-        if conds.start_before.is_some() {
-            where_clauses.push("start <= ?");
-        }
-        if conds.end_after.is_some() {
-            where_clauses.push("end >= ?");
-        }
-        if !where_clauses.is_empty() {
-            sql += " WHERE ";
-            sql += &where_clauses.join(" AND ");
-        }
-
+        sql += &self.build_where(conds);
         sql += "ORDER BY start ASC LIMIT ? OFFSET ?";
 
         let mut executable = sqlx::query_as(&sql);
-        if let Some(start_before) = conds.start_before {
-            executable = executable.bind(format_dt(start_before));
-        }
-        if let Some(end_after) = conds.end_after {
-            executable = executable.bind(format_dt(end_after));
-        }
+        executable = self.bind_conditions(conds, executable);
 
         executable
             .bind(pager.limit)
@@ -99,6 +82,16 @@ FROM events
 
     pub async fn count(&self, conds: &ParsedEventConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM events".to_string();
+        sql += &self.build_where(conds);
+
+        let mut executable = sqlx::query_as(&sql);
+        executable = self.bind_conditions(conds, executable);
+
+        let row: (i64,) = executable.fetch_one(&self.pool).await?;
+        Ok(row.0)
+    }
+
+    fn build_where(&self, conds: &ParsedEventConditions) -> String {
         let mut where_clauses = Vec::new();
         if conds.start_before.is_some() {
             where_clauses.push("start <= ?");
@@ -106,21 +99,26 @@ FROM events
         if conds.end_after.is_some() {
             where_clauses.push("end >= ?");
         }
-        if !where_clauses.is_empty() {
-            sql += " WHERE ";
-            sql += &where_clauses.join(" AND ");
-        }
 
-        let mut executable = sqlx::query_as(&sql);
+        if !where_clauses.is_empty() {
+            format!(" WHERE {}", where_clauses.join(" AND "))
+        } else {
+            "".to_string()
+        }
+    }
+
+    fn bind_conditions<'a, O>(
+        &self,
+        conds: &'a ParsedEventConditions,
+        mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
+    ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
         if let Some(start_before) = conds.start_before {
-            executable = executable.bind(format_dt(start_before));
+            query = query.bind(format_dt(start_before));
         }
         if let Some(end_after) = conds.end_after {
-            executable = executable.bind(format_dt(end_after));
+            query = query.bind(format_dt(end_after));
         }
-
-        let row: (i64,) = executable.fetch_one(&self.pool).await?;
-        Ok(row.0)
+        query
     }
 }
 
