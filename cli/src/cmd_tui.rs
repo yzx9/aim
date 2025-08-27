@@ -8,12 +8,12 @@
 use std::error::Error;
 
 use aimcal_core::{Aim, Id, Kind};
-use clap::{arg, Arg, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command, arg};
 
 use crate::cmd_event::{CmdEventEdit, CmdEventNew};
 use crate::cmd_todo::{CmdTodoEdit, CmdTodoNew};
-use crate::tui::{draft_event_or_todo, EventOrTodoDraft};
-use crate::util::{arg_verbose, get_verbose, ArgOutputFormat};
+use crate::tui::{EventOrTodoDraft, draft_event_or_todo};
+use crate::util::{ArgOutputFormat, arg_verbose, get_verbose};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdNew {

@@ -9,7 +9,7 @@ use chrono::{DateTime, Local};
 use colored::Color;
 
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
-use crate::util::{format_datetime, ArgOutputFormat};
+use crate::util::{ArgOutputFormat, format_datetime};
 
 #[derive(Debug, Clone)]
 pub struct TodoFormatter {

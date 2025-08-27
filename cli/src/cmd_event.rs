@@ -7,13 +7,13 @@ use std::error::Error;
 use aimcal_core::{
     Aim, DateTimeAnchor, Event, EventConditions, EventDraft, EventPatch, EventStatus, Id, Pager,
 };
-use clap::{arg, Arg, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command, arg};
 use colored::Colorize;
 
 use crate::event_formatter::{EventColumn, EventFormatter};
 use crate::tui;
 use crate::util::{
-    arg_verbose, get_verbose, parse_datetime, parse_datetime_range, ArgOutputFormat,
+    ArgOutputFormat, arg_verbose, get_verbose, parse_datetime, parse_datetime_range,
 };
 
 #[derive(Debug, Clone)]

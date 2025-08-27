@@ -7,7 +7,7 @@ use std::error::Error;
 use aimcal_core::LooseDateTime;
 use chrono::offset::LocalResult;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
-use clap::{arg, value_parser, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, arg, value_parser};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -505,8 +505,9 @@ mod tests {
 
     #[test]
     fn test_byte_range_combining_mark() {
-        let s = "e\u{0301}b"; // 'e' + combining acute accent = 1 grapheme cluster, then 'b'
-                              // UTF-8: 'e' (1 byte) + U+0301 (2 bytes) = 3 bytes total
+        // 'e' + combining acute accent = 1 grapheme cluster,
+        // then 'b' UTF-8: 'e' (1 byte) + U+0301 (2 bytes) = 3 bytes total
+        let s = "e\u{0301}b";
         assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..3));
         assert_eq!(byte_range_of_grapheme_at(s, 1), Some(3..4)); // 'b'
         assert_eq!(byte_range_of_grapheme_at(s, 2), None); // out of bounds

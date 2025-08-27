@@ -8,13 +8,13 @@ use aimcal_core::{
     Aim, DateTimeAnchor, Id, Priority, SortOrder, Todo, TodoConditions, TodoDraft, TodoPatch,
     TodoSort, TodoStatus,
 };
-use clap::{arg, Arg, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command, arg};
 use clap_num::number_range;
 use colored::Colorize;
 
 use crate::todo_formatter::{TodoColumn, TodoFormatter};
 use crate::tui;
-use crate::util::{arg_verbose, get_verbose, parse_datetime, parse_timedelta, ArgOutputFormat};
+use crate::util::{ArgOutputFormat, arg_verbose, get_verbose, parse_datetime, parse_timedelta};
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
