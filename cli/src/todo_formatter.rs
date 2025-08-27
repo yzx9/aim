@@ -48,7 +48,7 @@ pub struct Display<'a, T: Todo> {
 
 impl<'a, T: Todo> fmt::Display for Display<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let columns = self
+        let columns: Vec<_> = self
             .formatter
             .columns
             .iter()
@@ -56,7 +56,7 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
                 column,
                 now: self.formatter.now,
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         match self.formatter.format {
             ArgOutputFormat::Json => write!(
@@ -76,11 +76,37 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
 #[derive(Debug, Clone, Copy)]
 pub enum TodoColumn {
     Due(TodoColumnDue),
-    Id(TodoColumnShortId),
+    Id(TodoColumnId),
     Priority(TodoColumnPriority),
     Status(TodoColumnStatus),
     Summary(TodoColumnSummary),
     Uid(TodoColumnUid),
+}
+
+impl TodoColumn {
+    pub fn due() -> Self {
+        TodoColumn::Due(TodoColumnDue)
+    }
+
+    pub fn id() -> Self {
+        TodoColumn::Id(TodoColumnId)
+    }
+
+    pub fn priority() -> Self {
+        TodoColumn::Priority(TodoColumnPriority)
+    }
+
+    pub fn status() -> Self {
+        TodoColumn::Status(TodoColumnStatus)
+    }
+
+    pub fn summary() -> Self {
+        TodoColumn::Summary(TodoColumnSummary)
+    }
+
+    pub fn uid() -> Self {
+        TodoColumn::Uid(TodoColumnUid)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -131,9 +157,9 @@ impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct TodoColumnShortId;
+pub struct TodoColumnId;
 
-impl TodoColumnShortId {
+impl TodoColumnId {
     fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
         if let Some(short_id) = todo.short_id() {
             short_id.to_string().into()

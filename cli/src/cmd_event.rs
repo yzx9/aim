@@ -5,15 +5,12 @@
 use std::error::Error;
 
 use aimcal_core::{
-    Aim, DateTimeAnchor, EventConditions, EventDraft, EventPatch, EventStatus, Id, Pager,
+    Aim, DateTimeAnchor, Event, EventConditions, EventDraft, EventPatch, EventStatus, Id, Pager,
 };
 use clap::{arg, Arg, ArgMatches, Command};
 use colored::Colorize;
 
-use crate::event_formatter::{
-    EventColumn, EventColumnId, EventColumnSummary, EventColumnTimeRange, EventColumnUid,
-    EventFormatter,
-};
+use crate::event_formatter::{EventColumn, EventFormatter};
 use crate::tui;
 use crate::util::{
     arg_verbose, get_verbose, parse_datetime, parse_datetime_range, ArgOutputFormat,
@@ -343,27 +340,22 @@ fn arg_summary(positional: bool) -> Arg {
 }
 
 fn get_summary(matches: &ArgMatches) -> Option<String> {
-    matches.get_one::<String>("summary").cloned()
+    matches.get_one("summary").cloned()
 }
 
-fn print_events(
-    aim: &Aim,
-    events: &[impl aimcal_core::Event],
-    output_format: ArgOutputFormat,
-    verbose: bool,
-) {
+fn print_events(aim: &Aim, events: &[impl Event], output_format: ArgOutputFormat, verbose: bool) {
     let columns = if verbose {
         vec![
-            EventColumn::Id(EventColumnId),
-            EventColumn::Uid(EventColumnUid),
-            EventColumn::TimeRange(EventColumnTimeRange),
-            EventColumn::Summary(EventColumnSummary),
+            EventColumn::id(),
+            EventColumn::uid(),
+            EventColumn::datetime_span(),
+            EventColumn::summary(),
         ]
     } else {
         vec![
-            EventColumn::Id(EventColumnId),
-            EventColumn::TimeRange(EventColumnTimeRange),
-            EventColumn::Summary(EventColumnSummary),
+            EventColumn::id(),
+            EventColumn::datetime_span(),
+            EventColumn::summary(),
         ]
     };
     let formatter = EventFormatter::new(aim.now(), columns).with_output_format(output_format);

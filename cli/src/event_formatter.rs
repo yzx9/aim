@@ -48,7 +48,7 @@ pub struct Display<'a, E: Event> {
 
 impl<'a, E: Event> fmt::Display for Display<'a, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let columns = self
+        let columns: Vec<_> = self
             .formatter
             .columns
             .iter()
@@ -56,7 +56,7 @@ impl<'a, E: Event> fmt::Display for Display<'a, E> {
                 column,
                 now: self.formatter.now,
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         match self.formatter.format {
             ArgOutputFormat::Json => write!(
@@ -75,10 +75,28 @@ impl<'a, E: Event> fmt::Display for Display<'a, E> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum EventColumn {
+    DateTimeSpan(EventColumnDateTimeSpan),
     Id(EventColumnId),
     Summary(EventColumnSummary),
-    TimeRange(EventColumnTimeRange),
     Uid(EventColumnUid),
+}
+
+impl EventColumn {
+    pub fn datetime_span() -> Self {
+        EventColumn::DateTimeSpan(EventColumnDateTimeSpan)
+    }
+
+    pub fn id() -> Self {
+        EventColumn::Id(EventColumnId)
+    }
+
+    pub fn summary() -> Self {
+        EventColumn::Summary(EventColumnSummary)
+    }
+
+    pub fn uid() -> Self {
+        EventColumn::Uid(EventColumnUid)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -90,9 +108,9 @@ struct ColumnMeta<'a> {
 impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match self.column {
+            EventColumn::DateTimeSpan(_) => "Time Range",
             EventColumn::Id(_) => "ID",
             EventColumn::Summary(_) => "Summary",
-            EventColumn::TimeRange(_) => "Time Range",
             EventColumn::Uid(_) => "UID",
         }
         .into()
@@ -100,9 +118,9 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
 
     fn format<'b>(&self, data: &'b E) -> Cow<'b, str> {
         match self.column {
+            EventColumn::DateTimeSpan(a) => a.format(data),
             EventColumn::Id(a) => a.format(data),
             EventColumn::Summary(a) => a.format(data),
-            EventColumn::TimeRange(a) => a.format(data),
             EventColumn::Uid(a) => a.format(data),
         }
     }
@@ -116,7 +134,7 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
 
     fn get_color(&self, data: &E) -> Option<Color> {
         match &self.column {
-            EventColumn::TimeRange(v) => v.get_color(data, &self.now),
+            EventColumn::DateTimeSpan(v) => v.get_color(data, &self.now),
             _ => None,
         }
     }
@@ -147,9 +165,9 @@ impl EventColumnSummary {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct EventColumnTimeRange;
+pub struct EventColumnDateTimeSpan;
 
-impl EventColumnTimeRange {
+impl EventColumnDateTimeSpan {
     fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
         match (event.start(), event.end()) {
             (Some(start), Some(end)) => match start.date() == end.date() {

@@ -5,17 +5,14 @@
 use std::error::Error;
 
 use aimcal_core::{
-    Aim, DateTimeAnchor, Id, Priority, SortOrder, TodoConditions, TodoDraft, TodoPatch, TodoSort,
-    TodoStatus,
+    Aim, DateTimeAnchor, Id, Priority, SortOrder, Todo, TodoConditions, TodoDraft, TodoPatch,
+    TodoSort, TodoStatus,
 };
 use clap::{arg, Arg, ArgMatches, Command};
 use clap_num::number_range;
 use colored::Colorize;
 
-use crate::todo_formatter::{
-    TodoColumn, TodoColumnDue, TodoColumnPriority, TodoColumnShortId, TodoColumnStatus,
-    TodoColumnSummary, TodoColumnUid, TodoFormatter,
-};
+use crate::todo_formatter::{TodoColumn, TodoFormatter};
 use crate::tui;
 use crate::util::{arg_verbose, get_verbose, parse_datetime, parse_timedelta, ArgOutputFormat};
 
@@ -520,31 +517,26 @@ fn arg_summary(positional: bool) -> Arg {
 }
 
 fn get_summary(matches: &ArgMatches) -> Option<String> {
-    matches.get_one::<String>("summary").cloned()
+    matches.get_one("summary").cloned()
 }
 
-fn print_todos(
-    aim: &Aim,
-    todos: &[impl aimcal_core::Todo],
-    output_format: ArgOutputFormat,
-    verbose: bool,
-) {
+fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: ArgOutputFormat, verbose: bool) {
     let columns = if verbose {
         vec![
-            TodoColumn::Status(TodoColumnStatus),
-            TodoColumn::Id(TodoColumnShortId),
-            TodoColumn::Uid(TodoColumnUid),
-            TodoColumn::Priority(TodoColumnPriority),
-            TodoColumn::Due(TodoColumnDue),
-            TodoColumn::Summary(TodoColumnSummary),
+            TodoColumn::status(),
+            TodoColumn::id(),
+            TodoColumn::uid(),
+            TodoColumn::priority(),
+            TodoColumn::due(),
+            TodoColumn::summary(),
         ]
     } else {
         vec![
-            TodoColumn::Status(TodoColumnStatus),
-            TodoColumn::Id(TodoColumnShortId),
-            TodoColumn::Priority(TodoColumnPriority),
-            TodoColumn::Due(TodoColumnDue),
-            TodoColumn::Summary(TodoColumnSummary),
+            TodoColumn::status(),
+            TodoColumn::id(),
+            TodoColumn::priority(),
+            TodoColumn::due(),
+            TodoColumn::summary(),
         ]
     };
     let formatter = TodoFormatter::new(aim.now(), columns).with_output_format(output_format);
