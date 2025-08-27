@@ -7,12 +7,12 @@ use std::error::Error;
 use aimcal_core::{
     Aim, DateTimeAnchor, EventConditions, EventDraft, EventPatch, EventStatus, Id, Pager,
 };
-use clap::{Arg, ArgMatches, Command, arg};
+use clap::{arg, Arg, ArgMatches, Command};
 use colored::Colorize;
 
 use crate::event_formatter::EventFormatter;
 use crate::tui;
-use crate::util::{ArgOutputFormat, parse_datetime, parse_datetime_range};
+use crate::util::{parse_datetime, parse_datetime_range, ArgOutputFormat};
 
 #[derive(Debug, Clone)]
 pub struct CmdEventNew {
@@ -86,14 +86,16 @@ impl CmdEventNew {
                 }
             }
         } else {
+            let (start, end) = match (self.start, self.end) {
+                (Some(start), Some(end)) => parse_datetime_range(&start, &end)?,
+                (Some(start), None) => (parse_datetime(&start)?, None),
+                (None, Some(end)) => (None, parse_datetime(&end)?),
+                (None, None) => (None, None),
+            };
             EventDraft {
                 description: self.description,
-                end: self.end.map(|a| parse_datetime(&a)).transpose()?.flatten(),
-                start: self
-                    .start
-                    .map(|a| parse_datetime(&a))
-                    .transpose()?
-                    .flatten(),
+                end,
+                start,
                 status: self.status.unwrap_or_default(),
                 summary: self.summary.unwrap_or_default(),
             }
