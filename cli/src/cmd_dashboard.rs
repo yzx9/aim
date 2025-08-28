@@ -65,6 +65,7 @@ impl CmdDashboard {
                 if !flag {
                     println!();
                 }
+                flag = false;
 
                 println!(" {} {}", "►".green(), title.italic());
                 if events.len() >= (MAX as usize) {
@@ -75,18 +76,17 @@ impl CmdDashboard {
                 }
 
                 println!("{}", formatter.format(&events));
-                flag = false;
             }
         }
 
         if flag {
-            println!("No upcoming events");
+            println!("{}", "No upcoming events".italic());
         }
         Ok(())
     }
 
     async fn list_todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
-        println!("✅ {}", "Todos: in 2 days".bold());
+        println!("✅ {}", "To-Dos: within 2 days".bold());
         let conds = TodoConditions {
             status: Some(TodoStatus::NeedsAction),
             due: Some(DateTimeAnchor::InDays(2)),
