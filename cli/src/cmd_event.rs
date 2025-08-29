@@ -275,7 +275,8 @@ impl CmdEventList {
         if events.len() >= (MAX as usize) {
             let total = aim.count_events(conds).await?;
             if total > MAX {
-                println!("Displaying the {total}/{MAX} events");
+                let prompt = format!("Displaying the {MAX}/{total} todos");
+                println!("{}", prompt.italic());
             }
         } else if events.is_empty() && output_format == ArgOutputFormat::Table {
             println!("{}", "No events found".italic());

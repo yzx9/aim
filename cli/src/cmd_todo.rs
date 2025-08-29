@@ -398,7 +398,7 @@ impl CmdTodoList {
         output_format: ArgOutputFormat,
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
-        const MAX: i64 = 16;
+        const MAX: i64 = 128;
         let pager = (MAX, 0).into();
         let sort = vec![
             TodoSort::Priority {
@@ -411,7 +411,8 @@ impl CmdTodoList {
         if todos.len() >= (MAX as usize) {
             let total = aim.count_todos(conds).await?;
             if total > MAX {
-                println!("Displaying the {total}/{MAX} todos");
+                let prompt = format!("Displaying the {MAX}/{total} todos");
+                println!("{}", prompt.italic());
             }
         } else if todos.is_empty() && output_format == ArgOutputFormat::Table {
             println!("{}", "No todos found".italic());
