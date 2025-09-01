@@ -193,17 +193,6 @@ pub fn byte_range_of_grapheme_at(s: &str, g_idx: usize) -> Option<std::ops::Rang
     None
 }
 
-/// Integer division that always rounds down (toward negative infinity).
-pub fn div_floor(a: isize, b: isize) -> isize {
-    let d = a / b; // Truncated division toward zero
-    let r = a % b;
-    if (r != 0) && ((r < 0) != (b < 0)) {
-        d - 1
-    } else {
-        d
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -518,41 +507,5 @@ mod tests {
         let s = "";
         assert_eq!(byte_range_of_grapheme_at(s, 0), None);
         assert_eq!(byte_range_of_grapheme_at(s, 1), None);
-    }
-
-    #[test]
-    fn test_div_floor_positive_division() {
-        assert_eq!(div_floor(7, 3), 2); // 7 / 3 = 2.333 → floor = 2
-        assert_eq!(div_floor(9, 3), 3); // exact division
-    }
-
-    #[test]
-    fn test_div_floor_negative_dividend() {
-        assert_eq!(div_floor(-7, 3), -3); // -2.333 → floor = -3
-        assert_eq!(div_floor(-9, 3), -3); // exact
-    }
-
-    #[test]
-    fn test_div_floor_negative_divisor() {
-        assert_eq!(div_floor(7, -3), -3); // -2.333 → floor = -3
-        assert_eq!(div_floor(9, -3), -3); // exact
-    }
-
-    #[test]
-    fn test_div_floor_both_negative() {
-        assert_eq!(div_floor(-7, -3), 2); // 2.333 → floor = 2
-        assert_eq!(div_floor(-9, -3), 3); // exact
-    }
-
-    #[test]
-    fn test_div_floor_zero_dividend() {
-        assert_eq!(div_floor(0, 3), 0);
-        assert_eq!(div_floor(0, -3), 0);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_div_floor_divide_by_zero() {
-        div_floor(5, 0);
     }
 }

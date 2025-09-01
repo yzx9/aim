@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cli: Improve dashboard command output
 - cli: Increase max todos
+- cli: Hide percent complete field in TUI todo editor when status is not InProcess (close #19)
 
 ## [v0.6.0] - 2025-08-27
 

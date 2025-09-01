@@ -40,6 +40,12 @@ pub trait Component<S> {
 
     /// Deactivates the component, allowing it to clean up resources or state.
     fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &RefCell<S>) {}
+
+    /// Returns whether the component is currently visible.
+    /// By default, all components are visible.
+    fn is_visible(&self, _store: &RefCell<S>) -> bool {
+        true
+    }
 }
 
 impl<S, T> Component<S> for Box<T>
@@ -70,5 +76,9 @@ where
 
     fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         (**self).deactivate(dispatcher, store);
+    }
+
+    fn is_visible(&self, store: &RefCell<S>) -> bool {
+        (**self).is_visible(store)
     }
 }

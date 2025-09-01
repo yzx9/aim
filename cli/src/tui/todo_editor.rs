@@ -23,9 +23,9 @@ pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S, Box<dyn Component<
     Form::new(vec![
         Box::new(new_summary()),
         Box::new(new_due()),
-        Box::new(new_percent_complete()),
         Box::new(FieldPriority::new()),
         Box::new(new_status()),
+        Box::new(ConditionalPercentComplete::new()),
         Box::new(new_description()),
     ])
 }
@@ -83,6 +83,60 @@ impl<S: TodoStoreLike> Access<S, Option<u8>> for PercentCompleteAccess {
 fn new_percent_complete<S: TodoStoreLike>()
 -> Input<S, PositiveIntegerAccess<S, u8, PercentCompleteAccess>> {
     Input::new("Percent complete".to_string())
+}
+
+/// A conditional component that only renders when the todo status is `InProcess`
+struct ConditionalPercentComplete<S: TodoStoreLike>(
+    Input<S, PositiveIntegerAccess<S, u8, PercentCompleteAccess>>,
+);
+
+impl<S: TodoStoreLike> ConditionalPercentComplete<S> {
+    fn new() -> Self {
+        Self(new_percent_complete())
+    }
+}
+
+impl<S: TodoStoreLike> Component<S> for ConditionalPercentComplete<S> {
+    fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
+        if self.is_visible(store) {
+            self.0.render(store, area, buf);
+        }
+    }
+
+    fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
+        self.is_visible(store)
+            .then(|| self.0.get_cursor_position(store, area))
+            .flatten()
+    }
+
+    fn on_key(
+        &mut self,
+        dispatcher: &mut Dispatcher,
+        store: &RefCell<S>,
+        area: Rect,
+        key: KeyCode,
+    ) -> Option<Message> {
+        self.is_visible(store)
+            .then(|| self.0.on_key(dispatcher, store, area, key))
+            .flatten()
+    }
+
+    fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
+        if self.is_visible(store) {
+            self.0.activate(dispatcher, store);
+        }
+    }
+
+    fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
+        if self.is_visible(store) {
+            self.0.deactivate(dispatcher, store);
+        }
+    }
+
+    fn is_visible(&self, store: &RefCell<S>) -> bool {
+        // Only visible if the status is InProcess
+        matches!(store.borrow().todo().data.status, TodoStatus::InProcess)
+    }
 }
 
 fn new_status<S: TodoStoreLike>() -> RadioGroup<S, TodoStatus, StatusAccess> {
