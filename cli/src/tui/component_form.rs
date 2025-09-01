@@ -12,7 +12,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::tui::component::{Component, Message};
 use crate::tui::dispatcher::{Action, Dispatcher};
-use crate::util::{byte_range_of_grapheme_at, div_floor, unicode_width_of_slice};
+use crate::util::{byte_range_of_grapheme_at, unicode_width_of_slice};
 
 pub struct Form<S, C: Component<S>> {
     items: Vec<C>,
@@ -29,8 +29,15 @@ impl<S, C: Component<S>> Form<S, C> {
         }
     }
 
-    fn layout(&self) -> Layout {
-        Layout::vertical(self.items.iter().map(|_| Constraint::Max(3))).margin(1)
+    fn layout(&self, store: &RefCell<S>) -> Layout {
+        Layout::vertical(self.items.iter().map(|item| {
+            if item.is_visible(store) {
+                Constraint::Max(3)
+            } else {
+                Constraint::Max(0)
+            }
+        }))
+        .margin(1)
     }
 
     fn navigate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>, offset: isize) {
@@ -39,16 +46,34 @@ impl<S, C: Component<S>> Form<S, C> {
             a.deactivate(dispatcher, store);
         }
 
-        // move to next/previous item
+        // move to next/previous item, skipping invisible items
         let len = self.items.len();
-        let offset = if offset < 0 {
-            let k = div_floor(offset, len as isize);
-            (offset - k * (len as isize)) as usize
-        } else {
-            offset as usize
-        };
 
-        self.item_index = (self.item_index + len + offset) % len;
+        // Find the next visible item
+        let mut new_index = self.item_index;
+        let mut steps = offset.unsigned_abs();
+
+        while steps > 0 {
+            if offset > 0 {
+                new_index = (new_index + 1) % len;
+            } else {
+                new_index = (new_index + len - 1) % len;
+            }
+
+            // Check if the item at new_index is visible
+            if let Some(item) = self.items.get(new_index) {
+                if item.is_visible(store) {
+                    steps -= 1;
+                }
+            } else {
+                // If we've gone through all items and none are visible, break
+                if new_index == self.item_index {
+                    break;
+                }
+            }
+        }
+
+        self.item_index = new_index;
 
         // activate new item
         if let Some(a) = self.items.get_mut(self.item_index) {
@@ -59,14 +84,14 @@ impl<S, C: Component<S>> Form<S, C> {
 
 impl<S, C: Component<S>> Component<S> for Form<S, C> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
-        let areas = self.layout().split(area);
+        let areas = self.layout(store).split(area);
         for (field, area) in self.items.iter().zip(areas.iter()) {
             field.render(store, *area, buf);
         }
     }
 
     fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
-        let areas = self.layout().split(area);
+        let areas = self.layout(store).split(area);
         match (self.items.get(self.item_index), areas.get(self.item_index)) {
             (Some(comp), Some(area)) => comp.get_cursor_position(store, *area),
             _ => None,
@@ -81,7 +106,7 @@ impl<S, C: Component<S>> Component<S> for Form<S, C> {
         key: KeyCode,
     ) -> Option<Message> {
         // Handle key events for the current component
-        let areas = self.layout().split(area);
+        let areas = self.layout(store).split(area);
         if let Some((comp, subarea)) = self
             .items
             .iter_mut()
