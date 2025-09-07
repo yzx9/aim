@@ -6,25 +6,25 @@ The CLI module provides a command-line interface for the AIM calendar applicatio
 
 ```
 cli/src/
-├── cli.rs                  # Main CLI entry point and command routing
-├── cmd_dashboard.rs        # Dashboard command for overview display
-├── cmd_event.rs            # Event management commands (new, edit, list)
+├── cli.rs              # Main CLI entry point and command routing
+├── cmd_dashboard.rs    # Dashboard command for overview display
+├── cmd_event.rs        # Event management commands (new, edit, list)
 ├── cmd_generate_completion.rs  # Shell completion generation
-├── cmd_todo.rs             # Todo management commands (new, edit, done, etc.)
-├── cmd_tui.rs              # TUI mode commands (new, edit)
-├── config.rs               # CLI-specific configuration handling
-├── event_formatter.rs      # Event display formatting for different output modes
-├── lib.rs                  # Library exports and module declarations
-├── main.rs                 # Application entry point
-├── table.rs                # Table formatting utilities for CLI output
-├── todo_formatter.rs       # Todo display formatting for different output modes
-├── tui/                    # Text User Interface components
-└── util.rs                 # Shared utilities for CLI operations
+├── cmd_todo.rs         # Todo management commands (new, edit, done, etc.)
+├── cmd_tui.rs          # TUI mode commands (new, edit)
+├── config.rs           # CLI-specific configuration handling
+├── event_formatter.rs  # Event display formatting for different output modes
+├── lib.rs              # Library exports and module declarations
+├── main.rs             # Application entry point
+├── table.rs            # Table formatting utilities for CLI output
+├── todo_formatter.rs   # Todo display formatting for different output modes
+├── tui/                # Text User Interface components
+└── util.rs             # Shared utilities for CLI operations
 ```
 
 ## Main Components
 
-### CLI (cli.rs)
+### CLI (src/cli.rs)
 
 The central command router that:
 
@@ -38,13 +38,13 @@ The central command router that:
 
 Individual command modules that handle specific functionality:
 
-#### Event Commands (cmd_event.rs)
+#### Event Commands (src/cmd_event.rs)
 
 - `event new/add` - Create new calendar events with optional TUI mode
 - `event edit` - Modify existing events with optional TUI mode
 - `event list` - Display upcoming events with filtering and formatting options
 
-#### Todo Commands (cmd_todo.rs)
+#### Todo Commands (src/cmd_todo.rs)
 
 - `todo new/add` - Create new todo items with optional TUI mode
 - `todo edit` - Modify existing todo items with optional TUI mode
@@ -54,7 +54,7 @@ Individual command modules that handle specific functionality:
 - `todo delay` - Postpone todo due dates
 - `todo list` - Display todo lists with sorting and filtering
 
-#### TUI Commands (cmd_tui.rs)
+#### TUI Commands (src/cmd_tui.rs)
 
 - `new` - Interactive creation of events or todos
 - `edit` - Interactive editing of existing items
@@ -68,25 +68,25 @@ Individual command modules that handle specific functionality:
 
 Modules that handle presentation of data:
 
-#### EventFormatter (event_formatter.rs)
+#### EventFormatter (src/event_formatter.rs)
 
 - Formats events for display in table or JSON format
 - Color-coding for current/upcoming events
 - Flexible column-based output
 
-#### TodoFormatter (todo_formatter.rs)
+#### TodoFormatter (src/todo_formatter.rs)
 
 - Formats todos for display in table or JSON format
 - Color-coding for overdue and high-priority items
 - Priority and due date visualization
 
-#### Table Utilities (table.rs)
+#### Table Utilities (src/table.rs)
 
 - Generic table formatting engine
 - Support for both basic text tables and JSON output
 - Column alignment and padding management
 
-### Text User Interface (tui/)
+### Text User Interface (src/tui/)
 
 Interactive mode components:
 
@@ -94,7 +94,7 @@ Interactive mode components:
 - In-place editing capabilities
 - State management for TUI applications
 
-### Utilities (util.rs)
+### Utilities (src/util.rs)
 
 Shared helper functions:
 
@@ -103,7 +103,7 @@ Shared helper functions:
 - Grapheme cluster handling
 - Mathematical utilities
 
-### Configuration (config.rs)
+### Configuration (src/config.rs)
 
 CLI-specific configuration management:
 
@@ -133,6 +133,17 @@ aim [OPTIONS] [COMMAND] [SUBCOMMAND]
     ├── delay <ID> <TIMEDELTA>       # Delay due date
     └── list                         # List todos
 ```
+
+## Dependencies
+
+- **sqlx**: Type-safe SQL database access
+- **chrono**: Date and time handling
+- **icalendar**: iCalendar format support
+- **tokio**: Async runtime
+- **serde**: Serialization framework
+- **uuid**: Unique identifier generation
+- **tracing**: Logging and instrumentation
+- **dirs**: Platform-specific directory handling
 
 ## Features
 

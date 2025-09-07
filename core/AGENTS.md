@@ -19,7 +19,7 @@ core/src/
 
 ## Main Components
 
-### Aim (aim.rs)
+### Aim (src/aim.rs)
 
 The central application interface that coordinates all calendar operations:
 
@@ -30,7 +30,7 @@ The central application interface that coordinates all calendar operations:
 - Manages short ID assignment and lookup
 - Implements calendar synchronization from disk
 
-### Config (config.rs)
+### Config (src/config.rs)
 
 Handles application configuration:
 
@@ -40,7 +40,7 @@ Handles application configuration:
 - Supports path expansion with environment variables
 - Validates and normalizes configuration settings
 
-### DateTime Handling (datetime.rs)
+### DateTime Handling (src/datetime.rs)
 
 Comprehensive date/time management:
 
@@ -50,7 +50,7 @@ Comprehensive date/time management:
 - Implements relative date calculations (today, tomorrow, etc.)
 - Supports stable serialization for database storage
 
-### Event System (event.rs)
+### Event System (src/event.rs)
 
 Manages calendar events and related operations:
 
@@ -60,7 +60,7 @@ Manages calendar events and related operations:
 - `EventStatus` enum with standard iCalendar values
 - `EventConditions` for filtering events
 
-### Todo System (todo.rs)
+### Todo System (src/todo.rs)
 
 Manages todo items and related operations:
 
@@ -70,7 +70,7 @@ Manages todo items and related operations:
 - `TodoStatus` enum with standard iCalendar values
 - `TodoConditions` and sorting options for querying
 
-### Short ID Management (short_id.rs)
+### Short ID Management (src/short_id.rs)
 
 Handles compact numeric identifiers:
 
@@ -78,7 +78,7 @@ Handles compact numeric identifiers:
 - Wraps entities with their short IDs
 - Provides `ID` resolution from mixed input formats
 
-### Common Types (types.rs)
+### Common Types (src/types.rs)
 
 Shared data structures used throughout the application:
 
@@ -88,6 +88,13 @@ Shared data structures used throughout the application:
 - `Pager` for pagination support
 - `Priority` enum with 1-9 scale and named levels
 - Integration with `serde` for serialization/deserialization
+
+## Dependencies
+
+- **clap**: Command-line argument parsing
+- **colored**: Terminal color support
+- **ratatui**: TUI framework
+- **crossterm**: Cross-platform terminal handling
 
 ## Code Standards
 
