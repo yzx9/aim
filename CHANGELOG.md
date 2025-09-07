@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- core: Add extra `DateTime` and `Time` for `DateTimeAnchor`
+
 ### Changed
 
 - cli: Improve dashboard command output
