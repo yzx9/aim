@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - core: Add extra `DateTime` and `Time` for `DateTimeAnchor`
+- core: Convert `DateTimeAnchor` to `LooseDateTime`
 
 ### Changed
 

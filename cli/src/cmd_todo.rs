@@ -14,7 +14,7 @@ use colored::Colorize;
 
 use crate::todo_formatter::{TodoColumn, TodoFormatter};
 use crate::tui;
-use crate::util::{ArgOutputFormat, arg_verbose, get_verbose, parse_datetime, parse_timedelta};
+use crate::util::{ArgOutputFormat, arg_verbose, get_verbose, parse_datetime};
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
@@ -339,7 +339,8 @@ impl CmdTodoDelay {
         aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
 
         // Parse the timedelta
-        let new_due = parse_timedelta(&self.timedelta, aim.now())?;
+        let anchor: DateTimeAnchor = self.timedelta.parse()?;
+        let new_due = anchor.parse_from_dt(&aim.now());
 
         // Update the todo
         let patch = TodoPatch {

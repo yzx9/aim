@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::ops::Add;
+
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
 use chrono_tz::Tz;
 use icalendar::{CalendarDateTime, DatePerhapsTime};
@@ -189,8 +191,21 @@ impl<Tz: TimeZone> From<DateTime<Tz>> for LooseDateTime {
     }
 }
 
+impl Add<chrono::TimeDelta> for LooseDateTime {
+    type Output = Self;
+    fn add(self, rhs: chrono::TimeDelta) -> Self::Output {
+        match self {
+            LooseDateTime::DateOnly(d) => LooseDateTime::DateOnly(d.add(rhs)),
+            LooseDateTime::Floating(dt) => LooseDateTime::Floating(dt.add(rhs)),
+            LooseDateTime::Local(dt) => LooseDateTime::Local(dt.add(rhs)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use chrono::TimeDelta;
+
     use super::*;
 
     #[test]
@@ -437,5 +452,35 @@ mod tests {
         } else {
             panic!("Failed to parse local datetime");
         }
+    }
+
+    #[test]
+    fn test_add_timedelta_dateonly() {
+        let date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        let added = LooseDateTime::DateOnly(date) + TimeDelta::days(2) + TimeDelta::hours(3);
+        let expected = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2025, 1, 3).unwrap());
+        assert_eq!(added, expected);
+    }
+
+    #[test]
+    fn test_add_timedelta_floating() {
+        let date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        let time = NaiveTime::from_hms_opt(12, 30, 45).unwrap();
+        let dt = LooseDateTime::Floating(NaiveDateTime::new(date, time));
+        let added = dt + TimeDelta::days(2) + TimeDelta::hours(3);
+        let excepted = LooseDateTime::Floating(NaiveDateTime::new(
+            NaiveDate::from_ymd_opt(2025, 1, 3).unwrap(),
+            NaiveTime::from_hms_opt(15, 30, 45).unwrap(),
+        ));
+        assert_eq!(added, excepted);
+    }
+
+    #[test]
+    fn test_add_timedelta_local() {
+        let local = Local.with_ymd_and_hms(2025, 1, 1, 12, 30, 45).unwrap();
+        let added = LooseDateTime::Local(local) + TimeDelta::days(2) + TimeDelta::hours(3);
+        let excepted =
+            LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 3, 15, 30, 45).unwrap());
+        assert_eq!(added, excepted);
     }
 }
