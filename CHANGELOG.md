@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- cli: Add `todo reschedule` command
 - core: Add extra `DateTime` and `Time` for `DateTimeAnchor`
 - core: Convert `DateTimeAnchor` to `LooseDateTime`
 

@@ -313,9 +313,9 @@ impl CmdTodoDelay {
 
     pub fn command() -> Command {
         Command::new(Self::NAME)
-            .about("Delay a todo's due date by a specified time")
+            .about("Delay a todo's due by a specified time based on original due")
             .arg(arg_id())
-            .arg(arg!(<"TIME-ANCHOR"> "Time to delay (datetime, time, or 'tomorrow')"))
+            .arg(arg_time_anchor())
             .arg(ArgOutputFormat::arg())
             .arg(arg_verbose())
     }
@@ -323,10 +323,7 @@ impl CmdTodoDelay {
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             id: get_id(matches),
-            time_anchor: matches
-                .get_one::<String>("TIME-ANCHOR")
-                .expect("time anchor is required")
-                .clone(),
+            time_anchor: get_time_anchor(matches),
             output_format: ArgOutputFormat::from(matches),
             verbose: get_verbose(matches),
         }
@@ -350,14 +347,67 @@ impl CmdTodoDelay {
         };
 
         // Update the todo
-        let patch = TodoPatch {
-            due: Some(new_due),
-            ..Default::default()
-        };
-
         TodoEdit {
             id: self.id,
-            patch,
+            patch: TodoPatch {
+                due: Some(new_due),
+                ..Default::default()
+            },
+            output_format: self.output_format,
+            verbose: self.verbose,
+        }
+        .run(aim)
+        .await
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CmdTodoReschedule {
+    pub id: Id,
+    pub time_anchor: String,
+    pub output_format: ArgOutputFormat,
+    pub verbose: bool,
+}
+
+impl CmdTodoReschedule {
+    pub const NAME: &str = "reschedule";
+
+    pub fn command() -> Command {
+        Command::new(Self::NAME)
+            .about("Reschedule a todo's due to a specified time based on now")
+            .arg(arg_id())
+            .arg(arg_time_anchor())
+            .arg(ArgOutputFormat::arg())
+            .arg(arg_verbose())
+    }
+
+    pub fn from(matches: &ArgMatches) -> Self {
+        Self {
+            id: get_id(matches),
+            time_anchor: get_time_anchor(matches),
+            output_format: ArgOutputFormat::from(matches),
+            verbose: get_verbose(matches),
+        }
+    }
+
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+        tracing::debug!(?self, "delaying todo...");
+
+        // Parse the time anchor
+        let new_due = if !self.time_anchor.is_empty() {
+            let anchor: DateTimeAnchor = self.time_anchor.parse()?;
+            Some(anchor.parse_from_dt(&aim.now()))
+        } else {
+            None
+        };
+
+        // Update the todo
+        TodoEdit {
+            id: self.id,
+            patch: TodoPatch {
+                due: Some(new_due),
+                ..Default::default()
+            },
             output_format: self.output_format,
             verbose: self.verbose,
         }
@@ -527,6 +577,17 @@ fn arg_summary(positional: bool) -> Arg {
 
 fn get_summary(matches: &ArgMatches) -> Option<String> {
     matches.get_one("summary").cloned()
+}
+
+fn arg_time_anchor() -> Arg {
+    arg!(<"TIME-ANCHOR"> "Time to delay (datetime, time, or 'tomorrow')")
+}
+
+fn get_time_anchor(matches: &ArgMatches) -> String {
+    matches
+        .get_one::<String>("TIME-ANCHOR")
+        .expect("time anchor is required")
+        .clone()
 }
 
 fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: ArgOutputFormat, verbose: bool) {
@@ -858,7 +919,7 @@ mod tests {
                 "test",
                 "delay",
                 "abc",
-                "timedelta",
+                "time anchor",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -868,7 +929,33 @@ mod tests {
         let sub_matches = matches.subcommand_matches("delay").unwrap();
         let parsed = CmdTodoDelay::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
-        assert_eq!(parsed.time_anchor, "timedelta");
+        assert_eq!(parsed.time_anchor, "time anchor");
+        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert!(parsed.verbose);
+    }
+
+    #[test]
+    fn test_parse_reschedule() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdTodoReschedule::command());
+
+        let matches = cmd
+            .try_get_matches_from([
+                "test",
+                "reschedule",
+                "abc",
+                "time anchor",
+                "--output-format",
+                "json",
+                "--verbose",
+            ])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("reschedule").unwrap();
+        let parsed = CmdTodoReschedule::from(sub_matches);
+        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
+        assert_eq!(parsed.time_anchor, "time anchor");
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
         assert!(parsed.verbose);
     }
