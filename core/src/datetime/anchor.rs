@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::str::FromStr;
+use std::sync::OnceLock;
 
 use chrono::offset::LocalResult;
 use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
+use regex::Regex;
 
 use crate::LooseDateTime;
 use crate::datetime::util::{end_of_day, from_local_datetime, start_of_day};
@@ -135,24 +137,60 @@ impl DateTimeAnchor {
 impl FromStr for DateTimeAnchor {
     type Err = String;
 
-    fn from_str(timedelta: &str) -> Result<Self, Self::Err> {
+    fn from_str(t: &str) -> Result<Self, Self::Err> {
         // Handle keywords
-        if timedelta == "tomorrow" {
-            return Ok(Self::tomorrow());
+        match t {
+            "yesterday" => return Ok(Self::yesterday()),
+            "tomorrow" => return Ok(Self::tomorrow()),
+            "today" => return Ok(Self::today()),
+            "now" => return Ok(Self::now()),
+            _ => {}
         }
 
-        // Try to parse as datetime
-        if let Ok(dt) = NaiveDateTime::parse_from_str(timedelta, "%Y-%m-%d %H:%M") {
-            return Ok(Self::DateTime(loose_from_datetime(dt)));
+        if let Ok(dt) = NaiveDateTime::parse_from_str(t, "%Y-%m-%d %H:%M") {
+            // Parse as datetime
+            Ok(Self::DateTime(loose_from_datetime(dt)))
+        } else if let Ok(time) = NaiveTime::parse_from_str(t, "%H:%M") {
+            // Parse as time only
+            Ok(Self::Time(time))
+        } else if let Some(hours) = parse_hours(t) {
+            // Parse as hours (e.g., "10h", "10 hours", "10hours", "in 10hours")
+            Ok(Self::InHours(hours))
+        } else if let Some(days) = parse_days(t) {
+            // Parse as days (e.g., "10d", "in 10d", "in 10 days")
+            Ok(Self::InDays(days))
+        } else {
+            Err(format!("Invalid timedelta format: {t}"))
         }
-
-        // Try to parse as time only
-        if let Ok(time) = NaiveTime::parse_from_str(timedelta, "%H:%M") {
-            return Ok(Self::Time(time));
-        }
-
-        Err(format!("Invalid timedelta format: {timedelta}"))
     }
+}
+
+/// Parse hours from string formats like "10h", "10 hours", "10hours", "in 10hours"
+fn parse_hours(s: &str) -> Option<i64> {
+    const RE: &str = r"(?i)^\s*(?:in\s*)?(\d+)\s*h(?:ours)?\s*$";
+    static REGEX: OnceLock<Regex> = OnceLock::new();
+    let re = REGEX.get_or_init(|| Regex::new(RE).unwrap());
+    if let Some(captures) = re.captures(s)
+        && let Ok(num) = captures[1].parse::<i64>()
+    {
+        return Some(num);
+    }
+
+    None
+}
+
+/// Parse days from string formats like "10d", "in 10d", "in 10 days"
+fn parse_days(s: &str) -> Option<i64> {
+    const RE: &str = r"(?i)^\s*(?:in\s*)?(\d+)\s*d(?:ays)?\s*$";
+    static REGEX: OnceLock<Regex> = OnceLock::new();
+    let re = REGEX.get_or_init(|| Regex::new(RE).unwrap());
+    if let Some(captures) = re.captures(s)
+        && let Ok(num) = captures[1].parse::<i64>()
+    {
+        return Some(num);
+    }
+
+    None
 }
 
 fn loose_from_datetime(dt: NaiveDateTime) -> LooseDateTime {
@@ -396,9 +434,15 @@ mod tests {
 
     #[test]
     fn test_from_str_keywords() {
-        // Test keyword parsing
-        let anchor = DateTimeAnchor::from_str("tomorrow").unwrap();
-        assert!(matches!(anchor, DateTimeAnchor::InDays(1)));
+        for (s, expected) in [
+            ("now", DateTimeAnchor::now()),
+            ("today", DateTimeAnchor::today()),
+            ("yesterday", DateTimeAnchor::yesterday()),
+            ("tomorrow", DateTimeAnchor::tomorrow()),
+        ] {
+            let anchor = DateTimeAnchor::from_str(s).unwrap();
+            assert_eq!(anchor, expected);
+        }
     }
 
     #[test]
@@ -422,5 +466,43 @@ mod tests {
         let result = DateTimeAnchor::from_str("invalid");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Invalid timedelta format"));
+    }
+
+    #[test]
+    fn test_from_str_hours() {
+        for s in [
+            "in 10hours",
+            "in 10H",
+            "   IN   10   hours   ",
+            "10hours",
+            "10 HOURS",
+            "   10   hours   ",
+            "10h",
+            "10 H",
+            "   10   h   ",
+        ] {
+            let anchor = DateTimeAnchor::from_str(s).unwrap();
+            let expected = DateTimeAnchor::InHours(10);
+            assert_eq!(anchor, expected, "Failed to parse '{}'", s);
+        }
+    }
+
+    #[test]
+    fn test_from_str_days() {
+        for s in [
+            "in 10days",
+            "in 10D",
+            "   IN   10   days   ",
+            "10days",
+            "10 DAYS",
+            "   10   days   ",
+            "10d",
+            "10 D",
+            "   10   d   ",
+        ] {
+            let anchor = DateTimeAnchor::from_str(s).unwrap();
+            let expected = DateTimeAnchor::InDays(10);
+            assert_eq!(anchor, expected, "Failed to parse '{}'", s);
+        }
     }
 }
