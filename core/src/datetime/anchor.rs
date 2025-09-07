@@ -2,11 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
-use std::sync::OnceLock;
+use std::{str::FromStr, sync::OnceLock};
 
-use chrono::offset::LocalResult;
-use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
+use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, offset::LocalResult};
 use regex::Regex;
 
 use crate::LooseDateTime;
