@@ -8,7 +8,7 @@ The core module is the foundation of the AIM calendar application, providing all
 core/src/
 ├── aim.rs      # Main application interface and core logic
 ├── config.rs   # Configuration management and parsing
-├── datetime.rs # Date/time handling and manipulation
+├── datetime/   # Date/time handling and manipulation
 ├── event.rs    # Event-related data structures and operations
 ├── lib.rs      # Library exports and module declarations
 ├── localdb/    # SQLite database wrapper (see separate AGENTS.md)
