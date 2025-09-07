@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cli: Add `todo reschedule` command
 - core: Add extra `DateTime` and `Time` for `DateTimeAnchor`
 - core: Convert `DateTimeAnchor` to `LooseDateTime`
+- core: Parse as hours (e.g., "10h", "10 hours", "in 10hours"), days (e.g., "10d", "in 10d",
+  "in 10 days") and more keywords to `DateTimeAnchor`
 
 ### Changed
 
