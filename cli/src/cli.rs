@@ -14,7 +14,8 @@ use crate::cmd_dashboard::CmdDashboard;
 use crate::cmd_event::{CmdEventEdit, CmdEventList, CmdEventNew};
 use crate::cmd_generate_completion::CmdGenerateCompletion;
 use crate::cmd_todo::{
-    CmdTodoCancel, CmdTodoDelay, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew, CmdTodoUndo,
+    CmdTodoCancel, CmdTodoDelay, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew,
+    CmdTodoReschedule, CmdTodoUndo,
 };
 use crate::cmd_tui::{CmdEdit, CmdNew};
 use crate::config::parse_config;
@@ -97,6 +98,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .subcommand(CmdTodoUndo::command())
                     .subcommand(CmdTodoCancel::command())
                     .subcommand(CmdTodoDelay::command())
+                    .subcommand(CmdTodoReschedule::command())
                     .subcommand(CmdTodoList::command()),
             )
             .subcommand(CmdTodoDone::command())
@@ -141,6 +143,9 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::from(matches)),
                 Some((CmdTodoCancel::NAME, matches)) => TodoCancel(CmdTodoCancel::from(matches)),
                 Some((CmdTodoDelay::NAME, matches)) => TodoDelay(CmdTodoDelay::from(matches)),
+                Some((CmdTodoReschedule::NAME, matches)) => {
+                    TodoReschedule(CmdTodoReschedule::from(matches))
+                }
                 Some((CmdTodoList::NAME, matches)) => TodoList(CmdTodoList::from(matches)),
                 _ => unreachable!(),
             },
@@ -198,8 +203,11 @@ pub enum Commands {
     /// Mark a todo as cancelled
     TodoCancel(CmdTodoCancel),
 
-    /// Delay a todo
+    /// Delay a todo based on original due
     TodoDelay(CmdTodoDelay),
+
+    /// Reschedule a todo based on current time
+    TodoReschedule(CmdTodoReschedule),
 
     /// List todos
     TodoList(CmdTodoList),
@@ -216,19 +224,20 @@ impl Commands {
         use Commands::*;
         tracing::info!(?self, "running command");
         match self {
-            Dashboard(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
-            New(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
-            Edit(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventNew(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventEdit(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventList(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoNew(a)    => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoEdit(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoUndo(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoDone(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoCancel(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoDelay(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoList(a)   => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Dashboard(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            New(a)            => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Edit(a)           => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventNew(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventEdit(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventList(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoNew(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoEdit(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoUndo(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoDone(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoCancel(a)     => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoDelay(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoReschedule(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoList(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             GenerateCompletion(a) => a.run(),
         }
     }
@@ -425,6 +434,30 @@ mod tests {
                 );
             }
             _ => panic!("Expected TodoDone command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_todo_delay() {
+        let cli = Cli::try_parse_from(vec!["test", "todo", "delay", "id", "time"]).unwrap();
+        match cli.command {
+            Commands::TodoDelay(cmd) => {
+                assert_eq!(cmd.id, Id::ShortIdOrUid("id".to_string()));
+                assert_eq!(cmd.time_anchor, "time".to_string());
+            }
+            _ => panic!("Expected TodoDelay command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_todo_reschedule() {
+        let cli = Cli::try_parse_from(vec!["test", "todo", "reschedule", "id", "time"]).unwrap();
+        match cli.command {
+            Commands::TodoReschedule(cmd) => {
+                assert_eq!(cmd.id, Id::ShortIdOrUid("id".to_string()));
+                assert_eq!(cmd.time_anchor, "time".to_string());
+            }
+            _ => panic!("Expected TodoReschedule command"),
         }
     }
 
