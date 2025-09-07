@@ -303,7 +303,7 @@ cmd_status!(CmdTodoCancel, Cancelled, "cancel", "canceled");
 #[derive(Debug, Clone)]
 pub struct CmdTodoDelay {
     pub id: Id,
-    pub timedelta: String,
+    pub time_anchor: String,
     pub output_format: ArgOutputFormat,
     pub verbose: bool,
 }
@@ -315,7 +315,7 @@ impl CmdTodoDelay {
         Command::new(Self::NAME)
             .about("Delay a todo's due date by a specified time")
             .arg(arg_id())
-            .arg(arg!(<TIMEDELTA> "Time to delay (datetime, time, or 'tomorrow')"))
+            .arg(arg!(<"TIME-ANCHOR"> "Time to delay (datetime, time, or 'tomorrow')"))
             .arg(ArgOutputFormat::arg())
             .arg(arg_verbose())
     }
@@ -323,9 +323,9 @@ impl CmdTodoDelay {
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             id: get_id(matches),
-            timedelta: matches
-                .get_one::<String>("TIMEDELTA")
-                .expect("timedelta is required")
+            time_anchor: matches
+                .get_one::<String>("TIME-ANCHOR")
+                .expect("time anchor is required")
                 .clone(),
             output_format: ArgOutputFormat::from(matches),
             verbose: get_verbose(matches),
@@ -336,15 +336,22 @@ impl CmdTodoDelay {
         tracing::debug!(?self, "delaying todo...");
 
         // Get the current todo
-        aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
+        let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
 
-        // Parse the timedelta
-        let anchor: DateTimeAnchor = self.timedelta.parse()?;
-        let new_due = anchor.parse_from_dt(&aim.now());
+        // Parse the time anchor
+        let new_due = if !self.time_anchor.is_empty() {
+            let anchor: DateTimeAnchor = self.time_anchor.parse()?;
+            Some(match todo.due() {
+                Some(due) => anchor.parse_from_loose(&due),
+                None => anchor.parse_from_dt(&aim.now()),
+            })
+        } else {
+            None
+        };
 
         // Update the todo
         let patch = TodoPatch {
-            due: Some(Some(new_due)),
+            due: Some(new_due),
             ..Default::default()
         };
 
@@ -861,7 +868,7 @@ mod tests {
         let sub_matches = matches.subcommand_matches("delay").unwrap();
         let parsed = CmdTodoDelay::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
-        assert_eq!(parsed.timedelta, "timedelta");
+        assert_eq!(parsed.time_anchor, "timedelta");
         assert_eq!(parsed.output_format, ArgOutputFormat::Json);
         assert!(parsed.verbose);
     }
