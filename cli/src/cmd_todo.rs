@@ -34,17 +34,17 @@ impl CmdTodoNew {
     pub const NAME: &str = "new";
 
     pub fn command() -> Command {
-        let args = args();
+        let (args, todo_args) = args();
         Command::new(Self::NAME)
             .alias("add")
             .about("Add a new todo")
             // fields
             .arg(args.summary(true))
-            .arg(TodoArgs::due())
+            .arg(todo_args.due())
             .arg(args.description())
-            .arg(TodoArgs::percent_complete())
-            .arg(TodoArgs::priority())
-            .arg(TodoArgs::status())
+            .arg(todo_args.percent_complete())
+            .arg(todo_args.priority())
+            .arg(todo_args.status())
             // options
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
@@ -162,16 +162,16 @@ impl CmdTodoEdit {
     pub const NAME: &str = "edit";
 
     pub fn command() -> Command {
-        let args = args();
+        let (args, todo_args) = args();
         Command::new(Self::NAME)
             .about("Edit a todo")
             .arg(args.id())
             .arg(args.summary(false))
-            .arg(TodoArgs::due())
+            .arg(todo_args.due())
             .arg(args.description())
-            .arg(TodoArgs::percent_complete())
-            .arg(TodoArgs::priority())
-            .arg(TodoArgs::status())
+            .arg(todo_args.percent_complete())
+            .arg(todo_args.priority())
+            .arg(todo_args.status())
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -273,7 +273,7 @@ macro_rules! cmd_status {
             pub const NAME: &str = $name;
 
             pub fn command() -> Command {
-                let args = args();
+                let (args, _todo_args) = args();
                 Command::new(Self::NAME)
                     .about(concat!("Mark a todo as ", $desc))
                     .arg(args.ids())
@@ -326,11 +326,11 @@ impl CmdTodoDelay {
     pub const NAME: &str = "delay";
 
     pub fn command() -> Command {
-        let args = args();
+        let (args, todo_args) = args();
         Command::new(Self::NAME)
             .about("Delay a todo's due by a specified time based on original due")
             .arg(args.id())
-            .arg(TodoArgs::time_anchor("delay"))
+            .arg(todo_args.time_anchor("delay"))
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -388,11 +388,11 @@ impl CmdTodoReschedule {
     pub const NAME: &str = "reschedule";
 
     pub fn command() -> Command {
-        let args = args();
+        let (args, todo_args) = args();
         Command::new(Self::NAME)
             .about("Reschedule a todo's due to a specified time based on now")
             .arg(args.id())
-            .arg(TodoArgs::time_anchor("reschedule"))
+            .arg(todo_args.time_anchor("reschedule"))
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -514,8 +514,8 @@ impl TodoEdit {
     }
 }
 
-const fn args() -> EventOrTodoArgs {
-    EventOrTodoArgs::new(Some(Kind::Todo))
+const fn args() -> (EventOrTodoArgs, TodoArgs) {
+    (EventOrTodoArgs::new(Some(Kind::Todo)), TodoArgs::new(true))
 }
 
 fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: OutputFormat, verbose: bool) {

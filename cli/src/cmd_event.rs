@@ -33,15 +33,15 @@ impl CmdEventNew {
     pub const NAME: &str = "new";
 
     pub fn command() -> Command {
-        let args = args();
+        let (args, event_args) = args();
         Command::new(Self::NAME)
             .alias("add")
             .about("Add a new event")
             .arg(args.summary(true))
-            .arg(EventArgs::start())
-            .arg(EventArgs::end())
+            .arg(event_args.start())
+            .arg(event_args.end())
             .arg(args.description())
-            .arg(EventArgs::status())
+            .arg(event_args.status())
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -139,15 +139,15 @@ impl CmdEventEdit {
     pub const NAME: &str = "edit";
 
     pub fn command() -> Command {
-        let args = args();
+        let (args, event_args) = args();
         Command::new(Self::NAME)
             .about("Edit a todo item")
             .arg(args.id())
             .arg(args.summary(false))
-            .arg(EventArgs::start())
-            .arg(EventArgs::end())
+            .arg(event_args.start())
+            .arg(event_args.end())
             .arg(args.description())
-            .arg(EventArgs::status())
+            .arg(event_args.status())
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -290,8 +290,11 @@ impl CmdEventList {
     }
 }
 
-const fn args() -> EventOrTodoArgs {
-    EventOrTodoArgs::new(Some(Kind::Event))
+const fn args() -> (EventOrTodoArgs, EventArgs) {
+    (
+        EventOrTodoArgs::new(Some(Kind::Event)),
+        EventArgs::new(true),
+    )
 }
 
 fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat, verbose: bool) {

@@ -34,11 +34,11 @@ pub struct EventTodoStore {
 }
 
 impl EventTodoStore {
-    pub fn new(event: EventDraft, todo: TodoDraft) -> Self {
+    pub fn new(kind: Option<Kind>, event: EventDraft, todo: TodoDraft) -> Self {
         Self {
             event: Rc::new(RefCell::new(EventStore::new_by_draft(event))),
             todo: Rc::new(RefCell::new(TodoStore::new_by_draft(todo))),
-            active: Kind::Todo, // active todo by default since it is more common to draft todo
+            active: kind.unwrap_or(Kind::Todo), // active todo by default since it is more common to draft todo
             submit: false,
         }
     }

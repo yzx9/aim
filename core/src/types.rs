@@ -34,6 +34,7 @@ impl Id {
 
 /// Kind of item, either an event or a todo.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum Kind {
     /// An event item.
     Event,

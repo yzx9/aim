@@ -4,7 +4,9 @@
 
 use std::{cell::RefCell, error::Error, rc::Rc};
 
-use aimcal_core::{Aim, Event, EventDraft, EventPatch, EventStatus, Todo, TodoDraft, TodoPatch};
+use aimcal_core::{
+    Aim, Event, EventDraft, EventPatch, EventStatus, Kind, Todo, TodoDraft, TodoPatch,
+};
 use ratatui::Terminal;
 use ratatui::crossterm::event::{self, KeyEventKind};
 use ratatui::layout::Rect;
@@ -64,8 +66,13 @@ pub fn patch_todo(aim: &mut Aim, todo: &impl Todo) -> Result<Option<TodoPatch>, 
     }
 }
 
-pub fn draft_event_or_todo(aim: &mut Aim) -> Result<Option<EventOrTodoDraft>, Box<dyn Error>> {
-    let store = EventTodoStore::new(aim.default_event_draft(), aim.default_todo_draft());
+pub fn draft_event_or_todo(
+    aim: &mut Aim,
+    kind: Option<Kind>,
+    event_draft: EventDraft,
+    todo_draft: TodoDraft,
+) -> Result<Option<EventOrTodoDraft>, Box<dyn Error>> {
+    let store = EventTodoStore::new(kind, event_draft, todo_draft);
     let store = run_event_todo_editor(aim, store)?;
     match store.submit {
         true => store.submit_draft(aim).map(Some),
