@@ -5,7 +5,7 @@ default-members = ["cli"]
 
 [workspace.package]
 authors = ["Zexin Yuan <aim@yzx9.xyz>"]
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 
 description = "AIM - Analyze. Interact. Manage Your Time, with calendar support"
@@ -19,10 +19,10 @@ repository = "https://github.com/yzx9/aim"
 readme = "./README.md"
 
 [workspace.dependencies]
-aimcal-core = { path = "core", version = "0.6.0", default-features = false, features = [
+aimcal-core = { path = "core", version = "0.7.0", default-features = false, features = [
   "clap",
 ] }
-aimcal-cli = { version = "0.6.0", path = "cli", default-features = false }
+aimcal-cli = { version = "0.7.0", path = "cli", default-features = false }
 
 [profile.release]
 strip = true # Automatically strip symbols from the binary.
