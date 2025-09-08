@@ -95,7 +95,7 @@ impl EventDraft {
     }
 
     /// Converts the draft into a icalendar Event component.
-    pub(crate) fn into_ics(self, uid: &str) -> icalendar::Event {
+    pub(crate) fn into_ics(self, now: &DateTime<Local>, uid: &str) -> icalendar::Event {
         let mut event = icalendar::Event::with_uid(uid);
 
         if let Some(description) = self.description {
@@ -124,7 +124,7 @@ impl EventDraft {
                 (start, end)
             }
             (None, None) => {
-                let start = Local::now();
+                let start = *now;
                 let end = (start + default_duration).into();
                 (start.into(), end)
             }

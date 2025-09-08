@@ -4,7 +4,7 @@
 
 use std::{cell::RefCell, error::Error, ops::Deref, rc::Rc};
 
-use aimcal_core::{Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
+use aimcal_core::{Aim, Priority, Todo, TodoDraft, TodoPatch, TodoStatus};
 
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::{format_datetime, parse_datetime};
@@ -63,10 +63,10 @@ impl TodoStore {
         }
     }
 
-    pub fn submit_draft(self) -> Result<TodoDraft, Box<dyn Error>> {
+    pub fn submit_draft(self, aim: &Aim) -> Result<TodoDraft, Box<dyn Error>> {
         Ok(TodoDraft {
             description: self.dirty.description.then_some(self.data.description),
-            due: parse_datetime(&self.data.due)?,
+            due: parse_datetime(&aim.now(), &self.data.due)?,
             percent_complete: self
                 .dirty
                 .percent_complete
@@ -82,7 +82,7 @@ impl TodoStore {
         })
     }
 
-    pub fn submit_patch(self) -> Result<TodoPatch, Box<dyn Error>> {
+    pub fn submit_patch(self, aim: &Aim) -> Result<TodoPatch, Box<dyn Error>> {
         Ok(TodoPatch {
             description: match self.dirty.description {
                 true if self.data.description.is_empty() => Some(None),
@@ -90,7 +90,7 @@ impl TodoStore {
                 false => None,
             },
             due: match self.dirty.due {
-                true => Some(parse_datetime(&self.data.due)?),
+                true => Some(parse_datetime(&aim.now(), &self.data.due)?),
                 false => None,
             },
             percent_complete: self

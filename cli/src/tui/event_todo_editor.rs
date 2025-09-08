@@ -6,7 +6,7 @@ use std::cell::{Ref, RefCell};
 use std::error::Error;
 use std::rc::Rc;
 
-use aimcal_core::{EventDraft, Kind, TodoDraft};
+use aimcal_core::{Aim, EventDraft, Kind, TodoDraft};
 
 use crate::tui::component::Component;
 use crate::tui::component_form::{Access, Form};
@@ -55,16 +55,16 @@ impl EventTodoStore {
         dispatcher.register(callback);
     }
 
-    pub fn submit_draft(self) -> Result<EventOrTodoDraft, Box<dyn Error>> {
+    pub fn submit_draft(self, aim: &Aim) -> Result<EventOrTodoDraft, Box<dyn Error>> {
         match self.active {
             Kind::Event => {
                 let store = Rc::try_unwrap(self.event).map_err(|_| "Store still has references")?;
-                let event = store.into_inner().submit_draft()?;
+                let event = store.into_inner().submit_draft(aim)?;
                 Ok(EventOrTodoDraft::Event(event))
             }
             Kind::Todo => {
                 let store = Rc::try_unwrap(self.todo).map_err(|_| "Store still has references")?;
-                let todo = store.into_inner().submit_draft()?;
+                let todo = store.into_inner().submit_draft(aim)?;
                 Ok(EventOrTodoDraft::Todo(todo))
             }
         }

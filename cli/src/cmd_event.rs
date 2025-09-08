@@ -92,9 +92,9 @@ impl CmdEventNew {
             }
         } else {
             let (start, end) = match (self.start, self.end) {
-                (Some(start), Some(end)) => parse_datetime_range(&start, &end)?,
-                (Some(start), None) => (parse_datetime(&start)?, None),
-                (None, Some(end)) => (None, parse_datetime(&end)?),
+                (Some(start), Some(end)) => parse_datetime_range(&aim.now(), &start, &end)?,
+                (Some(start), None) => (parse_datetime(&aim.now(), &start)?, None),
+                (None, Some(end)) => (None, parse_datetime(&aim.now(), &end)?),
                 (None, None) => (None, None),
             };
             EventDraft {
@@ -207,11 +207,11 @@ impl CmdEventEdit {
         } else {
             let (start, end) = match (self.start, self.end) {
                 (Some(start), Some(end)) => {
-                    let (a, b) = parse_datetime_range(&start, &end)?;
+                    let (a, b) = parse_datetime_range(&aim.now(), &start, &end)?;
                     (Some(a), Some(b))
                 }
-                (Some(start), None) => (Some(parse_datetime(&start)?), None),
-                (None, Some(end)) => (None, Some(parse_datetime(&end)?)),
+                (Some(start), None) => (Some(parse_datetime(&aim.now(), &start)?), None),
+                (None, Some(end)) => (None, Some(parse_datetime(&aim.now(), &end)?)),
                 (None, None) => (None, None),
             };
             EventPatch {

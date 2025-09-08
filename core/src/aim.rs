@@ -75,7 +75,7 @@ impl Aim {
     /// Add a new event from the given draft.
     pub async fn new_event(&self, draft: EventDraft) -> Result<impl Event, Box<dyn Error>> {
         let uid = self.generate_uid().await?;
-        let event = draft.into_ics(&uid);
+        let event = draft.into_ics(&self.now, &uid);
         let path = self.get_path(&uid);
 
         let calendar = Calendar::new().push(event.clone()).done();
@@ -221,7 +221,7 @@ impl Aim {
             .find(|a| a.get_uid() == Some(todo.uid()))
             .ok_or("Todo not found in calendar")?;
 
-        patch.apply_to(t);
+        patch.apply_to(&self.now, t);
         let todo = t.clone();
         fs::write(&path, calendar.done().to_string())
             .await

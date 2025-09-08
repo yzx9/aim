@@ -39,14 +39,17 @@ pub fn get_verbose(matches: &ArgMatches) -> bool {
     matches.get_flag("verbose")
 }
 
-pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &'static str> {
+pub fn parse_datetime<Tz: TimeZone>(
+    now: &DateTime<Tz>,
+    dt: &str,
+) -> Result<Option<LooseDateTime>, &'static str> {
     if dt.is_empty() {
         Ok(None)
     } else if let Ok(dt) = NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M") {
         Ok(Some(loose_from_datetime(dt)))
     } else if let Ok(time) = NaiveTime::parse_from_str(dt, "%H:%M") {
         // If the input is just a time, we assume it's today
-        dt_with_time(Local::now(), time).map(|a| Some(a.into()))
+        dt_with_time(now, time).map(|a| Some(a.into()))
     } else if let Ok(date) = NaiveDate::parse_from_str(dt, "%Y-%m-%d") {
         Ok(Some(date.into()))
     } else {
@@ -57,11 +60,12 @@ pub fn parse_datetime(dt: &str) -> Result<Option<LooseDateTime>, &'static str> {
 /// Parses a date range from two strings, where the first is the start date and the second is the end date.
 ///
 /// NOTE: Don't assert that the start date is before the end date, as this function does not enforce that.
-pub fn parse_datetime_range(
+pub fn parse_datetime_range<Tz: TimeZone>(
+    now: &DateTime<Tz>,
     start: &str,
     end: &str,
 ) -> Result<(Option<LooseDateTime>, Option<LooseDateTime>), &'static str> {
-    let start = parse_datetime(start)?;
+    let start = parse_datetime(now, start)?;
 
     if end.is_empty() {
         Ok((start, None))
@@ -85,9 +89,9 @@ pub fn parse_datetime_range(
                 } else {
                     TimeDelta::days(1)
                 };
-                (dt_with_time(dt, time)? + delta).into()
+                (dt_with_time(&dt, time)? + delta).into()
             }
-            None => dt_with_time(Local::now(), time)?.into(),
+            None => dt_with_time(now, time)?.into(),
         };
         Ok((start, Some(end)))
     } else if let Ok(date) = NaiveDate::parse_from_str(end, "%Y-%m-%d") {
@@ -112,7 +116,7 @@ fn loose_from_datetime(dt: NaiveDateTime) -> LooseDateTime {
 }
 
 fn dt_with_time<Tz: TimeZone>(
-    dt: DateTime<Tz>,
+    dt: &DateTime<Tz>,
     time: NaiveTime,
 ) -> Result<DateTime<Local>, &'static str> {
     match dt.with_time(time) {
@@ -204,14 +208,23 @@ mod tests {
         assert_eq!(unicode_width_of_slice(s, 2), "ＡＢ".width());
     }
 
+    fn default_datetime() -> DateTime<Local> {
+        Local.from_utc_datetime(&NaiveDateTime::new(
+            NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+            NaiveTime::from_hms_opt(12, 0, 0).unwrap(),
+        ))
+    }
+
     #[test]
     fn test_parse_datetime_empty() {
-        assert_eq!(parse_datetime("").unwrap(), None);
+        let now = default_datetime();
+        assert_eq!(parse_datetime(&now, "").unwrap(), None);
     }
 
     #[test]
     fn test_parse_datetime_date_only() {
-        let result = parse_datetime("2023-12-25").unwrap().unwrap();
+        let now = default_datetime();
+        let result = parse_datetime(&now, "2023-12-25").unwrap().unwrap();
         match result {
             LooseDateTime::DateOnly(date) => {
                 assert_eq!(date, NaiveDate::from_ymd_opt(2023, 12, 25).unwrap());
@@ -222,7 +235,8 @@ mod tests {
 
     #[test]
     fn test_parse_datetime_date_time() {
-        let result = parse_datetime("2023-12-25 14:30").unwrap().unwrap();
+        let now = default_datetime();
+        let result = parse_datetime(&now, "2023-12-25 14:30").unwrap().unwrap();
         match result {
             LooseDateTime::Local(dt) => {
                 assert_eq!(
@@ -237,8 +251,8 @@ mod tests {
 
     #[test]
     fn test_parse_datetime_time_only() {
-        let now = Local::now();
-        let result = parse_datetime("14:30").unwrap().unwrap();
+        let now = default_datetime();
+        let result = parse_datetime(&now, "14:30").unwrap().unwrap();
         match result {
             LooseDateTime::Local(dt) => {
                 assert_eq!(dt.date_naive(), now.date_naive());
@@ -250,35 +264,40 @@ mod tests {
 
     #[test]
     fn test_parse_datetime_invalid() {
-        assert!(parse_datetime("invalid").is_err());
-        assert!(parse_datetime("25:00").is_err());
-        assert!(parse_datetime("2023-13-01").is_err());
+        let now = default_datetime();
+        assert!(parse_datetime(&now, "invalid").is_err());
+        assert!(parse_datetime(&now, "25:00").is_err());
+        assert!(parse_datetime(&now, "2023-13-01").is_err());
     }
 
     #[test]
     fn test_parse_datetime_range_both_empty() {
-        let (start, end) = parse_datetime_range("", "").unwrap();
+        let now = default_datetime();
+        let (start, end) = parse_datetime_range(&now, "", "").unwrap();
         assert_eq!(start, None);
         assert_eq!(end, None);
     }
 
     #[test]
     fn test_parse_datetime_range_start_only() {
-        let (start, end) = parse_datetime_range("2023-12-25", "").unwrap();
+        let now = default_datetime();
+        let (start, end) = parse_datetime_range(&now, "2023-12-25", "").unwrap();
         assert!(start.is_some());
         assert_eq!(end, None);
     }
 
     #[test]
     fn test_parse_datetime_range_both_dates() {
-        let (start, end) = parse_datetime_range("2023-12-25", "2023-12-26").unwrap();
+        let now = default_datetime();
+        let (start, end) = parse_datetime_range(&now, "2023-12-25", "2023-12-26").unwrap();
         assert!(start.is_some());
         assert!(end.is_some());
     }
 
     #[test]
     fn test_parse_datetime_range_date_and_time() {
-        let (start, end) = parse_datetime_range("2023-12-25", "14:30").unwrap();
+        let now = default_datetime();
+        let (start, end) = parse_datetime_range(&now, "2023-12-25", "14:30").unwrap();
         assert!(start.is_some());
         assert!(end.is_some());
 
@@ -300,7 +319,8 @@ mod tests {
 
     #[test]
     fn test_parse_datetime_range_datetime_and_time() {
-        let (start, end) = parse_datetime_range("2023-12-25 14:00", "14:30").unwrap();
+        let now = default_datetime();
+        let (start, end) = parse_datetime_range(&now, "2023-12-25 14:00", "14:30").unwrap();
         assert!(start.is_some());
         assert!(end.is_some());
 
@@ -329,7 +349,8 @@ mod tests {
 
     #[test]
     fn test_parse_datetime_range_datetime_and_earlier_time() {
-        let (start, end) = parse_datetime_range("2023-12-25 14:00", "13:30").unwrap();
+        let now = default_datetime();
+        let (start, end) = parse_datetime_range(&now, "2023-12-25 14:00", "13:30").unwrap();
         assert!(start.is_some());
         assert!(end.is_some());
 
@@ -375,10 +396,14 @@ mod tests {
 
     #[test]
     fn test_format_datetime_local() {
-        let dt: DateTime<Local> = Local::now();
+        let dt = Local
+            .from_local_datetime(&NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(2023, 12, 25).unwrap(),
+                NaiveTime::from_hms_opt(14, 30, 0).unwrap(),
+            ))
+            .unwrap();
         let formatted = format_datetime(LooseDateTime::Local(dt));
-        // Just check that it produces a non-empty string with expected format
-        assert!(formatted.contains("202") && formatted.contains(":"));
+        assert_eq!(formatted, "2023-12-25 14:30");
     }
 
     #[test]

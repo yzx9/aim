@@ -4,7 +4,7 @@
 
 use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Local, TimeZone, Utc};
 use icalendar::Component;
 
 use crate::{Config, DateTimeAnchor, LooseDateTime, Priority, SortOrder};
@@ -187,7 +187,11 @@ impl TodoPatch {
     }
 
     /// Applies the patch to a mutable todo item, modifying it in place.
-    pub(crate) fn apply_to<'a>(&self, t: &'a mut icalendar::Todo) -> &'a mut icalendar::Todo {
+    pub(crate) fn apply_to<'a, Tz: TimeZone>(
+        &self,
+        now: &DateTime<Tz>,
+        t: &'a mut icalendar::Todo,
+    ) -> &'a mut icalendar::Todo {
         if let Some(description) = &self.description {
             match description {
                 Some(desc) => t.description(desc),
@@ -214,7 +218,7 @@ impl TodoPatch {
             t.status(status.into());
 
             match status {
-                TodoStatus::Completed => t.completed(Utc::now()),
+                TodoStatus::Completed => t.completed(now.with_timezone(&Utc)),
                 _ if t.get_completed().is_some() => t.remove_completed(),
                 _ => t,
             };

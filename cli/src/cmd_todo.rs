@@ -111,9 +111,14 @@ impl CmdTodoNew {
                 }
             }
         } else {
+            let now = aim.now();
             TodoDraft {
                 description: self.description,
-                due: self.due.map(|a| parse_datetime(&a)).transpose()?.flatten(),
+                due: self
+                    .due
+                    .map(|a| parse_datetime(&now, &a))
+                    .transpose()?
+                    .flatten(),
                 percent_complete: self.percent_complete,
                 priority: self.priority,
                 status: self.status.unwrap_or_default(),
@@ -228,7 +233,11 @@ impl CmdTodoEdit {
         } else {
             TodoPatch {
                 description: self.description.map(|d| (!d.is_empty()).then_some(d)),
-                due: self.due.as_ref().map(|a| parse_datetime(a)).transpose()?,
+                due: self
+                    .due
+                    .as_ref()
+                    .map(|a| parse_datetime(&aim.now(), a))
+                    .transpose()?,
                 priority: self.priority,
                 percent_complete: None,
                 status: self.status,

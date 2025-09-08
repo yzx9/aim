@@ -28,7 +28,7 @@ pub fn draft_event(aim: &mut Aim) -> Result<Option<EventDraft>, Box<dyn Error>> 
     });
     let store = run_event_editor(aim, store)?;
     match store.submit {
-        true => store.submit_draft().map(Some),
+        true => store.submit_draft(aim).map(Some),
         false => Ok(None),
     }
 }
@@ -40,7 +40,7 @@ pub fn patch_event(
     let store = EventStore::new_by_event(event);
     let store = run_event_editor(aim, store)?;
     match store.submit {
-        true => store.submit_patch().map(Some),
+        true => store.submit_patch(aim).map(Some),
         false => Ok(None),
     }
 }
@@ -50,7 +50,7 @@ pub fn draft_todo(aim: &mut Aim) -> Result<Option<TodoDraft>, Box<dyn Error>> {
     let store = TodoStore::new_by_draft(draft);
     let store = run_todo_editor(aim, store)?;
     match store.submit {
-        true => store.submit_draft().map(Some),
+        true => store.submit_draft(aim).map(Some),
         false => Ok(None),
     }
 }
@@ -59,7 +59,7 @@ pub fn patch_todo(aim: &mut Aim, todo: &impl Todo) -> Result<Option<TodoPatch>, 
     let store = TodoStore::new_by_todo(todo);
     let store = run_todo_editor(aim, store)?;
     match store.submit {
-        true => store.submit_patch().map(Some),
+        true => store.submit_patch(aim).map(Some),
         false => Ok(None),
     }
 }
@@ -68,7 +68,7 @@ pub fn draft_event_or_todo(aim: &mut Aim) -> Result<Option<EventOrTodoDraft>, Bo
     let store = EventTodoStore::new(aim.default_event_draft(), aim.default_todo_draft());
     let store = run_event_todo_editor(aim, store)?;
     match store.submit {
-        true => store.submit_draft().map(Some),
+        true => store.submit_draft(aim).map(Some),
         false => Ok(None),
     }
 }

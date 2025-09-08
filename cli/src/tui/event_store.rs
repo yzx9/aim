@@ -4,7 +4,7 @@
 
 use std::{cell::RefCell, error::Error, ops::Deref, rc::Rc};
 
-use aimcal_core::{Event, EventDraft, EventPatch, EventStatus};
+use aimcal_core::{Aim, Event, EventDraft, EventPatch, EventStatus};
 
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::{format_datetime, parse_datetime};
@@ -55,11 +55,11 @@ impl EventStore {
         }
     }
 
-    pub fn submit_draft(self) -> Result<EventDraft, Box<dyn Error>> {
+    pub fn submit_draft(self, aim: &Aim) -> Result<EventDraft, Box<dyn Error>> {
         Ok(EventDraft {
             description: self.dirty.description.then_some(self.data.description),
-            start: parse_datetime(&self.data.start)?,
-            end: parse_datetime(&self.data.end)?,
+            start: parse_datetime(&aim.now(), &self.data.start)?,
+            end: parse_datetime(&aim.now(), &self.data.end)?,
             status: self.data.status,
             summary: if self.data.summary.is_empty() {
                 "New event".to_string()
@@ -69,7 +69,7 @@ impl EventStore {
         })
     }
 
-    pub fn submit_patch(self) -> Result<EventPatch, Box<dyn Error>> {
+    pub fn submit_patch(self, aim: &Aim) -> Result<EventPatch, Box<dyn Error>> {
         Ok(EventPatch {
             description: match self.dirty.description {
                 true if self.data.description.is_empty() => Some(None),
@@ -77,11 +77,11 @@ impl EventStore {
                 false => None,
             },
             start: match self.dirty.start {
-                true => Some(parse_datetime(&self.data.start)?),
+                true => Some(parse_datetime(&aim.now(), &self.data.start)?),
                 false => None,
             },
             end: match self.dirty.end {
-                true => Some(parse_datetime(&self.data.end)?),
+                true => Some(parse_datetime(&aim.now(), &self.data.end)?),
                 false => None,
             },
             status: self.dirty.status.then_some(self.data.status),
