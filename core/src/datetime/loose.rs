@@ -9,7 +9,10 @@ use chrono_tz::Tz;
 use icalendar::{CalendarDateTime, DatePerhapsTime};
 
 use crate::RangePosition;
-use crate::datetime::util::{end_of_day_naive, start_of_day_naive};
+use crate::datetime::util::{
+    STABLE_FORMAT_DATEONLY, STABLE_FORMAT_FLOATING, STABLE_FORMAT_LOCAL, end_of_day_naive,
+    start_of_day_naive,
+};
 
 /// A date and time that may be in different formats, such as date only, floating time, or local time with timezone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,34 +89,29 @@ impl LooseDateTime {
         }
     }
 
-    /// NOTE: Used for storing in the database, so it should be stable across different runs.
-    const DATEONLY_FORMAT: &str = "%Y-%m-%d";
-    const FLOATING_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
-    const LOCAL_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%z";
-
     /// Converts to a string representation of date and time.
     pub(crate) fn format_stable(&self) -> String {
         match self {
-            LooseDateTime::DateOnly(d) => d.format(Self::DATEONLY_FORMAT).to_string(),
-            LooseDateTime::Floating(dt) => dt.format(Self::FLOATING_FORMAT).to_string(),
-            LooseDateTime::Local(dt) => dt.format(Self::LOCAL_FORMAT).to_string(),
+            LooseDateTime::DateOnly(d) => d.format(STABLE_FORMAT_DATEONLY).to_string(),
+            LooseDateTime::Floating(dt) => dt.format(STABLE_FORMAT_FLOATING).to_string(),
+            LooseDateTime::Local(dt) => dt.format(STABLE_FORMAT_LOCAL).to_string(),
         }
     }
 
     pub(crate) fn parse_stable(s: &str) -> Option<Self> {
         match s.len() {
             // 2006-01-02
-            10 => NaiveDate::parse_from_str(s, Self::DATEONLY_FORMAT)
+            10 => NaiveDate::parse_from_str(s, STABLE_FORMAT_DATEONLY)
                 .map(Self::DateOnly)
                 .ok(),
 
             // 2006-01-02T15:04:05
-            19 => NaiveDateTime::parse_from_str(s, Self::FLOATING_FORMAT)
+            19 => NaiveDateTime::parse_from_str(s, STABLE_FORMAT_FLOATING)
                 .map(Self::Floating)
                 .ok(),
 
             // 2006-01-02T15:04:05Z
-            20.. => DateTime::parse_from_str(s, Self::LOCAL_FORMAT)
+            20.. => DateTime::parse_from_str(s, STABLE_FORMAT_LOCAL)
                 .map(|a| Self::Local(a.with_timezone(&Local)))
                 .ok(),
 

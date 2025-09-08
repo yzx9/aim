@@ -4,6 +4,11 @@
 
 use chrono::{DateTime, NaiveDateTime, NaiveTime, TimeZone, Utc, offset::LocalResult};
 
+/// NOTE: Used for storing in the database, so it should be stable across different runs.
+pub const STABLE_FORMAT_DATEONLY: &str = "%Y-%m-%d";
+pub const STABLE_FORMAT_FLOATING: &str = "%Y-%m-%dT%H:%M:%S";
+pub const STABLE_FORMAT_LOCAL: &str = "%Y-%m-%dT%H:%M:%S%z";
+
 /// The position of a date relative to a range defined by a start and optional end date.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RangePosition {

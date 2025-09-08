@@ -5,6 +5,7 @@
 use chrono::{DateTime, Local};
 use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 
+use crate::datetime::STABLE_FORMAT_LOCAL;
 use crate::todo::{ParsedTodoConditions, ParsedTodoSort};
 use crate::{LooseDateTime, Pager, Priority, Todo, TodoStatus};
 
@@ -227,9 +228,6 @@ impl Todo for TodoRecord {
     }
 }
 
-// NOTE: The format strings used here are stable and should not change across different runs.
-const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
-
 fn format_dt(dt: DateTime<Local>) -> String {
-    dt.format(DATETIME_FORMAT).to_string()
+    dt.format(STABLE_FORMAT_LOCAL).to_string()
 }

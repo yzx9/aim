@@ -2,10 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, NaiveDate};
 use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 
-use crate::{Event, EventStatus, LooseDateTime, Pager, event::ParsedEventConditions};
+use crate::{
+    Event, EventStatus, LooseDateTime, Pager,
+    datetime::{STABLE_FORMAT_DATEONLY, STABLE_FORMAT_LOCAL},
+    event::ParsedEventConditions,
+};
 
 #[derive(Debug, Clone)]
 pub struct Events {
@@ -98,7 +102,7 @@ FROM events
             where_clauses.push("start <= ?");
         }
         if conds.end_after.is_some() {
-            where_clauses.push("end >= ?");
+            where_clauses.push("(end >= ? OR end = ?)");
         }
 
         if !where_clauses.is_empty() {
@@ -117,7 +121,9 @@ FROM events
             query = query.bind(format_dt(start_before));
         }
         if let Some(end_after) = conds.end_after {
-            query = query.bind(format_dt(end_after));
+            query = query
+                .bind(format_dt(end_after))
+                .bind(format_date(end_after.date_naive()));
         }
         query
     }
@@ -181,8 +187,10 @@ impl Event for EventRecord {
     }
 }
 
-const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
+fn format_date(date: NaiveDate) -> String {
+    date.format(STABLE_FORMAT_DATEONLY).to_string()
+}
 
 fn format_dt(dt: DateTime<Local>) -> String {
-    dt.format(DATETIME_FORMAT).to_string()
+    dt.format(STABLE_FORMAT_LOCAL).to_string()
 }
