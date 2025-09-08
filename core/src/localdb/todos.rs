@@ -19,7 +19,7 @@ impl Todos {
     }
 
     pub async fn upsert(&self, todo: &TodoRecord) -> Result<(), sqlx::Error> {
-        const SQL: &str = "
+        const SQL: &str = "\
 INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uid) DO UPDATE SET
@@ -50,7 +50,7 @@ ON CONFLICT(uid) DO UPDATE SET
     }
 
     pub async fn get(&self, uid: &str) -> Result<Option<TodoRecord>, sqlx::Error> {
-        const SQL: &str = "
+        const SQL: &str = "\
 SELECT uid, path, completed, description, percent, priority, status, summary, due
 FROM todos
 WHERE uid = ?;
@@ -68,7 +68,7 @@ WHERE uid = ?;
         sort: &[ParsedTodoSort],
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
-        let mut sql = "
+        let mut sql = "\
 SELECT uid, path, completed, description, percent, priority, status, summary, due
 FROM todos
 "
@@ -76,7 +76,7 @@ FROM todos
         sql += &self.build_where(conds);
 
         if !sort.is_empty() {
-            sql += " ORDER BY ";
+            sql += "ORDER BY ";
             for (i, s) in sort.iter().enumerate() {
                 match s {
                     ParsedTodoSort::Due(order) => {
@@ -97,7 +97,7 @@ FROM todos
                 }
             }
         }
-        sql += " LIMIT ? OFFSET ?";
+        sql += " LIMIT ? OFFSET ?;";
 
         let mut executable = sqlx::query_as(&sql);
         if let Some(status) = &conds.status {
@@ -117,6 +117,7 @@ FROM todos
     pub async fn count(&self, conds: &ParsedTodoConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM todos".to_string();
         sql += &self.build_where(conds);
+        sql += ";";
 
         let mut query = sqlx::query_as(&sql);
         query = self.bind_conditions(conds, query);
@@ -134,7 +135,7 @@ FROM todos
         }
 
         if !where_clauses.is_empty() {
-            format!(" WHERE {}", where_clauses.join(" AND "))
+            format!(" WHERE {} ", where_clauses.join(" AND "))
         } else {
             "".to_string()
         }

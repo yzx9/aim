@@ -5,8 +5,7 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use sqlx::{SqlitePool, migrate};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 
 use crate::localdb::events::{EventRecord, Events};
 use crate::localdb::short_ids::ShortIds;
@@ -47,7 +46,7 @@ impl LocalDb {
             .await
             .map_err(|e| format!("Failed to connect to SQLite database: {e}"))?;
 
-        migrate!("src/localdb/migrations") // relative path from the crate root
+        sqlx::migrate!("src/localdb/migrations") // relative path from the crate root
             .run(&pool)
             .await
             .map_err(|e| format!("Failed to run migrations: {e}"))?;

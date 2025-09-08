@@ -24,7 +24,7 @@ impl ShortIds {
         short_id: NonZeroU32,
     ) -> Result<Option<UidAndShortId>, sqlx::Error> {
         let row: Option<(String, String)> =
-            sqlx::query_as("SELECT uid, kind FROM short_ids WHERE short_id = ?")
+            sqlx::query_as("SELECT uid, kind FROM short_ids WHERE short_id = ?;")
                 .bind(short_id.get() as i64)
                 .fetch_optional(&self.pool)
                 .await?;
@@ -63,10 +63,10 @@ impl ShortIds {
         //
         // In our case, we prefer `short_id` values to remain as small and compact as possible,
         // so we intentionally avoid using AUTOINCREMENT.
-        const SQL: &str = "
+        const SQL: &str = "\
 INSERT INTO short_ids (uid, kind) VALUES (?, ?)
 ON CONFLICT(uid) DO NOTHING
-RETURNING short_id
+RETURNING short_id;
 ";
 
         if let Some((short_id,)) = sqlx::query_as::<_, (NonZeroU32,)>(SQL)

@@ -18,7 +18,7 @@ impl Events {
     }
 
     pub async fn insert(&self, event: EventRecord) -> Result<(), sqlx::Error> {
-        const SQL: &str = "
+        const SQL: &str = "\
 INSERT INTO events (uid, path, summary, description, status, start, end)
 VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uid) DO UPDATE SET
@@ -45,7 +45,7 @@ ON CONFLICT(uid) DO UPDATE SET
     }
 
     pub async fn get(&self, uid: &str) -> Result<Option<EventRecord>, sqlx::Error> {
-        const SQL: &str = "
+        const SQL: &str = "\
 SELECT uid, path, summary, description, status, start, end
 FROM events
 WHERE uid = ?;
@@ -62,13 +62,13 @@ WHERE uid = ?;
         conds: &ParsedEventConditions,
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
-        let mut sql = "
+        let mut sql = "\
 SELECT uid, path, summary, description, status, start, end
 FROM events
 "
         .to_string();
         sql += &self.build_where(conds);
-        sql += "ORDER BY start ASC LIMIT ? OFFSET ?";
+        sql += "ORDER BY start ASC LIMIT ? OFFSET ?;";
 
         let mut executable = sqlx::query_as(&sql);
         executable = self.bind_conditions(conds, executable);
@@ -83,6 +83,7 @@ FROM events
     pub async fn count(&self, conds: &ParsedEventConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM events".to_string();
         sql += &self.build_where(conds);
+        sql += ";";
 
         let mut executable = sqlx::query_as(&sql);
         executable = self.bind_conditions(conds, executable);
@@ -101,7 +102,7 @@ FROM events
         }
 
         if !where_clauses.is_empty() {
-            format!(" WHERE {}", where_clauses.join(" AND "))
+            format!(" WHERE {} ", where_clauses.join(" AND "))
         } else {
             "".to_string()
         }
