@@ -56,13 +56,7 @@ impl EventOrTodoArgs {
     }
 
     pub fn get_kind(matches: &ArgMatches) -> Option<Kind> {
-        matches
-            .get_one::<String>("type")
-            .and_then(|s| match s.as_str() {
-                "event" => Some(Kind::Event),
-                "todo" => Some(Kind::Todo),
-                _ => None,
-            })
+        matches.get_one("type").cloned()
     }
 
     pub fn id(&self) -> Arg {
