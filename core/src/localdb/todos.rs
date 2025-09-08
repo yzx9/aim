@@ -137,7 +137,7 @@ FROM todos
         if !where_clauses.is_empty() {
             format!(" WHERE {} ", where_clauses.join(" AND "))
         } else {
-            "".to_string()
+            String::new()
         }
     }
 

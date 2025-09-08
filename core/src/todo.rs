@@ -112,7 +112,7 @@ impl TodoDraft {
             percent_complete: None,
             priority: Some(config.default_priority),
             status: TodoStatus::default(),
-            summary: "".to_string(),
+            summary: String::default(),
         }
     }
 

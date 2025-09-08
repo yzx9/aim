@@ -265,7 +265,7 @@ where
     fn get(s: &RefCell<S>) -> String {
         match A::get(s) {
             Some(a) => a.to_string(),
-            None => "".to_string(),
+            None => String::new(),
         }
     }
 

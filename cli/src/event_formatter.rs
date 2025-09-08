@@ -203,7 +203,7 @@ impl EventColumnDateTimeSpan {
             .into(),
             (Some(start), None) => format_datetime(start).into(),
             (None, Some(end)) => format!("~{}", format_datetime(end)).into(),
-            (None, None) => "".to_string().into(),
+            (None, None) => String::new().into(),
         }
     }
 
@@ -245,7 +245,7 @@ impl EventColumnTimeSpan {
             .into(),
             (Some(start), None) => format_datetime(start).into(),
             (None, Some(end)) => format!("~{}", format_datetime(end)).into(),
-            (None, None) => "".to_string().into(),
+            (None, None) => String::new().into(),
         }
     }
 
