@@ -89,6 +89,21 @@ impl LooseDateTime {
         }
     }
 
+    /// Creates a `LooseDateTime` from a `NaiveDateTime` in the local timezone.
+    pub(crate) fn from_local_datetime(dt: NaiveDateTime) -> LooseDateTime {
+        match Local.from_local_datetime(&dt) {
+            LocalResult::Single(dt) => dt.into(),
+            LocalResult::Ambiguous(dt1, _) => {
+                tracing::warn!(?dt, "ambiguous local time in local, picking earliest");
+                dt1.into()
+            }
+            LocalResult::None => {
+                tracing::warn!(?dt, "invalid local time in local, falling back to floating");
+                dt.into()
+            }
+        }
+    }
+
     /// Converts to a string representation of date and time.
     pub(crate) fn format_stable(&self) -> String {
         match self {
@@ -191,6 +206,7 @@ impl<Tz: TimeZone> From<DateTime<Tz>> for LooseDateTime {
 
 impl Add<chrono::TimeDelta> for LooseDateTime {
     type Output = Self;
+
     fn add(self, rhs: chrono::TimeDelta) -> Self::Output {
         match self {
             LooseDateTime::DateOnly(d) => LooseDateTime::DateOnly(d.add(rhs)),
@@ -419,6 +435,18 @@ mod tests {
             LooseDateTime::position_in_range(&t, &None, &None),
             RangePosition::InvalidRange
         );
+    }
+
+    #[test]
+    fn test_from_local_datetime() {
+        // Test with a valid datetime that should produce a single result
+        let datetime = DateTime::from_timestamp(1609459200, 0)
+            .expect("Valid timestamp for 2021-01-01 00:00:00")
+            .naive_local();
+        let loose_dt = LooseDateTime::from_local_datetime(datetime);
+
+        // Should convert to Local variant
+        assert!(matches!(loose_dt, LooseDateTime::Local(_)));
     }
 
     #[test]

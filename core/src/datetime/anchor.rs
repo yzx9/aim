@@ -4,7 +4,7 @@
 
 use std::{str::FromStr, sync::OnceLock};
 
-use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, offset::LocalResult};
+use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
 use regex::Regex;
 
 use crate::LooseDateTime;
@@ -82,23 +82,21 @@ impl DateTimeAnchor {
     /// Parses the `DateTimeAnchor` to a `LooseDateTime` based on the provided current local time.
     pub fn parse_from_loose(self, now: &LooseDateTime) -> LooseDateTime {
         match self {
-            DateTimeAnchor::InDays(n) => *now + TimeDelta::days(n),
             DateTimeAnchor::InHours(n) => *now + TimeDelta::hours(n),
+            DateTimeAnchor::InDays(n) => *now + TimeDelta::days(n),
             DateTimeAnchor::DateTime(dt) => dt,
             DateTimeAnchor::Time(t) => match now {
                 LooseDateTime::Local(dt) => {
-                    let date = dt.date_naive();
-                    let dt = NaiveDateTime::new(date, t);
+                    let dt = NaiveDateTime::new(dt.date_naive(), t);
                     from_local_datetime(&Local, dt).into()
                 }
                 LooseDateTime::Floating(dt) => {
-                    let date = dt.date();
-                    let dt = NaiveDateTime::new(date, t);
+                    let dt = NaiveDateTime::new(dt.date(), t);
                     LooseDateTime::Floating(dt)
                 }
                 LooseDateTime::DateOnly(date) => {
                     let dt = NaiveDateTime::new(*date, t);
-                    loose_from_datetime(dt)
+                    LooseDateTime::from_local_datetime(dt)
                 }
             },
         }
@@ -107,14 +105,14 @@ impl DateTimeAnchor {
     /// Parses the `DateTimeAnchor` to a `LooseDateTime` based on the provided current time in any timezone.
     pub fn parse_from_dt<Tz: TimeZone>(self, now: &DateTime<Tz>) -> LooseDateTime {
         match self {
-            DateTimeAnchor::InDays(n) => {
-                let date = now.date_naive() + TimeDelta::days(n);
-                let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
-                loose_from_datetime(dt)
-            }
             DateTimeAnchor::InHours(n) => {
                 let dt = now.clone() + TimeDelta::hours(n);
                 LooseDateTime::Local(dt.with_timezone(&Local))
+            }
+            DateTimeAnchor::InDays(n) => {
+                let date = now.date_naive() + TimeDelta::days(n);
+                let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+                LooseDateTime::from_local_datetime(dt)
             }
             DateTimeAnchor::DateTime(dt) => dt,
             DateTimeAnchor::Time(t) => {
@@ -126,7 +124,7 @@ impl DateTimeAnchor {
                     TimeDelta::days(1)
                 };
                 let dt = NaiveDateTime::new(date, t) + delta;
-                loose_from_datetime(dt)
+                LooseDateTime::from_local_datetime(dt)
             }
         }
     }
@@ -147,7 +145,7 @@ impl FromStr for DateTimeAnchor {
 
         if let Ok(dt) = NaiveDateTime::parse_from_str(t, "%Y-%m-%d %H:%M") {
             // Parse as datetime
-            Ok(Self::DateTime(loose_from_datetime(dt)))
+            Ok(Self::DateTime(LooseDateTime::from_local_datetime(dt)))
         } else if let Ok(time) = NaiveTime::parse_from_str(t, "%H:%M") {
             // Parse as time only
             Ok(Self::Time(time))
@@ -189,20 +187,6 @@ fn parse_days(s: &str) -> Option<i64> {
     }
 
     None
-}
-
-fn loose_from_datetime(dt: NaiveDateTime) -> LooseDateTime {
-    match Local.from_local_datetime(&dt) {
-        LocalResult::Single(dt) => dt.into(),
-        LocalResult::Ambiguous(dt1, _) => {
-            tracing::warn!(?dt, "ambiguous local time in local, picking earliest");
-            dt1.into()
-        }
-        LocalResult::None => {
-            tracing::warn!(?dt, "invalid local time in local, falling back to floating");
-            dt.into()
-        }
-    }
 }
 
 #[cfg(test)]
