@@ -34,20 +34,64 @@ The central command router that:
 - Manages application lifecycle (configuration, initialization, cleanup)
 - Supports aliases for common commands (e.g., "add" for "new")
 
+## Command Structure
+
+The CLI supports a hierarchical command structure:
+
+```
+aim [OPTIONS] [COMMAND] [SUBCOMMAND]
+├── dashboard                        # Show overview (default)
+├── new                              # Interactive creation
+├── edit <ID>                        # Interactive editing
+├── event
+│   ├── new/add [SUMMARY]            # Create event
+│   ├── edit <ID>                    # Edit event
+│   └── list                         # List events
+└── todo
+    ├── new/add [SUMMARY]            # Create todo
+    ├── edit <ID>                    # Edit todo
+    ├── done <ID>...                 # Mark done
+    ├── undo <ID>...                 # Mark needs-action
+    ├── cancel <ID>...               # Mark cancelled
+    ├── delay <ID> <TIMEDELTA>       # Delay due date
+    └── list                         # List todos
+```
+
 ### Command Implementations
+
+The CLI supports a hierarchical command structure:
+
+```
+aim [OPTIONS] [COMMAND] [SUBCOMMAND]
+├── dashboard                        # Show overview (default)
+├── new                              # Interactive creation
+├── edit <ID>                        # Interactive editing
+├── event
+│   ├── new/add [SUMMARY]            # Create event
+│   ├── edit <ID>                    # Edit event
+│   └── list                         # List events
+└── todo
+    ├── new/add [SUMMARY]            # Create todo
+    ├── edit <ID>                    # Edit todo
+    ├── done <ID>...                 # Mark done
+    ├── undo <ID>...                 # Mark needs-action
+    ├── cancel <ID>...               # Mark cancelled
+    ├── delay <ID> <TIMEDELTA>       # Delay due date
+    └── list                         # List todos
+```
 
 Individual command modules that handle specific functionality:
 
 #### Event Commands (src/cmd_event.rs)
 
-- `event new/add` - Create new calendar events with optional TUI mode
-- `event edit` - Modify existing events with optional TUI mode
+- `event new/add` - Create new calendar event with optional TUI mode
+- `event edit` - Modify existing event with optional TUI mode
 - `event list` - Display upcoming events with filtering and formatting options
 
 #### Todo Commands (src/cmd_todo.rs)
 
-- `todo new/add` - Create new todo items with optional TUI mode
-- `todo edit` - Modify existing todo items with optional TUI mode
+- `todo new/add` - Create new todo item with optional TUI mode
+- `todo edit` - Modify existing todo item with optional TUI mode
 - `todo done` - Mark todos as completed
 - `todo undo` - Mark todos as needs-action
 - `todo cancel` - Mark todos as cancelled
@@ -56,8 +100,8 @@ Individual command modules that handle specific functionality:
 
 #### TUI Commands (src/cmd_tui.rs)
 
-- `new` - Interactive creation of events or todos
-- `edit` - Interactive editing of existing items
+- `new` - Create new event or todo with optional TUI mode
+- `edit` - Modify existing of existing items with optional TUI mode
 
 #### Utility Commands
 
@@ -68,19 +112,13 @@ Individual command modules that handle specific functionality:
 
 Modules that handle presentation of data:
 
-#### EventFormatter (src/event_formatter.rs)
+#### EventFormatter (src/event_formatter.rs) and TodoFormatter (src/todo_formatter.rs):
 
-- Formats events for display in table or JSON format
-- Color-coding for current/upcoming events
+- Formats events/todos for display in table or JSON format
+- Color-coding for current/upcoming events and overdue and high-priority items
 - Flexible column-based output
 
-#### TodoFormatter (src/todo_formatter.rs)
-
-- Formats todos for display in table or JSON format
-- Color-coding for overdue and high-priority items
-- Priority and due date visualization
-
-#### Table Utilities (src/table.rs)
+#### Table Utilities (src/table.rs):
 
 - Generic table formatting engine
 - Support for both basic text tables and JSON output
@@ -111,34 +149,10 @@ CLI-specific configuration management:
 - Integration with core configuration
 - Environment variable handling
 
-## Command Structure
-
-The CLI supports a hierarchical command structure:
-
-```
-aim [OPTIONS] [COMMAND] [SUBCOMMAND]
-├── dashboard                        # Show overview (default)
-├── new                              # Interactive creation
-├── edit <ID>                        # Interactive editing
-├── event
-│   ├── new/add [SUMMARY]            # Create event
-│   ├── edit <ID>                    # Edit event
-│   └── list                         # List events
-└── todo
-    ├── new/add [SUMMARY]            # Create todo
-    ├── edit <ID>                    # Edit todo
-    ├── done <ID>...                 # Mark done
-    ├── undo <ID>...                 # Mark needs-action
-    ├── cancel <ID>...               # Mark cancelled
-    ├── delay <ID> <TIMEDELTA>       # Delay due date
-    └── list                         # List todos
-```
-
 ## Dependencies
 
-- **sqlx**: Type-safe SQL database access
 - **chrono**: Date and time handling
-- **icalendar**: iCalendar format support
+- **clap**: Command line argument parsing
 - **tokio**: Async runtime
 - **serde**: Serialization framework
 - **uuid**: Unique identifier generation
@@ -155,12 +169,10 @@ aim [OPTIONS] [COMMAND] [SUBCOMMAND]
 - **Unicode Support**: Proper handling of multi-byte characters and emojis
 - **Environment Integration**: Configuration via environment variables and files
 - **Error Handling**: User-friendly error messages with colored output
-- **Pagination**: Automatic limiting of large result sets
 - **Sorting and Filtering**: Configurable display options for events and todos
 
 ## Code Standards
 
-- Comprehensive clap-based argument parsing with validation
 - Async/await support throughout with proper error handling
 - Extensive tracing instrumentation for debugging
 - Unit tests for command parsing and utility functions

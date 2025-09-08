@@ -47,7 +47,6 @@ This crate can be ignored unless specifically requested by users.
 
 ### Code Quality
 
-- **clap::warn**: Enabling all Rust warnings for code quality
 - **rustfmt**: Consistent code formatting
 - **Clippy linting**: Static analysis for code quality
 - **Unit tests**: Comprehensive coverage for individual functions
