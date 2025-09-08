@@ -5,38 +5,14 @@
 use aimcal_core::LooseDateTime;
 use chrono::offset::LocalResult;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
-use clap::{Arg, ArgMatches, arg, value_parser};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 /// The output format for commands
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
-pub enum ArgOutputFormat {
+pub enum OutputFormat {
     Json,
     Table,
-}
-
-impl ArgOutputFormat {
-    pub fn arg() -> Arg {
-        arg!(--"output-format" <FORMAT> "Output format")
-            .value_parser(value_parser!(ArgOutputFormat))
-            .default_value("table")
-    }
-
-    pub fn from(matches: &ArgMatches) -> Self {
-        matches
-            .get_one("output-format")
-            .copied()
-            .unwrap_or(ArgOutputFormat::Table)
-    }
-}
-
-pub fn arg_verbose() -> Arg {
-    arg!(-v --verbose "Show more detailed information")
-}
-
-pub fn get_verbose(matches: &ArgMatches) -> bool {
-    matches.get_flag("verbose")
 }
 
 pub fn parse_datetime<Tz: TimeZone>(

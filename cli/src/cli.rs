@@ -264,7 +264,7 @@ impl Commands {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{cmd_generate_completion::Shell, util::ArgOutputFormat};
+    use crate::{cmd_generate_completion::Shell, util::OutputFormat};
     use aimcal_core::Id;
 
     #[test]
@@ -355,7 +355,7 @@ mod tests {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::EventList(cmd) => {
-                assert_eq!(cmd.output_format, ArgOutputFormat::Json);
+                assert_eq!(cmd.output_format, OutputFormat::Json);
             }
             _ => panic!("Expected EventList command"),
         }
@@ -467,7 +467,7 @@ mod tests {
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::TodoList(cmd) => {
-                assert_eq!(cmd.output_format, ArgOutputFormat::Json);
+                assert_eq!(cmd.output_format, OutputFormat::Json);
             }
             _ => panic!("Expected TodoList command"),
         }

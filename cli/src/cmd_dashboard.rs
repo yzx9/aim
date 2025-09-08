@@ -10,7 +10,7 @@ use colored::Colorize;
 
 use crate::cmd_todo::CmdTodoList;
 use crate::event_formatter::{EventColumn, EventFormatter};
-use crate::util::ArgOutputFormat;
+use crate::util::OutputFormat;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CmdDashboard;
@@ -91,7 +91,7 @@ impl CmdDashboard {
             status: Some(TodoStatus::NeedsAction),
             due: Some(DateTimeAnchor::InDays(2)),
         };
-        CmdTodoList::list(aim, &conds, ArgOutputFormat::Table, false).await?;
+        CmdTodoList::list(aim, &conds, OutputFormat::Table, false).await?;
         Ok(())
     }
 }

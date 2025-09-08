@@ -8,16 +8,17 @@
 use std::error::Error;
 
 use aimcal_core::{Aim, Id, Kind};
-use clap::{Arg, ArgMatches, Command, arg};
+use clap::{ArgMatches, Command};
 
+use crate::arg::{CommonArgs, EventOrTodoArgs};
 use crate::cmd_event::{CmdEventEdit, CmdEventNew};
 use crate::cmd_todo::{CmdTodoEdit, CmdTodoNew};
 use crate::tui::{EventOrTodoDraft, draft_event_or_todo};
-use crate::util::{ArgOutputFormat, arg_verbose, get_verbose};
+use crate::util::OutputFormat;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdNew {
-    pub output_format: ArgOutputFormat,
+    pub output_format: OutputFormat,
     pub verbose: bool,
 }
 
@@ -28,14 +29,14 @@ impl CmdNew {
         Command::new(Self::NAME)
             .alias("add")
             .about("Add a new event or todo using TUI")
-            .arg(ArgOutputFormat::arg())
-            .arg(arg_verbose())
+            .arg(CommonArgs::output_format())
+            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            output_format: ArgOutputFormat::from(matches),
-            verbose: get_verbose(matches),
+            output_format: CommonArgs::get_output_format(matches),
+            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -63,7 +64,7 @@ impl CmdNew {
 #[derive(Debug, Clone)]
 pub struct CmdEdit {
     pub id: Id,
-    pub output_format: ArgOutputFormat,
+    pub output_format: OutputFormat,
     pub verbose: bool,
 }
 
@@ -71,18 +72,19 @@ impl CmdEdit {
     pub const NAME: &str = "edit";
 
     pub fn command() -> Command {
+        let args = args();
         Command::new(Self::NAME)
             .about("Edit a event or todo using TUI")
-            .arg(arg_id())
-            .arg(ArgOutputFormat::arg())
-            .arg(arg_verbose())
+            .arg(args.id())
+            .arg(CommonArgs::output_format())
+            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: get_id(matches),
-            output_format: ArgOutputFormat::from(matches),
-            verbose: get_verbose(matches),
+            id: EventOrTodoArgs::get_id(matches),
+            output_format: CommonArgs::get_output_format(matches),
+            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -106,15 +108,6 @@ impl CmdEdit {
     }
 }
 
-fn arg_id() -> Arg {
-    arg!(id: <ID> "The short id or uid of the event or todo to edit")
-}
-
-fn get_id(matches: &ArgMatches) -> Id {
-    let id = matches
-        .get_one::<String>("id")
-        .expect("id is required")
-        .clone();
-
-    Id::ShortIdOrUid(id)
+const fn args() -> EventOrTodoArgs {
+    EventOrTodoArgs::new(None)
 }

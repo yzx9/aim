@@ -9,13 +9,13 @@ use chrono::{DateTime, Local};
 use colored::Color;
 
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
-use crate::util::{ArgOutputFormat, format_datetime};
+use crate::util::{OutputFormat, format_datetime};
 
 #[derive(Debug, Clone)]
 pub struct EventFormatter {
     now: DateTime<Local>,
     columns: Vec<EventColumn>,
-    format: ArgOutputFormat,
+    format: OutputFormat,
 }
 
 impl EventFormatter {
@@ -23,11 +23,11 @@ impl EventFormatter {
         Self {
             now,
             columns,
-            format: ArgOutputFormat::Table,
+            format: OutputFormat::Table,
         }
     }
 
-    pub fn with_output_format(mut self, format: ArgOutputFormat) -> Self {
+    pub fn with_output_format(mut self, format: OutputFormat) -> Self {
         self.format = format;
         self
     }
@@ -59,12 +59,12 @@ impl<'a, E: Event> fmt::Display for Display<'a, E> {
             .collect();
 
         match self.formatter.format {
-            ArgOutputFormat::Json => write!(
+            OutputFormat::Json => write!(
                 f,
                 "{}",
                 Table::new(TableStyleJson::new(), &columns, self.events)
             ),
-            ArgOutputFormat::Table => write!(
+            OutputFormat::Table => write!(
                 f,
                 "{}",
                 Table::new(TableStyleBasic::new(), &columns, self.events)

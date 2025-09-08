@@ -5,16 +5,16 @@
 use std::error::Error;
 
 use aimcal_core::{
-    Aim, DateTimeAnchor, Event, EventConditions, EventDraft, EventPatch, EventStatus, Id, Pager,
+    Aim, DateTimeAnchor, Event, EventConditions, EventDraft, EventPatch, EventStatus, Id, Kind,
+    Pager,
 };
-use clap::{Arg, ArgMatches, Command, arg};
+use clap::{ArgMatches, Command};
 use colored::Colorize;
 
+use crate::arg::{CommonArgs, EventArgs, EventOrTodoArgs};
 use crate::event_formatter::{EventColumn, EventFormatter};
 use crate::tui;
-use crate::util::{
-    ArgOutputFormat, arg_verbose, get_verbose, parse_datetime, parse_datetime_range,
-};
+use crate::util::{OutputFormat, parse_datetime, parse_datetime_range};
 
 #[derive(Debug, Clone)]
 pub struct CmdEventNew {
@@ -25,7 +25,7 @@ pub struct CmdEventNew {
     pub summary: Option<String>,
 
     pub tui: bool,
-    pub output_format: ArgOutputFormat,
+    pub output_format: OutputFormat,
     pub verbose: bool,
 }
 
@@ -33,25 +33,26 @@ impl CmdEventNew {
     pub const NAME: &str = "new";
 
     pub fn command() -> Command {
+        let args = args();
         Command::new(Self::NAME)
             .alias("add")
             .about("Add a new event")
-            .arg(arg_summary(true))
-            .arg(arg_start())
-            .arg(arg_end())
-            .arg(arg_description())
-            .arg(arg_status())
-            .arg(ArgOutputFormat::arg())
-            .arg(arg_verbose())
+            .arg(args.summary(true))
+            .arg(EventArgs::start())
+            .arg(EventArgs::end())
+            .arg(args.description())
+            .arg(EventArgs::status())
+            .arg(CommonArgs::output_format())
+            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
-        let description = get_description(matches);
-        let start = get_start(matches);
-        let end = get_end(matches);
-        let status = get_status(matches);
+        let description = EventOrTodoArgs::get_description(matches);
+        let start = EventArgs::get_start(matches);
+        let end = EventArgs::get_end(matches);
+        let status = EventArgs::get_status(matches);
 
-        let summary = match get_summary(matches) {
+        let summary = match EventOrTodoArgs::get_summary(matches) {
             Some(summary) => Some(summary.clone()), // TODO: is start/end required?
 
             None if description.is_none()
@@ -75,8 +76,8 @@ impl CmdEventNew {
             summary,
 
             tui,
-            output_format: ArgOutputFormat::from(matches),
-            verbose: get_verbose(matches),
+            output_format: CommonArgs::get_output_format(matches),
+            verbose: CommonArgs::get_verbose(matches),
         })
     }
 
@@ -111,7 +112,7 @@ impl CmdEventNew {
     pub async fn new_event(
         aim: &mut Aim,
         draft: EventDraft,
-        output_format: ArgOutputFormat,
+        output_format: OutputFormat,
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         let event = aim.new_event(draft).await?;
@@ -130,7 +131,7 @@ pub struct CmdEventEdit {
     pub summary: Option<String>,
 
     pub tui: bool,
-    pub output_format: ArgOutputFormat,
+    pub output_format: OutputFormat,
     pub verbose: bool,
 }
 
@@ -138,25 +139,26 @@ impl CmdEventEdit {
     pub const NAME: &str = "edit";
 
     pub fn command() -> Command {
+        let args = args();
         Command::new(Self::NAME)
             .about("Edit a todo item")
-            .arg(arg_id())
-            .arg(arg_summary(false))
-            .arg(arg_start())
-            .arg(arg_end())
-            .arg(arg_description())
-            .arg(arg_status())
-            .arg(ArgOutputFormat::arg())
-            .arg(arg_verbose())
+            .arg(args.id())
+            .arg(args.summary(false))
+            .arg(EventArgs::start())
+            .arg(EventArgs::end())
+            .arg(args.description())
+            .arg(EventArgs::status())
+            .arg(CommonArgs::output_format())
+            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
-        let id = get_id(matches);
-        let description = get_description(matches);
-        let start = get_start(matches);
-        let end = get_end(matches);
-        let status = get_status(matches);
-        let summary = get_summary(matches);
+        let id = EventOrTodoArgs::get_id(matches);
+        let description = EventOrTodoArgs::get_description(matches);
+        let start = EventArgs::get_start(matches);
+        let end = EventArgs::get_end(matches);
+        let status = EventArgs::get_status(matches);
+        let summary = EventOrTodoArgs::get_summary(matches);
 
         let tui = description.is_none()
             && end.is_none()
@@ -173,12 +175,12 @@ impl CmdEventEdit {
             summary,
 
             tui,
-            output_format: ArgOutputFormat::from(matches),
-            verbose: get_verbose(matches),
+            output_format: CommonArgs::get_output_format(matches),
+            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
-    pub fn new_tui(id: Id, output_format: ArgOutputFormat, verbose: bool) -> Self {
+    pub fn new_tui(id: Id, output_format: OutputFormat, verbose: bool) -> Self {
         Self {
             id,
             description: None,
@@ -232,7 +234,7 @@ impl CmdEventEdit {
 #[derive(Debug, Clone, Copy)]
 pub struct CmdEventList {
     pub conds: EventConditions,
-    pub output_format: ArgOutputFormat,
+    pub output_format: OutputFormat,
     pub verbose: bool,
 }
 
@@ -242,8 +244,8 @@ impl CmdEventList {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("List events")
-            .arg(ArgOutputFormat::arg())
-            .arg(arg_verbose())
+            .arg(CommonArgs::output_format())
+            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -252,8 +254,8 @@ impl CmdEventList {
                 startable: Some(DateTimeAnchor::today()),
                 ..Default::default()
             },
-            output_format: ArgOutputFormat::from(matches),
-            verbose: get_verbose(matches),
+            output_format: CommonArgs::get_output_format(matches),
+            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -266,7 +268,7 @@ impl CmdEventList {
     pub async fn list(
         aim: &Aim,
         conds: &EventConditions,
-        output_format: ArgOutputFormat,
+        output_format: OutputFormat,
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         const MAX: i64 = 128;
@@ -278,7 +280,7 @@ impl CmdEventList {
                 let prompt = format!("Displaying the {MAX}/{total} todos");
                 println!("{}", prompt.italic());
             }
-        } else if events.is_empty() && output_format == ArgOutputFormat::Table {
+        } else if events.is_empty() && output_format == OutputFormat::Table {
             println!("{}", "No events found".italic());
             return Ok(());
         }
@@ -288,64 +290,11 @@ impl CmdEventList {
     }
 }
 
-fn arg_id() -> Arg {
-    arg!(id: <ID> "The short id or uid of the event to edit")
+const fn args() -> EventOrTodoArgs {
+    EventOrTodoArgs::new(Some(Kind::Event))
 }
 
-fn get_id(matches: &ArgMatches) -> Id {
-    let id = matches
-        .get_one::<String>("id")
-        .expect("id is required")
-        .clone();
-
-    Id::ShortIdOrUid(id)
-}
-
-fn arg_description() -> Arg {
-    arg!(--description <DESCRIPTION> "Description of the event")
-}
-
-fn get_description(matches: &ArgMatches) -> Option<String> {
-    matches.get_one("description").cloned()
-}
-
-fn arg_start() -> Arg {
-    arg!(--start <START> "Start date and time of the event")
-}
-
-fn get_start(matches: &ArgMatches) -> Option<String> {
-    matches.get_one("start").cloned()
-}
-
-fn arg_end() -> Arg {
-    arg!(--end <END> "End date and time of the event")
-}
-
-fn get_end(matches: &ArgMatches) -> Option<String> {
-    matches.get_one("end").cloned()
-}
-
-fn arg_status() -> Arg {
-    clap::arg!(--status <STATUS> "Status of the event")
-        .value_parser(clap::value_parser!(EventStatus))
-}
-
-fn get_status(matches: &ArgMatches) -> Option<EventStatus> {
-    matches.get_one("status").copied()
-}
-
-fn arg_summary(positional: bool) -> Arg {
-    match positional {
-        true => arg!(summary: <SUMMARY> "Summary of the todo").required(false),
-        false => arg!(summary: -s --summary <SUMMARY> "Summary of the event"),
-    }
-}
-
-fn get_summary(matches: &ArgMatches) -> Option<String> {
-    matches.get_one("summary").cloned()
-}
-
-fn print_events(aim: &Aim, events: &[impl Event], output_format: ArgOutputFormat, verbose: bool) {
+fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat, verbose: bool) {
     let columns = if verbose {
         vec![
             EventColumn::id(),
@@ -403,7 +352,7 @@ mod tests {
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
 
         assert!(!parsed.tui);
-        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
 
@@ -470,7 +419,7 @@ mod tests {
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
 
         assert!(!parsed.tui);
-        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
 
@@ -501,7 +450,7 @@ mod tests {
 
         let sub_matches = matches.subcommand_matches("list").unwrap();
         let parsed = CmdEventList::from(sub_matches);
-        assert_eq!(parsed.output_format, ArgOutputFormat::Json);
+        assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
 }

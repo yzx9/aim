@@ -20,6 +20,7 @@
     clippy::redundant_closure_for_method_calls
 )]
 
+mod arg;
 mod cli;
 mod cmd_dashboard;
 mod cmd_event;
