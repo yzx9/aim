@@ -4,7 +4,7 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use aimcal_core::{EventStatus, Priority, TodoStatus};
+use aimcal_core::{EventStatus, Kind, Priority, TodoStatus};
 
 type Callback = Rc<RefCell<dyn FnMut(&Action)>>;
 
@@ -32,7 +32,7 @@ impl Dispatcher {
 
 #[derive(Debug, Clone)]
 pub enum Action {
-    Activate(EventOrTodo),
+    Activate(Kind),
     UpdateTodoDescription(String),
     UpdateTodoDue(String),
     UpdateTodoPercentComplete(Option<u8>),
@@ -45,10 +45,4 @@ pub enum Action {
     UpdateEventStatus(EventStatus),
     UpdateEventSummary(String),
     SubmitChanges,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EventOrTodo {
-    Event,
-    Todo,
 }

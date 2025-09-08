@@ -6,19 +6,19 @@ use std::cell::{Ref, RefCell};
 use std::error::Error;
 use std::rc::Rc;
 
-use aimcal_core::{EventDraft, TodoDraft};
+use aimcal_core::{EventDraft, Kind, TodoDraft};
 
 use crate::tui::component::Component;
 use crate::tui::component_form::{Access, Form};
 use crate::tui::component_page::TabPages;
-use crate::tui::dispatcher::{Action, Dispatcher, EventOrTodo};
+use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::tui::event_editor::new_event_form;
 use crate::tui::event_store::{EventStore, EventStoreLike};
 use crate::tui::todo_editor::new_todo_form;
 use crate::tui::todo_store::{TodoStore, TodoStoreLike};
 
 pub trait EventTodoStoreLike: EventStoreLike + TodoStoreLike {
-    fn active(&self) -> EventOrTodo;
+    fn active(&self) -> Kind;
 }
 
 pub enum EventOrTodoDraft {
@@ -29,7 +29,7 @@ pub enum EventOrTodoDraft {
 pub struct EventTodoStore {
     pub event: Rc<RefCell<EventStore>>,
     pub todo: Rc<RefCell<TodoStore>>,
-    pub active: EventOrTodo,
+    pub active: Kind,
     pub submit: bool,
 }
 
@@ -38,7 +38,7 @@ impl EventTodoStore {
         Self {
             event: Rc::new(RefCell::new(EventStore::new_by_draft(event))),
             todo: Rc::new(RefCell::new(TodoStore::new_by_draft(todo))),
-            active: EventOrTodo::Todo, // active todo by default since it is more common to draft todo
+            active: Kind::Todo, // active todo by default since it is more common to draft todo
             submit: false,
         }
     }
@@ -57,12 +57,12 @@ impl EventTodoStore {
 
     pub fn submit_draft(self) -> Result<EventOrTodoDraft, Box<dyn Error>> {
         match self.active {
-            EventOrTodo::Event => {
+            Kind::Event => {
                 let store = Rc::try_unwrap(self.event).map_err(|_| "Store still has references")?;
                 let event = store.into_inner().submit_draft()?;
                 Ok(EventOrTodoDraft::Event(event))
             }
-            EventOrTodo::Todo => {
+            Kind::Todo => {
                 let store = Rc::try_unwrap(self.todo).map_err(|_| "Store still has references")?;
                 let todo = store.into_inner().submit_draft()?;
                 Ok(EventOrTodoDraft::Todo(todo))
@@ -88,19 +88,19 @@ impl TodoStoreLike for EventTodoStore {
 }
 
 impl EventTodoStoreLike for EventTodoStore {
-    fn active(&self) -> EventOrTodo {
+    fn active(&self) -> Kind {
         self.active
     }
 }
 
 pub struct EventTodoStoreActiveAccess<S: EventTodoStoreLike>(std::marker::PhantomData<S>);
 
-impl<S: EventTodoStoreLike> Access<S, EventOrTodo> for EventTodoStoreActiveAccess<S> {
-    fn get(store: &RefCell<S>) -> EventOrTodo {
+impl<S: EventTodoStoreLike> Access<S, Kind> for EventTodoStoreActiveAccess<S> {
+    fn get(store: &RefCell<S>) -> Kind {
         store.borrow().active()
     }
 
-    fn set(dispatcher: &mut Dispatcher, value: EventOrTodo) -> bool {
+    fn set(dispatcher: &mut Dispatcher, value: Kind) -> bool {
         dispatcher.dispatch(Action::Activate(value));
         true
     }
@@ -111,7 +111,7 @@ type EventTodoEditor<S> =
 
 pub fn new_event_todo_editor<S: EventTodoStoreLike + 'static>() -> EventTodoEditor<S> {
     TabPages::new(vec![
-        (EventOrTodo::Event, "Event".to_owned(), new_event_form()),
-        (EventOrTodo::Todo, "Todo".to_owned(), new_todo_form()),
+        (Kind::Event, "Event".to_owned(), new_event_form()),
+        (Kind::Todo, "Todo".to_owned(), new_todo_form()),
     ])
 }

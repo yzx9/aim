@@ -4,6 +4,7 @@
 
 use std::cell::RefCell;
 
+use aimcal_core::Kind;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::prelude::*;
 use ratatui::symbols::border;
@@ -12,7 +13,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::tui::component::{Component, Message};
 use crate::tui::component_form::Access;
-use crate::tui::dispatcher::{Action, Dispatcher, EventOrTodo};
+use crate::tui::dispatcher::{Action, Dispatcher};
 
 pub struct SinglePage<S, C: Component<S>> {
     title: String,
@@ -74,8 +75,8 @@ impl<S, C: Component<S>> Component<S> for SinglePage<S, C> {
     }
 }
 
-pub struct TabPages<S, C: Component<S>, A: Access<S, EventOrTodo>> {
-    identifiers: Vec<EventOrTodo>,
+pub struct TabPages<S, C: Component<S>, A: Access<S, Kind>> {
+    identifiers: Vec<Kind>,
     titles: Vec<String>,
     pages: Vec<C>,
     active: bool,
@@ -84,8 +85,8 @@ pub struct TabPages<S, C: Component<S>, A: Access<S, EventOrTodo>> {
     _phantom_s: std::marker::PhantomData<S>,
 }
 
-impl<S, C: Component<S>, A: Access<S, EventOrTodo>> TabPages<S, C, A> {
-    pub fn new(pages: Vec<(EventOrTodo, String, C)>) -> Self {
+impl<S, C: Component<S>, A: Access<S, Kind>> TabPages<S, C, A> {
+    pub fn new(pages: Vec<(Kind, String, C)>) -> Self {
         let len = pages.len();
         let (identifiers, titles, pages) = pages.into_iter().fold(
             (
@@ -122,7 +123,7 @@ impl<S, C: Component<S>, A: Access<S, EventOrTodo>> TabPages<S, C, A> {
     }
 }
 
-impl<S, C: Component<S>, A: Access<S, EventOrTodo>> Component<S> for TabPages<S, C, A> {
+impl<S, C: Component<S>, A: Access<S, Kind>> Component<S> for TabPages<S, C, A> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let active_index = match self.active_index(store) {
             Some(index) => index,
