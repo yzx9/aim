@@ -98,7 +98,7 @@ impl CmdNew {
                 }
 
                 // if all required fields are provided, create directly
-                if self.summary.is_some() && self.start.is_some() && self.end.is_some() {
+                if self.summary.is_some() && self.start.is_some() {
                     tracing::info!("creating new event");
                     let draft = self.draft_event(aim)?;
                     return CmdEventNew::new_event(aim, draft, self.output_format, self.verbose)
@@ -113,7 +113,7 @@ impl CmdNew {
                 }
 
                 // if all required fields are provided, create directly
-                if self.summary.is_some() && self.due.is_some() {
+                if self.summary.is_some() {
                     tracing::info!("creating new todo");
                     let draft = self.draft_todo(aim)?;
                     return CmdTodoNew::new_todo(aim, draft, self.output_format, self.verbose)
