@@ -47,12 +47,15 @@ impl EventOrTodoArgs {
     }
 
     pub fn kind(&self) -> Arg {
+        let arg = arg!(-t --type <TYPE>)
+            .value_parser(value_parser!(Kind))
+            .help("Type of item to edit");
+
         match self.kind {
-            Some(Kind::Event) => arg!(--type <TYPE>).default_value("event").hide(true),
-            Some(Kind::Todo) => arg!(--type <TYPE>).default_value("todo").hide(true),
-            None => arg!(--type <TYPE>).value_parser(value_parser!(Kind)),
+            Some(Kind::Event) => arg.default_value("event").hide(true),
+            Some(Kind::Todo) => arg.default_value("todo").hide(true),
+            None => arg,
         }
-        .help("Type of item to edit")
     }
 
     pub fn get_kind(matches: &ArgMatches) -> Option<Kind> {
