@@ -6,14 +6,19 @@
 <h3 align="center">Analyze. Interact. Manage Your Time, with calendar support</h3>
 
 <p align="center">
+  <a href="https://github.com/yzx9/aim"
+    ><img
+      title="Repo: github.com/yzx9/aim"
+      src="https://img.shields.io/badge/AIM-8b36db?style=for-the-badge&logo=GitHub"
+  /></a>
   <a href="https://www.rust-lang.org/"
     ><img
-      title="Badge: Rust"
+      title="Lang: Rust"
       src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white"
   /></a>
   <a href="http://www.apache.org/licenses/LICENSE-2.0"
     ><img
-      title="Badge: Apache-2.0"
+      title="LICENSE: Apache-2.0"
       src="https://img.shields.io/badge/Apache--2.0-green?style=for-the-badge"
   /></a>
   <a href="https://icalendar.org/RFC-Specifications/iCalendar-RFC-5545/"
