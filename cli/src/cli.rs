@@ -11,7 +11,9 @@ use futures::{FutureExt, future::BoxFuture};
 use tracing_subscriber::EnvFilter;
 
 use crate::cmd_dashboard::CmdDashboard;
-use crate::cmd_event::{CmdEventEdit, CmdEventList, CmdEventNew};
+use crate::cmd_event::{
+    CmdEventDelay, CmdEventEdit, CmdEventList, CmdEventNew, CmdEventReschedule,
+};
 use crate::cmd_generate_completion::CmdGenerateCompletion;
 use crate::cmd_todo::{
     CmdTodoCancel, CmdTodoDelay, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew,
@@ -84,6 +86,8 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .subcommand_required(true)
                     .subcommand(CmdEventNew::command())
                     .subcommand(CmdEventEdit::command())
+                    .subcommand(CmdEventDelay::command())
+                    .subcommand(CmdEventReschedule::command())
                     .subcommand(CmdEventList::command()),
             )
             .subcommand(
@@ -133,6 +137,10 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             Some(("event", matches)) => match matches.subcommand() {
                 Some((CmdEventNew::NAME, matches)) => EventNew(CmdEventNew::from(matches)?),
                 Some((CmdEventEdit::NAME, matches)) => EventEdit(CmdEventEdit::from(matches)),
+                Some((CmdEventDelay::NAME, matches)) => EventDelay(CmdEventDelay::from(matches)),
+                Some((CmdEventReschedule::NAME, matches)) => {
+                    EventReschedule(CmdEventReschedule::from(matches))
+                }
                 Some((CmdEventList::NAME, matches)) => EventList(CmdEventList::from(matches)),
                 _ => unreachable!(),
             },
@@ -182,8 +190,14 @@ pub enum Commands {
     /// Add a new event
     EventNew(CmdEventNew),
 
-    /// Edit a event
+    /// Edit an event
     EventEdit(CmdEventEdit),
+
+    /// Delay an event based on original start
+    EventDelay(CmdEventDelay),
+
+    /// Reschedule an event based on current time
+    EventReschedule(CmdEventReschedule),
 
     /// List events
     EventList(CmdEventList),
@@ -224,20 +238,22 @@ impl Commands {
         use Commands::*;
         tracing::info!(?self, "running command");
         match self {
-            Dashboard(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
-            New(a)            => Self::run_with(config, |x| a.run(x).boxed()).await,
-            Edit(a)           => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventNew(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventEdit(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
-            EventList(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoNew(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoEdit(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoUndo(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoDone(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoCancel(a)     => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoDelay(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoReschedule(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
-            TodoList(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Dashboard(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            New(a)             => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Edit(a)            => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventNew(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventEdit(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventDelay(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventReschedule(a) => Self::run_with(config, |x| a.run(x).boxed()).await,
+            EventList(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoNew(a)         => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoEdit(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoUndo(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoDone(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoCancel(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoDelay(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoReschedule(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoList(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
             GenerateCompletion(a) => a.run(),
         }
     }
@@ -346,6 +362,30 @@ mod tests {
                 assert_eq!(cmd.summary, Some("new summary".to_string()));
             }
             _ => panic!("Expected EventEdit command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_event_delay() {
+        let cli = Cli::try_parse_from(vec!["test", "event", "delay", "id", "time"]).unwrap();
+        match cli.command {
+            Commands::EventDelay(cmd) => {
+                assert_eq!(cmd.id, Id::ShortIdOrUid("id".to_string()));
+                assert_eq!(cmd.time_anchor, "time".to_string());
+            }
+            _ => panic!("Expected EventDelay command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_event_reschedule() {
+        let cli = Cli::try_parse_from(vec!["test", "event", "reschedule", "id", "time"]).unwrap();
+        match cli.command {
+            Commands::EventReschedule(cmd) => {
+                assert_eq!(cmd.id, Id::ShortIdOrUid("id".to_string()));
+                assert_eq!(cmd.time_anchor, "time".to_string());
+            }
+            _ => panic!("Expected EventReschedule command"),
         }
     }
 

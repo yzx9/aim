@@ -128,6 +128,17 @@ impl EventOrTodoArgs {
         matches.get_one("summary").cloned()
     }
 
+    pub fn time_anchor(&self, kind: &str) -> Arg {
+        arg!(<"TIME-ANCHOR">).help(format!("Time to {} (datetime, time, or 'tomorrow')", kind))
+    }
+
+    pub fn get_time_anchor(matches: &ArgMatches) -> String {
+        matches
+            .get_one::<String>("TIME-ANCHOR")
+            .expect("time anchor is required")
+            .clone()
+    }
+
     fn kind_name(&self) -> String {
         match self.kind {
             Some(Kind::Event) => "event".to_string(),
@@ -232,18 +243,6 @@ impl TodoArgs {
 
     pub fn get_status(matches: &ArgMatches) -> Option<TodoStatus> {
         matches.get_one("status").copied()
-    }
-
-    pub fn time_anchor(&self, kind: &str) -> Arg {
-        arg!(<"TIME-ANCHOR">)
-            .help(self.monopolize(format!("Time to {kind} (datetime, time, or 'tomorrow')")))
-    }
-
-    pub fn get_time_anchor(matches: &ArgMatches) -> String {
-        matches
-            .get_one::<String>("TIME-ANCHOR")
-            .expect("time anchor is required")
-            .clone()
     }
 
     fn monopolize(&self, help: impl ToString) -> String {

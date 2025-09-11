@@ -326,11 +326,11 @@ impl CmdTodoDelay {
     pub const NAME: &str = "delay";
 
     pub fn command() -> Command {
-        let (args, todo_args) = args();
+        let (args, _todo_args) = args();
         Command::new(Self::NAME)
             .about("Delay a todo's due by a specified time based on original due")
             .arg(args.id())
-            .arg(todo_args.time_anchor("delay"))
+            .arg(args.time_anchor("delay"))
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -338,7 +338,7 @@ impl CmdTodoDelay {
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             id: EventOrTodoArgs::get_id(matches),
-            time_anchor: TodoArgs::get_time_anchor(matches),
+            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -347,12 +347,10 @@ impl CmdTodoDelay {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "delaying todo...");
 
-        // Get the current todo
-        let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
-
-        // Parse the time anchor
+        // Calculate new due based on original due if exists, otherwise based on now
         let new_due = if !self.time_anchor.is_empty() {
             let anchor: DateTimeAnchor = self.time_anchor.parse()?;
+            let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
             Some(match todo.due() {
                 Some(due) => anchor.parse_from_loose(&due),
                 None => anchor.parse_from_dt(&aim.now()),
@@ -388,11 +386,11 @@ impl CmdTodoReschedule {
     pub const NAME: &str = "reschedule";
 
     pub fn command() -> Command {
-        let (args, todo_args) = args();
+        let (args, _todo_args) = args();
         Command::new(Self::NAME)
             .about("Reschedule a todo's due to a specified time based on now")
             .arg(args.id())
-            .arg(todo_args.time_anchor("reschedule"))
+            .arg(args.time_anchor("reschedule"))
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -400,16 +398,16 @@ impl CmdTodoReschedule {
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             id: EventOrTodoArgs::get_id(matches),
-            time_anchor: TodoArgs::get_time_anchor(matches),
+            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        tracing::debug!(?self, "delaying todo...");
+        tracing::debug!(?self, "rescheduling todo...");
 
-        // Parse the time anchor
+        // Calculate new due based on now
         let new_due = if !self.time_anchor.is_empty() {
             let anchor: DateTimeAnchor = self.time_anchor.parse()?;
             Some(anchor.parse_from_dt(&aim.now()))

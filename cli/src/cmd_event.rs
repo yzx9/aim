@@ -6,7 +6,7 @@ use std::error::Error;
 
 use aimcal_core::{
     Aim, DateTimeAnchor, Event, EventConditions, EventDraft, EventPatch, EventStatus, Id, Kind,
-    Pager,
+    LooseDateTime, Pager,
 };
 use clap::{ArgMatches, Command};
 use colored::Colorize;
@@ -231,6 +231,173 @@ impl CmdEventEdit {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct CmdEventDelay {
+    pub id: Id,
+    pub time_anchor: String,
+    pub output_format: OutputFormat,
+    pub verbose: bool,
+}
+
+impl CmdEventDelay {
+    pub const NAME: &str = "delay";
+
+    pub fn command() -> Command {
+        let (args, _event_args) = args();
+        Command::new(Self::NAME)
+            .about("Delay an event's time by a specified time based on original start")
+            .arg(args.id())
+            .arg(args.time_anchor("delay"))
+            .arg(CommonArgs::output_format())
+            .arg(CommonArgs::verbose())
+    }
+
+    pub fn from(matches: &ArgMatches) -> Self {
+        Self {
+            id: EventOrTodoArgs::get_id(matches),
+            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
+            output_format: CommonArgs::get_output_format(matches),
+            verbose: CommonArgs::get_verbose(matches),
+        }
+    }
+
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+        tracing::debug!(?self, "delaying todo...");
+
+        // Calculate new start and end based on original start and end if exists, otherwise based on now
+        let (start, end) = if !self.time_anchor.is_empty() {
+            // TODO: move these logics to core crate, same for reschedule command
+            let anchor: DateTimeAnchor = self.time_anchor.parse()?;
+            let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
+            match (event.start(), event.end()) {
+                (Some(start), end) => {
+                    let s = anchor.parse_from_loose(&start);
+                    let e = end.map(|a| anchor.parse_from_loose(&a));
+                    (Some(s), e)
+                }
+                (None, Some(end)) => {
+                    // TODO: should we set a start time with default duration? same for reschedule command
+                    let e = anchor.parse_from_loose(&end);
+                    (None, Some(e))
+                }
+                (None, None) => {
+                    let s = anchor.parse_from_dt(&aim.now());
+                    // TODO: should we set a end time with default duration? same for reschedule command
+                    (Some(s), None)
+                }
+            }
+        } else {
+            (None, None)
+        };
+
+        // Update the event
+        let patch = EventPatch {
+            start: Some(start),
+            end: Some(end),
+            ..Default::default()
+        };
+
+        let event = aim.update_event(&self.id, patch).await?;
+        print_events(aim, &[event], self.output_format, self.verbose);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CmdEventReschedule {
+    pub id: Id,
+    pub time_anchor: String,
+    pub output_format: OutputFormat,
+    pub verbose: bool,
+}
+
+impl CmdEventReschedule {
+    pub const NAME: &str = "reschedule";
+
+    pub fn command() -> Command {
+        let (args, _event_args) = args();
+        Command::new(Self::NAME)
+            .about("Reschedule a todo's due to a specified time based on now")
+            .arg(args.id())
+            .arg(args.time_anchor("reschedule"))
+            .arg(CommonArgs::output_format())
+            .arg(CommonArgs::verbose())
+    }
+
+    pub fn from(matches: &ArgMatches) -> Self {
+        Self {
+            id: EventOrTodoArgs::get_id(matches),
+            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
+            output_format: CommonArgs::get_output_format(matches),
+            verbose: CommonArgs::get_verbose(matches),
+        }
+    }
+
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+        tracing::debug!(?self, "rescheduling event...");
+
+        // Calculate new start and end based on original start and end if exists, otherwise based on now
+        let (start, end) = if !self.time_anchor.is_empty() {
+            let anchor: DateTimeAnchor = self.time_anchor.parse()?;
+            let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
+            match (event.start(), event.end()) {
+                (Some(start), Some(end)) => {
+                    let s = anchor.parse_from_dt(&aim.now());
+                    let e = match (start, end) {
+                        (LooseDateTime::DateOnly(ds), LooseDateTime::DateOnly(de)) => {
+                            (s.date() + (de - ds)).into()
+                        }
+                        (LooseDateTime::DateOnly(ds), LooseDateTime::Floating(dte)) => {
+                            (s.date() + (dte.date() - ds)).into()
+                        }
+                        (LooseDateTime::DateOnly(ds), LooseDateTime::Local(dte)) => {
+                            (s.date() + (dte.date_naive() - ds)).into()
+                        }
+                        (LooseDateTime::Floating(dts), LooseDateTime::DateOnly(dte)) => {
+                            s + (dte - dts.date())
+                        }
+                        (LooseDateTime::Floating(dts), LooseDateTime::Floating(dte)) => {
+                            s + (dte - dts)
+                        }
+                        (LooseDateTime::Floating(dts), LooseDateTime::Local(dte)) => {
+                            s + (dte.naive_local() - dts) // Treat floating as local
+                        }
+                        (LooseDateTime::Local(dts), LooseDateTime::DateOnly(de)) => {
+                            s + (de - dts.date_naive())
+                        }
+                        (LooseDateTime::Local(dts), LooseDateTime::Floating(dte)) => {
+                            s + (dte - dts.naive_local()) // Treat floating as local
+                        }
+                        (LooseDateTime::Local(dts), LooseDateTime::Local(dte)) => s + (dte - dts),
+                    };
+                    (Some(s), Some(e))
+                }
+                (_, None) => {
+                    let s = anchor.parse_from_dt(&aim.now());
+                    (Some(s), None)
+                }
+                (None, Some(_)) => {
+                    let e = anchor.parse_from_dt(&aim.now());
+                    (None, Some(e))
+                }
+            }
+        } else {
+            (None, None)
+        };
+
+        // Update the event
+        let patch = EventPatch {
+            start: Some(start),
+            end: Some(end),
+            ..Default::default()
+        };
+
+        let event = aim.update_event(&self.id, patch).await?;
+        print_events(aim, &[event], self.output_format, self.verbose);
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct CmdEventList {
     pub conds: EventConditions,
@@ -439,6 +606,58 @@ mod tests {
         let parsed = CmdEventEdit::from(sub_matches);
         assert!(parsed.tui);
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
+    }
+
+    #[test]
+    fn test_parse_delay() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdEventDelay::command());
+
+        let matches = cmd
+            .try_get_matches_from([
+                "test",
+                "delay",
+                "abc",
+                "time anchor",
+                "--output-format",
+                "json",
+                "--verbose",
+            ])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("delay").unwrap();
+        let parsed = CmdEventDelay::from(sub_matches);
+        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
+        assert_eq!(parsed.time_anchor, "time anchor");
+        assert_eq!(parsed.output_format, OutputFormat::Json);
+        assert!(parsed.verbose);
+    }
+
+    #[test]
+    fn test_parse_reschedule() {
+        let cmd = Command::new("test")
+            .subcommand_required(true)
+            .subcommand(CmdEventReschedule::command());
+
+        let matches = cmd
+            .try_get_matches_from([
+                "test",
+                "reschedule",
+                "abc",
+                "time anchor",
+                "--output-format",
+                "json",
+                "--verbose",
+            ])
+            .unwrap();
+
+        let sub_matches = matches.subcommand_matches("reschedule").unwrap();
+        let parsed = CmdEventReschedule::from(sub_matches);
+        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
+        assert_eq!(parsed.time_anchor, "time anchor");
+        assert_eq!(parsed.output_format, OutputFormat::Json);
+        assert!(parsed.verbose);
     }
 
     #[test]

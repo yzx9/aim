@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- cli: Add `event delay` and `event reschedule` command to align with `todo` command group
+
 ## [v0.7.0] - 2025-09-08
 
 ### Added
