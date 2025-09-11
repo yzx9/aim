@@ -4,7 +4,7 @@
 
 use std::{str::FromStr, sync::OnceLock};
 
-use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
+use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Timelike};
 use regex::Regex;
 
 use crate::LooseDateTime;
@@ -110,9 +110,13 @@ impl DateTimeAnchor {
                 LooseDateTime::Local(dt.with_timezone(&Local))
             }
             DateTimeAnchor::InDays(n) => {
-                let date = now.date_naive() + TimeDelta::days(n);
-                let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
-                LooseDateTime::from_local_datetime(dt)
+                if n == 0 {
+                    next_suggested_time(now)
+                } else {
+                    let date = now.date_naive() + TimeDelta::days(n);
+                    let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+                    LooseDateTime::from_local_datetime(dt)
+                }
             }
             DateTimeAnchor::DateTime(dt) => dt,
             DateTimeAnchor::Time(t) => {
@@ -187,6 +191,19 @@ fn parse_days(s: &str) -> Option<i64> {
     }
 
     None
+}
+
+fn next_suggested_time<Tz: TimeZone>(now: &DateTime<Tz>) -> LooseDateTime {
+    let date = now.date_naive();
+    let current_hour = now.hour();
+    for hour in [9, 13, 18] {
+        if current_hour < hour {
+            let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(hour, 0, 0).unwrap());
+            return LooseDateTime::from_local_datetime(dt);
+        }
+    }
+
+    LooseDateTime::DateOnly(date)
 }
 
 #[cfg(test)]
@@ -486,5 +503,53 @@ mod tests {
             let expected = DateTimeAnchor::InDays(10);
             assert_eq!(anchor, expected, "Failed to parse '{}'", s);
         }
+    }
+
+    #[test]
+    fn test_next_suggested_time() {
+        let test_cases = vec![
+            // (current_hour, current_min, expected_hour, description)
+            (8, 30, 9, "Before 9 AM, should suggest 9 AM"),
+            (
+                10,
+                30,
+                13,
+                "After 9 AM but before 1 PM, should suggest 1 PM",
+            ),
+            (
+                14,
+                30,
+                18,
+                "After 1 PM but before 6 PM, should suggest 6 PM",
+            ),
+            (9, 0, 13, "Exactly at 9 AM, should suggest 1 PM"),
+            (13, 0, 18, "Exactly at 1 PM, should suggest 6 PM"),
+        ];
+
+        for (hour, min, expected_hour, description) in test_cases {
+            let now = Local.with_ymd_and_hms(2025, 1, 1, hour, min, 0).unwrap();
+            let result = next_suggested_time(&now);
+            let expected = LooseDateTime::Local(
+                Local
+                    .with_ymd_and_hms(2025, 1, 1, expected_hour, 0, 0)
+                    .unwrap(),
+            );
+            assert_eq!(result, expected, "{}", description);
+        }
+    }
+
+    #[test]
+    fn test_next_suggested_time_after_6pm() {
+        // After 6 PM, should suggest DateOnly (next day)
+        let now = Local.with_ymd_and_hms(2025, 1, 1, 19, 30, 0).unwrap();
+        let result = next_suggested_time(&now);
+        let expected = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
+        assert_eq!(result, expected, "After 6 PM, should suggest DateOnly");
+
+        // Exactly at 6 PM, should suggest DateOnly (next day)
+        let now = Local.with_ymd_and_hms(2025, 1, 1, 18, 0, 0).unwrap();
+        let result = next_suggested_time(&now);
+        let expected = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
+        assert_eq!(result, expected, "Exactly at 6 PM, should suggest DateOnly");
     }
 }

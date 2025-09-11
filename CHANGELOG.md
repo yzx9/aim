@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- core: Find next suggested time for today in `DateTimeAnchor`
+
 ## [v0.8.0] - 2025-09-11
 
 ### Added
