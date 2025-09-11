@@ -139,7 +139,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             Some((CmdDelay::NAME, matches)) => Delay(CmdDelay::from(matches)),
             Some((CmdReschedule::NAME, matches)) => Reschedule(CmdReschedule::from(matches)),
             Some(("event", matches)) => match matches.subcommand() {
-                Some((CmdEventNew::NAME, matches)) => EventNew(CmdEventNew::from(matches)?),
+                Some((CmdEventNew::NAME, matches)) => EventNew(CmdEventNew::from(matches)),
                 Some((CmdEventEdit::NAME, matches)) => EventEdit(CmdEventEdit::from(matches)),
                 Some((CmdEventDelay::NAME, matches)) => EventDelay(CmdEventDelay::from(matches)),
                 Some((CmdEventReschedule::NAME, matches)) => {
@@ -149,7 +149,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                 _ => unreachable!(),
             },
             Some(("todo", matches)) => match matches.subcommand() {
-                Some((CmdTodoNew::NAME, matches)) => TodoNew(CmdTodoNew::from(matches)?),
+                Some((CmdTodoNew::NAME, matches)) => TodoNew(CmdTodoNew::from(matches)),
                 Some((CmdTodoEdit::NAME, matches)) => TodoEdit(CmdTodoEdit::from(matches)),
                 Some((CmdTodoUndo::NAME, matches)) => TodoUndo(CmdTodoUndo::from(matches)),
                 Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::from(matches)),
@@ -465,13 +465,11 @@ mod tests {
         let cli = Cli::try_parse_from(vec!["test", "todo", "undo", "id1", "id2"]).unwrap();
         match cli.command {
             Commands::TodoUndo(cmd) => {
-                assert_eq!(
-                    cmd.ids,
-                    vec![
-                        Id::ShortIdOrUid("id1".to_string()),
-                        Id::ShortIdOrUid("id2".to_string())
-                    ]
-                );
+                let expected_ids = vec![
+                    Id::ShortIdOrUid("id1".to_string()),
+                    Id::ShortIdOrUid("id2".to_string()),
+                ];
+                assert_eq!(cmd.ids, expected_ids);
             }
             _ => panic!("Expected TodoUndo command"),
         }
@@ -482,13 +480,11 @@ mod tests {
         let cli = Cli::try_parse_from(vec!["test", "todo", "done", "id1", "id2"]).unwrap();
         match cli.command {
             Commands::TodoDone(cmd) => {
-                assert_eq!(
-                    cmd.ids,
-                    vec![
-                        Id::ShortIdOrUid("id1".to_string()),
-                        Id::ShortIdOrUid("id2".to_string())
-                    ]
-                );
+                let expected_ids = vec![
+                    Id::ShortIdOrUid("id1".to_string()),
+                    Id::ShortIdOrUid("id2".to_string()),
+                ];
+                assert_eq!(cmd.ids, expected_ids);
             }
             _ => panic!("Expected TodoDone command"),
         }
@@ -499,13 +495,11 @@ mod tests {
         let cli = Cli::try_parse_from(vec!["test", "todo", "cancel", "id1", "id2"]).unwrap();
         match cli.command {
             Commands::TodoCancel(cmd) => {
-                assert_eq!(
-                    cmd.ids,
-                    vec![
-                        Id::ShortIdOrUid("id1".to_string()),
-                        Id::ShortIdOrUid("id2".to_string())
-                    ]
-                );
+                let expected_ids = vec![
+                    Id::ShortIdOrUid("id1".to_string()),
+                    Id::ShortIdOrUid("id2".to_string()),
+                ];
+                assert_eq!(cmd.ids, expected_ids);
             }
             _ => panic!("Expected TodoDone command"),
         }

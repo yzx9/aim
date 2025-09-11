@@ -41,14 +41,32 @@ impl TodoStore {
         })
     }
 
-    pub fn new_by_todo(todo: &impl Todo) -> Self {
+    pub fn new_by_patch(todo: &impl Todo, patch: TodoPatch) -> Self {
         Self::new(TodoData {
-            description: todo.description().unwrap_or_default().to_owned(),
-            due: todo.due().map(format_datetime).unwrap_or_default(),
-            percent_complete: todo.percent_complete(),
-            priority: todo.priority(),
-            status: todo.status(),
-            summary: todo.summary().to_string(),
+            description: match patch.description {
+                Some(v) => v.unwrap_or_default(),
+                None => todo.description().unwrap_or_default().to_owned(),
+            },
+            due: match patch.due {
+                Some(v) => v.map(format_datetime).unwrap_or_default(),
+                None => todo.due().map(format_datetime).unwrap_or_default(),
+            },
+            percent_complete: match patch.percent_complete {
+                Some(v) => v,
+                None => todo.percent_complete(),
+            },
+            priority: match patch.priority {
+                Some(v) => v,
+                None => todo.priority(),
+            },
+            status: match patch.status {
+                Some(v) => v,
+                None => todo.status(),
+            },
+            summary: match patch.summary {
+                Some(v) => v,
+                None => todo.summary().to_owned(),
+            },
         })
     }
 

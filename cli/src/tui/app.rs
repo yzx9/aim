@@ -47,8 +47,7 @@ pub fn patch_event(
     }
 }
 
-pub fn draft_todo(aim: &mut Aim) -> Result<Option<TodoDraft>, Box<dyn Error>> {
-    let draft = aim.default_todo_draft();
+pub fn draft_todo(aim: &mut Aim, draft: TodoDraft) -> Result<Option<TodoDraft>, Box<dyn Error>> {
     let store = TodoStore::new_by_draft(draft);
     let store = run_todo_editor(aim, store)?;
     match store.submit {
@@ -57,8 +56,12 @@ pub fn draft_todo(aim: &mut Aim) -> Result<Option<TodoDraft>, Box<dyn Error>> {
     }
 }
 
-pub fn patch_todo(aim: &mut Aim, todo: &impl Todo) -> Result<Option<TodoPatch>, Box<dyn Error>> {
-    let store = TodoStore::new_by_todo(todo);
+pub fn patch_todo(
+    aim: &mut Aim,
+    todo: &impl Todo,
+    patch: TodoPatch,
+) -> Result<Option<TodoPatch>, Box<dyn Error>> {
+    let store = TodoStore::new_by_patch(todo, patch);
     let store = run_todo_editor(aim, store)?;
     match store.submit {
         true => store.submit_patch(aim).map(Some),

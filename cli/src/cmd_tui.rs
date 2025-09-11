@@ -98,7 +98,7 @@ impl CmdNew {
                 }
 
                 // if all required fields are provided, create directly
-                if self.summary.is_some() && self.start.is_some() {
+                if !CmdEventNew::need_tui(&self.summary, &self.start) {
                     tracing::info!("creating new event");
                     let draft = self.draft_event(aim)?;
                     return CmdEventNew::new_event(aim, draft, self.output_format, self.verbose)
@@ -113,7 +113,7 @@ impl CmdNew {
                 }
 
                 // if all required fields are provided, create directly
-                if self.summary.is_some() {
+                if !CmdTodoNew::need_tui(&self.summary) {
                     tracing::info!("creating new todo");
                     let draft = self.draft_todo(aim)?;
                     return CmdTodoNew::new_todo(aim, draft, self.output_format, self.verbose)
@@ -131,6 +131,7 @@ impl CmdNew {
         aim: &mut Aim,
         inferred_kind: Option<Kind>,
     ) -> Result<(), Box<dyn Error>> {
+        tracing::info!("adding new item using TUI");
         let mut event_draft = aim.default_event_draft();
         let mut todo_draft = aim.default_todo_draft();
         let now = aim.now();
@@ -443,7 +444,7 @@ impl CmdEdit {
                         _ => EventStatus::default(),
                     }),
                     summary: self.summary,
-                    tui: false,
+
                     output_format: self.output_format,
                     verbose: self.verbose,
                 }
@@ -463,7 +464,7 @@ impl CmdEdit {
                         _ => TodoStatus::default(),
                     }),
                     summary: self.summary,
-                    tui: false,
+
                     output_format: self.output_format,
                     verbose: self.verbose,
                 }

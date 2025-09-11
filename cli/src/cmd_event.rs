@@ -24,7 +24,6 @@ pub struct CmdEventNew {
     pub status: Option<EventStatus>,
     pub summary: Option<String>,
 
-    pub tui: bool,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -46,66 +45,61 @@ impl CmdEventNew {
             .arg(CommonArgs::verbose())
     }
 
-    pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
-        let description = EventOrTodoArgs::get_description(matches);
-        let start = EventArgs::get_start(matches);
-        let end = EventArgs::get_end(matches);
-        let status = EventArgs::get_status(matches);
+    pub fn from(matches: &ArgMatches) -> Self {
+        Self {
+            description: EventOrTodoArgs::get_description(matches),
+            start: EventArgs::get_start(matches),
+            end: EventArgs::get_end(matches),
+            status: EventArgs::get_status(matches),
+            summary: EventOrTodoArgs::get_summary(matches),
 
-        let summary = match EventOrTodoArgs::get_summary(matches) {
-            Some(summary) => Some(summary.clone()), // TODO: is start/end required?
-
-            None if description.is_none()
-                && end.is_none()
-                && start.is_none()
-                && status.is_none() =>
-            {
-                None
-            }
-
-            // If summary is not provided but other fields are set, we still require a summary.
-            None => return Err("Summary is required for new event".into()),
-        };
-
-        let tui = summary.is_none();
-        Ok(Self {
-            description,
-            start,
-            end,
-            status,
-            summary,
-
-            tui,
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
-        })
+        }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        tracing::debug!(?self, "adding new todo...");
-        let draft = if self.tui {
-            match tui::draft_event(aim)? {
+        tracing::debug!(?self, "adding new event...");
+
+        let tui = self.tui();
+        let now = aim.now();
+
+        // Prepare a draft with the provided arguments
+        let mut draft = aim.default_event_draft();
+
+        let (start, end) = match (self.start, self.end) {
+            (Some(start), Some(end)) => parse_datetime_range(&now, &start, &end)?,
+            (Some(start), None) => (parse_datetime(&now, &start)?, None),
+            (None, Some(end)) => (None, parse_datetime(&now, &end)?),
+            (None, None) => (None, None),
+        };
+        draft.start = start;
+        draft.end = end;
+
+        if let Some(description) = self.description {
+            draft.description = Some(description);
+        }
+
+        if let Some(status) = self.status {
+            draft.status = status;
+        }
+
+        if let Some(summary) = self.summary {
+            draft.summary = summary;
+        }
+
+        // If TUI is needed, launch the TUI to edit the draft
+        if tui {
+            draft = match tui::draft_event(aim)? {
                 Some(data) => data,
                 None => {
                     tracing::info!("user cancel the event creation");
                     return Ok(());
                 }
             }
-        } else {
-            let (start, end) = match (self.start, self.end) {
-                (Some(start), Some(end)) => parse_datetime_range(&aim.now(), &start, &end)?,
-                (Some(start), None) => (parse_datetime(&aim.now(), &start)?, None),
-                (None, Some(end)) => (None, parse_datetime(&aim.now(), &end)?),
-                (None, None) => (None, None),
-            };
-            EventDraft {
-                description: self.description,
-                end,
-                start,
-                status: self.status.unwrap_or_default(),
-                summary: self.summary.unwrap_or_default(),
-            }
-        };
+        }
+
+        // Create the event
         Self::new_event(aim, draft, self.output_format, self.verbose).await
     }
 
@@ -119,6 +113,15 @@ impl CmdEventNew {
         print_events(aim, &[event], output_format, verbose);
         Ok(())
     }
+
+    pub(crate) fn tui(&self) -> bool {
+        Self::need_tui(&self.summary, &self.start)
+    }
+
+    /// Determine whether TUI is needed based on the provided arguments.
+    pub(crate) fn need_tui(summary: &Option<String>, start: &Option<String>) -> bool {
+        summary.is_none() || start.is_none()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -130,7 +133,6 @@ pub struct CmdEventEdit {
     pub status: Option<EventStatus>,
     pub summary: Option<String>,
 
-    pub tui: bool,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -141,7 +143,7 @@ impl CmdEventEdit {
     pub fn command() -> Command {
         let (args, event_args) = args();
         Command::new(Self::NAME)
-            .about("Edit a todo item")
+            .about("Edit a event item")
             .arg(args.id())
             .arg(args.summary(false))
             .arg(event_args.start())
@@ -153,28 +155,14 @@ impl CmdEventEdit {
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
-        let id = EventOrTodoArgs::get_id(matches);
-        let description = EventOrTodoArgs::get_description(matches);
-        let start = EventArgs::get_start(matches);
-        let end = EventArgs::get_end(matches);
-        let status = EventArgs::get_status(matches);
-        let summary = EventOrTodoArgs::get_summary(matches);
-
-        let tui = description.is_none()
-            && end.is_none()
-            && start.is_none()
-            && status.is_none()
-            && summary.is_none();
-
         Self {
-            id,
-            description,
-            start,
-            end,
-            status,
-            summary,
+            id: EventOrTodoArgs::get_id(matches),
+            description: EventOrTodoArgs::get_description(matches),
+            start: EventArgs::get_start(matches),
+            end: EventArgs::get_end(matches),
+            status: EventArgs::get_status(matches),
+            summary: EventOrTodoArgs::get_summary(matches),
 
-            tui,
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -189,7 +177,6 @@ impl CmdEventEdit {
             status: None,
             summary: None,
 
-            tui: true,
             output_format,
             verbose,
         }
@@ -197,37 +184,51 @@ impl CmdEventEdit {
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "editing event...");
-        let patch = if self.tui {
+        let tui = self.tui();
+
+        // Prepare the patch with the provided arguments
+        let (start, end) = match (self.start, self.end) {
+            (Some(start), Some(end)) => {
+                let (a, b) = parse_datetime_range(&aim.now(), &start, &end)?;
+                (Some(a), Some(b))
+            }
+            (Some(start), None) => (Some(parse_datetime(&aim.now(), &start)?), None),
+            (None, Some(end)) => (None, Some(parse_datetime(&aim.now(), &end)?)),
+            (None, None) => (None, None),
+        };
+        let mut patch = EventPatch {
+            description: self.description.map(|d| (!d.is_empty()).then_some(d)),
+            end,
+            start,
+            status: self.status,
+            summary: self.summary,
+        };
+
+        // If TUI is needed, launch the TUI to edit the event
+        if tui {
             let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
-            match tui::patch_event(aim, &event)? {
+            patch = match tui::patch_event(aim, &event)? {
                 Some(data) => data,
                 None => {
-                    tracing::info!(?self, "user cancel the todo editing");
+                    tracing::info!("user cancel the event editing");
                     return Ok(());
                 }
             }
-        } else {
-            let (start, end) = match (self.start, self.end) {
-                (Some(start), Some(end)) => {
-                    let (a, b) = parse_datetime_range(&aim.now(), &start, &end)?;
-                    (Some(a), Some(b))
-                }
-                (Some(start), None) => (Some(parse_datetime(&aim.now(), &start)?), None),
-                (None, Some(end)) => (None, Some(parse_datetime(&aim.now(), &end)?)),
-                (None, None) => (None, None),
-            };
-            EventPatch {
-                description: self.description.map(|d| (!d.is_empty()).then_some(d)),
-                end,
-                start,
-                status: self.status,
-                summary: self.summary,
-            }
         };
 
+        // Update the event
         let event = aim.update_event(&self.id, patch).await?;
         print_events(aim, &[event], self.output_format, self.verbose);
         Ok(())
+    }
+
+    /// Determine whether TUI is needed based on the provided arguments.
+    pub(crate) fn tui(&self) -> bool {
+        self.description.is_none()
+            && self.end.is_none()
+            && self.start.is_none()
+            && self.status.is_none()
+            && self.summary.is_none()
     }
 }
 
@@ -262,7 +263,7 @@ impl CmdEventDelay {
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        tracing::debug!(?self, "delaying todo...");
+        tracing::debug!(?self, "delaying event...");
 
         // Calculate new start and end based on original start and end if exists, otherwise based on now
         // TODO: move these logics to core crate, same for reschedule command
@@ -317,7 +318,7 @@ impl CmdEventReschedule {
     pub fn command() -> Command {
         let (args, _event_args) = args();
         Command::new(Self::NAME)
-            .about("Reschedule a todo's due to a specified time based on now")
+            .about("Reschedule event's due to a specified time based on now")
             .arg(args.ids())
             .arg(args.time("reschedule"))
             .arg(CommonArgs::output_format())
@@ -443,7 +444,7 @@ impl CmdEventList {
         if events.len() >= (MAX as usize) {
             let total = aim.count_events(conds).await?;
             if total > MAX {
-                let prompt = format!("Displaying the {MAX}/{total} todos");
+                let prompt = format!("Displaying the {MAX}/{total} events");
                 println!("{}", prompt.italic());
             }
         } else if events.is_empty() && output_format == OutputFormat::Table {
@@ -506,7 +507,7 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
-        let parsed = CmdEventNew::from(&matches).unwrap();
+        let parsed = CmdEventNew::from(&matches);
 
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.end, Some("2025-01-01 14:00:00".to_string()));
@@ -514,7 +515,7 @@ mod tests {
         assert_eq!(parsed.status, Some(EventStatus::Tentative));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
 
-        assert!(!parsed.tui);
+        assert!(!parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
@@ -523,20 +524,9 @@ mod tests {
     fn test_parse_new_tui() {
         let cmd = CmdEventNew::command();
         let matches = cmd.try_get_matches_from(["new"]).unwrap();
-        let parsed = CmdEventNew::from(&matches).unwrap();
-
-        assert!(parsed.tui);
-    }
-
-    #[test]
-    fn test_parse_new_tui_invalid() {
-        let cmd = CmdEventNew::command();
-        let matches = cmd
-            .try_get_matches_from(["new", "--start", "2025-01-01 12:00"])
-            .unwrap();
         let parsed = CmdEventNew::from(&matches);
 
-        assert!(parsed.is_err());
+        assert!(parsed.tui());
     }
 
     #[test]
@@ -570,7 +560,7 @@ mod tests {
         assert_eq!(parsed.status, Some(EventStatus::Tentative));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
 
-        assert!(!parsed.tui);
+        assert!(!parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
@@ -581,7 +571,7 @@ mod tests {
         let matches = cmd.try_get_matches_from(["edit", "test_id"]).unwrap();
         let parsed = CmdEventEdit::from(&matches);
 
-        assert!(parsed.tui);
+        assert!(parsed.tui());
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
     }
 

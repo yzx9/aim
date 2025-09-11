@@ -25,7 +25,6 @@ pub struct CmdTodoNew {
     pub status: Option<TodoStatus>,
     pub summary: Option<String>,
 
-    pub tui: bool,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -50,84 +49,64 @@ impl CmdTodoNew {
             .arg(CommonArgs::verbose())
     }
 
-    pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
-        let description = EventOrTodoArgs::get_description(matches);
-        let due = TodoArgs::get_due(matches);
-        let percent_complete = TodoArgs::get_percent_complete(matches);
-        let priority = TodoArgs::get_priority(matches);
-        let status = TodoArgs::get_status(matches);
+    pub fn from(matches: &ArgMatches) -> Self {
+        Self {
+            description: EventOrTodoArgs::get_description(matches),
+            due: TodoArgs::get_due(matches),
+            percent_complete: TodoArgs::get_percent_complete(matches),
+            priority: TodoArgs::get_priority(matches),
+            status: TodoArgs::get_status(matches),
+            summary: EventOrTodoArgs::get_summary(matches),
 
-        let summary = match EventOrTodoArgs::get_summary(matches) {
-            Some(summary) => Some(summary.clone()),
-
-            None if description.is_none()
-                && due.is_none()
-                && percent_complete.is_none()
-                && priority.is_none()
-                && status.is_none() =>
-            {
-                None
-            }
-
-            // If summary is not provided but other fields are set, we still require a summary.
-            None => return Err("Summary is required for new todo".into()),
-        };
-
-        let tui = summary.is_none();
-        Ok(Self {
-            description,
-            due,
-            percent_complete,
-            priority,
-            status,
-            summary,
-
-            tui,
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
-        })
-    }
-
-    pub fn new_tui() -> Self {
-        Self {
-            description: None,
-            due: None,
-            percent_complete: None,
-            priority: None,
-            status: None,
-            summary: None,
-
-            tui: true,
-            output_format: OutputFormat::Table,
-            verbose: false,
         }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "adding new todo...");
-        let draft = if self.tui {
-            match tui::draft_todo(aim)? {
+        let tui = self.tui();
+        let now = aim.now();
+
+        // Prepare a draft with the provided arguments
+        let mut draft = aim.default_todo_draft();
+
+        if let Some(desc) = self.description {
+            draft.description = Some(desc);
+        }
+
+        if let Some(due) = &self.due {
+            draft.due = parse_datetime(&now, due)?;
+        }
+
+        if let Some(percent) = self.percent_complete {
+            draft.percent_complete = Some(percent);
+        }
+
+        if let Some(priority) = self.priority {
+            draft.priority = Some(priority);
+        }
+
+        if let Some(status) = self.status {
+            draft.status = status;
+        }
+
+        if let Some(summary) = &self.summary {
+            draft.summary = summary.clone();
+        }
+
+        // If TUI is needed, launch the TUI editor to let user edit the draft
+        if tui {
+            draft = match tui::draft_todo(aim, draft)? {
                 Some(data) => data,
                 None => {
                     tracing::info!("user cancel the todo editing");
                     return Ok(());
                 }
             }
-        } else {
-            let now = aim.now();
-            TodoDraft {
-                description: self.description,
-                due: self
-                    .due
-                    .map(|a| parse_datetime(&now, &a))
-                    .transpose()?
-                    .flatten(),
-                percent_complete: self.percent_complete,
-                priority: self.priority,
-                status: self.status.unwrap_or_default(),
-                summary: self.summary.unwrap_or_default(),
-            }
-        };
+        }
+
+        // Create the todo
         Self::new_todo(aim, draft, self.output_format, self.verbose).await
     }
 
@@ -141,6 +120,15 @@ impl CmdTodoNew {
         print_todos(aim, &[todo], output_format, verbose);
         Ok(())
     }
+
+    pub(crate) fn tui(&self) -> bool {
+        Self::need_tui(&self.summary)
+    }
+
+    /// Determine whether to use TUI mode, which is true if not all required fields are provided
+    pub(crate) fn need_tui(summary: &Option<String>) -> bool {
+        summary.is_none()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -153,7 +141,6 @@ pub struct CmdTodoEdit {
     pub status: Option<TodoStatus>,
     pub summary: Option<String>,
 
-    pub tui: bool,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -177,31 +164,15 @@ impl CmdTodoEdit {
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
-        let id = EventOrTodoArgs::get_id(matches);
-        let description = EventOrTodoArgs::get_description(matches);
-        let due = TodoArgs::get_due(matches);
-        let percent_complete = TodoArgs::get_percent_complete(matches);
-        let priority = TodoArgs::get_priority(matches);
-        let status = TodoArgs::get_status(matches);
-        let summary = EventOrTodoArgs::get_summary(matches);
-
-        let tui = description.is_none()
-            && due.is_none()
-            && percent_complete.is_none()
-            && priority.is_none()
-            && status.is_none()
-            && summary.is_none();
-
         Self {
-            id,
-            description,
-            due,
-            percent_complete,
-            priority,
-            status,
-            summary,
+            id: EventOrTodoArgs::get_id(matches),
+            description: EventOrTodoArgs::get_description(matches),
+            due: TodoArgs::get_due(matches),
+            percent_complete: TodoArgs::get_percent_complete(matches),
+            priority: TodoArgs::get_priority(matches),
+            status: TodoArgs::get_status(matches),
+            summary: EventOrTodoArgs::get_summary(matches),
 
-            tui,
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -217,7 +188,6 @@ impl CmdTodoEdit {
             status: None,
             summary: None,
 
-            tui: true,
             output_format,
             verbose,
         }
@@ -225,33 +195,48 @@ impl CmdTodoEdit {
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "editing todo...");
-        let patch = if self.tui {
+        let tui = self.tui();
+
+        // Prepare a patch with the provided arguments
+        let mut patch = TodoPatch {
+            description: self.description.map(|d| (!d.is_empty()).then_some(d)),
+            due: self
+                .due
+                .as_ref()
+                .map(|a| parse_datetime(&aim.now(), a))
+                .transpose()?,
+            priority: self.priority,
+            percent_complete: None,
+            status: self.status,
+            summary: self.summary,
+        };
+
+        // If TUI is needed, launch the TUI editor to let user edit the patch
+        if tui {
             let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
-            match tui::patch_todo(aim, &todo)? {
+            patch = match tui::patch_todo(aim, &todo, patch)? {
                 Some(data) => data,
                 None => {
                     tracing::info!("user cancel the todo editing");
                     return Ok(());
                 }
-            }
-        } else {
-            TodoPatch {
-                description: self.description.map(|d| (!d.is_empty()).then_some(d)),
-                due: self
-                    .due
-                    .as_ref()
-                    .map(|a| parse_datetime(&aim.now(), a))
-                    .transpose()?,
-                priority: self.priority,
-                percent_complete: None,
-                status: self.status,
-                summary: self.summary,
-            }
-        };
+            };
+        }
 
+        // If no fields to edit, do nothing
         let todo = aim.update_todo(&self.id, patch).await?;
         print_todos(aim, &[todo], self.output_format, self.verbose);
         Ok(())
+    }
+
+    /// Determine whether to use TUI mode, which is true if no fields to edit are provided
+    pub(crate) fn tui(&self) -> bool {
+        self.description.is_none()
+            && self.due.is_none()
+            && self.percent_complete.is_none()
+            && self.priority.is_none()
+            && self.status.is_none()
+            && self.summary.is_none()
     }
 }
 
@@ -538,7 +523,7 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
-        let parsed = CmdTodoNew::from(&matches).unwrap();
+        let parsed = CmdTodoNew::from(&matches);
 
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
@@ -547,7 +532,7 @@ mod tests {
         assert_eq!(parsed.status, Some(TodoStatus::Completed));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
 
-        assert!(!parsed.tui);
+        assert!(!parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
@@ -558,21 +543,11 @@ mod tests {
         let matches = cmd
             .try_get_matches_from(["new", "--output-format", "json", "--verbose"])
             .unwrap();
-        let parsed = CmdTodoNew::from(&matches).unwrap();
+        let parsed = CmdTodoNew::from(&matches);
 
-        assert!(parsed.tui);
+        assert!(parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
-    }
-
-    #[test]
-    fn test_parse_new_tui_invalid() {
-        let cmd = CmdTodoNew::command();
-        let matches = cmd
-            .try_get_matches_from(["new", "--priority", "1"])
-            .unwrap();
-        let parsed = CmdTodoNew::from(&matches);
-        assert!(parsed.is_err());
     }
 
     #[test]
@@ -609,7 +584,7 @@ mod tests {
         assert_eq!(parsed.status, Some(TodoStatus::NeedsAction));
         assert_eq!(parsed.summary, Some("Another summary".to_string()));
 
-        assert!(!parsed.tui);
+        assert!(!parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
@@ -622,7 +597,7 @@ mod tests {
             .unwrap();
         let parsed = CmdTodoEdit::from(&matches);
 
-        assert!(parsed.tui);
+        assert!(parsed.tui());
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
