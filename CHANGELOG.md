@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cli: Add `event delay` and `event reschedule` command to align with `todo` command group
 - cli: Add toplevel `delay` and `reschedule` command
 
+### Changed
+
+- core: Add static lifecycle for all aim methods
+
 ## [v0.7.0] - 2025-09-08
 
 ### Added

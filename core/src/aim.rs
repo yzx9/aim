@@ -73,7 +73,10 @@ impl Aim {
     }
 
     /// Add a new event from the given draft.
-    pub async fn new_event(&self, draft: EventDraft) -> Result<impl Event, Box<dyn Error>> {
+    pub async fn new_event(
+        &self,
+        draft: EventDraft,
+    ) -> Result<impl Event + 'static, Box<dyn Error>> {
         let uid = self.generate_uid().await?;
         let event = draft.into_ics(&self.now, &uid);
         let path = self.get_path(&uid);
@@ -94,7 +97,7 @@ impl Aim {
         &self,
         id: &Id,
         patch: EventPatch,
-    ) -> Result<impl Event, Box<dyn Error>> {
+    ) -> Result<impl Event + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
         let event = match self.db.events.get(&uid).await? {
             Some(todo) => todo,
@@ -162,7 +165,7 @@ impl Aim {
         &self,
         conds: &EventConditions,
         pager: &Pager,
-    ) -> Result<Vec<impl Event>, Box<dyn Error>> {
+    ) -> Result<Vec<impl Event + 'static>, Box<dyn Error>> {
         let conds = ParsedEventConditions::parse(&self.now, conds);
         let events = self.db.events.list(&conds, pager).await?;
         let events = self.short_ids.events(events).await?;
@@ -181,7 +184,7 @@ impl Aim {
     }
 
     /// Add a new todo from the given draft.
-    pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo, Box<dyn Error>> {
+    pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.generate_uid().await?;
         let todo = draft.into_ics(&self.config, self.now, &uid);
         let path = self.get_path(&uid);
@@ -202,7 +205,7 @@ impl Aim {
         &self,
         id: &Id,
         patch: TodoPatch,
-    ) -> Result<impl Todo, Box<dyn Error>> {
+    ) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
         let todo = match self.db.todos.get(&uid).await? {
             Some(todo) => todo,
@@ -249,7 +252,7 @@ impl Aim {
         conds: &TodoConditions,
         sort: &[TodoSort],
         pager: &Pager,
-    ) -> Result<Vec<impl Todo>, Box<dyn Error>> {
+    ) -> Result<Vec<impl Todo + 'static>, Box<dyn Error>> {
         let conds = ParsedTodoConditions::parse(&self.now, conds);
         let sort = ParsedTodoSort::parse_vec(&self.config, sort);
         let todos = self.db.todos.list(&conds, &sort, pager).await?;
