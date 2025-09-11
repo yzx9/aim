@@ -249,14 +249,9 @@ impl CmdTodoEdit {
             }
         };
 
-        TodoEdit {
-            id: self.id,
-            patch,
-            output_format: self.output_format,
-            verbose: self.verbose,
-        }
-        .run(aim)
-        .await
+        let todo = aim.update_todo(&self.id, patch).await?;
+        print_todos(aim, &[todo], self.output_format, self.verbose);
+        Ok(())
     }
 }
 
@@ -292,17 +287,12 @@ macro_rules! cmd_status {
             pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
                 tracing::debug!(?self, concat!("marking todos as ", $desc));
                 for id in self.ids {
-                    TodoEdit {
-                        id,
-                        patch: TodoPatch {
-                            status: Some(TodoStatus::$status),
-                            ..Default::default()
-                        },
-                        output_format: self.output_format,
-                        verbose: self.verbose,
-                    }
-                    .run(aim)
-                    .await?;
+                    let patch = TodoPatch {
+                        status: Some(TodoStatus::$status),
+                        ..Default::default()
+                    };
+                    let todo = aim.update_todo(&id, patch).await?;
+                    print_todos(aim, &[todo], self.output_format, self.verbose);
                 }
                 Ok(())
             }
@@ -360,17 +350,13 @@ impl CmdTodoDelay {
         };
 
         // Update the todo
-        TodoEdit {
-            id: self.id,
-            patch: TodoPatch {
-                due: Some(new_due),
-                ..Default::default()
-            },
-            output_format: self.output_format,
-            verbose: self.verbose,
-        }
-        .run(aim)
-        .await
+        let patch = TodoPatch {
+            due: Some(new_due),
+            ..Default::default()
+        };
+        let todo = aim.update_todo(&self.id, patch).await?;
+        print_todos(aim, &[todo], self.output_format, self.verbose);
+        Ok(())
     }
 }
 
@@ -416,17 +402,13 @@ impl CmdTodoReschedule {
         };
 
         // Update the todo
-        TodoEdit {
-            id: self.id,
-            patch: TodoPatch {
-                due: Some(new_due),
-                ..Default::default()
-            },
-            output_format: self.output_format,
-            verbose: self.verbose,
-        }
-        .run(aim)
-        .await
+        let patch = TodoPatch {
+            due: Some(new_due),
+            ..Default::default()
+        };
+        let todo = aim.update_todo(&self.id, patch).await?;
+        print_todos(aim, &[todo], self.output_format, self.verbose);
+        Ok(())
     }
 }
 
@@ -491,23 +473,6 @@ impl CmdTodoList {
         }
 
         print_todos(aim, &todos, output_format, verbose);
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-struct TodoEdit {
-    id: Id,
-    patch: TodoPatch,
-    output_format: OutputFormat,
-    verbose: bool,
-}
-
-impl TodoEdit {
-    async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
-        tracing::debug!(?self, "edit todo ...");
-        let todo = aim.update_todo(&self.id, self.patch).await?;
-        print_todos(aim, &[todo], self.output_format, self.verbose);
         Ok(())
     }
 }
