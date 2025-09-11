@@ -71,18 +71,15 @@ pub enum Shell {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::Command;
 
     #[test]
     fn test_parse_generate_completion() {
-        let cmd = Command::new("test").subcommand(CmdGenerateCompletion::command());
-
+        let cmd = CmdGenerateCompletion::command();
         let matches = cmd
-            .try_get_matches_from(["aim", "generate-completion", "bash"])
+            .try_get_matches_from(["generate-completion", "bash"])
             .unwrap();
+        let parsed = CmdGenerateCompletion::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("generate-completion").unwrap();
-        let parsed = CmdGenerateCompletion::from(sub_matches);
         assert_eq!(parsed.shell, Shell::Bash);
 
         let mut output = vec![];

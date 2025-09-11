@@ -662,22 +662,11 @@ mod tests {
 
     #[test]
     fn test_parse_edit_tui() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoEdit::command());
-
+        let cmd = CmdTodoEdit::command();
         let matches = cmd
-            .try_get_matches_from([
-                "test",
-                "edit",
-                "test_id",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
+            .try_get_matches_from(["edit", "test_id", "--output-format", "json", "--verbose"])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("edit").unwrap();
-        let parsed = CmdTodoEdit::from(sub_matches);
+        let parsed = CmdTodoEdit::from(&matches);
 
         assert!(parsed.tui);
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
@@ -710,13 +699,9 @@ mod tests {
 
     #[test]
     fn test_parse_done_multi() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoDone::command());
-
+        let cmd = CmdTodoDone::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "done",
                 "a",
                 "b",
@@ -726,39 +711,26 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("done").unwrap();
-        let parsed = CmdTodoDone::from(sub_matches);
-        assert_eq!(
-            parsed.ids,
-            vec![
-                Id::ShortIdOrUid("a".to_string()),
-                Id::ShortIdOrUid("b".to_string()),
-                Id::ShortIdOrUid("c".to_string())
-            ]
-        );
+        let parsed = CmdTodoDone::from(&matches);
+
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
 
     #[test]
     fn test_parse_undo() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoUndo::command());
-
+        let cmd = CmdTodoUndo::command();
         let matches = cmd
-            .try_get_matches_from([
-                "test",
-                "undo",
-                "abc",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
+            .try_get_matches_from(["undo", "abc", "--output-format", "json", "--verbose"])
             .unwrap();
+        let parsed = CmdTodoUndo::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("undo").unwrap();
-        let parsed = CmdTodoUndo::from(sub_matches);
         assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
@@ -766,46 +738,29 @@ mod tests {
 
     #[test]
     fn test_parse_undo_multi() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoUndo::command());
-
+        let cmd = CmdTodoUndo::command();
         let matches = cmd
-            .try_get_matches_from(["test", "undo", "a", "b", "c", "--output-format", "json"])
+            .try_get_matches_from(["undo", "a", "b", "c", "--output-format", "json"])
             .unwrap();
+        let parsed = CmdTodoUndo::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("undo").unwrap();
-        let parsed = CmdTodoUndo::from(sub_matches);
-        assert_eq!(
-            parsed.ids,
-            vec![
-                Id::ShortIdOrUid("a".to_string()),
-                Id::ShortIdOrUid("b".to_string()),
-                Id::ShortIdOrUid("c".to_string())
-            ]
-        );
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.output_format, OutputFormat::Json);
     }
 
     #[test]
     fn test_parse_cancel() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoCancel::command());
-
+        let cmd = CmdTodoCancel::command();
         let matches = cmd
-            .try_get_matches_from([
-                "test",
-                "cancel",
-                "abc",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
+            .try_get_matches_from(["cancel", "abc", "--output-format", "json", "--verbose"])
             .unwrap();
+        let parsed = CmdTodoCancel::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("cancel").unwrap();
-        let parsed = CmdTodoCancel::from(sub_matches);
         assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
@@ -813,36 +768,26 @@ mod tests {
 
     #[test]
     fn test_parse_cancel_multi() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoCancel::command());
-
+        let cmd = CmdTodoCancel::command();
         let matches = cmd
-            .try_get_matches_from(["test", "cancel", "a", "b", "c", "--output-format", "json"])
+            .try_get_matches_from(["cancel", "a", "b", "c", "--output-format", "json"])
             .unwrap();
+        let parsed = CmdTodoCancel::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("cancel").unwrap();
-        let parsed = CmdTodoCancel::from(sub_matches);
-        assert_eq!(
-            parsed.ids,
-            vec![
-                Id::ShortIdOrUid("a".to_string()),
-                Id::ShortIdOrUid("b".to_string()),
-                Id::ShortIdOrUid("c".to_string())
-            ]
-        );
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.output_format, OutputFormat::Json);
     }
 
     #[test]
     fn test_parse_delay() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoDelay::command());
-
+        let cmd = CmdTodoDelay::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "delay",
                 "abc",
                 "time anchor",
@@ -851,9 +796,8 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
+        let parsed = CmdTodoDelay::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("delay").unwrap();
-        let parsed = CmdTodoDelay::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.time_anchor, "time anchor");
         assert_eq!(parsed.output_format, OutputFormat::Json);
@@ -862,13 +806,9 @@ mod tests {
 
     #[test]
     fn test_parse_reschedule() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoReschedule::command());
-
+        let cmd = CmdTodoReschedule::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "reschedule",
                 "abc",
                 "time anchor",
@@ -877,9 +817,8 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
+        let parsed = CmdTodoReschedule::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("reschedule").unwrap();
-        let parsed = CmdTodoReschedule::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.time_anchor, "time anchor");
         assert_eq!(parsed.output_format, OutputFormat::Json);
@@ -888,16 +827,12 @@ mod tests {
 
     #[test]
     fn test_parse_list() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoList::command());
-
+        let cmd = CmdTodoList::command();
         let matches = cmd
-            .try_get_matches_from(["test", "list", "--output-format", "json", "--verbose"])
+            .try_get_matches_from(["list", "--output-format", "json", "--verbose"])
             .unwrap();
+        let parsed = CmdTodoList::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("list").unwrap();
-        let parsed = CmdTodoList::from(sub_matches);
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }

@@ -28,7 +28,7 @@ impl CmdDashboard {
     }
 
     pub fn from(_matches: &ArgMatches) -> Self {
-        CmdDashboard
+        Self
     }
 
     /// Show the dashboard with events and todos.
@@ -220,22 +220,16 @@ mod tests {
 
     #[test]
     fn test_parse_dashboard() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdDashboard::command());
-        let matches = cmd.try_get_matches_from(["test", "dashboard"]).unwrap();
+        let cmd = CmdDashboard::command();
+        let matches = cmd.try_get_matches_from(["dashboard"]).unwrap();
         let _ = CmdDashboard::from(&matches);
     }
 
     #[test]
     fn test_parse_delay() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventDelay::command());
-
+        let cmd = CmdEventDelay::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "delay",
                 "abc",
                 "time anchor",
@@ -244,9 +238,8 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
+        let parsed = CmdDelay::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("delay").unwrap();
-        let parsed = CmdDelay::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.time_anchor, "time anchor");
         assert_eq!(parsed.output_format, OutputFormat::Json);
@@ -255,13 +248,9 @@ mod tests {
 
     #[test]
     fn test_parse_reschedule() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdReschedule::command());
-
+        let cmd = CmdReschedule::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "reschedule",
                 "abc",
                 "time anchor",
@@ -270,9 +259,8 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
+        let parsed = CmdReschedule::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("reschedule").unwrap();
-        let parsed = CmdReschedule::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.time_anchor, "time anchor");
         assert_eq!(parsed.output_format, OutputFormat::Json);

@@ -486,17 +486,12 @@ fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat, v
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::Command;
 
     #[test]
     fn test_parse_event_new() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventNew::command());
-
+        let cmd = CmdEventNew::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "new",
                 "Another summary",
                 "--description",
@@ -512,8 +507,7 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdEventNew::from(sub_matches).unwrap();
+        let parsed = CmdEventNew::from(&matches).unwrap();
 
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.end, Some("2025-01-01 14:00:00".to_string()));
@@ -528,39 +522,29 @@ mod tests {
 
     #[test]
     fn test_parse_new_tui() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventNew::command());
+        let cmd = CmdEventNew::command();
+        let matches = cmd.try_get_matches_from(["new"]).unwrap();
+        let parsed = CmdEventNew::from(&matches).unwrap();
 
-        let matches = cmd.try_get_matches_from(["test", "new"]).unwrap();
-        let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdEventNew::from(sub_matches).unwrap();
         assert!(parsed.tui);
     }
 
     #[test]
     fn test_parse_new_tui_invalid() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventNew::command());
-
+        let cmd = CmdEventNew::command();
         let matches = cmd
-            .try_get_matches_from(["test", "new", "--start", "2025-01-01 12:00"])
+            .try_get_matches_from(["new", "--start", "2025-01-01 12:00"])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdEventNew::from(sub_matches);
+        let parsed = CmdEventNew::from(&matches);
+
         assert!(parsed.is_err());
     }
 
     #[test]
     fn test_parse_edit() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventEdit::command());
-
+        let cmd = CmdEventEdit::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "edit",
                 "test_id",
                 "--description",
@@ -578,8 +562,7 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("edit").unwrap();
-        let parsed = CmdEventEdit::from(sub_matches);
+        let parsed = CmdEventEdit::from(&matches);
 
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
         assert_eq!(parsed.description, Some("A description".to_string()));
@@ -595,28 +578,19 @@ mod tests {
 
     #[test]
     fn test_parse_edit_tui() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventEdit::command());
+        let cmd = CmdEventEdit::command();
+        let matches = cmd.try_get_matches_from(["edit", "test_id"]).unwrap();
+        let parsed = CmdEventEdit::from(&matches);
 
-        let matches = cmd
-            .try_get_matches_from(["test", "edit", "test_id"])
-            .unwrap();
-        let sub_matches = matches.subcommand_matches("edit").unwrap();
-        let parsed = CmdEventEdit::from(sub_matches);
         assert!(parsed.tui);
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
     }
 
     #[test]
     fn test_parse_delay() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventDelay::command());
-
+        let cmd = CmdEventDelay::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "delay",
                 "abc",
                 "time anchor",
@@ -625,9 +599,8 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
+        let parsed = CmdEventDelay::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("delay").unwrap();
-        let parsed = CmdEventDelay::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.time_anchor, "time anchor");
         assert_eq!(parsed.output_format, OutputFormat::Json);
@@ -636,13 +609,9 @@ mod tests {
 
     #[test]
     fn test_parse_reschedule() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventReschedule::command());
-
+        let cmd = CmdEventReschedule::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "reschedule",
                 "abc",
                 "time anchor",
@@ -651,9 +620,8 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
+        let parsed = CmdEventReschedule::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("reschedule").unwrap();
-        let parsed = CmdEventReschedule::from(sub_matches);
         assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
         assert_eq!(parsed.time_anchor, "time anchor");
         assert_eq!(parsed.output_format, OutputFormat::Json);
@@ -662,16 +630,12 @@ mod tests {
 
     #[test]
     fn test_parse_list() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdEventList::command());
-
+        let cmd = CmdEventList::command();
         let matches = cmd
-            .try_get_matches_from(["test", "list", "--output-format", "json", "--verbose"])
+            .try_get_matches_from(["list", "--output-format", "json", "--verbose"])
             .unwrap();
+        let parsed = CmdEventList::from(&matches);
 
-        let sub_matches = matches.subcommand_matches("list").unwrap();
-        let parsed = CmdEventList::from(sub_matches);
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
