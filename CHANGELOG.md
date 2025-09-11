@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- cli: `todo delay` and `todo reschedule` now accept multiple ids and `--time` change to an argument
 - core: Add static lifecycle for all aim methods
 
 ### Fixed

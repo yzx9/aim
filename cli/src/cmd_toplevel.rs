@@ -102,9 +102,8 @@ impl CmdDashboard {
 
 #[derive(Debug, Clone)]
 pub struct CmdDelay {
-    pub id: Id,
+    pub ids: Vec<Id>,
     pub time_anchor: String,
-    pub output_format: OutputFormat,
     pub verbose: bool,
 }
 
@@ -115,53 +114,55 @@ impl CmdDelay {
         let args = EventOrTodoArgs::new(None);
         Command::new(Self::NAME)
             .about("Delay event or todo's time by a specified time based on original time")
-            .arg(args.id())
-            .arg(args.time_anchor("delay"))
-            .arg(CommonArgs::output_format())
+            .arg(args.ids())
+            .arg(args.time("delay"))
             .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: EventOrTodoArgs::get_id(matches),
-            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
-            output_format: CommonArgs::get_output_format(matches),
+            ids: EventOrTodoArgs::get_ids(matches),
+            time_anchor: EventOrTodoArgs::get_time(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        let kind = aim.get_kind(&self.id).await?;
-        match kind {
-            Kind::Event => {
-                CmdEventDelay {
-                    id: self.id,
-                    time_anchor: self.time_anchor,
-                    output_format: self.output_format,
-                    verbose: self.verbose,
-                }
-                .run(aim)
-                .await
+        let (event_ids, todo_ids) = separate_ids(aim, self.ids.clone()).await?;
+
+        // TODO: handle formatting
+        if !event_ids.is_empty() {
+            println!("🗓️ {}", "Events".bold());
+            CmdEventDelay {
+                ids: event_ids,
+                time_anchor: self.time_anchor.clone(),
+                output_format: OutputFormat::Table,
+                verbose: self.verbose,
             }
-            Kind::Todo => {
-                CmdTodoDelay {
-                    id: self.id,
-                    time_anchor: self.time_anchor,
-                    output_format: self.output_format,
-                    verbose: self.verbose,
-                }
-                .run(aim)
-                .await
-            }
+            .run(aim)
+            .await?;
         }
+
+        if !todo_ids.is_empty() {
+            println!("✅ {}", "To-Dos".bold());
+            CmdTodoDelay {
+                ids: todo_ids,
+                time: self.time_anchor,
+                output_format: OutputFormat::Table,
+                verbose: self.verbose,
+            }
+            .run(aim)
+            .await?;
+        }
+
+        Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdReschedule {
-    pub id: Id,
-    pub time_anchor: String,
-    pub output_format: OutputFormat,
+    pub ids: Vec<Id>,
+    pub time: String,
     pub verbose: bool,
 }
 
@@ -172,46 +173,61 @@ impl CmdReschedule {
         let args = EventOrTodoArgs::new(None);
         Command::new(Self::NAME)
             .about("Reschedule event or todo's time by a specified time based on current time")
-            .arg(args.id())
-            .arg(args.time_anchor("delay"))
-            .arg(CommonArgs::output_format())
+            .arg(args.ids())
+            .arg(args.time("delay"))
             .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: EventOrTodoArgs::get_id(matches),
-            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
-            output_format: CommonArgs::get_output_format(matches),
+            ids: EventOrTodoArgs::get_ids(matches),
+            time: EventOrTodoArgs::get_time(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
-        let kind = aim.get_kind(&self.id).await?;
+        let (event_ids, todo_ids) = separate_ids(aim, self.ids.clone()).await?;
+
+        if !event_ids.is_empty() {
+            println!("🗓️ {}", "Events".bold());
+            CmdEventReschedule {
+                ids: event_ids,
+                time_anchor: self.time.clone(),
+                output_format: OutputFormat::Table,
+                verbose: self.verbose,
+            }
+            .run(aim)
+            .await?;
+        }
+
+        if !todo_ids.is_empty() {
+            println!("✅ {}", "To-Dos".bold());
+            CmdTodoReschedule {
+                ids: todo_ids,
+                time: self.time,
+                output_format: OutputFormat::Table,
+                verbose: self.verbose,
+            }
+            .run(aim)
+            .await?;
+        }
+
+        Ok(())
+    }
+}
+
+async fn separate_ids(aim: &Aim, ids: Vec<Id>) -> Result<(Vec<Id>, Vec<Id>), Box<dyn Error>> {
+    let mut event_ids = vec![];
+    let mut todo_ids = vec![];
+    for id in ids {
+        let kind = aim.get_kind(&id).await?;
         match kind {
-            Kind::Event => {
-                CmdEventReschedule {
-                    id: self.id,
-                    time_anchor: self.time_anchor,
-                    output_format: self.output_format,
-                    verbose: self.verbose,
-                }
-                .run(aim)
-                .await
-            }
-            Kind::Todo => {
-                CmdTodoReschedule {
-                    id: self.id,
-                    time_anchor: self.time_anchor,
-                    output_format: self.output_format,
-                    verbose: self.verbose,
-                }
-                .run(aim)
-                .await
-            }
+            Kind::Event => event_ids.push(id),
+            Kind::Todo => todo_ids.push(id),
         }
     }
+    Ok((event_ids, todo_ids))
 }
 
 #[cfg(test)]
@@ -229,20 +245,17 @@ mod tests {
     fn test_parse_delay() {
         let cmd = CmdEventDelay::command();
         let matches = cmd
-            .try_get_matches_from([
-                "delay",
-                "abc",
-                "time anchor",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
+            .try_get_matches_from(["delay", "a", "b", "c", "--time", "time", "--verbose"])
             .unwrap();
         let parsed = CmdDelay::from(&matches);
 
-        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
-        assert_eq!(parsed.time_anchor, "time anchor");
-        assert_eq!(parsed.output_format, OutputFormat::Json);
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
+        assert_eq!(parsed.time_anchor, "time");
         assert!(parsed.verbose);
     }
 
@@ -250,20 +263,17 @@ mod tests {
     fn test_parse_reschedule() {
         let cmd = CmdReschedule::command();
         let matches = cmd
-            .try_get_matches_from([
-                "reschedule",
-                "abc",
-                "time anchor",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
+            .try_get_matches_from(["reschedule", "a", "b", "c", "--time", "time", "--verbose"])
             .unwrap();
         let parsed = CmdReschedule::from(&matches);
 
-        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
-        assert_eq!(parsed.time_anchor, "time anchor");
-        assert_eq!(parsed.output_format, OutputFormat::Json);
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
+        assert_eq!(parsed.time, "time");
         assert!(parsed.verbose);
     }
 }

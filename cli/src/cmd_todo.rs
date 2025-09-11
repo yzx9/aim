@@ -308,8 +308,8 @@ cmd_status!(CmdTodoCancel, Cancelled, "cancel", "canceled");
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoDelay {
-    pub id: Id,
-    pub time_anchor: String,
+    pub ids: Vec<Id>,
+    pub time: String,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -320,17 +320,17 @@ impl CmdTodoDelay {
     pub fn command() -> Command {
         let (args, _todo_args) = args();
         Command::new(Self::NAME)
-            .about("Delay a todo's due by a specified time based on original due")
-            .arg(args.id())
-            .arg(args.time_anchor("delay"))
+            .about("Delay todo's due by a specified time based on original due")
+            .arg(args.ids())
+            .arg(args.time("delay"))
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: EventOrTodoArgs::get_id(matches),
-            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
+            ids: EventOrTodoArgs::get_ids(matches),
+            time: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -339,33 +339,33 @@ impl CmdTodoDelay {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "delaying todo...");
 
-        // Calculate new due based on original due if exists, otherwise based on now
-        let new_due = if !self.time_anchor.is_empty() {
-            let anchor: DateTimeAnchor = self.time_anchor.parse()?;
-            let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
-            Some(match todo.due() {
+        let anchor: DateTimeAnchor = self.time.parse()?;
+        let mut todos = vec![];
+        for id in &self.ids {
+            // Calculate new due based on original due if exists, otherwise based on now
+            let todo = aim.get_todo(id).await?.ok_or("Todo not found")?;
+            let new_due = Some(match todo.due() {
                 Some(due) => anchor.parse_from_loose(&due),
                 None => anchor.parse_from_dt(&aim.now()),
-            })
-        } else {
-            None
-        };
+            });
 
-        // Update the todo
-        let patch = TodoPatch {
-            due: Some(new_due),
-            ..Default::default()
-        };
-        let todo = aim.update_todo(&self.id, patch).await?;
-        print_todos(aim, &[todo], self.output_format, self.verbose);
+            // Update the todo
+            let patch = TodoPatch {
+                due: Some(new_due),
+                ..Default::default()
+            };
+            let todo = aim.update_todo(id, patch).await?;
+            todos.push(todo);
+        }
+        print_todos(aim, &todos, self.output_format, self.verbose);
         Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoReschedule {
-    pub id: Id,
-    pub time_anchor: String,
+    pub ids: Vec<Id>,
+    pub time: String,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -376,17 +376,17 @@ impl CmdTodoReschedule {
     pub fn command() -> Command {
         let (args, _todo_args) = args();
         Command::new(Self::NAME)
-            .about("Reschedule a todo's due to a specified time based on now")
-            .arg(args.id())
-            .arg(args.time_anchor("reschedule"))
+            .about("Reschedule todo's due to a specified time based on now")
+            .arg(args.ids())
+            .arg(args.time("reschedule"))
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: EventOrTodoArgs::get_id(matches),
-            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
+            ids: EventOrTodoArgs::get_ids(matches),
+            time: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -395,21 +395,25 @@ impl CmdTodoReschedule {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "rescheduling todo...");
 
-        // Calculate new due based on now
-        let new_due = if !self.time_anchor.is_empty() {
-            let anchor: DateTimeAnchor = self.time_anchor.parse()?;
-            Some(anchor.parse_from_dt(&aim.now()))
-        } else {
-            None
-        };
+        let anchor: DateTimeAnchor = self.time.parse()?;
+        let mut todos = vec![];
+        for id in &self.ids {
+            // Calculate new due based on now
+            let new_due = if !self.time.is_empty() {
+                Some(anchor.parse_from_dt(&aim.now()))
+            } else {
+                None
+            };
 
-        // Update the todo
-        let patch = TodoPatch {
-            due: Some(new_due),
-            ..Default::default()
-        };
-        let todo = aim.update_todo(&self.id, patch).await?;
-        print_todos(aim, &[todo], self.output_format, self.verbose);
+            // Update the todo
+            let patch = TodoPatch {
+                due: Some(new_due),
+                ..Default::default()
+            };
+            let todo = aim.update_todo(id, patch).await?;
+            todos.push(todo);
+        }
+        print_todos(aim, &todos, self.output_format, self.verbose);
         Ok(())
     }
 }
@@ -694,19 +698,6 @@ mod tests {
     fn test_parse_undo() {
         let cmd = CmdTodoUndo::command();
         let matches = cmd
-            .try_get_matches_from(["undo", "abc", "--output-format", "json", "--verbose"])
-            .unwrap();
-        let parsed = CmdTodoUndo::from(&matches);
-
-        assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
-        assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
-    }
-
-    #[test]
-    fn test_parse_undo_multi() {
-        let cmd = CmdTodoUndo::command();
-        let matches = cmd
             .try_get_matches_from(["undo", "a", "b", "c", "--output-format", "json"])
             .unwrap();
         let parsed = CmdTodoUndo::from(&matches);
@@ -722,19 +713,6 @@ mod tests {
 
     #[test]
     fn test_parse_cancel() {
-        let cmd = CmdTodoCancel::command();
-        let matches = cmd
-            .try_get_matches_from(["cancel", "abc", "--output-format", "json", "--verbose"])
-            .unwrap();
-        let parsed = CmdTodoCancel::from(&matches);
-
-        assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
-        assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
-    }
-
-    #[test]
-    fn test_parse_cancel_multi() {
         let cmd = CmdTodoCancel::command();
         let matches = cmd
             .try_get_matches_from(["cancel", "a", "b", "c", "--output-format", "json"])
@@ -756,8 +734,11 @@ mod tests {
         let matches = cmd
             .try_get_matches_from([
                 "delay",
-                "abc",
-                "time anchor",
+                "a",
+                "b",
+                "c",
+                "--time",
+                "time",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -765,8 +746,13 @@ mod tests {
             .unwrap();
         let parsed = CmdTodoDelay::from(&matches);
 
-        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
-        assert_eq!(parsed.time_anchor, "time anchor");
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
+        assert_eq!(parsed.time, "time");
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
@@ -777,8 +763,11 @@ mod tests {
         let matches = cmd
             .try_get_matches_from([
                 "reschedule",
-                "abc",
-                "time anchor",
+                "a",
+                "b",
+                "c",
+                "--time",
+                "time",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -786,8 +775,13 @@ mod tests {
             .unwrap();
         let parsed = CmdTodoReschedule::from(&matches);
 
-        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
-        assert_eq!(parsed.time_anchor, "time anchor");
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
+        assert_eq!(parsed.time, "time");
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }

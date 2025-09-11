@@ -128,14 +128,16 @@ impl EventOrTodoArgs {
         matches.get_one("summary").cloned()
     }
 
-    pub fn time_anchor(&self, kind: &str) -> Arg {
-        arg!(<"TIME-ANCHOR">).help(format!("Time to {} (datetime, time, or 'tomorrow')", kind))
+    pub fn time(&self, kind: &str) -> Arg {
+        arg!(time: -t --time <TIME>)
+            .help(format!("Time to {} (datetime, time, tomorrow...)", kind))
+            .required(true)
     }
 
-    pub fn get_time_anchor(matches: &ArgMatches) -> String {
+    pub fn get_time(matches: &ArgMatches) -> String {
         matches
-            .get_one::<String>("TIME-ANCHOR")
-            .expect("time anchor is required")
+            .get_one::<String>("time")
+            .expect("time is required")
             .clone()
     }
 

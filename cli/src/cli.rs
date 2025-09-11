@@ -379,10 +379,17 @@ mod tests {
 
     #[test]
     fn test_parse_event_delay() {
-        let cli = Cli::try_parse_from(vec!["test", "event", "delay", "id", "time"]).unwrap();
+        let cli = Cli::try_parse_from(vec![
+            "test", "event", "delay", "id1", "id2", "--time", "time",
+        ])
+        .unwrap();
         match cli.command {
             Commands::EventDelay(cmd) => {
-                assert_eq!(cmd.id, Id::ShortIdOrUid("id".to_string()));
+                let expected_ids = vec![
+                    Id::ShortIdOrUid("id1".to_string()),
+                    Id::ShortIdOrUid("id2".to_string()),
+                ];
+                assert_eq!(cmd.ids, expected_ids);
                 assert_eq!(cmd.time_anchor, "time".to_string());
             }
             _ => panic!("Expected EventDelay command"),
@@ -391,10 +398,23 @@ mod tests {
 
     #[test]
     fn test_parse_event_reschedule() {
-        let cli = Cli::try_parse_from(vec!["test", "event", "reschedule", "id", "time"]).unwrap();
+        let cli = Cli::try_parse_from(vec![
+            "test",
+            "event",
+            "reschedule",
+            "id1",
+            "id2",
+            "--time",
+            "time",
+        ])
+        .unwrap();
         match cli.command {
             Commands::EventReschedule(cmd) => {
-                assert_eq!(cmd.id, Id::ShortIdOrUid("id".to_string()));
+                let expected_ids = vec![
+                    Id::ShortIdOrUid("id1".to_string()),
+                    Id::ShortIdOrUid("id2".to_string()),
+                ];
+                assert_eq!(cmd.ids, expected_ids);
                 assert_eq!(cmd.time_anchor, "time".to_string());
             }
             _ => panic!("Expected EventReschedule command"),
@@ -491,11 +511,19 @@ mod tests {
 
     #[test]
     fn test_parse_todo_delay() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "delay", "id", "time"]).unwrap();
+        let cli = Cli::try_parse_from(vec![
+            "test", "todo", "delay", "id1", "id2", "id3", "--time", "time",
+        ])
+        .unwrap();
         match cli.command {
             Commands::TodoDelay(cmd) => {
-                assert_eq!(cmd.id, Id::ShortIdOrUid("id".to_string()));
-                assert_eq!(cmd.time_anchor, "time".to_string());
+                let expected_ids = vec![
+                    Id::ShortIdOrUid("id1".to_string()),
+                    Id::ShortIdOrUid("id2".to_string()),
+                    Id::ShortIdOrUid("id3".to_string()),
+                ];
+                assert_eq!(cmd.ids, expected_ids);
+                assert_eq!(cmd.time, "time".to_string());
             }
             _ => panic!("Expected TodoDelay command"),
         }
@@ -503,11 +531,24 @@ mod tests {
 
     #[test]
     fn test_parse_todo_reschedule() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "reschedule", "id", "time"]).unwrap();
+        let cli = Cli::try_parse_from(vec![
+            "test",
+            "todo",
+            "reschedule",
+            "id1",
+            "id2",
+            "--time",
+            "time",
+        ])
+        .unwrap();
         match cli.command {
             Commands::TodoReschedule(cmd) => {
-                assert_eq!(cmd.id, Id::ShortIdOrUid("id".to_string()));
-                assert_eq!(cmd.time_anchor, "time".to_string());
+                let expected_ids = vec![
+                    Id::ShortIdOrUid("id1".to_string()),
+                    Id::ShortIdOrUid("id2".to_string()),
+                ];
+                assert_eq!(cmd.ids, expected_ids);
+                assert_eq!(cmd.time, "time".to_string());
             }
             _ => panic!("Expected TodoReschedule command"),
         }

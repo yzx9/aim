@@ -233,7 +233,7 @@ impl CmdEventEdit {
 
 #[derive(Debug, Clone)]
 pub struct CmdEventDelay {
-    pub id: Id,
+    pub ids: Vec<Id>,
     pub time_anchor: String,
     pub output_format: OutputFormat,
     pub verbose: bool,
@@ -246,16 +246,16 @@ impl CmdEventDelay {
         let (args, _event_args) = args();
         Command::new(Self::NAME)
             .about("Delay an event's time by a specified time based on original start")
-            .arg(args.id())
-            .arg(args.time_anchor("delay"))
+            .arg(args.ids())
+            .arg(args.time("delay"))
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: EventOrTodoArgs::get_id(matches),
-            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
+            ids: EventOrTodoArgs::get_ids(matches),
+            time_anchor: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -265,11 +265,12 @@ impl CmdEventDelay {
         tracing::debug!(?self, "delaying todo...");
 
         // Calculate new start and end based on original start and end if exists, otherwise based on now
-        let (start, end) = if !self.time_anchor.is_empty() {
-            // TODO: move these logics to core crate, same for reschedule command
-            let anchor: DateTimeAnchor = self.time_anchor.parse()?;
-            let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
-            match (event.start(), event.end()) {
+        // TODO: move these logics to core crate, same for reschedule command
+        let anchor: DateTimeAnchor = self.time_anchor.parse()?;
+        let mut events = Vec::with_capacity(self.ids.len());
+        for id in &self.ids {
+            let event = aim.get_event(id).await?.ok_or("Event not found")?;
+            let (start, end) = match (event.start(), event.end()) {
                 (Some(start), end) => {
                     let s = anchor.parse_from_loose(&start);
                     let e = end.map(|a| anchor.parse_from_loose(&a));
@@ -285,27 +286,26 @@ impl CmdEventDelay {
                     // TODO: should we set a end time with default duration? same for reschedule command
                     (Some(s), None)
                 }
-            }
-        } else {
-            (None, None)
-        };
+            };
 
-        // Update the event
-        let patch = EventPatch {
-            start: Some(start),
-            end: Some(end),
-            ..Default::default()
-        };
+            // Update the event
+            let patch = EventPatch {
+                start: Some(start),
+                end: Some(end),
+                ..Default::default()
+            };
 
-        let event = aim.update_event(&self.id, patch).await?;
-        print_events(aim, &[event], self.output_format, self.verbose);
+            let event = aim.update_event(id, patch).await?;
+            events.push(event);
+        }
+        print_events(aim, &events, self.output_format, self.verbose);
         Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdEventReschedule {
-    pub id: Id,
+    pub ids: Vec<Id>,
     pub time_anchor: String,
     pub output_format: OutputFormat,
     pub verbose: bool,
@@ -318,16 +318,16 @@ impl CmdEventReschedule {
         let (args, _event_args) = args();
         Command::new(Self::NAME)
             .about("Reschedule a todo's due to a specified time based on now")
-            .arg(args.id())
-            .arg(args.time_anchor("reschedule"))
+            .arg(args.ids())
+            .arg(args.time("reschedule"))
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
-            id: EventOrTodoArgs::get_id(matches),
-            time_anchor: EventOrTodoArgs::get_time_anchor(matches),
+            ids: EventOrTodoArgs::get_ids(matches),
+            time_anchor: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -337,10 +337,11 @@ impl CmdEventReschedule {
         tracing::debug!(?self, "rescheduling event...");
 
         // Calculate new start and end based on original start and end if exists, otherwise based on now
-        let (start, end) = if !self.time_anchor.is_empty() {
-            let anchor: DateTimeAnchor = self.time_anchor.parse()?;
-            let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
-            match (event.start(), event.end()) {
+        let anchor: DateTimeAnchor = self.time_anchor.parse()?;
+        let mut events = Vec::with_capacity(self.ids.len());
+        for id in &self.ids {
+            let event = aim.get_event(id).await?.ok_or("Event not found")?;
+            let (start, end) = match (event.start(), event.end()) {
                 (Some(start), Some(end)) => {
                     let s = anchor.parse_from_dt(&aim.now());
                     let e = match (start, end) {
@@ -380,20 +381,18 @@ impl CmdEventReschedule {
                     let e = anchor.parse_from_dt(&aim.now());
                     (None, Some(e))
                 }
-            }
-        } else {
-            (None, None)
-        };
+            };
 
-        // Update the event
-        let patch = EventPatch {
-            start: Some(start),
-            end: Some(end),
-            ..Default::default()
-        };
-
-        let event = aim.update_event(&self.id, patch).await?;
-        print_events(aim, &[event], self.output_format, self.verbose);
+            // Update the event
+            let patch = EventPatch {
+                start: Some(start),
+                end: Some(end),
+                ..Default::default()
+            };
+            let event = aim.update_event(id, patch).await?;
+            events.push(event);
+        }
+        print_events(aim, &events, self.output_format, self.verbose);
         Ok(())
     }
 }
@@ -592,8 +591,11 @@ mod tests {
         let matches = cmd
             .try_get_matches_from([
                 "delay",
-                "abc",
-                "time anchor",
+                "a",
+                "b",
+                "c",
+                "--time",
+                "time",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -601,8 +603,13 @@ mod tests {
             .unwrap();
         let parsed = CmdEventDelay::from(&matches);
 
-        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
-        assert_eq!(parsed.time_anchor, "time anchor");
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
+        assert_eq!(parsed.time_anchor, "time");
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
@@ -613,8 +620,11 @@ mod tests {
         let matches = cmd
             .try_get_matches_from([
                 "reschedule",
-                "abc",
-                "time anchor",
+                "a",
+                "b",
+                "c",
+                "--time",
+                "time",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -622,8 +632,13 @@ mod tests {
             .unwrap();
         let parsed = CmdEventReschedule::from(&matches);
 
-        assert_eq!(parsed.id, Id::ShortIdOrUid("abc".to_string()));
-        assert_eq!(parsed.time_anchor, "time anchor");
+        let expected_ids = vec![
+            Id::ShortIdOrUid("a".to_string()),
+            Id::ShortIdOrUid("b".to_string()),
+            Id::ShortIdOrUid("c".to_string()),
+        ];
+        assert_eq!(parsed.ids, expected_ids);
+        assert_eq!(parsed.time_anchor, "time");
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
