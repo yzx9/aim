@@ -10,7 +10,6 @@ use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
 use tracing_subscriber::EnvFilter;
 
-use crate::cmd_dashboard::CmdDashboard;
 use crate::cmd_event::{
     CmdEventDelay, CmdEventEdit, CmdEventList, CmdEventNew, CmdEventReschedule,
 };
@@ -19,6 +18,7 @@ use crate::cmd_todo::{
     CmdTodoCancel, CmdTodoDelay, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew,
     CmdTodoReschedule, CmdTodoUndo,
 };
+use crate::cmd_toplevel::{CmdDashboard, CmdDelay, CmdReschedule};
 use crate::cmd_tui::{CmdEdit, CmdNew};
 use crate::config::parse_config;
 
@@ -78,6 +78,8 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             .subcommand(CmdDashboard::command())
             .subcommand(CmdNew::command())
             .subcommand(CmdEdit::command())
+            .subcommand(CmdDelay::command())
+            .subcommand(CmdReschedule::command())
             .subcommand(
                 Command::new("event")
                     .alias("e")
@@ -134,6 +136,8 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             Some((CmdDashboard::NAME, matches)) => Dashboard(CmdDashboard::from(matches)),
             Some((CmdNew::NAME, matches)) => New(CmdNew::from(matches)),
             Some((CmdEdit::NAME, matches)) => Edit(CmdEdit::from(matches)),
+            Some((CmdDelay::NAME, matches)) => Delay(CmdDelay::from(matches)),
+            Some((CmdReschedule::NAME, matches)) => Reschedule(CmdReschedule::from(matches)),
             Some(("event", matches)) => match matches.subcommand() {
                 Some((CmdEventNew::NAME, matches)) => EventNew(CmdEventNew::from(matches)?),
                 Some((CmdEventEdit::NAME, matches)) => EventEdit(CmdEventEdit::from(matches)),
@@ -186,6 +190,12 @@ pub enum Commands {
 
     /// Edit a event or todo
     Edit(CmdEdit),
+
+    /// Delay an event or todo based on original time
+    Delay(CmdDelay),
+
+    /// Reschedule an event or todo based on current time
+    Reschedule(CmdReschedule),
 
     /// Add a new event
     EventNew(CmdEventNew),
@@ -241,6 +251,8 @@ impl Commands {
             Dashboard(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             New(a)             => Self::run_with(config, |x| a.run(x).boxed()).await,
             Edit(a)            => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Delay(a)           => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Reschedule(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
             EventNew(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
             EventEdit(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             EventDelay(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
