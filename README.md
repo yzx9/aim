@@ -99,6 +99,14 @@ nix run . -- --help
 - [ ] CalDAV support
 - [ ] Webhook/REST API
 
+## Acknowledgements
+
+We'd like to thank the [pimutils](https://github.com/pimutils) project, particularly:
+- [khal](https://github.com/pimutils/khal) - A CLI calendar application
+- [todoman](https://github.com/pimutils/todoman) - A simple task manager
+
+Their work has been a significant inspiration for AIM's design and functionality.
+
 ## LICENSE
 
 This work is licensed under a <a rel="license" href="https://www.apache.org/licenses/">Apache-2.0</a>.
