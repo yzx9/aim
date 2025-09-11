@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - core: Add static lifecycle for all aim methods
 
+### Fixed
+
+- cli: Fix commands formatting which support multiple todos
+
 ## [v0.7.0] - 2025-09-08
 
 ### Added

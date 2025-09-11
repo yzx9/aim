@@ -286,14 +286,16 @@ macro_rules! cmd_status {
 
             pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
                 tracing::debug!(?self, concat!("marking todos as ", $desc));
+                let mut todos = vec![];
                 for id in self.ids {
                     let patch = TodoPatch {
                         status: Some(TodoStatus::$status),
                         ..Default::default()
                     };
                     let todo = aim.update_todo(&id, patch).await?;
-                    print_todos(aim, &[todo], self.output_format, self.verbose);
+                    todos.push(todo);
                 }
+                print_todos(aim, &todos, self.output_format, self.verbose);
                 Ok(())
             }
         }
