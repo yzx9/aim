@@ -65,18 +65,23 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
     fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
     }
+
     fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
     }
+
     fn row_starting(&self, _data: &T) -> &str {
         ""
     }
+
     fn row_ending(&self, _data: &T) -> &str {
         ""
     }
+
     fn row_separator(&self) -> &str {
         "\n"
     }
+
     fn cell_stylize(
         &self,
         _data: &'a T,
@@ -85,6 +90,7 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
     ) -> Cow<'a, str> {
         cell
     }
+
     fn cell_separator(&self) -> &str {
         " "
     }
@@ -112,12 +118,15 @@ impl<T, C: TableColumn<T> + ?Sized> TableColumn<T> for Box<C> {
     fn name(&self) -> Cow<'_, str> {
         self.as_ref().name()
     }
+
     fn format<'a>(&self, data: &'a T) -> Cow<'a, str> {
         self.as_ref().format(data)
     }
+
     fn padding_direction(&self) -> PaddingDirection {
         self.as_ref().padding_direction()
     }
+
     fn get_color(&self, data: &T) -> Option<Color> {
         self.as_ref().get_color(data)
     }
@@ -234,18 +243,23 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
     fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
         "["
     }
+
     fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
         "]"
     }
+
     fn row_starting(&self, _data: &T) -> &str {
         "{"
     }
+
     fn row_ending(&self, _data: &T) -> &str {
         "}"
     }
+
     fn row_separator(&self) -> &str {
         ","
     }
+
     fn cell_stylize(
         &self,
         _data: &T,
@@ -262,6 +276,7 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
 
         format!(r#""{column}":"{escaped}""#).into()
     }
+
     fn cell_separator(&self) -> &str {
         ","
     }
@@ -285,9 +300,10 @@ fn get_column_max_width(table: &[Vec<Cow<'_, str>>]) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use colored::Color;
     use std::sync::{Mutex, OnceLock};
+
+    use super::*;
 
     /// Test data structure
     #[derive(Debug, Clone)]
@@ -300,8 +316,10 @@ mod tests {
     /// Test column implementations
     #[derive(Debug)]
     struct NameColumn;
+
     #[derive(Debug)]
     struct AgeColumn;
+
     #[derive(Debug)]
     struct ActiveColumn;
 
@@ -385,15 +403,12 @@ mod tests {
             colored::control::set_override(false);
             table.to_string()
         };
-
-        assert_eq!(
-            result,
-            "\
+        let expected = "\
 Alice   30 Yes
 Bob     25 No
 Charlie 35 Yes\
-            ",
-        );
+";
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -413,14 +428,12 @@ Charlie 35 Yes\
             table.to_string()
         };
 
-        assert_eq!(
-            result,
-            "\
+        let expected = "\
 \u{1b}[32mAlice  \u{1b}[0m 30 Yes
 Bob     25 \u{1b}[31mNo\u{1b}[0m
 \u{1b}[32mCharlie\u{1b}[0m 35 Yes\
-",
-        );
+";
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -442,14 +455,12 @@ Bob     25 \u{1b}[31mNo\u{1b}[0m
         };
 
         // Without padding, the output should be more compact
-        assert_eq!(
-            result,
-            "\
+        let expected = "\
 Alice 30 Yes
 Bob 25 No
 Charlie 35 Yes\
-",
-        );
+";
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -485,15 +496,13 @@ Charlie 35 Yes\
         let table = Table::new(style, &columns, &data);
 
         // Check JSON structure
-        assert_eq!(
-            table.to_string(),
-            format!(
-                "[{},{},{}]",
-                r#"{"Name":"Alice","Age":"30","Active":"Yes"}"#,
-                r#"{"Name":"Bob","Age":"25","Active":"No"}"#,
-                r#"{"Name":"Charlie","Age":"35","Active":"Yes"}"#
-            )
+        let expected = format!(
+            "[{},{},{}]",
+            r#"{"Name":"Alice","Age":"30","Active":"Yes"}"#,
+            r#"{"Name":"Bob","Age":"25","Active":"No"}"#,
+            r#"{"Name":"Charlie","Age":"35","Active":"Yes"}"#
         );
+        assert_eq!(table.to_string(), expected);
     }
 
     #[test]

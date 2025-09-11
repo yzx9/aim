@@ -264,9 +264,10 @@ impl TodoColumnUid {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::{Local, NaiveDate, TimeZone};
     use colored::Color;
+
+    use super::*;
 
     #[test]
     fn test_compute_color_overdue_yesterday() {

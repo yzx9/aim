@@ -291,9 +291,11 @@ impl Commands {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{cmd_generate_completion::Shell, util::OutputFormat};
     use aimcal_core::Id;
+
+    use crate::{cmd_generate_completion::Shell, util::OutputFormat};
+
+    use super::*;
 
     #[test]
     fn test_parse_config() {

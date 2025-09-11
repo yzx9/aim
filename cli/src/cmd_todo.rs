@@ -512,19 +512,15 @@ fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: OutputFormat, verb
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use aimcal_core::Priority;
-    use clap::Command;
+
+    use super::*;
 
     #[test]
     fn test_parse_new() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoNew::command());
-
+        let cmd = CmdTodoNew::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "new",
                 "Another summary",
                 "--description",
@@ -542,8 +538,7 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdTodoNew::from(sub_matches).unwrap();
+        let parsed = CmdTodoNew::from(&matches).unwrap();
 
         assert_eq!(parsed.description, Some("A description".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
@@ -559,15 +554,12 @@ mod tests {
 
     #[test]
     fn test_parse_new_tui() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoNew::command());
-
+        let cmd = CmdTodoNew::command();
         let matches = cmd
-            .try_get_matches_from(["test", "new", "--output-format", "json", "--verbose"])
+            .try_get_matches_from(["new", "--output-format", "json", "--verbose"])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdTodoNew::from(sub_matches).unwrap();
+        let parsed = CmdTodoNew::from(&matches).unwrap();
+
         assert!(parsed.tui);
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
@@ -575,27 +567,19 @@ mod tests {
 
     #[test]
     fn test_parse_new_tui_invalid() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoNew::command());
-
+        let cmd = CmdTodoNew::command();
         let matches = cmd
-            .try_get_matches_from(["test", "new", "--priority", "1"])
+            .try_get_matches_from(["new", "--priority", "1"])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("new").unwrap();
-        let parsed = CmdTodoNew::from(sub_matches);
+        let parsed = CmdTodoNew::from(&matches);
         assert!(parsed.is_err());
     }
 
     #[test]
     fn test_parse_edit() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoEdit::command());
-
+        let cmd = CmdTodoEdit::command();
         let matches = cmd
             .try_get_matches_from([
-                "test",
                 "edit",
                 "test_id",
                 "--description",
@@ -615,8 +599,7 @@ mod tests {
                 "--verbose",
             ])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("edit").unwrap();
-        let parsed = CmdTodoEdit::from(sub_matches);
+        let parsed = CmdTodoEdit::from(&matches);
 
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
         assert_eq!(parsed.description, Some("A description".to_string()));
@@ -647,22 +630,12 @@ mod tests {
 
     #[test]
     fn test_parse_done() {
-        let cmd = Command::new("test")
-            .subcommand_required(true)
-            .subcommand(CmdTodoDone::command());
-
+        let cmd = CmdTodoDone::command();
         let matches = cmd
-            .try_get_matches_from([
-                "test",
-                "done",
-                "abc",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
+            .try_get_matches_from(["done", "abc", "--output-format", "json", "--verbose"])
             .unwrap();
-        let sub_matches = matches.subcommand_matches("done").unwrap();
-        let parsed = CmdTodoDone::from(sub_matches);
+        let parsed = CmdTodoDone::from(&matches);
+
         assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
