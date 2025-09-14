@@ -131,8 +131,12 @@ impl CmdDelay {
         let (event_ids, todo_ids) = separate_ids(aim, self.ids.clone()).await?;
 
         // TODO: handle formatting
+        let printed_header = !event_ids.is_empty() && !todo_ids.is_empty();
         if !event_ids.is_empty() {
-            println!("🗓️ {}", "Events".bold());
+            if printed_header {
+                println!("🗓️ {}", "Events".bold());
+            }
+
             CmdEventDelay {
                 ids: event_ids,
                 time_anchor: self.time_anchor.clone(),
@@ -144,7 +148,11 @@ impl CmdDelay {
         }
 
         if !todo_ids.is_empty() {
-            println!("✅ {}", "To-Dos".bold());
+            if printed_header {
+                println!();
+                println!("✅ {}", "To-Dos".bold());
+            }
+
             CmdTodoDelay {
                 ids: todo_ids,
                 time: self.time_anchor,
@@ -189,8 +197,12 @@ impl CmdReschedule {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         let (event_ids, todo_ids) = separate_ids(aim, self.ids.clone()).await?;
 
+        let printed_header = !event_ids.is_empty() && !todo_ids.is_empty();
         if !event_ids.is_empty() {
-            println!("🗓️ {}", "Events".bold());
+            if printed_header {
+                println!("🗓️ {}", "Events".bold());
+            }
+
             CmdEventReschedule {
                 ids: event_ids,
                 time_anchor: self.time.clone(),
@@ -202,7 +214,11 @@ impl CmdReschedule {
         }
 
         if !todo_ids.is_empty() {
-            println!("✅ {}", "To-Dos".bold());
+            if printed_header {
+                println!();
+                println!("✅ {}", "To-Dos".bold());
+            }
+
             CmdTodoReschedule {
                 ids: todo_ids,
                 time: self.time,

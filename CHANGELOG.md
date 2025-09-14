@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- cli: Auto hide titles for command `delay` and `reschedule`
 - core: Find next suggested time for today in `DateTimeAnchor`
 
 ## [v0.8.0] - 2025-09-11
