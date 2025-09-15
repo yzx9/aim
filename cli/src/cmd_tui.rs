@@ -376,7 +376,7 @@ impl CmdEdit {
         let use_tui = match kind {
             Kind::Event => {
                 tracing::debug!("item with id {} is an event", self.id.as_uid());
-                if self.due.is_none() && self.percent_complete.is_none() && self.priority.is_none()
+                if self.due.is_some() || self.percent_complete.is_some() || self.priority.is_some()
                 {
                     return Err("Cannot provide todo-specific fields for an event".into());
                 } else if let Some(EventOrTodoStatus::Todo(_)) = self.status {

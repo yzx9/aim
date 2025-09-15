@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - cli: Fix commands formatting which support multiple todos
+- cli: Check fields correctly in command `edit`
 
 ## [v0.7.0] - 2025-09-08
 
