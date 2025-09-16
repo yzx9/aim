@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- core: Set default time range for event draft
+
 ## [v0.8.1] - 2025-09-15
 
 ### Changed

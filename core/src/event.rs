@@ -4,7 +4,7 @@
 
 use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
-use chrono::{DateTime, Duration, Local};
+use chrono::{DateTime, Duration, Local, Timelike};
 use icalendar::{Component, EventLike};
 
 use crate::{DateTimeAnchor, LooseDateTime};
@@ -84,11 +84,22 @@ pub struct EventDraft {
 
 impl EventDraft {
     /// Creates a new empty patch.
-    pub(crate) fn default() -> Self {
+    pub(crate) fn default(now: DateTime<Local>) -> Self {
+        // next 00 or 30 minute
+        let start = if now.minute() < 30 {
+            now.with_minute(30).unwrap().with_second(0).unwrap()
+        } else {
+            (now + Duration::hours(1))
+                .with_minute(0)
+                .unwrap()
+                .with_second(0)
+                .unwrap()
+        };
+
         Self {
             description: None,
-            start: None,
-            end: None,
+            start: Some(start.into()),
+            end: Some((start + Duration::hours(1)).into()),
             status: EventStatus::default(),
             summary: String::new(),
         }

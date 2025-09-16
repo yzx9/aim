@@ -69,7 +69,7 @@ impl Aim {
 
     /// Create a default event draft based on the AIM configuration.
     pub fn default_event_draft(&self) -> EventDraft {
-        EventDraft::default()
+        EventDraft::default(self.now)
     }
 
     /// Add a new event from the given draft.
