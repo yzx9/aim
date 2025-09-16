@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- cli: Add command `flush` to truncate all short IDs
+- core: Add api `Aim.flush_short_ids`
+
 ### Changed
 
 - core: Implement `From` and `Into` traits to all integer types for `Priority`

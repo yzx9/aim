@@ -233,6 +233,34 @@ impl CmdReschedule {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct CmdFlush;
+
+impl CmdFlush {
+    pub const NAME: &str = "flush";
+
+    pub fn command() -> Command {
+        Command::new(Self::NAME)
+            .about("Flush the short IDs")
+            .long_about(
+                "\
+Flush the short IDs by removing all entries from the short ID mapping table. \
+This will clear all short ID mappings, requiring them to be regenerated as needed.",
+            )
+    }
+
+    pub fn from(_matches: &ArgMatches) -> Self {
+        Self
+    }
+
+    pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
+        tracing::debug!(?self, "flushing short IDs...");
+        aim.flush_short_ids().await?;
+        println!("Short IDs flushed successfully.");
+        Ok(())
+    }
+}
+
 async fn separate_ids(aim: &Aim, ids: Vec<Id>) -> Result<(Vec<Id>, Vec<Id>), Box<dyn Error>> {
     let mut event_ids = vec![];
     let mut todo_ids = vec![];
@@ -291,5 +319,12 @@ mod tests {
         assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.time, "time");
         assert!(parsed.verbose);
+    }
+
+    #[test]
+    fn test_parse_flush() {
+        let cmd = CmdFlush::command();
+        let matches = cmd.try_get_matches_from(["flush"]).unwrap();
+        let _ = CmdFlush::from(&matches);
     }
 }

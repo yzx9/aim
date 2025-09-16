@@ -94,6 +94,11 @@ impl ShortIds {
         }
         Ok(with_id)
     }
+
+    pub async fn flush(&self) -> Result<(), Box<dyn Error>> {
+        self.db.short_ids.truncate().await?;
+        Ok(())
+    }
 }
 
 #[derive(Debug)]

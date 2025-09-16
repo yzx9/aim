@@ -18,7 +18,7 @@ use crate::cmd_todo::{
     CmdTodoCancel, CmdTodoDelay, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew,
     CmdTodoReschedule, CmdTodoUndo,
 };
-use crate::cmd_toplevel::{CmdDashboard, CmdDelay, CmdReschedule};
+use crate::cmd_toplevel::{CmdDashboard, CmdDelay, CmdFlush, CmdReschedule};
 use crate::cmd_tui::{CmdEdit, CmdNew};
 use crate::config::parse_config;
 
@@ -108,6 +108,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
                     .subcommand(CmdTodoList::command()),
             )
             .subcommand(CmdTodoDone::command())
+            .subcommand(CmdFlush::command())
             .subcommand(CmdGenerateCompletion::command())
     }
 
@@ -138,6 +139,7 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
             Some((CmdEdit::NAME, matches)) => Edit(CmdEdit::from(matches)),
             Some((CmdDelay::NAME, matches)) => Delay(CmdDelay::from(matches)),
             Some((CmdReschedule::NAME, matches)) => Reschedule(CmdReschedule::from(matches)),
+            Some((CmdFlush::NAME, matches)) => Flush(CmdFlush::from(matches)),
             Some(("event", matches)) => match matches.subcommand() {
                 Some((CmdEventNew::NAME, matches)) => EventNew(CmdEventNew::from(matches)),
                 Some((CmdEventEdit::NAME, matches)) => EventEdit(CmdEventEdit::from(matches)),
@@ -197,6 +199,9 @@ pub enum Commands {
     /// Reschedule an event or todo based on current time
     Reschedule(CmdReschedule),
 
+    /// Flush the short IDs
+    Flush(CmdFlush),
+
     /// Add a new event
     EventNew(CmdEventNew),
 
@@ -253,6 +258,7 @@ impl Commands {
             Edit(a)            => Self::run_with(config, |x| a.run(x).boxed()).await,
             Delay(a)           => Self::run_with(config, |x| a.run(x).boxed()).await,
             Reschedule(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
+            Flush(a)           => Self::run_with(config, |x| a.run(x).boxed()).await,
             EventNew(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
             EventEdit(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             EventDelay(a)      => Self::run_with(config, |x| a.run(x).boxed()).await,
@@ -332,6 +338,12 @@ mod tests {
     fn test_parse_edit() {
         let cli = Cli::try_parse_from(vec!["test", "edit", "id1"]).unwrap();
         assert!(matches!(cli.command, Commands::Edit(_)));
+    }
+
+    #[test]
+    fn test_parse_flush() {
+        let cli = Cli::try_parse_from(vec!["test", "flush"]).unwrap();
+        assert!(matches!(cli.command, Commands::Flush(_)));
     }
 
     #[test]

@@ -18,7 +18,6 @@ impl ShortIds {
         Self { pool }
     }
 
-    #[tracing::instrument(skip(self))]
     pub async fn get_by_short_id(
         &self,
         short_id: NonZeroU32,
@@ -86,6 +85,14 @@ RETURNING short_id;
                 .await?;
 
         Ok(short_id)
+    }
+
+    /// Truncate the `short_ids` table, removing all entries.
+    pub async fn truncate(&self) -> Result<(), sqlx::Error> {
+        sqlx::query("DELETE FROM short_ids;")
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 }
 

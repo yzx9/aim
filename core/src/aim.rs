@@ -266,10 +266,14 @@ impl Aim {
         self.db.todos.count(&conds).await
     }
 
+    /// Flush the short IDs to remove all entries.
+    pub async fn flush_short_ids(&self) -> Result<(), Box<dyn Error>> {
+        self.short_ids.flush().await
+    }
+
     /// Close the AIM instance, saving any changes to the database.
     pub async fn close(self) -> Result<(), Box<dyn Error>> {
-        self.db.close().await?;
-        Ok(())
+        self.db.close().await
     }
 
     #[tracing::instrument(skip(self))]
