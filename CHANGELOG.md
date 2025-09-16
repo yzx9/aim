@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.8.2] - 2025-09-16
+
 ### Changed
 
 - core: Set default time range for event draft
@@ -57,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cli: Increase max todos
 - cli: Hide percent complete field in TUI todo editor when status is not InProcess (close #19)
 
-### FIXED
+### Fixed
 
 - Always use global time
 - core: Query date only events
@@ -275,7 +277,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add events and todos command
 - Add dashboard command
 
-[unreleased]: https://github.com/yzx9/aim/compare/v0.8.1...HEAD
+[unreleased]: https://github.com/yzx9/aim/compare/v0.8.2...HEAD
+[v0.8.2]: https://github.com/yzx9/aim/compare/v0.8.1...v0.8.2
 [v0.8.1]: https://github.com/yzx9/aim/compare/v0.8.0...v0.8.1
 [v0.8.0]: https://github.com/yzx9/aim/compare/v0.7.0...v0.8.0
 [v0.7.0]: https://github.com/yzx9/aim/compare/v0.6.0...v0.7.0
