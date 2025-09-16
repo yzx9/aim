@@ -23,7 +23,7 @@ impl Id {
         }
     }
 
-    /// Returns the ID as a string slice.
+    /// Always returns the UID string slice, even if the ID is a short ID.
     pub fn as_uid(&self) -> &str {
         match self {
             Id::Uid(uid) => uid,

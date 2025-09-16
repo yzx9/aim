@@ -35,13 +35,13 @@ pub const fn end_of_day_naive() -> NaiveTime {
         .expect("23:59:59:1_999_999_999 must exist in NaiveTime")
 }
 
-/// Returns the start of the day (00:00:00) for the given `DateTime` in the same timezone.
+/// The start of the day (00:00:00) for the given `DateTime` in the same timezone.
 pub fn start_of_day<Tz: TimeZone>(dt: &DateTime<Tz>) -> DateTime<Tz> {
     let naive = NaiveDateTime::new(dt.date_naive(), start_of_day_naive());
     from_local_datetime(&dt.timezone(), naive)
 }
 
-/// Returns the end of the day (23:59:59) for the given `DateTime` in the same timezone.
+/// The end of the day (23:59:59) for the given `DateTime` in the same timezone.
 pub fn end_of_day<Tz: TimeZone>(dt: &DateTime<Tz>) -> DateTime<Tz> {
     let last_nano_sec = end_of_day_naive();
     let naive = NaiveDateTime::new(dt.date_naive(), last_nano_sec);

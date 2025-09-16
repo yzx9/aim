@@ -57,7 +57,7 @@ impl Aim {
         Ok(that)
     }
 
-    /// Returns the current time in the AIM instance.
+    /// The current time in the AIM instance.
     pub fn now(&self) -> DateTime<Local> {
         self.now
     }

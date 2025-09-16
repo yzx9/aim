@@ -19,7 +19,7 @@ pub trait Component<S> {
     /// Renders the component into the given area.
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer);
 
-    /// Returns the cursor position (row, column) for the component, if applicable.
+    /// The cursor position (row, column) for the component, if applicable.
     fn get_cursor_position(&self, _store: &RefCell<S>, _area: Rect) -> Option<(u16, u16)> {
         None // Default implementation returns no cursor position
     }
@@ -41,8 +41,7 @@ pub trait Component<S> {
     /// Deactivates the component, allowing it to clean up resources or state.
     fn deactivate(&mut self, _dispatcher: &mut Dispatcher, _store: &RefCell<S>) {}
 
-    /// Returns whether the component is currently visible.
-    /// By default, all components are visible.
+    /// Whether the component is currently visible. By default, all components are visible.
     fn is_visible(&self, _store: &RefCell<S>) -> bool {
         true
     }

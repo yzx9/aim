@@ -18,16 +18,16 @@ pub trait Todo {
         None
     }
 
-    /// Returns the unique identifier for the todo item.
+    /// The unique identifier for the todo item.
     fn uid(&self) -> &str;
 
-    /// Returns the description of the todo item.
+    /// The description of the todo item.
     fn completed(&self) -> Option<DateTime<Local>>;
 
-    /// Returns the description of the todo item, if available.
+    /// The description of the todo item, if available.
     fn description(&self) -> Option<&str>;
 
-    /// Returns the due date and time of the todo item, if available.
+    /// The due date and time of the todo item, if available.
     fn due(&self) -> Option<LooseDateTime>;
 
     /// The percent complete, from 0 to 100.
@@ -36,10 +36,10 @@ pub trait Todo {
     /// The priority from 1 to 9, where 1 is the highest priority.
     fn priority(&self) -> Priority;
 
-    /// Returns the status of the todo item.
+    /// The status of the todo item.
     fn status(&self) -> TodoStatus;
 
-    /// Returns the summary of the todo item.
+    /// The summary of the todo item.
     fn summary(&self) -> &str;
 }
 

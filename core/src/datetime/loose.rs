@@ -29,7 +29,7 @@ pub enum LooseDateTime {
 }
 
 impl LooseDateTime {
-    /// Returns the date part
+    /// The date part.
     pub fn date(&self) -> NaiveDate {
         match self {
             LooseDateTime::DateOnly(d) => *d,
@@ -38,7 +38,7 @@ impl LooseDateTime {
         }
     }
 
-    /// Returns the time part, if available.
+    /// The time part, if available.
     pub fn time(&self) -> Option<NaiveTime> {
         match self {
             LooseDateTime::DateOnly(_) => None,
