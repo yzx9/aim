@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- core: Implement `From` and `Into` traits to all integer types for `Priority`
+
 ## [v0.8.2] - 2025-09-16
 
 ### Changed

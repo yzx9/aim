@@ -135,51 +135,52 @@ pub enum Priority {
     P9,
 }
 
-impl From<u32> for Priority {
-    fn from(value: u32) -> Self {
-        match value {
-            1 => Priority::P1,
-            2 => Priority::P2,
-            3 => Priority::P3,
-            4 => Priority::P4,
-            5 => Priority::P5,
-            6 => Priority::P6,
-            7 => Priority::P7,
-            8 => Priority::P8,
-            9 => Priority::P9,
-            _ => Priority::None,
+macro_rules! priority_from_to_int {
+    ($t:ty) => {
+        impl From<$t> for Priority {
+            fn from(value: $t) -> Self {
+                match value {
+                    1 => Priority::P1,
+                    2 => Priority::P2,
+                    3 => Priority::P3,
+                    4 => Priority::P4,
+                    5 => Priority::P5,
+                    6 => Priority::P6,
+                    7 => Priority::P7,
+                    8 => Priority::P8,
+                    9 => Priority::P9,
+                    _ => Priority::None,
+                }
+            }
         }
-    }
-}
 
-impl From<u8> for Priority {
-    fn from(value: u8) -> Self {
-        u32::from(value).into()
-    }
-}
-
-impl From<Priority> for u8 {
-    fn from(value: Priority) -> Self {
-        match value {
-            Priority::None => 0,
-            Priority::P1 => 1,
-            Priority::P2 => 2,
-            Priority::P3 => 3,
-            Priority::P4 => 4,
-            Priority::P5 => 5,
-            Priority::P6 => 6,
-            Priority::P7 => 7,
-            Priority::P8 => 8,
-            Priority::P9 => 9,
+        impl From<Priority> for $t {
+            fn from(value: Priority) -> Self {
+                match value {
+                    Priority::None => 0,
+                    Priority::P1 => 1,
+                    Priority::P2 => 2,
+                    Priority::P3 => 3,
+                    Priority::P4 => 4,
+                    Priority::P5 => 5,
+                    Priority::P6 => 6,
+                    Priority::P7 => 7,
+                    Priority::P8 => 8,
+                    Priority::P9 => 9,
+                }
+            }
         }
-    }
+    };
 }
 
-impl From<Priority> for u32 {
-    fn from(value: Priority) -> Self {
-        u8::from(value).into()
-    }
-}
+priority_from_to_int!(i8);
+priority_from_to_int!(i16);
+priority_from_to_int!(i32);
+priority_from_to_int!(i64);
+priority_from_to_int!(u8);
+priority_from_to_int!(u16);
+priority_from_to_int!(u32);
+priority_from_to_int!(u64);
 
 impl<'de> serde::Deserialize<'de> for Priority {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -201,16 +202,7 @@ impl<'de> serde::Deserialize<'de> for Priority {
                 E: serde::de::Error,
             {
                 match v {
-                    0 => Ok(Priority::None),
-                    1 => Ok(Priority::P1),
-                    2 => Ok(Priority::P2),
-                    3 => Ok(Priority::P3),
-                    4 => Ok(Priority::P4),
-                    5 => Ok(Priority::P5),
-                    6 => Ok(Priority::P6),
-                    7 => Ok(Priority::P7),
-                    8 => Ok(Priority::P8),
-                    9 => Ok(Priority::P9),
+                    0..=9 => Ok(v.into()),
                     _ => Err(E::custom(format!("invalid priority: {v}"))),
                 }
             }
@@ -263,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_priority_deserialize_all_variants() {
-        let cases = [
+        for (input, expected) in [
             // integer number
             ("0", Priority::None),
             ("1", Priority::P1),
@@ -276,23 +268,21 @@ mod tests {
             ("8", Priority::P8),
             ("9", Priority::P9),
             // string number
-            ("\"1\"", Priority::P1),
-            ("\"2\"", Priority::P2),
-            ("\"3\"", Priority::P3),
-            ("\"4\"", Priority::P4),
-            ("\"5\"", Priority::P5),
-            ("\"6\"", Priority::P6),
-            ("\"7\"", Priority::P7),
-            ("\"8\"", Priority::P8),
-            ("\"9\"", Priority::P9),
+            (r#""1""#, Priority::P1),
+            (r#""2""#, Priority::P2),
+            (r#""3""#, Priority::P3),
+            (r#""4""#, Priority::P4),
+            (r#""5""#, Priority::P5),
+            (r#""6""#, Priority::P6),
+            (r#""7""#, Priority::P7),
+            (r#""8""#, Priority::P8),
+            (r#""9""#, Priority::P9),
             // named strings
-            ("\"none\"", Priority::None),
-            ("\"high\"", Priority::P2),
-            ("\"mid\"", Priority::P5),
-            ("\"low\"", Priority::P8),
-        ];
-
-        for (input, expected) in cases {
+            (r#""none""#, Priority::None),
+            (r#""high""#, Priority::P2),
+            (r#""mid""#, Priority::P5),
+            (r#""low""#, Priority::P8),
+        ] {
             let actual: Priority = serde_json::from_str(input).unwrap();
             assert_eq!(actual, expected, "Failed on input: {input}");
         }
@@ -300,18 +290,16 @@ mod tests {
 
     #[test]
     fn test_priority_deserialize_invalid_values() {
-        let cases = [
-            "\"invalid\"",
-            "\"urgent\"",
-            "\"10\"",
+        for input in [
+            r#""invalid""#,
+            r#""urgent""#,
+            r#""10""#,
             "10",
             "-1",
-            "\"-1\"",
+            r#""-1""#,
             "0.1",
-            "\"0.1\"",
-        ];
-
-        for input in cases {
+            r#""0.1""#,
+        ] {
             let result = serde_json::from_str::<Priority>(input);
             assert!(
                 result.is_err(),
