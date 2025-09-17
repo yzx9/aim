@@ -180,13 +180,13 @@ impl Aim {
 
     /// Create a default todo draft based on the AIM configuration.
     pub fn default_todo_draft(&self) -> TodoDraft {
-        TodoDraft::default(&self.config, self.now)
+        TodoDraft::default(&self.config, &self.now)
     }
 
     /// Add a new todo from the given draft.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.generate_uid().await?;
-        let todo = draft.into_ics(&self.config, self.now, &uid);
+        let todo = draft.into_ics(&self.config, &self.now, &uid);
         let path = self.get_path(&uid);
 
         let calendar = Calendar::new().push(todo.clone()).done();

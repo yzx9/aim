@@ -3,13 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::error::Error;
-use std::fmt;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Duration, TimeZone};
-use serde::de;
-
-use crate::Priority;
+use crate::{DateTimeAnchor, Priority};
 
 /// The name of the AIM application.
 pub const APP_NAME: &str = "aim";
@@ -26,7 +22,7 @@ pub struct Config {
 
     /// Default due time for new tasks.
     #[serde(default)]
-    pub default_due: Option<ConfigDue>,
+    pub default_due: Option<DateTimeAnchor>,
 
     /// Default priority for new tasks.
     #[serde(default)]
@@ -47,12 +43,10 @@ impl Config {
         // Normalize state directory
         match &self.state_dir {
             Some(a) => {
-                self.state_dir = Some(
-                    expand_path(a)
-                        .map_err(|e| format!("Failed to expand state directory path: {e}"))?,
-                )
+                let state_dir = expand_path(a)
+                    .map_err(|e| format!("Failed to expand state directory path: {e}"))?;
+                self.state_dir = Some(state_dir);
             }
-
             None => match get_state_dir() {
                 Ok(a) => self.state_dir = Some(a.join(APP_NAME)),
                 Err(err) => tracing::warn!(err, "failed to get state directory"),
@@ -60,43 +54,6 @@ impl Config {
         };
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ConfigDue(Duration);
-
-impl ConfigDue {
-    pub fn datetime<Tz: TimeZone>(&self, now: DateTime<Tz>) -> DateTime<Tz> {
-        now + self.0
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for ConfigDue {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct DueVisitor;
-
-        impl<'de> de::Visitor<'de> for DueVisitor {
-            type Value = ConfigDue;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str(r#"a duration string like "1d", "24h", "60m", or "1800s""#)
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                parse_duration(value)
-                    .map(ConfigDue)
-                    .map_err(|e| de::Error::custom(e.to_string()))
-            }
-        }
-
-        deserializer.deserialize_str(DueVisitor)
     }
 }
 
@@ -155,28 +112,10 @@ fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
     state_dir.ok_or("User-specific state directory not found".into())
 }
 
-/// Parse a duration string in the format "HH:MM" / "1d" / "24h" / "60m" / "1800s".
-fn parse_duration(s: &str) -> Result<Duration, Box<dyn Error>> {
-    // Match suffix-based formats
-    if let Some(rest) = s.strip_suffix("d") {
-        let days: i64 = rest.trim().parse()?;
-        Ok(Duration::days(days))
-    } else if let Some(rest) = s.strip_suffix("h") {
-        let hours: i64 = rest.trim().parse()?;
-        Ok(Duration::hours(hours))
-    } else if let Some(rest) = s.strip_suffix("m") {
-        let minutes: i64 = rest.trim().parse()?;
-        Ok(Duration::minutes(minutes))
-    } else if let Some(rest) = s.strip_suffix("s") {
-        let minutes: i64 = rest.trim().parse()?;
-        Ok(Duration::seconds(minutes))
-    } else {
-        Err(format!("Invalid duration format: {s}").into())
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
 
     #[test]
@@ -192,7 +131,7 @@ default_priority_none_fist = true
         let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
         assert_eq!(config.calendar_path, PathBuf::from("calendar"));
         assert_eq!(config.state_dir, Some(PathBuf::from("state")));
-        assert_eq!(config.default_due, Some(ConfigDue(Duration::days(1))));
+        assert_eq!(config.default_due, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(config.default_priority, Priority::P2);
         assert!(config.default_priority_none_fist);
     }
@@ -256,19 +195,23 @@ calendar_path = "calendar"
     }
 
     #[test]
-    fn test_parse_duration_suffix_format() {
-        assert_eq!(parse_duration("1d").unwrap(), Duration::days(1));
-        assert_eq!(parse_duration("2h").unwrap(), Duration::hours(2));
-        assert_eq!(parse_duration("45m").unwrap(), Duration::minutes(45));
-        assert_eq!(parse_duration("1800s").unwrap(), Duration::seconds(1800));
-    }
-
-    #[test]
-    fn test_parse_duration_invalid_format() {
-        assert!(parse_duration("abc").is_err());
-        assert!(parse_duration("99x").is_err());
-        assert!(parse_duration("12:xx").is_err());
-        assert!(parse_duration("12:").is_err());
-        assert!(parse_duration("12").is_err());
+    fn test_due_from_str_suffix_format() {
+        // TODO: compatibility test, remove after v0.10.0
+        assert_eq!(
+            DateTimeAnchor::from_str("1d").unwrap(),
+            DateTimeAnchor::InDays(1)
+        );
+        assert_eq!(
+            DateTimeAnchor::from_str("2h").unwrap(),
+            DateTimeAnchor::Relative(2 * 60 * 60)
+        );
+        assert_eq!(
+            DateTimeAnchor::from_str("45m").unwrap(),
+            DateTimeAnchor::Relative(45 * 60)
+        );
+        assert_eq!(
+            DateTimeAnchor::from_str("1800s").unwrap(),
+            DateTimeAnchor::Relative(1800)
+        );
     }
 }

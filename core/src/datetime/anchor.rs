@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{str::FromStr, sync::OnceLock};
+use std::{fmt, str::FromStr, sync::OnceLock};
 
 use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Timelike};
 use regex::Regex;
+use serde::de;
 
 use crate::LooseDateTime;
 use crate::datetime::util::{end_of_day, from_local_datetime, start_of_day};
@@ -167,6 +168,32 @@ impl FromStr for DateTimeAnchor {
         } else {
             Err(format!("Invalid timedelta format: {t}"))
         }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for DateTimeAnchor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = DateTimeAnchor;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string representing a datetime")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                value.parse().map_err(de::Error::custom)
+            }
+        }
+
+        deserializer.deserialize_str(Visitor)
     }
 }
 

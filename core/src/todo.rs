@@ -103,12 +103,10 @@ pub struct TodoDraft {
 
 impl TodoDraft {
     /// Creates a new empty patch.
-    pub(crate) fn default(config: &Config, now: DateTime<Local>) -> Self {
+    pub(crate) fn default(config: &Config, now: &DateTime<Local>) -> Self {
         Self {
             description: None,
-            due: config
-                .default_due
-                .map(|d| LooseDateTime::Local(d.datetime(now))),
+            due: config.default_due.map(|d| d.parse_from_dt(now)),
             percent_complete: None,
             priority: Some(config.default_priority),
             status: TodoStatus::default(),
@@ -120,7 +118,7 @@ impl TodoDraft {
     pub(crate) fn into_ics(
         self,
         config: &Config,
-        now: DateTime<Local>,
+        now: &DateTime<Local>,
         uid: &str,
     ) -> icalendar::Todo {
         let mut todo = icalendar::Todo::with_uid(uid);
@@ -132,7 +130,7 @@ impl TodoDraft {
         if let Some(due) = self.due {
             icalendar::Todo::due(&mut todo, due);
         } else if let Some(duration) = config.default_due {
-            icalendar::Todo::due(&mut todo, LooseDateTime::Local(duration.datetime(now)));
+            icalendar::Todo::due(&mut todo, duration.parse_from_dt(now));
         }
 
         if let Some(percent) = self.percent_complete {
