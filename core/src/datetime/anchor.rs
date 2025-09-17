@@ -13,11 +13,11 @@ use crate::datetime::util::{end_of_day, from_local_datetime, start_of_day};
 /// Represents a date and time anchor that can be used to calculate relative dates and times.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DateTimeAnchor {
-    /// A specific number of hours in the future or past.
-    InHours(i64),
-
     /// A specific number of days in the future or past.
     InDays(i64),
+
+    /// A specific number of seconds in the future or past.
+    Relative(i64),
 
     /// A specific date and time.
     DateTime(LooseDateTime),
@@ -29,7 +29,7 @@ pub enum DateTimeAnchor {
 impl DateTimeAnchor {
     /// Represents the current time.
     pub fn now() -> Self {
-        DateTimeAnchor::InHours(0)
+        DateTimeAnchor::Relative(0)
     }
 
     /// Represents the current date.
@@ -50,8 +50,8 @@ impl DateTimeAnchor {
     /// Parses the `DateTimeAnchor` enum based on the current time.
     pub fn parse_as_start_of_day<Tz: TimeZone>(&self, now: &DateTime<Tz>) -> DateTime<Tz> {
         match self {
-            DateTimeAnchor::InHours(n) => now.clone() + TimeDelta::hours(*n),
             DateTimeAnchor::InDays(n) => start_of_day(now) + TimeDelta::days(*n),
+            DateTimeAnchor::Relative(n) => now.clone() + TimeDelta::seconds(*n),
             DateTimeAnchor::DateTime(t) => {
                 let naive = t.with_start_of_day();
                 from_local_datetime(&now.timezone(), naive)
@@ -66,8 +66,8 @@ impl DateTimeAnchor {
     /// Parses the `DateTimeAnchor` enum based on the current time.
     pub fn parse_as_end_of_day<Tz: TimeZone>(&self, now: &DateTime<Tz>) -> DateTime<Tz> {
         match self {
-            DateTimeAnchor::InHours(n) => now.clone() + TimeDelta::hours(*n),
             DateTimeAnchor::InDays(n) => end_of_day(now) + TimeDelta::days(*n),
+            DateTimeAnchor::Relative(n) => now.clone() + TimeDelta::seconds(*n),
             DateTimeAnchor::DateTime(dt) => {
                 let naive = dt.with_end_of_day();
                 from_local_datetime(&now.timezone(), naive)
@@ -82,8 +82,8 @@ impl DateTimeAnchor {
     /// Parses the `DateTimeAnchor` to a `LooseDateTime` based on the provided current local time.
     pub fn parse_from_loose(self, now: &LooseDateTime) -> LooseDateTime {
         match self {
-            DateTimeAnchor::InHours(n) => *now + TimeDelta::hours(n),
             DateTimeAnchor::InDays(n) => *now + TimeDelta::days(n),
+            DateTimeAnchor::Relative(n) => *now + TimeDelta::seconds(n),
             DateTimeAnchor::DateTime(dt) => dt,
             DateTimeAnchor::Time(t) => match now {
                 LooseDateTime::Local(dt) => {
@@ -105,18 +105,17 @@ impl DateTimeAnchor {
     /// Parses the `DateTimeAnchor` to a `LooseDateTime` based on the provided current time in any timezone.
     pub fn parse_from_dt<Tz: TimeZone>(self, now: &DateTime<Tz>) -> LooseDateTime {
         match self {
-            DateTimeAnchor::InHours(n) => {
-                let dt = now.clone() + TimeDelta::hours(n);
-                LooseDateTime::Local(dt.with_timezone(&Local))
-            }
-            DateTimeAnchor::InDays(n) => {
-                if n == 0 {
-                    next_suggested_time(now)
-                } else {
+            DateTimeAnchor::InDays(n) => match n {
+                0 => next_suggested_time(now),
+                _ => {
                     let date = now.date_naive() + TimeDelta::days(n);
                     let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
                     LooseDateTime::from_local_datetime(dt)
                 }
+            },
+            DateTimeAnchor::Relative(n) => {
+                let dt = now.clone() + TimeDelta::seconds(n);
+                LooseDateTime::Local(dt.with_timezone(&Local))
             }
             DateTimeAnchor::DateTime(dt) => dt,
             DateTimeAnchor::Time(t) => {
@@ -153,11 +152,17 @@ impl FromStr for DateTimeAnchor {
         } else if let Ok(time) = NaiveTime::parse_from_str(t, "%H:%M") {
             // Parse as time only
             Ok(Self::Time(time))
+        } else if let Some(hours) = parse_seconds(t) {
+            // Parse as hours (e.g., "10s", "10sec", "10 seconds")
+            Ok(Self::Relative(hours))
+        } else if let Some(minutes) = parse_minutes(t) {
+            // Parse as hours (e.g., "10m", "10min", "10 minutes")
+            Ok(Self::Relative(60 * minutes))
         } else if let Some(hours) = parse_hours(t) {
-            // Parse as hours (e.g., "10h", "10 hours", "10hours", "in 10hours")
-            Ok(Self::InHours(hours))
+            // Parse as hours (e.g., "10h", "10hours", "10hours")
+            Ok(Self::Relative(60 * 60 * hours))
         } else if let Some(days) = parse_days(t) {
-            // Parse as days (e.g., "10d", "in 10d", "in 10 days")
+            // Parse as days (e.g., "10d", "10days")
             Ok(Self::InDays(days))
         } else {
             Err(format!("Invalid timedelta format: {t}"))
@@ -165,33 +170,27 @@ impl FromStr for DateTimeAnchor {
     }
 }
 
-/// Parse hours from string formats like "10h", "10 hours", "10hours", "in 10hours"
-fn parse_hours(s: &str) -> Option<i64> {
-    const RE: &str = r"(?i)^\s*(?:in\s*)?(\d+)\s*h(?:ours)?\s*$";
-    static REGEX: OnceLock<Regex> = OnceLock::new();
-    let re = REGEX.get_or_init(|| Regex::new(RE).unwrap());
-    if let Some(captures) = re.captures(s)
-        && let Ok(num) = captures[1].parse::<i64>()
-    {
-        return Some(num);
-    }
-
-    None
+macro_rules! parse_with_regex {
+    ($fn: ident, $re:expr) => {
+        fn $fn(s: &str) -> Option<i64> {
+            static REGEX: OnceLock<Regex> = OnceLock::new();
+            let re = REGEX.get_or_init(|| Regex::new($re).unwrap());
+            if let Some(captures) = re.captures(s)
+                && let Ok(num) = captures[1].parse::<i64>()
+            {
+                return Some(num);
+            }
+            None
+        }
+    };
 }
 
-/// Parse days from string formats like "10d", "in 10d", "in 10 days"
-fn parse_days(s: &str) -> Option<i64> {
-    const RE: &str = r"(?i)^\s*(?:in\s*)?(\d+)\s*d(?:ays)?\s*$";
-    static REGEX: OnceLock<Regex> = OnceLock::new();
-    let re = REGEX.get_or_init(|| Regex::new(RE).unwrap());
-    if let Some(captures) = re.captures(s)
-        && let Ok(num) = captures[1].parse::<i64>()
-    {
-        return Some(num);
-    }
+parse_with_regex!(parse_seconds, r"^\s*(\d+)\s*s(?:ec|econds)?\s*$"); // "10s", "10 sec", "10 seconds"
+parse_with_regex!(parse_minutes, r"^\s*(\d+)\s*m(?:in|inutes)?\s*$"); // "10m", "10 min", "10minutes"
 
-    None
-}
+// TODO: remove "in xxx" support?
+parse_with_regex!(parse_hours, r"(?i)^\s*(?:in\s*)?(\d+)\s*h(?:ours)?\s*$"); // "10h", "10 hours", "10hours", "in 10hours"
+parse_with_regex!(parse_days, r"(?i)^\s*(?:in\s*)?(\d+)\s*d(?:ays)?\s*$"); // "10d", "in 10d", "in 10 days"
 
 fn next_suggested_time<Tz: TimeZone>(now: &DateTime<Tz>) -> LooseDateTime {
     let date = now.date_naive();
@@ -220,19 +219,6 @@ mod tests {
     }
 
     #[test]
-    fn test_anchor_in_hours() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
-        let anchor = DateTimeAnchor::InHours(1);
-
-        let parsed = anchor.parse_as_start_of_day(&now);
-        let expected = Utc.with_ymd_and_hms(2025, 1, 1, 16, 30, 45).unwrap();
-        assert_eq!(parsed, expected);
-
-        let parsed = anchor.parse_as_end_of_day(&now);
-        assert_eq!(parsed, expected);
-    }
-
-    #[test]
     fn test_anchor_in_days() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
         let anchor = DateTimeAnchor::InDays(1);
@@ -244,6 +230,19 @@ mod tests {
         let parsed = anchor.parse_as_end_of_day(&now);
         assert!(parsed > Utc.with_ymd_and_hms(2025, 1, 2, 23, 59, 59).unwrap());
         assert!(parsed < Utc.with_ymd_and_hms(2025, 1, 3, 0, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_anchor_relative() {
+        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 0, 0).unwrap();
+        let anchor = DateTimeAnchor::Relative(2 * 60 * 60 + 30 * 60 + 45);
+
+        let parsed = anchor.parse_as_start_of_day(&now);
+        let expected = Utc.with_ymd_and_hms(2025, 1, 1, 17, 30, 45).unwrap();
+        assert_eq!(parsed, expected);
+
+        let parsed = anchor.parse_as_end_of_day(&now);
+        assert_eq!(parsed, expected);
     }
 
     #[test]
@@ -355,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_parse_from_loose_in_hours() {
-        let anchor = DateTimeAnchor::InHours(3);
+        let anchor = DateTimeAnchor::Relative(3 * 60 * 60);
         let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
         let result = anchor.parse_from_loose(&now.into());
         let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 0, 0).unwrap());
@@ -392,11 +391,12 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_from_dt_in_hours() {
-        let anchor = DateTimeAnchor::InHours(3);
+    fn test_parse_from_dt_relative() {
+        let anchor = DateTimeAnchor::Relative(3 * 60 * 60 + 25 * 60 + 45);
         let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
         let result = anchor.parse_from_dt(&now);
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 0, 0).unwrap());
+        let expected =
+            LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 25, 45).unwrap());
         assert_eq!(result, expected);
     }
 
@@ -439,14 +439,14 @@ mod tests {
             ("yesterday", DateTimeAnchor::yesterday()),
             ("tomorrow", DateTimeAnchor::tomorrow()),
         ] {
-            let anchor = DateTimeAnchor::from_str(s).unwrap();
+            let anchor: DateTimeAnchor = s.parse().unwrap();
             assert_eq!(anchor, expected);
         }
     }
 
     #[test]
     fn test_from_str_datetime() {
-        let anchor = DateTimeAnchor::from_str("2025-01-15 14:30").unwrap();
+        let anchor: DateTimeAnchor = "2025-01-15 14:30".parse().unwrap();
         let expected = DateTimeAnchor::DateTime(LooseDateTime::Local(
             Local.with_ymd_and_hms(2025, 1, 15, 14, 30, 0).unwrap(),
         ));
@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn test_from_str_time() {
-        let anchor = DateTimeAnchor::from_str("14:30").unwrap();
+        let anchor: DateTimeAnchor = "14:30".parse().unwrap();
         let expected = DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 30, 0).unwrap());
         assert_eq!(anchor, expected);
     }
@@ -465,6 +465,54 @@ mod tests {
         let result = DateTimeAnchor::from_str("invalid");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Invalid timedelta format"));
+    }
+
+    #[test]
+    fn test_from_str_seconds() {
+        for s in [
+            "10s",
+            "10sec",
+            "10seconds",
+            "   10   s   ",
+            "   10   sec   ",
+            "   10   seconds   ",
+        ] {
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            let expected = DateTimeAnchor::Relative(10);
+            assert_eq!(anchor, expected, "Failed to parse '{}'", s);
+
+            // No "in " prefix allowed for seconds
+            let prefix_in = DateTimeAnchor::from_str(&format!("in {s}"));
+            assert!(prefix_in.is_err());
+
+            // No uppercase allowed for seconds
+            let uppercase = DateTimeAnchor::from_str(&s.to_uppercase());
+            assert!(uppercase.is_err());
+        }
+    }
+
+    #[test]
+    fn test_from_str_minutes() {
+        for s in [
+            "10m",
+            "10min",
+            "10minutes",
+            "   10   m   ",
+            "   10   min   ",
+            "   10   minutes   ",
+        ] {
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            let expected = DateTimeAnchor::Relative(10 * 60);
+            assert_eq!(anchor, expected, "Failed to parse '{}'", s);
+
+            // No "in " prefix allowed for minutes
+            let prefix_in = DateTimeAnchor::from_str(&format!("in {s}"));
+            assert!(prefix_in.is_err());
+
+            // No uppercase allowed for minutes
+            let uppercase = DateTimeAnchor::from_str(&s.to_uppercase());
+            assert!(uppercase.is_err());
+        }
     }
 
     #[test]
@@ -480,8 +528,8 @@ mod tests {
             "10 H",
             "   10   h   ",
         ] {
-            let anchor = DateTimeAnchor::from_str(s).unwrap();
-            let expected = DateTimeAnchor::InHours(10);
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            let expected = DateTimeAnchor::Relative(10 * 60 * 60);
             assert_eq!(anchor, expected, "Failed to parse '{}'", s);
         }
     }
@@ -499,7 +547,7 @@ mod tests {
             "10 D",
             "   10   d   ",
         ] {
-            let anchor = DateTimeAnchor::from_str(s).unwrap();
+            let anchor: DateTimeAnchor = s.parse().unwrap();
             let expected = DateTimeAnchor::InDays(10);
             assert_eq!(anchor, expected, "Failed to parse '{}'", s);
         }
