@@ -151,11 +151,11 @@ impl Aim {
     }
 
     /// Get a event by its id.
-    pub async fn get_event(&self, id: &Id) -> Result<Option<impl Event + 'static>, Box<dyn Error>> {
+    pub async fn get_event(&self, id: &Id) -> Result<impl Event + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
         match self.db.events.get(&uid).await {
-            Ok(Some(event)) => Ok(Some(self.short_ids.event(event).await?)),
-            Ok(None) => Ok(None),
+            Ok(Some(event)) => Ok(self.short_ids.event(event).await?),
+            Ok(None) => Err("Event not found".into()),
             Err(e) => Err(e.into()),
         }
     }
@@ -237,11 +237,11 @@ impl Aim {
     }
 
     /// Get a todo by its id.
-    pub async fn get_todo(&self, id: &Id) -> Result<Option<impl Todo + 'static>, Box<dyn Error>> {
+    pub async fn get_todo(&self, id: &Id) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
         match self.db.todos.get(&uid).await {
-            Ok(Some(todo)) => Ok(Some(self.short_ids.todo(todo).await?)),
-            Ok(None) => Ok(None),
+            Ok(Some(todo)) => Ok(self.short_ids.todo(todo).await?),
+            Ok(None) => Err("Event not found".into()),
             Err(e) => Err(e.into()),
         }
     }

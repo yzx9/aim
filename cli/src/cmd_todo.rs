@@ -213,7 +213,7 @@ impl CmdTodoEdit {
 
         // If TUI is needed, launch the TUI editor to let user edit the patch
         if tui {
-            let todo = aim.get_todo(&self.id).await?.ok_or("Todo not found")?;
+            let todo = aim.get_todo(&self.id).await?;
             patch = match tui::patch_todo(aim, &todo, patch)? {
                 Some(data) => data,
                 None => {
@@ -328,7 +328,7 @@ impl CmdTodoDelay {
         let mut todos = vec![];
         for id in &self.ids {
             // Calculate new due based on original due if exists, otherwise based on now
-            let todo = aim.get_todo(id).await?.ok_or("Todo not found")?;
+            let todo = aim.get_todo(id).await?;
             let new_due = Some(match todo.due() {
                 Some(due) => anchor.resolve_at(&due),
                 None => anchor.resolve_since_datetime(&aim.now()),

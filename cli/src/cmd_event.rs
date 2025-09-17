@@ -206,7 +206,7 @@ impl CmdEventEdit {
 
         // If TUI is needed, launch the TUI to edit the event
         if tui {
-            let event = aim.get_event(&self.id).await?.ok_or("Event not found")?;
+            let event = aim.get_event(&self.id).await?;
             patch = match tui::patch_event(aim, &event)? {
                 Some(data) => data,
                 None => {
@@ -270,7 +270,7 @@ impl CmdEventDelay {
         let anchor: DateTimeAnchor = self.time_anchor.parse()?;
         let mut events = Vec::with_capacity(self.ids.len());
         for id in &self.ids {
-            let event = aim.get_event(id).await?.ok_or("Event not found")?;
+            let event = aim.get_event(id).await?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), end) => {
                     let s = anchor.resolve_at(&start);
@@ -341,7 +341,7 @@ impl CmdEventReschedule {
         let anchor: DateTimeAnchor = self.time_anchor.parse()?;
         let mut events = Vec::with_capacity(self.ids.len());
         for id in &self.ids {
-            let event = aim.get_event(id).await?.ok_or("Event not found")?;
+            let event = aim.get_event(id).await?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), Some(end)) => {
                     let s = anchor.resolve_since_datetime(&aim.now());
