@@ -43,6 +43,23 @@ pub enum Kind {
     Todo,
 }
 
+impl Kind {
+    pub(crate) fn to_str_stable(self: &Kind) -> &'static str {
+        match self {
+            Kind::Todo => "todo",
+            Kind::Event => "event",
+        }
+    }
+
+    pub(crate) fn parse_stable(kind: &str) -> Option<Kind> {
+        match kind {
+            "todo" => Some(Kind::Todo),
+            "event" => Some(Kind::Event),
+            _ => None,
+        }
+    }
+}
+
 /// Sort order, either ascending or descending.
 #[derive(Debug, Clone, Copy)]
 pub enum SortOrder {
@@ -245,6 +262,18 @@ mod tests {
         assert_eq!(id2.maybe_short_id(), None);
         assert_eq!(id3.maybe_short_id(), None);
         assert_eq!(id4.maybe_short_id(), None);
+    }
+
+    #[test]
+    fn test_kind_to_str_stable() {
+        assert_eq!(Kind::Event.to_str_stable(), "event");
+        assert_eq!(Kind::Todo.to_str_stable(), "todo");
+    }
+
+    #[test]
+    fn test_kind_parse_stable() {
+        assert_eq!(Kind::parse_stable("event"), Some(Kind::Event));
+        assert_eq!(Kind::parse_stable("todo"), Some(Kind::Todo));
     }
 
     #[test]

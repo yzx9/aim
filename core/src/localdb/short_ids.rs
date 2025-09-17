@@ -29,19 +29,17 @@ impl ShortIds {
                 .await?;
 
         match row {
-            Some((uid, kind)) => {
-                let parsed_kind = kind_from_str(&kind);
-                if parsed_kind.is_none() {
-                    tracing::warn!(kind, "unknown short_id kind");
-                    return Ok(None);
-                }
-
-                Ok(Some(UidAndShortId {
+            Some((uid, kind)) => Ok(match Kind::parse_stable(&kind) {
+                Some(kind) => Some(UidAndShortId {
                     uid,
                     short_id,
-                    kind: parsed_kind.unwrap(),
-                }))
-            }
+                    kind,
+                }),
+                None => {
+                    tracing::warn!(kind, "unknown short_id kind");
+                    None
+                }
+            }),
             None => Ok(None),
         }
     }
@@ -70,7 +68,7 @@ RETURNING short_id;
 
         if let Some((short_id,)) = sqlx::query_as::<_, (NonZeroU32,)>(SQL)
             .bind(uid)
-            .bind(kind_to_str(kind))
+            .bind(kind.to_str_stable())
             .fetch_optional(&self.pool)
             .await?
         {
@@ -93,20 +91,5 @@ RETURNING short_id;
             .execute(&self.pool)
             .await?;
         Ok(())
-    }
-}
-
-fn kind_to_str(kind: Kind) -> &'static str {
-    match kind {
-        Kind::Todo => "todo",
-        Kind::Event => "event",
-    }
-}
-
-fn kind_from_str(kind: &str) -> Option<Kind> {
-    match kind {
-        "todo" => Some(Kind::Todo),
-        "event" => Some(Kind::Event),
-        _ => None,
     }
 }

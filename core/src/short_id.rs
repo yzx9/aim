@@ -34,21 +34,18 @@ impl ShortIds {
             return Ok(data.uid);
         };
 
-        let uid = match id {
-            Id::Uid(uid) => uid,
-            Id::ShortIdOrUid(uid) => uid,
-        };
-        Ok(uid.clone())
+        Ok(id.as_uid().to_owned())
     }
 
     pub async fn event<E: Event>(&self, event: E) -> Result<EventWithShortId<E>, Box<dyn Error>> {
-        let short_id = if let Some(short_id) = event.short_id() {
-            short_id // If the todo already has a short ID, use it directly
-        } else {
-            self.db
-                .short_ids
-                .get_or_assign_short_id(event.uid(), Kind::Event)
-                .await?
+        let short_id = match event.short_id() {
+            Some(short_id) => short_id, // If the todo already has a short ID, use it directly
+            None => {
+                self.db
+                    .short_ids
+                    .get_or_assign_short_id(event.uid(), Kind::Event)
+                    .await?
+            }
         };
 
         Ok(EventWithShortId {
@@ -69,13 +66,14 @@ impl ShortIds {
     }
 
     pub async fn todo<T: Todo>(&self, todo: T) -> Result<TodoWithShortId<T>, Box<dyn Error>> {
-        let short_id = if let Some(short_id) = todo.short_id() {
-            short_id // If the todo already has a short ID, use it directly
-        } else {
-            self.db
-                .short_ids
-                .get_or_assign_short_id(todo.uid(), Kind::Todo)
-                .await?
+        let short_id = match todo.short_id() {
+            Some(short_id) => short_id, // If the todo already has a short ID, use it directly
+            None => {
+                self.db
+                    .short_ids
+                    .get_or_assign_short_id(todo.uid(), Kind::Todo)
+                    .await?
+            }
         };
 
         Ok(TodoWithShortId {
@@ -111,21 +109,27 @@ impl<E: Event> Event for EventWithShortId<E> {
     fn short_id(&self) -> Option<NonZeroU32> {
         Some(self.short_id)
     }
+
     fn uid(&self) -> &str {
         self.inner.uid()
     }
+
     fn description(&self) -> Option<&str> {
         self.inner.description()
     }
+
     fn start(&self) -> Option<LooseDateTime> {
         self.inner.start()
     }
+
     fn end(&self) -> Option<LooseDateTime> {
         self.inner.end()
     }
+
     fn status(&self) -> Option<EventStatus> {
         self.inner.status()
     }
+
     fn summary(&self) -> &str {
         self.inner.summary()
     }
@@ -141,27 +145,35 @@ impl<T: Todo> Todo for TodoWithShortId<T> {
     fn short_id(&self) -> Option<NonZeroU32> {
         Some(self.short_id)
     }
+
     fn uid(&self) -> &str {
         self.inner.uid()
     }
+
     fn completed(&self) -> Option<DateTime<Local>> {
         self.inner.completed()
     }
+
     fn description(&self) -> Option<&str> {
         self.inner.description()
     }
+
     fn due(&self) -> Option<LooseDateTime> {
         self.inner.due()
     }
+
     fn percent_complete(&self) -> Option<u8> {
         self.inner.percent_complete()
     }
+
     fn priority(&self) -> Priority {
         self.inner.priority()
     }
+
     fn status(&self) -> TodoStatus {
         self.inner.status()
     }
+
     fn summary(&self) -> &str {
         self.inner.summary()
     }
@@ -170,8 +182,9 @@ impl<T: Todo> Todo for TodoWithShortId<T> {
 #[derive(Debug, Clone)]
 pub struct UidAndShortId {
     pub uid: String,
+
     #[allow(dead_code)]
     pub short_id: NonZeroU32,
-    #[allow(dead_code)]
+
     pub kind: Kind,
 }
