@@ -81,12 +81,12 @@ nix run . -- --help
 
 ### 📅 Calendar Features
 
-- [x] Event & Todo query
-- [x] Event & Todo edit
+- [x] Listing event and todos
+- [x] Creating and editing event and todo
 - [ ] Undo history editing
-- [ ] Markdown support
 - [ ] Full text search (grepping)
 - [ ] Recurring events
+- [ ] TUI: Markdown support
 
 ### 🤖 AI Capabilities
 
@@ -102,6 +102,7 @@ nix run . -- --help
 ## Acknowledgements
 
 We'd like to thank the [pimutils](https://github.com/pimutils) project, particularly:
+
 - [khal](https://github.com/pimutils/khal) - A CLI calendar application
 - [todoman](https://github.com/pimutils/todoman) - A simple task manager
 
