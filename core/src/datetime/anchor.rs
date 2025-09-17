@@ -4,7 +4,7 @@
 
 use std::{fmt, str::FromStr, sync::OnceLock};
 
-use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Timelike};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Timelike};
 use regex::Regex;
 use serde::de;
 
@@ -150,6 +150,9 @@ impl FromStr for DateTimeAnchor {
         if let Ok(dt) = NaiveDateTime::parse_from_str(t, "%Y-%m-%d %H:%M") {
             // Parse as datetime
             Ok(Self::DateTime(LooseDateTime::from_local_datetime(dt)))
+        } else if let Ok(date) = NaiveDate::parse_from_str(t, "%Y-%m-%d") {
+            // Parse as date only
+            Ok(Self::DateTime(LooseDateTime::DateOnly(date)))
         } else if let Ok(time) = NaiveTime::parse_from_str(t, "%H:%M") {
             // Parse as time only
             Ok(Self::Time(time))
@@ -166,7 +169,7 @@ impl FromStr for DateTimeAnchor {
             // Parse as days (e.g., "10d", "10days")
             Ok(Self::InDays(days))
         } else {
-            Err(format!("Invalid timedelta format: {t}"))
+            Err(format!("Invalid datetime anchor: {t}"))
         }
     }
 }
@@ -491,7 +494,7 @@ mod tests {
     fn test_from_str_invalid() {
         let result = DateTimeAnchor::from_str("invalid");
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Invalid timedelta format"));
+        assert!(result.unwrap_err().contains("Invalid datetime anchor"));
     }
 
     #[test]
