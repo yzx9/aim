@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use aimcal_core::LooseDateTime;
-use chrono::offset::LocalResult;
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone};
+use std::error::Error;
+
+use aimcal_core::{DateTimeAnchor, LooseDateTime};
+use chrono::{DateTime, TimeZone};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -17,19 +18,13 @@ pub enum OutputFormat {
 
 pub fn parse_datetime<Tz: TimeZone>(
     now: &DateTime<Tz>,
-    dt: &str,
-) -> Result<Option<LooseDateTime>, &'static str> {
-    if dt.is_empty() {
+    anchor: &str,
+) -> Result<Option<LooseDateTime>, Box<dyn Error>> {
+    if anchor.is_empty() {
         Ok(None)
-    } else if let Ok(dt) = NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M") {
-        Ok(Some(loose_from_datetime(dt)))
-    } else if let Ok(time) = NaiveTime::parse_from_str(dt, "%H:%M") {
-        // If the input is just a time, we assume it's today
-        dt_with_time(now, time).map(|a| Some(a.into()))
-    } else if let Ok(date) = NaiveDate::parse_from_str(dt, "%Y-%m-%d") {
-        Ok(Some(date.into()))
     } else {
-        Err("Invalid date format. Expected format: YYYY-MM-DD, HH:MM and YYYY-MM-DD HH:MM")
+        let anchor: DateTimeAnchor = anchor.parse()?;
+        Ok(Some(anchor.resolve_since_datetime(now)))
     }
 }
 
@@ -40,68 +35,18 @@ pub fn parse_datetime_range<Tz: TimeZone>(
     now: &DateTime<Tz>,
     start: &str,
     end: &str,
-) -> Result<(Option<LooseDateTime>, Option<LooseDateTime>), &'static str> {
+) -> Result<(Option<LooseDateTime>, Option<LooseDateTime>), Box<dyn Error>> {
     let start = parse_datetime(now, start)?;
 
     if end.is_empty() {
         Ok((start, None))
-    } else if let Ok(dt) = NaiveDateTime::parse_from_str(end, "%Y-%m-%d %H:%M") {
-        Ok((start, Some(loose_from_datetime(dt))))
-    } else if let Ok(time) = NaiveTime::parse_from_str(end, "%H:%M") {
-        // If the input is just a time, we assume it's the same/next day as start or today if start is None
+    } else {
+        let anchor: DateTimeAnchor = end.parse()?;
         let end = match start {
-            Some(LooseDateTime::DateOnly(date)) => NaiveDateTime::new(date, time).into(),
-            Some(LooseDateTime::Floating(dt)) => {
-                let delta = if dt.time() <= time {
-                    TimeDelta::zero()
-                } else {
-                    TimeDelta::days(1)
-                };
-                NaiveDateTime::new(dt.date() + delta, time).into()
-            }
-            Some(LooseDateTime::Local(dt)) => {
-                let delta = if dt.time() <= time {
-                    TimeDelta::zero()
-                } else {
-                    TimeDelta::days(1)
-                };
-                (dt_with_time(&dt, time)? + delta).into()
-            }
-            None => dt_with_time(now, time)?.into(),
+            Some(s) => anchor.resolve_since(&s),
+            None => anchor.resolve_since_datetime(now),
         };
         Ok((start, Some(end)))
-    } else if let Ok(date) = NaiveDate::parse_from_str(end, "%Y-%m-%d") {
-        Ok((start, Some(date.into())))
-    } else {
-        Err("Invalid date format. Expected format: YYYY-MM-DD, HH:MM and YYYY-MM-DD HH:MM")
-    }
-}
-
-fn loose_from_datetime(dt: NaiveDateTime) -> LooseDateTime {
-    match Local.from_local_datetime(&dt) {
-        LocalResult::Single(dt) => dt.into(),
-        LocalResult::Ambiguous(dt1, _) => {
-            tracing::warn!(?dt, "ambiguous local time in local, picking earliest");
-            dt1.into()
-        }
-        LocalResult::None => {
-            tracing::warn!(?dt, "invalid local time in local, falling back to floating");
-            dt.into()
-        }
-    }
-}
-
-fn dt_with_time<Tz: TimeZone>(
-    dt: &DateTime<Tz>,
-    time: NaiveTime,
-) -> Result<DateTime<Local>, &'static str> {
-    match dt.with_time(time) {
-        LocalResult::Single(dt) => Ok(dt.with_timezone(&Local)),
-        LocalResult::Ambiguous(dt1, _) => {
-            tracing::warn!(?dt, "ambiguous local time in local, picking earliest");
-            Ok(dt1.with_timezone(&Local))
-        }
-        LocalResult::None => Err("Invalid local time"),
     }
 }
 
@@ -139,6 +84,8 @@ pub fn byte_range_of_grapheme_at(s: &str, g_idx: usize) -> Option<std::ops::Rang
 
 #[cfg(test)]
 mod tests {
+    use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime};
+
     use super::*;
 
     #[test]
@@ -228,11 +175,11 @@ mod tests {
     #[test]
     fn test_parse_datetime_time_only() {
         let now = default_datetime();
-        let result = parse_datetime(&now, "14:30").unwrap().unwrap();
+        let result = parse_datetime(&now, "20:30").unwrap().unwrap();
         match result {
             LooseDateTime::Local(dt) => {
                 assert_eq!(dt.date_naive(), now.date_naive());
-                assert_eq!(dt.time(), NaiveTime::from_hms_opt(14, 30, 0).unwrap());
+                assert_eq!(dt.time(), NaiveTime::from_hms_opt(20, 30, 0).unwrap());
             }
             _ => panic!("Expected Local variant"),
         }
@@ -285,8 +232,11 @@ mod tests {
         }
 
         match end.unwrap() {
-            LooseDateTime::Floating(dt) => {
-                assert_eq!(dt.date(), NaiveDate::from_ymd_opt(2023, 12, 25).unwrap());
+            LooseDateTime::Local(dt) => {
+                assert_eq!(
+                    dt.date_naive(),
+                    NaiveDate::from_ymd_opt(2023, 12, 25).unwrap()
+                );
                 assert_eq!(dt.time(), NaiveTime::from_hms_opt(14, 30, 0).unwrap());
             }
             _ => panic!("Expected Floating variant for end"),

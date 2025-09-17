@@ -79,10 +79,10 @@ impl DateTimeAnchor {
                 dt + TimeDelta::days(*n)
             }
             DateTimeAnchor::Relative(n) => now.clone() + TimeDelta::seconds(*n),
-            DateTimeAnchor::DateTime(t) => {
+            DateTimeAnchor::DateTime(dt) => {
                 let naive = match boundary {
-                    DayBoundary::Start => t.with_start_of_day(),
-                    DayBoundary::End => t.with_end_of_day(),
+                    DayBoundary::Start => dt.with_start_of_day(),
+                    DayBoundary::End => dt.with_end_of_day(),
                 };
                 from_local_datetime(&now.timezone(), naive)
             }
@@ -108,8 +108,8 @@ impl DateTimeAnchor {
                     let dt = NaiveDateTime::new(dt.date(), t);
                     LooseDateTime::Floating(dt)
                 }
-                LooseDateTime::DateOnly(date) => {
-                    let dt = NaiveDateTime::new(*date, t);
+                LooseDateTime::DateOnly(d) => {
+                    let dt = NaiveDateTime::new(*d, t);
                     LooseDateTime::from_local_datetime(dt)
                 }
             },
@@ -117,10 +117,43 @@ impl DateTimeAnchor {
     }
 
     /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `DateTime<Tz>`.
+    pub fn resolve_since(self, start: &LooseDateTime) -> LooseDateTime {
+        match self {
+            DateTimeAnchor::InDays(n) => match n {
+                0 => match start {
+                    LooseDateTime::Local(dt) => next_suggested_time(&dt.naive_local()),
+                    LooseDateTime::Floating(dt) => next_suggested_time(dt),
+                    LooseDateTime::DateOnly(d) => first_suggested_time(d),
+                },
+                _ => {
+                    let date = start.date() + TimeDelta::days(n);
+                    let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+                    LooseDateTime::from_local_datetime(dt)
+                }
+            },
+            DateTimeAnchor::Relative(n) => *start + TimeDelta::seconds(n),
+            DateTimeAnchor::DateTime(dt) => dt,
+            DateTimeAnchor::Time(t) => {
+                let date = start.date();
+                // If the time has already passed today, use tomorrow
+                let delta = if let Some(s) = start.time()
+                    && s >= t
+                {
+                    TimeDelta::days(1)
+                } else {
+                    TimeDelta::zero()
+                };
+                let dt = NaiveDateTime::new(date, t) + delta;
+                LooseDateTime::from_local_datetime(dt)
+            }
+        }
+    }
+
+    /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `DateTime<Tz>`.
     pub fn resolve_since_datetime<Tz: TimeZone>(self, start: &DateTime<Tz>) -> LooseDateTime {
         match self {
             DateTimeAnchor::InDays(n) => match n {
-                0 => next_suggested_time(start),
+                0 => next_suggested_time(&start.naive_local()),
                 _ => {
                     let date = start.date_naive() + TimeDelta::days(n);
                     let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
@@ -135,10 +168,10 @@ impl DateTimeAnchor {
             DateTimeAnchor::Time(t) => {
                 let date = start.date_naive();
                 // If the time has already passed today, use tomorrow
-                let delta = if start.time() <= t {
-                    TimeDelta::zero()
-                } else {
+                let delta = if start.time() >= t {
                     TimeDelta::days(1)
+                } else {
+                    TimeDelta::zero()
                 };
                 let dt = NaiveDateTime::new(date, t) + delta;
                 LooseDateTime::from_local_datetime(dt)
@@ -275,10 +308,12 @@ parse_with_regex!(parse_minutes, r"^\s*(\d+)\s*m(?:in|inutes)?\s*$"); // "10m", 
 parse_with_regex!(parse_hours, r"(?i)^\s*(?:in\s*)?(\d+)\s*h(?:ours)?\s*$"); // "10h", "10 hours", "10hours", "in 10hours"
 parse_with_regex!(parse_days, r"(?i)^\s*(?:in\s*)?(\d+)\s*d(?:ays)?\s*$"); // "10d", "in 10d", "in 10 days"
 
-fn next_suggested_time<Tz: TimeZone>(now: &DateTime<Tz>) -> LooseDateTime {
-    let date = now.date_naive();
+const HOURS: [u32; 3] = [9, 13, 18];
+
+fn next_suggested_time(now: &NaiveDateTime) -> LooseDateTime {
+    let date = now.date();
     let current_hour = now.hour();
-    for hour in [9, 13, 18] {
+    for hour in HOURS {
         if current_hour < hour {
             let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(hour, 0, 0).unwrap());
             return LooseDateTime::from_local_datetime(dt);
@@ -286,6 +321,11 @@ fn next_suggested_time<Tz: TimeZone>(now: &DateTime<Tz>) -> LooseDateTime {
     }
 
     LooseDateTime::DateOnly(date)
+}
+
+fn first_suggested_time(date: &NaiveDate) -> LooseDateTime {
+    let dt = NaiveDateTime::new(*date, NaiveTime::from_hms_opt(HOURS[0], 0, 0).unwrap());
+    LooseDateTime::from_local_datetime(dt)
 }
 
 #[cfg(test)]
@@ -564,6 +604,56 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_since_in_days() {
+        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
+        let expected = now;
+        let anchor = DateTimeAnchor::DateTime(expected);
+        let result = anchor.resolve_since(&now);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_resolve_since_relative() {
+        let anchor = DateTimeAnchor::Relative(3 * 60 * 60 + 25 * 60 + 45);
+        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
+        let result = anchor.resolve_since(&now);
+        let expected =
+            LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 25, 45).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_resolve_since_datetime() {
+        let anchor = DateTimeAnchor::DateTime(LooseDateTime::Local(
+            Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap(),
+        ));
+        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
+        let result = anchor.resolve_since(&now);
+        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_resolve_since_time_before_now() {
+        // Test "HH:MM" (before now, should be tomorrow)
+        let anchor = DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap());
+        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
+        let result = anchor.resolve_since(&now);
+        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 2, 10, 0, 0).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_resolve_since_time_after_now() {
+        // Test "HH:MM" (after now, should be today)
+        let anchor = DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 0, 0).unwrap());
+        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
+        let result = anchor.resolve_since(&now);
+        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 14, 0, 0).unwrap());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_resolve_since_datetime_in_days() {
         let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
         let expected = now.into();
@@ -793,7 +883,7 @@ mod tests {
 
         for (hour, min, expected_hour, description) in test_cases {
             let now = Local.with_ymd_and_hms(2025, 1, 1, hour, min, 0).unwrap();
-            let result = next_suggested_time(&now);
+            let result = next_suggested_time(&now.naive_local());
             let expected = LooseDateTime::Local(
                 Local
                     .with_ymd_and_hms(2025, 1, 1, expected_hour, 0, 0)
@@ -807,13 +897,13 @@ mod tests {
     fn test_next_suggested_time_after_6pm() {
         // After 6 PM, should suggest DateOnly (next day)
         let now = Local.with_ymd_and_hms(2025, 1, 1, 19, 30, 0).unwrap();
-        let result = next_suggested_time(&now);
+        let result = next_suggested_time(&now.naive_local());
         let expected = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
         assert_eq!(result, expected, "After 6 PM, should suggest DateOnly");
 
         // Exactly at 6 PM, should suggest DateOnly (next day)
         let now = Local.with_ymd_and_hms(2025, 1, 1, 18, 0, 0).unwrap();
-        let result = next_suggested_time(&now);
+        let result = next_suggested_time(&now.naive_local());
         let expected = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
         assert_eq!(result, expected, "Exactly at 6 PM, should suggest DateOnly");
     }
