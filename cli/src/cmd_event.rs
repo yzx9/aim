@@ -273,17 +273,17 @@ impl CmdEventDelay {
             let event = aim.get_event(id).await?.ok_or("Event not found")?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), end) => {
-                    let s = anchor.parse_from_loose(&start);
-                    let e = end.map(|a| anchor.parse_from_loose(&a));
+                    let s = anchor.resolve_at(&start);
+                    let e = end.map(|a| anchor.resolve_at(&a));
                     (Some(s), e)
                 }
                 (None, Some(end)) => {
                     // TODO: should we set a start time with default duration? same for reschedule command
-                    let e = anchor.parse_from_loose(&end);
+                    let e = anchor.resolve_at(&end);
                     (None, Some(e))
                 }
                 (None, None) => {
-                    let s = anchor.parse_from_dt(&aim.now());
+                    let s = anchor.resolve_since_datetime(&aim.now());
                     // TODO: should we set a end time with default duration? same for reschedule command
                     (Some(s), None)
                 }
@@ -344,7 +344,7 @@ impl CmdEventReschedule {
             let event = aim.get_event(id).await?.ok_or("Event not found")?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), Some(end)) => {
-                    let s = anchor.parse_from_dt(&aim.now());
+                    let s = anchor.resolve_since_datetime(&aim.now());
                     let e = match (start, end) {
                         (LooseDateTime::DateOnly(ds), LooseDateTime::DateOnly(de)) => {
                             (s.date() + (de - ds)).into()
@@ -375,11 +375,11 @@ impl CmdEventReschedule {
                     (Some(s), Some(e))
                 }
                 (_, None) => {
-                    let s = anchor.parse_from_dt(&aim.now());
+                    let s = anchor.resolve_since_datetime(&aim.now());
                     (Some(s), None)
                 }
                 (None, Some(_)) => {
-                    let e = anchor.parse_from_dt(&aim.now());
+                    let e = anchor.resolve_since_datetime(&aim.now());
                     (None, Some(e))
                 }
             };

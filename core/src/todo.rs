@@ -106,7 +106,7 @@ impl TodoDraft {
     pub(crate) fn default(config: &Config, now: &DateTime<Local>) -> Self {
         Self {
             description: None,
-            due: config.default_due.map(|d| d.parse_from_dt(now)),
+            due: config.default_due.map(|d| d.resolve_since_datetime(now)),
             percent_complete: None,
             priority: Some(config.default_priority),
             status: TodoStatus::default(),
@@ -130,7 +130,7 @@ impl TodoDraft {
         if let Some(due) = self.due {
             icalendar::Todo::due(&mut todo, due);
         } else if let Some(duration) = config.default_due {
-            icalendar::Todo::due(&mut todo, duration.parse_from_dt(now));
+            icalendar::Todo::due(&mut todo, duration.resolve_since_datetime(now));
         }
 
         if let Some(percent) = self.percent_complete {
@@ -329,7 +329,7 @@ pub(crate) struct ParsedTodoConditions {
 impl ParsedTodoConditions {
     pub fn parse(now: &DateTime<Local>, conds: &TodoConditions) -> Self {
         let status = conds.status;
-        let due = conds.due.map(|a| a.parse_as_end_of_day(now));
+        let due = conds.due.map(|a| a.resolve_at_end_of_day(now));
         ParsedTodoConditions { status, due }
     }
 }

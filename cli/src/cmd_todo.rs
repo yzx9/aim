@@ -330,8 +330,8 @@ impl CmdTodoDelay {
             // Calculate new due based on original due if exists, otherwise based on now
             let todo = aim.get_todo(id).await?.ok_or("Todo not found")?;
             let new_due = Some(match todo.due() {
-                Some(due) => anchor.parse_from_loose(&due),
-                None => anchor.parse_from_dt(&aim.now()),
+                Some(due) => anchor.resolve_at(&due),
+                None => anchor.resolve_since_datetime(&aim.now()),
             });
 
             // Update the todo
@@ -385,7 +385,7 @@ impl CmdTodoReschedule {
         for id in &self.ids {
             // Calculate new due based on now
             let new_due = if !self.time.is_empty() {
-                Some(anchor.parse_from_dt(&aim.now()))
+                Some(anchor.resolve_since_datetime(&aim.now()))
             } else {
                 None
             };

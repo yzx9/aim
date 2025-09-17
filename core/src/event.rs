@@ -305,8 +305,8 @@ pub(crate) struct ParsedEventConditions {
 impl ParsedEventConditions {
     pub fn parse(now: &DateTime<Local>, conds: &EventConditions) -> Self {
         Self {
-            start_before: conds.cutoff.map(|w| w.parse_as_end_of_day(now)),
-            end_after: conds.startable.map(|w| w.parse_as_start_of_day(now)),
+            start_before: conds.cutoff.map(|w| w.resolve_at_end_of_day(now)),
+            end_after: conds.startable.map(|w| w.resolve_at_start_of_day(now)),
         }
     }
 }

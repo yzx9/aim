@@ -13,10 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - core: Add api `Aim.flush_short_ids`
 - core: Add `DateTimeAnchor::Relative`, remove `DateTimeAnchor::InHours`
 - core: Parse date only string as `DateTimeAnchor`
+- core: Add `DateTimeAnchor.resolve_xxx` function serial
 
 ### Changed
 
 - core: Implement `From` and `Into` traits to all integer types for `Priority`
+
+### Deprecated
+
+- core: `DateTimeAnchor.parse_xxx` has been deprecated, use `resolve_xxx` instead
 
 ## [v0.8.2] - 2025-09-16
 
