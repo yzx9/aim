@@ -77,7 +77,7 @@ impl Aim {
         &self,
         draft: EventDraft,
     ) -> Result<impl Event + 'static, Box<dyn Error>> {
-        let uid = self.generate_uid().await?;
+        let uid = self.generate_uid(Kind::Event).await?;
         let event = draft.into_ics(&self.now, &uid);
         let path = self.get_path(&uid);
 
@@ -185,7 +185,7 @@ impl Aim {
 
     /// Add a new todo from the given draft.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo + 'static, Box<dyn Error>> {
-        let uid = self.generate_uid().await?;
+        let uid = self.generate_uid(Kind::Todo).await?;
         let todo = draft.into_ics(&self.config, &self.now, &uid);
         let path = self.get_path(&uid);
 
@@ -326,17 +326,32 @@ impl Aim {
         Ok(())
     }
 
-    async fn generate_uid(&self) -> Result<String, Box<dyn Error>> {
-        for _ in 0..16 {
+    async fn generate_uid(&self, kind: Kind) -> Result<String, Box<dyn Error>> {
+        for i in 0..16 {
             let uid = Uuid::new_v4().to_string(); // TODO: better uid
-            if self.db.todos.get(&uid).await?.is_some()
-                || fs::try_exists(&self.get_path(&uid)).await?
-            {
+            tracing::debug!(
+                ?uid,
+                attempt = i + 1,
+                "generated uid, checking for uniqueness"
+            );
+
+            let exists = match kind {
+                Kind::Event => self.db.events.get(&uid).await?.is_some(),
+                Kind::Todo => self.db.todos.get(&uid).await?.is_some(),
+            };
+            if exists {
+                tracing::debug!(uid, "uid already exists in db, generating a new one");
+                continue;
+            }
+
+            if fs::try_exists(&self.get_path(&uid)).await? {
+                tracing::debug!(uid, "uid already exists as a file, generating a new one");
                 continue;
             }
             return Ok(uid);
         }
 
+        tracing::warn!("failed to generate a unique uid after multiple attempts");
         Err("Failed to generate a unique UID after multiple attempts".into())
     }
 

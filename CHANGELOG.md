@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - core: `DateTimeAnchor.parse_xxx` has been deprecated, use `resolve_xxx` instead
 
+### Fixed
+
+- core: Checking uid uniqueness by kind
+
 ## [v0.8.2] - 2025-09-16
 
 ### Changed
