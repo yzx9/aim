@@ -59,7 +59,7 @@ impl EventOrTodoArgs {
     }
 
     pub fn get_kind(matches: &ArgMatches) -> Option<Kind> {
-        matches.get_one("type").cloned()
+        matches.get_one("type").copied()
     }
 
     pub fn id(&self) -> Arg {
@@ -116,12 +116,12 @@ impl EventOrTodoArgs {
     }
 
     pub fn summary(&self, positional: bool) -> Arg {
-        let help = format!("Summary of the {}", self.kind_name());
-        if positional {
-            arg!(summary: [SUMMARY]).help(help)
+        let arg = if positional {
+            arg!(summary: [SUMMARY])
         } else {
-            arg!(summary: -s --summary <SUMMARY>).help(help)
-        }
+            arg!(summary: -s --summary <SUMMARY>)
+        };
+        arg.help(format!("Summary of the {}", self.kind_name()))
     }
 
     pub fn get_summary(matches: &ArgMatches) -> Option<String> {
@@ -137,14 +137,14 @@ impl EventOrTodoArgs {
     }
 
     pub fn get_time(matches: &ArgMatches) -> Option<DateTimeAnchor> {
-        matches.get_one::<DateTimeAnchor>("time").cloned()
+        matches.get_one("time").copied()
     }
 
-    fn kind_name(&self) -> String {
+    fn kind_name(&self) -> &'static str {
         match self.kind {
-            Some(Kind::Event) => "event".to_string(),
-            Some(Kind::Todo) => "todo".to_string(),
-            None => "event or todo".to_string(),
+            Some(Kind::Event) => "event",
+            Some(Kind::Todo) => "todo",
+            None => "event or todo",
         }
     }
 }
