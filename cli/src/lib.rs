@@ -29,6 +29,7 @@ mod cmd_toplevel;
 mod cmd_tui;
 mod config;
 mod event_formatter;
+mod prompt;
 mod table;
 mod todo_formatter;
 mod tui;

@@ -13,6 +13,7 @@ use colored::Colorize;
 
 use crate::arg::{CommonArgs, EventArgs, EventOrTodoArgs};
 use crate::event_formatter::{EventColumn, EventFormatter};
+use crate::prompt::prompt_time;
 use crate::tui;
 use crate::util::{OutputFormat, parse_datetime, parse_datetime_range};
 
@@ -235,7 +236,7 @@ impl CmdEventEdit {
 #[derive(Debug, Clone)]
 pub struct CmdEventDelay {
     pub ids: Vec<Id>,
-    pub time_anchor: String,
+    pub time: Option<DateTimeAnchor>,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -256,7 +257,7 @@ impl CmdEventDelay {
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             ids: EventOrTodoArgs::get_ids(matches),
-            time_anchor: EventOrTodoArgs::get_time(matches),
+            time: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -265,25 +266,30 @@ impl CmdEventDelay {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "delaying event...");
 
+        // Prompt for time if not provided
+        let time = match self.time {
+            Some(t) => t,
+            None => prompt_time()?,
+        };
+
         // Calculate new start and end based on original start and end if exists, otherwise based on now
         // TODO: move these logics to core crate, same for reschedule command
-        let anchor: DateTimeAnchor = self.time_anchor.parse()?;
         let mut events = Vec::with_capacity(self.ids.len());
         for id in &self.ids {
             let event = aim.get_event(id).await?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), end) => {
-                    let s = anchor.resolve_at(&start);
-                    let e = end.map(|a| anchor.resolve_at(&a));
+                    let s = time.resolve_at(&start);
+                    let e = end.map(|a| time.resolve_at(&a));
                     (Some(s), e)
                 }
                 (None, Some(end)) => {
                     // TODO: should we set a start time with default duration? same for reschedule command
-                    let e = anchor.resolve_at(&end);
+                    let e = time.resolve_at(&end);
                     (None, Some(e))
                 }
                 (None, None) => {
-                    let s = anchor.resolve_since_datetime(&aim.now());
+                    let s = time.resolve_since_datetime(&aim.now());
                     // TODO: should we set a end time with default duration? same for reschedule command
                     (Some(s), None)
                 }
@@ -307,7 +313,7 @@ impl CmdEventDelay {
 #[derive(Debug, Clone)]
 pub struct CmdEventReschedule {
     pub ids: Vec<Id>,
-    pub time_anchor: String,
+    pub time: Option<DateTimeAnchor>,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -328,7 +334,7 @@ impl CmdEventReschedule {
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             ids: EventOrTodoArgs::get_ids(matches),
-            time_anchor: EventOrTodoArgs::get_time(matches),
+            time: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
@@ -337,14 +343,19 @@ impl CmdEventReschedule {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "rescheduling event...");
 
+        // Prompt for time if not provided
+        let time = match self.time {
+            Some(t) => t,
+            None => prompt_time()?,
+        };
+
         // Calculate new start and end based on original start and end if exists, otherwise based on now
-        let anchor: DateTimeAnchor = self.time_anchor.parse()?;
         let mut events = Vec::with_capacity(self.ids.len());
         for id in &self.ids {
             let event = aim.get_event(id).await?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), Some(end)) => {
-                    let s = anchor.resolve_since_datetime(&aim.now());
+                    let s = time.resolve_since_datetime(&aim.now());
                     let e = match (start, end) {
                         (LooseDateTime::DateOnly(ds), LooseDateTime::DateOnly(de)) => {
                             (s.date() + (de - ds)).into()
@@ -375,11 +386,11 @@ impl CmdEventReschedule {
                     (Some(s), Some(e))
                 }
                 (_, None) => {
-                    let s = anchor.resolve_since_datetime(&aim.now());
+                    let s = time.resolve_since_datetime(&aim.now());
                     (Some(s), None)
                 }
                 (None, Some(_)) => {
-                    let e = anchor.resolve_since_datetime(&aim.now());
+                    let e = time.resolve_since_datetime(&aim.now());
                     (None, Some(e))
                 }
             };
@@ -585,7 +596,7 @@ mod tests {
                 "b",
                 "c",
                 "--time",
-                "time",
+                "1d",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -599,7 +610,7 @@ mod tests {
             Id::ShortIdOrUid("c".to_string()),
         ];
         assert_eq!(parsed.ids, expected_ids);
-        assert_eq!(parsed.time_anchor, "time");
+        assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
@@ -614,7 +625,7 @@ mod tests {
                 "b",
                 "c",
                 "--time",
-                "time",
+                "1d",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -628,7 +639,7 @@ mod tests {
             Id::ShortIdOrUid("c".to_string()),
         ];
         assert_eq!(parsed.ids, expected_ids);
-        assert_eq!(parsed.time_anchor, "time");
+        assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }

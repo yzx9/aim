@@ -4,7 +4,7 @@
 
 use std::sync::OnceLock;
 
-use aimcal_core::{EventStatus, Id, Kind, Priority, TodoStatus};
+use aimcal_core::{DateTimeAnchor, EventStatus, Id, Kind, Priority, TodoStatus};
 use clap::{Arg, ArgMatches, ValueEnum, arg, value_parser};
 use clap_num::number_range;
 
@@ -128,17 +128,16 @@ impl EventOrTodoArgs {
         matches.get_one("summary").cloned()
     }
 
-    pub fn time(&self, kind: &str) -> Arg {
+    pub fn time(&self, operation: &str) -> Arg {
         arg!(time: -t --time <TIME>)
-            .help(format!("Time to {} (datetime, time, tomorrow...)", kind))
-            .required(true)
+            .help(format!(
+                "Time to {operation} (2025-01-01 [9:00], 14:00, tomorrow...)"
+            ))
+            .value_parser(value_parser!(DateTimeAnchor))
     }
 
-    pub fn get_time(matches: &ArgMatches) -> String {
-        matches
-            .get_one::<String>("time")
-            .expect("time is required")
-            .clone()
+    pub fn get_time(matches: &ArgMatches) -> Option<DateTimeAnchor> {
+        matches.get_one::<DateTimeAnchor>("time").cloned()
     }
 
     fn kind_name(&self) -> String {

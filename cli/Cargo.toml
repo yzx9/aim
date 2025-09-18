@@ -25,6 +25,7 @@ clap = { version = "4.5", features = ["cargo", "color", "derive"] }
 clap-num = "1.2.0"
 clap_complete = "4.5"
 clap_complete_nushell = "4.5"
+cliclack = "0.3.6"
 colored = "3.0.0"
 dirs = "6.0.0"
 futures = "0.3.31"

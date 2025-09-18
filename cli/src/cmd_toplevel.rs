@@ -14,6 +14,7 @@ use crate::arg::{CommonArgs, EventOrTodoArgs};
 use crate::cmd_event::{CmdEventDelay, CmdEventReschedule};
 use crate::cmd_todo::{CmdTodoDelay, CmdTodoList, CmdTodoReschedule};
 use crate::event_formatter::{EventColumn, EventFormatter};
+use crate::prompt::prompt_time;
 use crate::util::OutputFormat;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -103,7 +104,7 @@ impl CmdDashboard {
 #[derive(Debug, Clone)]
 pub struct CmdDelay {
     pub ids: Vec<Id>,
-    pub time_anchor: String,
+    pub time: Option<DateTimeAnchor>,
     pub verbose: bool,
 }
 
@@ -122,46 +123,71 @@ impl CmdDelay {
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             ids: EventOrTodoArgs::get_ids(matches),
-            time_anchor: EventOrTodoArgs::get_time(matches),
+            time: EventOrTodoArgs::get_time(matches),
             verbose: CommonArgs::get_verbose(matches),
         }
     }
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         let (event_ids, todo_ids) = separate_ids(aim, self.ids.clone()).await?;
-
-        // TODO: handle formatting
-        let printed_header = !event_ids.is_empty() && !todo_ids.is_empty();
-        if !event_ids.is_empty() {
-            if printed_header {
-                println!("🗓️ {}", "Events".bold());
-            }
-
+        if todo_ids.is_empty() {
             CmdEventDelay {
                 ids: event_ids,
-                time_anchor: self.time_anchor.clone(),
+                time: self.time,
                 output_format: OutputFormat::Table,
                 verbose: self.verbose,
             }
             .run(aim)
-            .await?;
-        }
-
-        if !todo_ids.is_empty() {
-            if printed_header {
-                println!();
-                println!("✅ {}", "To-Dos".bold());
-            }
-
+            .await
+        } else if todo_ids.is_empty() {
             CmdTodoDelay {
                 ids: todo_ids,
-                time: self.time_anchor,
+                time: self.time,
                 output_format: OutputFormat::Table,
                 verbose: self.verbose,
             }
             .run(aim)
-            .await?;
+            .await
+        } else {
+            self.run_mix(aim, event_ids, todo_ids).await
         }
+    }
+
+    async fn run_mix(
+        self,
+        aim: &mut Aim,
+        event_ids: Vec<Id>,
+        todo_ids: Vec<Id>,
+    ) -> Result<(), Box<dyn Error>> {
+        // Prompt for time if not provided
+        let time = match self.time {
+            Some(t) => t,
+            None => prompt_time()?,
+        };
+
+        // TODO: handle formatting
+        println!("🗓️ {}", "Events".bold());
+
+        CmdEventDelay {
+            ids: event_ids,
+            time: Some(time),
+            output_format: OutputFormat::Table,
+            verbose: self.verbose,
+        }
+        .run(aim)
+        .await?;
+
+        println!();
+        println!("✅ {}", "To-Dos".bold());
+
+        CmdTodoDelay {
+            ids: todo_ids,
+            time: Some(time),
+            output_format: OutputFormat::Table,
+            verbose: self.verbose,
+        }
+        .run(aim)
+        .await?;
 
         Ok(())
     }
@@ -170,7 +196,7 @@ impl CmdDelay {
 #[derive(Debug, Clone)]
 pub struct CmdReschedule {
     pub ids: Vec<Id>,
-    pub time: String,
+    pub time: Option<DateTimeAnchor>,
     pub verbose: bool,
 }
 
@@ -196,29 +222,16 @@ impl CmdReschedule {
 
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         let (event_ids, todo_ids) = separate_ids(aim, self.ids.clone()).await?;
-
-        let printed_header = !event_ids.is_empty() && !todo_ids.is_empty();
-        if !event_ids.is_empty() {
-            if printed_header {
-                println!("🗓️ {}", "Events".bold());
-            }
-
+        if todo_ids.is_empty() {
             CmdEventReschedule {
                 ids: event_ids,
-                time_anchor: self.time.clone(),
+                time: self.time,
                 output_format: OutputFormat::Table,
                 verbose: self.verbose,
             }
             .run(aim)
-            .await?;
-        }
-
-        if !todo_ids.is_empty() {
-            if printed_header {
-                println!();
-                println!("✅ {}", "To-Dos".bold());
-            }
-
+            .await
+        } else if event_ids.is_empty() {
             CmdTodoReschedule {
                 ids: todo_ids,
                 time: self.time,
@@ -226,8 +239,46 @@ impl CmdReschedule {
                 verbose: self.verbose,
             }
             .run(aim)
-            .await?;
+            .await
+        } else {
+            self.run_mix(aim, event_ids, todo_ids).await
         }
+    }
+
+    async fn run_mix(
+        self,
+        aim: &mut Aim,
+        event_ids: Vec<Id>,
+        todo_ids: Vec<Id>,
+    ) -> Result<(), Box<dyn Error>> {
+        // Prompt for time if not provided
+        let time = match self.time {
+            Some(t) => t,
+            None => prompt_time()?,
+        };
+
+        println!("🗓️ {}", "Events".bold());
+
+        CmdEventReschedule {
+            ids: event_ids,
+            time: Some(time),
+            output_format: OutputFormat::Table,
+            verbose: self.verbose,
+        }
+        .run(aim)
+        .await?;
+
+        println!();
+        println!("✅ {}", "To-Dos".bold());
+
+        CmdTodoReschedule {
+            ids: todo_ids,
+            time: Some(time),
+            output_format: OutputFormat::Table,
+            verbose: self.verbose,
+        }
+        .run(aim)
+        .await?;
 
         Ok(())
     }
@@ -289,7 +340,7 @@ mod tests {
     fn test_parse_delay() {
         let cmd = CmdEventDelay::command();
         let matches = cmd
-            .try_get_matches_from(["delay", "a", "b", "c", "--time", "time", "--verbose"])
+            .try_get_matches_from(["delay", "a", "b", "c", "--time", "1d", "--verbose"])
             .unwrap();
         let parsed = CmdDelay::from(&matches);
 
@@ -299,7 +350,7 @@ mod tests {
             Id::ShortIdOrUid("c".to_string()),
         ];
         assert_eq!(parsed.ids, expected_ids);
-        assert_eq!(parsed.time_anchor, "time");
+        assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert!(parsed.verbose);
     }
 
@@ -307,7 +358,7 @@ mod tests {
     fn test_parse_reschedule() {
         let cmd = CmdReschedule::command();
         let matches = cmd
-            .try_get_matches_from(["reschedule", "a", "b", "c", "--time", "time", "--verbose"])
+            .try_get_matches_from(["reschedule", "a", "b", "c", "--time", "1h", "--verbose"])
             .unwrap();
         let parsed = CmdReschedule::from(&matches);
 
@@ -317,7 +368,7 @@ mod tests {
             Id::ShortIdOrUid("c".to_string()),
         ];
         assert_eq!(parsed.ids, expected_ids);
-        assert_eq!(parsed.time, "time");
+        assert_eq!(parsed.time, Some(DateTimeAnchor::Relative(60 * 60)));
         assert!(parsed.verbose);
     }
 

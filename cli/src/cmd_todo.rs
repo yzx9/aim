@@ -12,6 +12,7 @@ use clap::{ArgMatches, Command};
 use colored::Colorize;
 
 use crate::arg::{CommonArgs, EventOrTodoArgs, TodoArgs};
+use crate::prompt::{prompt_time, prompt_time_opt};
 use crate::todo_formatter::{TodoColumn, TodoFormatter};
 use crate::tui;
 use crate::util::{OutputFormat, parse_datetime};
@@ -294,7 +295,7 @@ cmd_status!(CmdTodoCancel, Cancelled, "cancel", "canceled");
 #[derive(Debug, Clone)]
 pub struct CmdTodoDelay {
     pub ids: Vec<Id>,
-    pub time: String,
+    pub time: Option<DateTimeAnchor>,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -324,14 +325,19 @@ impl CmdTodoDelay {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "delaying todo...");
 
-        let anchor: DateTimeAnchor = self.time.parse()?;
+        // Prompt for time if not provided
+        let time = match self.time {
+            Some(t) => t,
+            None => prompt_time()?,
+        };
+
         let mut todos = vec![];
         for id in &self.ids {
             // Calculate new due based on original due if exists, otherwise based on now
             let todo = aim.get_todo(id).await?;
             let new_due = Some(match todo.due() {
-                Some(due) => anchor.resolve_at(&due),
-                None => anchor.resolve_since_datetime(&aim.now()),
+                Some(due) => time.resolve_at(&due),
+                None => time.resolve_since_datetime(&aim.now()),
             });
 
             // Update the todo
@@ -350,7 +356,7 @@ impl CmdTodoDelay {
 #[derive(Debug, Clone)]
 pub struct CmdTodoReschedule {
     pub ids: Vec<Id>,
-    pub time: String,
+    pub time: Option<DateTimeAnchor>,
     pub output_format: OutputFormat,
     pub verbose: bool,
 }
@@ -380,15 +386,16 @@ impl CmdTodoReschedule {
     pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "rescheduling todo...");
 
-        let anchor: DateTimeAnchor = self.time.parse()?;
+        // Prompt for time if not provided
+        let time = match self.time {
+            Some(t) => Some(t),
+            None => prompt_time_opt()?,
+        };
+
         let mut todos = vec![];
         for id in &self.ids {
             // Calculate new due based on now
-            let new_due = if !self.time.is_empty() {
-                Some(anchor.resolve_since_datetime(&aim.now()))
-            } else {
-                None
-            };
+            let new_due = time.map(|a| a.resolve_since_datetime(&aim.now()));
 
             // Update the todo
             let patch = TodoPatch {
@@ -686,7 +693,7 @@ mod tests {
                 "b",
                 "c",
                 "--time",
-                "time",
+                "1d",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -700,7 +707,7 @@ mod tests {
             Id::ShortIdOrUid("c".to_string()),
         ];
         assert_eq!(parsed.ids, expected_ids);
-        assert_eq!(parsed.time, "time");
+        assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
@@ -715,7 +722,7 @@ mod tests {
                 "b",
                 "c",
                 "--time",
-                "time",
+                "1d",
                 "--output-format",
                 "json",
                 "--verbose",
@@ -729,7 +736,7 @@ mod tests {
             Id::ShortIdOrUid("c".to_string()),
         ];
         assert_eq!(parsed.ids, expected_ids);
-        assert_eq!(parsed.time, "time");
+        assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }
