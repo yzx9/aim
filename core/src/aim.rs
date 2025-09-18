@@ -340,12 +340,13 @@ impl Aim {
                 Kind::Todo => self.db.todos.get(&uid).await?.is_some(),
             };
             if exists {
-                tracing::debug!(uid, "uid already exists in db, generating a new one");
+                tracing::debug!(uid, ?kind, "uid already exists in db");
                 continue;
             }
 
-            if fs::try_exists(&self.get_path(&uid)).await? {
-                tracing::debug!(uid, "uid already exists as a file, generating a new one");
+            let path = self.get_path(&uid);
+            if fs::try_exists(&path).await? {
+                tracing::debug!(uid, ?path, "uid already exists as a file");
                 continue;
             }
             return Ok(uid);
