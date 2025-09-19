@@ -5,7 +5,6 @@
 use std::{error::Error, path::PathBuf, str::FromStr};
 
 use aimcal_core::{APP_NAME, Config as CoreConfig};
-use colored::Colorize;
 
 #[tracing::instrument]
 pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config), Box<dyn Error>> {
@@ -27,36 +26,13 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config),
 
     match content.parse::<ConfigRaw>() {
         Ok(raw) => Ok((raw.core, Config {})),
-        Err(err) => {
-            // If parsing fails, try legacy format
-            match content.parse::<ConfigLegacy>() {
-                Ok(legacy) => {
-                    println!(
-                        "{} Please update your config file by moving all entry to `[core]` sub-table",
-                        "Warning:".yellow(),
-                    );
-                    Ok((legacy.0, Config {}))
-                }
-                Err(_) => Err(err),
-            }
-        }
+        Err(err) => Err(err),
     }
 }
 
 /// Configuration for the Aim application.
 #[derive(Debug, Clone, Copy, serde::Deserialize)]
 pub struct Config;
-
-#[derive(Debug, serde::Deserialize)]
-struct ConfigLegacy(CoreConfig);
-
-impl FromStr for ConfigLegacy {
-    type Err = Box<dyn Error>;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(toml::from_str(s)?)
-    }
-}
 
 #[derive(Debug, serde::Deserialize)]
 struct ConfigRaw {
