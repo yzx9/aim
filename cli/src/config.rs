@@ -4,6 +4,8 @@
 
 use std::{error::Error, path::PathBuf, str::FromStr};
 
+use tokio::fs;
+
 use aimcal_core::{APP_NAME, Config as CoreConfig};
 
 #[tracing::instrument]
@@ -21,13 +23,11 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config),
         }
     };
 
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read config file at {}: {}", path.display(), e))?;
-
-    match content.parse::<ConfigRaw>() {
-        Ok(raw) => Ok((raw.core, Config {})),
-        Err(err) => Err(err),
-    }
+    fs::read_to_string(&path)
+        .await
+        .map_err(|e| format!("Failed to read config file at {}: {}", path.display(), e))?
+        .parse::<ConfigRaw>()
+        .map(|a| (a.core, Config {}))
 }
 
 /// Configuration for the Aim application.
