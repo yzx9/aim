@@ -5,7 +5,7 @@
 use std::{borrow::Cow, fmt};
 
 use aimcal_core::{Event, LooseDateTime, RangePosition};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Datelike, Local, NaiveDate};
 use colored::Color;
 
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
@@ -87,8 +87,8 @@ impl EventColumn {
         EventColumn::DateTimeSpan(EventColumnDateTimeSpan)
     }
 
-    pub fn time_span() -> Self {
-        EventColumn::TimeSpan(EventColumnTimeSpan)
+    pub fn time_span(date: NaiveDate) -> Self {
+        EventColumn::TimeSpan(EventColumnTimeSpan { date })
     }
 
     pub fn id() -> Self {
@@ -229,28 +229,64 @@ impl EventColumnDateTimeSpan {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct EventColumnTimeSpan;
+pub struct EventColumnTimeSpan {
+    date: NaiveDate,
+}
 
 impl EventColumnTimeSpan {
     fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
         match (event.start(), event.end()) {
-            (Some(start), Some(end)) => match (start.time(), end.time()) {
-                (Some(stime), Some(etime)) => {
-                    format!("{}~{}", stime.format("%H:%M"), etime.format("%H:%M"))
+            (Some(start), Some(end)) => {
+                let sdate = start.date();
+                let edate = end.date();
+                if edate < sdate {
+                    String::new() // Invalid range
+                } else if edate < self.date {
+                    format!("⇥{}", Self::format_date(edate)).to_string() // in the past
+                } else if sdate > self.date {
+                    format!("{}↦", Self::format_date(sdate)).to_string() // in the future
+                } else if sdate == self.date && sdate == edate {
+                    // today is the only day
+                    match (start.time(), end.time()) {
+                        (Some(stime), Some(etime)) => {
+                            format!("{}~{}", stime.format("%H:%M"), etime.format("%H:%M"))
+                        }
+                        (Some(stime), None) => format!("{}⇥", stime.format("%H:%M")),
+                        (None, Some(etime)) => format!("     ↦{}", etime.format("%H:%M")),
+                        (None, None) => format!("⇹{}", Self::format_date(self.date)),
+                    }
+                } else if sdate == self.date
+                    && sdate < edate
+                    && let Some(stime) = start.time()
+                {
+                    // starts today with time, ends later
+                    format!("{}↦", stime.format("%H:%M")).to_string()
+                } else if edate == self.date
+                    && let Some(etime) = end.time()
+                {
+                    // ends today with time, started earlier
+                    format!("⇥{}", etime.format("%H:%M"))
+                } else if sdate.year() == self.date.year() && edate.year() == self.date.year() {
+                    // sdate <= self.date <= edate, no time, same year, only show month and day
+                    format!("{}~{}", sdate.format("%m-%d"), edate.format("%m-%d")).to_string() // sdate < self.date < edate
+                } else {
+                    // sdate <= self.date <= edate, no time, different year, show full date
+                    format!("⇸{}", Self::format_date(edate)).to_string()
                 }
-                (Some(stime), None) => format!("{}~24:00", stime.format("%H:%M")),
-                (None, Some(etime)) => format!("00:00~{}", etime.format("%H:%M")),
-                (None, None) => start.date().format("%Y-%m-%d").to_string(),
             }
             .into(),
             (Some(start), None) => format_datetime(start).into(),
-            (None, Some(end)) => format!("~{}", format_datetime(end)).into(),
+            (None, Some(end)) => format!("↦{}", format_datetime(end)).into(),
             (None, None) => String::new().into(),
         }
     }
 
     fn get_color(&self, event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
         EventColumnDateTimeSpan::event_color(event, now)
+    }
+
+    fn format_date(d: NaiveDate) -> String {
+        d.format("%Y-%m-%d").to_string()
     }
 }
 

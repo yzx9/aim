@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- cli: Improve time format in command `dashboard`
 - core: Implement `From` and `Into` traits to all integer types for `Priority`
 - core: `Aim.get_event` and `Aim.get_todo` returns a error if the item not found
 

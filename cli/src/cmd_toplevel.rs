@@ -47,12 +47,6 @@ impl CmdDashboard {
         const MAX: i64 = 128;
 
         let pager: Pager = (MAX, 0).into();
-        let columns = vec![
-            EventColumn::id(),
-            EventColumn::time_span(),
-            EventColumn::summary(),
-        ];
-        let formatter = EventFormatter::new(aim.now(), columns);
 
         println!("🗓️ {}", "Events".bold());
 
@@ -80,6 +74,13 @@ impl CmdDashboard {
                     }
                 }
 
+                let date = anchor.resolve_at_start_of_day(&aim.now()).date_naive();
+                let columns = vec![
+                    EventColumn::id(),
+                    EventColumn::time_span(date),
+                    EventColumn::summary(),
+                ];
+                let formatter = EventFormatter::new(aim.now(), columns);
                 println!("{}", formatter.format(&events));
             }
         }
@@ -139,7 +140,7 @@ impl CmdDelay {
             }
             .run(aim)
             .await
-        } else if todo_ids.is_empty() {
+        } else if event_ids.is_empty() {
             CmdTodoDelay {
                 ids: todo_ids,
                 time: self.time,
