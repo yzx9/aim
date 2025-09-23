@@ -100,15 +100,11 @@ impl<S: TodoStoreLike> ConditionalPercentComplete<S> {
 
 impl<S: TodoStoreLike> Component<S> for ConditionalPercentComplete<S> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
-        if self.is_visible(store) {
-            self.0.render(store, area, buf);
-        }
+        self.0.render(store, area, buf);
     }
 
     fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
-        self.is_visible(store)
-            .then(|| self.0.get_cursor_position(store, area))
-            .flatten()
+        self.0.get_cursor_position(store, area)
     }
 
     fn on_key(
@@ -118,26 +114,15 @@ impl<S: TodoStoreLike> Component<S> for ConditionalPercentComplete<S> {
         area: Rect,
         key: KeyCode,
     ) -> Option<Message> {
-        self.is_visible(store)
-            .then(|| self.0.on_key(dispatcher, store, area, key))
-            .flatten()
+        self.0.on_key(dispatcher, store, area, key)
     }
 
     fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
-        if self.is_visible(store) {
-            self.0.activate(dispatcher, store);
-        }
+        self.0.activate(dispatcher, store);
     }
 
     fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
-        if self.is_visible(store) {
-            self.0.deactivate(dispatcher, store);
-        }
-    }
-
-    fn is_visible(&self, store: &RefCell<S>) -> bool {
-        // Only visible if the status is InProcess
-        matches!(store.borrow().todo().data.status, TodoStatus::InProcess)
+        self.0.deactivate(dispatcher, store);
     }
 }
 
@@ -147,10 +132,9 @@ impl<S: TodoStoreLike> FormItem<S> for ConditionalPercentComplete<S> {
     }
 
     fn item_state(&self, store: &RefCell<S>) -> FormItemState {
-        if self.is_visible(store) {
-            self.0.item_state(store)
-        } else {
-            FormItemState::Inactive
+        match store.borrow().todo().data.status {
+            TodoStatus::InProcess => self.0.item_state(store), // Only visible if the status is InProcess
+            _ => FormItemState::Invisible,
         }
     }
 }

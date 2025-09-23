@@ -29,12 +29,9 @@ impl<S, C: FormItem<S>> Form<S, C> {
     }
 
     fn layout(&self, store: &RefCell<S>) -> Layout {
-        Layout::vertical(self.items.iter().map(|item| {
-            if item.is_visible(store) {
-                Constraint::Max(3)
-            } else {
-                Constraint::Max(0)
-            }
+        Layout::vertical(self.items.iter().map(|item| match item.item_state(store) {
+            FormItemState::Invisible => Constraint::Max(0),
+            _ => Constraint::Max(3),
         }))
         .margin(1)
     }
@@ -48,7 +45,7 @@ impl<S, C: FormItem<S>> Form<S, C> {
         // move to next/previous item, skipping invisible items
         let len = self.items.len();
 
-        // Find the next visible item
+        // find the next visible item
         let mut new_index = self.item_index;
         let mut steps = offset.unsigned_abs();
 
@@ -60,15 +57,13 @@ impl<S, C: FormItem<S>> Form<S, C> {
             }
 
             // Check if the item at new_index is visible
-            if let Some(item) = self.items.get(new_index) {
-                if item.is_visible(store) {
-                    steps -= 1;
-                }
-            } else {
+            if let Some(item) = self.items.get(new_index)
+                && item_is_visible(item, store)
+            {
+                steps -= 1; // Found a visible item
+            } else if new_index == self.item_index {
                 // If we've gone through all items and none are visible, break
-                if new_index == self.item_index {
-                    break;
-                }
+                break;
             }
         }
 
@@ -84,10 +79,14 @@ impl<S, C: FormItem<S>> Form<S, C> {
 impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let areas = self.layout(store).split(area);
-        for (i, (field, area)) in self.items.iter().zip(areas.iter()).enumerate() {
-            let is_last = i == self.items.len() - 1;
-            item_render(is_last, field, store, area, buf);
-            field.render(store, item_inner(area), buf);
+        let mut is_last = true;
+        for (item, area) in self.items.iter().zip(areas.iter()).rev() {
+            // reverse order to draw the last item first, dont assert if the item is visible
+            item_render(is_last, item, store, area, buf);
+            item.render(store, item_inner(area), buf);
+            if is_last && item_is_visible(item, store) {
+                is_last = false;
+            }
         }
     }
 
@@ -425,8 +424,14 @@ impl<S> FormItem<S> for Box<dyn FormItem<S>> {
 }
 
 pub enum FormItemState {
-    Inactive,
+    // Whether the component is currently active (focused).
     Active,
+
+    // Whether the component is currently inactive (not focused).
+    Inactive,
+
+    /// Whether the component is currently visible. By default, all items are visible.
+    Invisible,
 }
 
 const S_STEP_ACTIVE: &str = "◆";
@@ -448,6 +453,7 @@ fn item_render<S>(
     let color = match item.item_state(store) {
         FormItemState::Active => Color::Blue,
         FormItemState::Inactive => Color::Gray,
+        FormItemState::Invisible => return,
     };
 
     let area_title = Rect::new(area.x + 2, area.y, area.width.saturating_sub(2), 1);
@@ -461,6 +467,7 @@ fn item_render<S>(
         let symbol = match item.item_state(store) {
             FormItemState::Active => S_STEP_ACTIVE,
             FormItemState::Inactive => S_STEP_INACTIVE,
+            FormItemState::Invisible => unreachable!(),
         };
         c.set_symbol(symbol);
         c.set_fg(color);
@@ -491,4 +498,8 @@ fn item_inner(area: &Rect) -> Rect {
         width: area.width.saturating_sub(2),
         height: area.height.saturating_sub(2),
     }
+}
+
+fn item_is_visible<S>(item: &impl FormItem<S>, store: &RefCell<S>) -> bool {
+    !matches!(item.item_state(store), FormItemState::Invisible)
 }
