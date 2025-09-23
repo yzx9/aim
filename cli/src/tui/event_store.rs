@@ -27,7 +27,7 @@ pub struct EventStore {
 }
 
 impl EventStore {
-    pub fn new_by_draft(draft: EventDraft) -> Self {
+    pub fn from_draft(draft: EventDraft) -> Self {
         Self::new(EventData {
             description: draft.description.unwrap_or_default(),
             end: draft.end.map(format_datetime).unwrap_or_default(),
@@ -37,13 +37,22 @@ impl EventStore {
         })
     }
 
-    pub fn new_by_event(event: &impl Event) -> Self {
+    pub fn from_patch(event: &impl Event, patch: EventPatch) -> Self {
         Self::new(EventData {
-            description: event.description().unwrap_or_default().to_owned(),
-            start: event.start().map(format_datetime).unwrap_or_default(),
-            end: event.end().map(format_datetime).unwrap_or_default(),
-            status: event.status().unwrap_or_default(),
-            summary: event.summary().to_string(),
+            description: match patch.description {
+                Some(v) => v.unwrap_or_default(),
+                None => event.description().unwrap_or_default().to_owned(),
+            },
+            start: match patch.start {
+                Some(v) => v.map(format_datetime).unwrap_or_default(),
+                None => event.start().map(format_datetime).unwrap_or_default(),
+            },
+            end: match patch.end {
+                Some(v) => v.map(format_datetime).unwrap_or_default(),
+                None => event.end().map(format_datetime).unwrap_or_default(),
+            },
+            status: patch.status.or_else(|| event.status()).unwrap_or_default(),
+            summary: patch.summary.unwrap_or_else(|| event.summary().to_string()),
         })
     }
 

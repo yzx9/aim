@@ -30,7 +30,7 @@ pub struct TodoStore {
 }
 
 impl TodoStore {
-    pub fn new_by_draft(draft: TodoDraft) -> Self {
+    pub fn from_draft(draft: TodoDraft) -> Self {
         Self::new(TodoData {
             description: draft.description.unwrap_or_default(),
             due: draft.due.map(format_datetime).unwrap_or_default(),
@@ -41,7 +41,7 @@ impl TodoStore {
         })
     }
 
-    pub fn new_by_patch(todo: &impl Todo, patch: TodoPatch) -> Self {
+    pub fn from_patch(todo: &impl Todo, patch: TodoPatch) -> Self {
         Self::new(TodoData {
             description: match patch.description {
                 Some(v) => v.unwrap_or_default(),
@@ -51,22 +51,12 @@ impl TodoStore {
                 Some(v) => v.map(format_datetime).unwrap_or_default(),
                 None => todo.due().map(format_datetime).unwrap_or_default(),
             },
-            percent_complete: match patch.percent_complete {
-                Some(v) => v,
-                None => todo.percent_complete(),
-            },
-            priority: match patch.priority {
-                Some(v) => v,
-                None => todo.priority(),
-            },
-            status: match patch.status {
-                Some(v) => v,
-                None => todo.status(),
-            },
-            summary: match patch.summary {
-                Some(v) => v,
-                None => todo.summary().to_owned(),
-            },
+            percent_complete: patch
+                .percent_complete
+                .unwrap_or_else(|| todo.percent_complete()),
+            priority: patch.priority.unwrap_or_else(|| todo.priority()),
+            status: patch.status.unwrap_or_else(|| todo.status()),
+            summary: patch.summary.unwrap_or_else(|| todo.summary().to_owned()),
         })
     }
 

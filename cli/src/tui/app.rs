@@ -21,7 +21,7 @@ use crate::tui::todo_editor::new_todo_editor;
 use crate::tui::todo_store::TodoStore;
 
 pub fn draft_event(aim: &mut Aim) -> Result<Option<EventDraft>, Box<dyn Error>> {
-    let store = EventStore::new_by_draft(EventDraft {
+    let store = EventStore::from_draft(EventDraft {
         description: None,
         end: None,
         start: None,
@@ -38,8 +38,9 @@ pub fn draft_event(aim: &mut Aim) -> Result<Option<EventDraft>, Box<dyn Error>> 
 pub fn patch_event(
     aim: &mut Aim,
     event: &impl Event,
+    patch: EventPatch,
 ) -> Result<Option<EventPatch>, Box<dyn Error>> {
-    let store = EventStore::new_by_event(event);
+    let store = EventStore::from_patch(event, patch);
     let store = run_event_editor(aim, store)?;
     match store.submit {
         true => store.submit_patch(aim).map(Some),
@@ -48,7 +49,7 @@ pub fn patch_event(
 }
 
 pub fn draft_todo(aim: &mut Aim, draft: TodoDraft) -> Result<Option<TodoDraft>, Box<dyn Error>> {
-    let store = TodoStore::new_by_draft(draft);
+    let store = TodoStore::from_draft(draft);
     let store = run_todo_editor(aim, store)?;
     match store.submit {
         true => store.submit_draft(aim).map(Some),
@@ -61,7 +62,7 @@ pub fn patch_todo(
     todo: &impl Todo,
     patch: TodoPatch,
 ) -> Result<Option<TodoPatch>, Box<dyn Error>> {
-    let store = TodoStore::new_by_patch(todo, patch);
+    let store = TodoStore::from_patch(todo, patch);
     let store = run_todo_editor(aim, store)?;
     match store.submit {
         true => store.submit_patch(aim).map(Some),
