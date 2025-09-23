@@ -109,7 +109,7 @@ type EventTodoEditor<S> = TabPages<S, Form<S, Box<dyn FormItem<S>>>, EventTodoSt
 
 pub fn new_event_todo_editor<S: EventTodoStoreLike + 'static>() -> EventTodoEditor<S> {
     TabPages::new(vec![
-        (Kind::Event, "Event".to_owned(), new_event_form()),
-        (Kind::Todo, "Todo".to_owned(), new_todo_form()),
+        (Kind::Event, "Event", new_event_form()),
+        (Kind::Todo, "Todo", new_todo_form()),
     ])
 }

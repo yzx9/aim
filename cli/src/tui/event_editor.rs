@@ -13,7 +13,7 @@ use crate::tui::event_store::EventStoreLike;
 
 pub fn new_event_editor<S: EventStoreLike + 'static>()
 -> SinglePage<S, Form<S, Box<dyn FormItem<S>>>> {
-    SinglePage::new("Event Editor".to_owned(), new_event_form())
+    SinglePage::new("Event Editor", new_event_form())
 }
 
 pub fn new_event_form<S: EventStoreLike + 'static>() -> Form<S, Box<dyn FormItem<S>>> {
@@ -29,7 +29,7 @@ pub fn new_event_form<S: EventStoreLike + 'static>() -> Form<S, Box<dyn FormItem
 macro_rules! new_input {
     ($fn: ident, $title:expr, $acc: ident, $field: ident, $action: ident) => {
         fn $fn<S: EventStoreLike>() -> Input<S, $acc> {
-            Input::new($title.to_string())
+            Input::new($title)
         }
 
         struct $acc;
@@ -68,7 +68,7 @@ fn new_status<S: EventStoreLike>() -> RadioGroup<S, EventStatus, StatusAccess> {
     use EventStatus::*;
     let values = vec![Tentative, Confirmed, Cancelled];
     let options = values.iter().map(ToString::to_string).collect();
-    RadioGroup::new("Status".to_string(), values, options)
+    RadioGroup::new("Status", values, options)
 }
 
 struct StatusAccess;

@@ -164,9 +164,9 @@ pub struct Input<S, A: Access<S, String>> {
 }
 
 impl<S, A: Access<S, String>> Input<S, A> {
-    pub fn new(title: String) -> Self {
+    pub fn new(title: impl ToString) -> Self {
         Self {
-            title,
+            title: title.to_string(),
             active: false,
             character_index: 0,
             _phantom_a: std::marker::PhantomData,
@@ -307,9 +307,9 @@ pub struct RadioGroup<S, T: Eq + Clone, A: Access<S, T>> {
 }
 
 impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
-    pub fn new(title: String, values: Vec<T>, options: Vec<String>) -> Self {
+    pub fn new(title: impl ToString, values: Vec<T>, options: Vec<String>) -> Self {
         Self {
-            title,
+            title: title.to_string(),
             values,
             options,
             active: false,

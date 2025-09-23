@@ -18,7 +18,7 @@ use crate::tui::todo_store::TodoStoreLike;
 
 pub fn new_todo_editor<S: TodoStoreLike + 'static>() -> SinglePage<S, Form<S, Box<dyn FormItem<S>>>>
 {
-    SinglePage::new("Todo Editor".to_owned(), new_todo_form())
+    SinglePage::new("Todo Editor", new_todo_form())
 }
 
 pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S, Box<dyn FormItem<S>>> {
@@ -35,7 +35,7 @@ pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S, Box<dyn FormItem<S
 macro_rules! new_input {
     ($fn: ident, $title:expr, $acc: ident, $field: ident, $action: ident) => {
         fn $fn<S: TodoStoreLike>() -> Input<S, $acc> {
-            Input::new($title.to_string())
+            Input::new($title)
         }
 
         struct $acc;
@@ -84,7 +84,7 @@ impl<S: TodoStoreLike> Access<S, Option<u8>> for PercentCompleteAccess {
 
 fn new_percent_complete<S: TodoStoreLike>()
 -> Input<S, PositiveIntegerAccess<S, u8, PercentCompleteAccess>> {
-    Input::new("Percent complete".to_string())
+    Input::new("Percent complete")
 }
 
 /// A conditional component that only renders when the todo status is `InProcess`
@@ -143,7 +143,7 @@ fn new_status<S: TodoStoreLike>() -> RadioGroup<S, TodoStatus, StatusAccess> {
     use TodoStatus::*;
     let values = vec![NeedsAction, Completed, InProcess, Cancelled];
     let options = values.iter().map(ToString::to_string).collect();
-    RadioGroup::new("Status".to_string(), values, options)
+    RadioGroup::new("Status", values, options)
 }
 
 struct StatusAccess;
@@ -180,9 +180,10 @@ impl<S: TodoStoreLike> FieldPriority<S> {
             .map(|a| Self::fmt(a, false).to_string())
             .collect();
 
+        const TITLE: &str = "Priority";
         Self {
-            verbose: RadioGroup::new("Priority".to_string(), values_verb, options_verb),
-            concise: RadioGroup::new("Priority".to_string(), values, options),
+            verbose: RadioGroup::new(TITLE, values_verb, options_verb),
+            concise: RadioGroup::new(TITLE, values, options),
         }
     }
 

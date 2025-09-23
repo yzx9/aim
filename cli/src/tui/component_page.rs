@@ -22,9 +22,9 @@ pub struct SinglePage<S, C: Component<S>> {
 }
 
 impl<S, C: Component<S>> SinglePage<S, C> {
-    pub fn new(title: String, inner: C) -> Self {
+    pub fn new(title: impl ToString, inner: C) -> Self {
         Self {
-            title,
+            title: title.to_string(),
             inner,
             _phantom: std::marker::PhantomData,
         }
@@ -86,7 +86,7 @@ pub struct TabPages<S, C: Component<S>, A: Access<S, Kind>> {
 }
 
 impl<S, C: Component<S>, A: Access<S, Kind>> TabPages<S, C, A> {
-    pub fn new(pages: Vec<(Kind, String, C)>) -> Self {
+    pub fn new(pages: Vec<(Kind, impl ToString, C)>) -> Self {
         let len = pages.len();
         let (identifiers, titles, pages) = pages.into_iter().fold(
             (
@@ -96,7 +96,7 @@ impl<S, C: Component<S>, A: Access<S, Kind>> TabPages<S, C, A> {
             ),
             |(mut v1, mut v2, mut v3), (a, b, c)| {
                 v1.push(a);
-                v2.push(b);
+                v2.push(b.to_string());
                 v3.push(c);
                 (v1, v2, v3)
             },
