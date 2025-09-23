@@ -6,21 +6,20 @@ use std::{cell::RefCell, rc::Rc, str::FromStr};
 
 use ratatui::crossterm::event::KeyCode;
 use ratatui::prelude::*;
-use ratatui::symbols::border;
-use ratatui::widgets::{self, Block, Paragraph, block};
+use ratatui::widgets::{Clear, Paragraph};
 use unicode_width::UnicodeWidthStr;
 
 use crate::tui::component::{Component, Message};
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::util::{byte_range_of_grapheme_at, unicode_width_of_slice};
 
-pub struct Form<S, C: Component<S>> {
+pub struct Form<S, C: FormItem<S>> {
     items: Vec<C>,
     item_index: usize,
     _phantom: std::marker::PhantomData<S>,
 }
 
-impl<S, C: Component<S>> Form<S, C> {
+impl<S, C: FormItem<S>> Form<S, C> {
     pub fn new(items: Vec<C>) -> Self {
         Self {
             items,
@@ -82,20 +81,23 @@ impl<S, C: Component<S>> Form<S, C> {
     }
 }
 
-impl<S, C: Component<S>> Component<S> for Form<S, C> {
+impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         let areas = self.layout(store).split(area);
-        for (field, area) in self.items.iter().zip(areas.iter()) {
-            field.render(store, *area, buf);
+        for (i, (field, area)) in self.items.iter().zip(areas.iter()).enumerate() {
+            let is_last = i == self.items.len() - 1;
+            item_render(is_last, field, store, area, buf);
+            field.render(store, item_inner(area), buf);
         }
     }
 
     fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
-        let areas = self.layout(store).split(area);
-        match (self.items.get(self.item_index), areas.get(self.item_index)) {
-            (Some(comp), Some(area)) => comp.get_cursor_position(store, *area),
-            _ => None,
-        }
+        self.items
+            .iter()
+            .zip(self.layout(store).split(area).iter())
+            .take(self.item_index + 1)
+            .last()
+            .and_then(|(comp, area)| comp.get_cursor_position(store, *area))
     }
 
     fn on_key(
@@ -176,9 +178,8 @@ impl<S, A: Access<S, String>> Input<S, A> {
 
 impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
-        let block = form_item_block(&self.title, self.active);
         let v = A::get(store);
-        Paragraph::new(v.as_str()).block(block).render(area, buf);
+        Paragraph::new(v.as_str()).render(area, buf);
     }
 
     fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
@@ -247,6 +248,20 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
     }
 }
 
+impl<S, A: Access<S, String>> FormItem<S> for Input<S, A> {
+    fn item_title(&self) -> &str {
+        &self.title
+    }
+
+    fn item_state(&self, _store: &RefCell<S>) -> FormItemState {
+        if self.active {
+            FormItemState::Active
+        } else {
+            FormItemState::Inactive
+        }
+    }
+}
+
 pub struct PositiveIntegerAccess<S, T, A>
 where
     T: ToString + FromStr + ToOwned + Clone,
@@ -269,7 +284,6 @@ where
         }
     }
 
-    #[tracing::instrument(skip_all)]
     fn set(dispatcher: &mut Dispatcher, value: String) -> bool {
         let v = value.trim();
         if v.is_empty() {
@@ -310,11 +324,8 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
         self.values.iter().position(|s| s == &v).unwrap_or(0)
     }
 
-    fn split(&self, area: Rect) -> (Block<'_>, Rc<[Rect]>) {
-        let outer_block = form_item_block(&self.title, self.active);
-        let inner = outer_block.inner(area);
-        let inner_blocks = self.layout().split(inner);
-        (outer_block, inner_blocks)
+    fn split(&self, area: Rect) -> Rc<[Rect]> {
+        self.layout().split(area)
     }
 
     fn layout(&self) -> Layout {
@@ -330,26 +341,18 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
 
 impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
-        let (outer, inners) = self.split(area);
-        outer.render(area, buf);
-        for (i, (value, area)) in self.options.iter().zip(inners.iter()).enumerate() {
+        let options = self.split(area);
+        for (i, (value, area)) in self.options.iter().zip(options.iter()).enumerate() {
             let icon = if self.selected(store) == i { 'x' } else { ' ' };
             let label = format!("[{icon}] {value}");
-            let inner_block = Block::default().padding(block::Padding::horizontal(1));
-            Paragraph::new(label).block(inner_block).render(*area, buf);
+            Paragraph::new(label).render(*area, buf);
         }
     }
 
     fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
-        if !self.active {
-            return None; // No cursor position when not active
-        }
-
-        let (_, inners) = self.split(area);
-        inners.get(self.selected(store)).map(|area| {
-            let x = area.x + 2; // 2 = padding (1) + active marker [ (1)
-            (x, area.y)
-        })
+        self.split(item_inner(&area))
+            .get(self.selected(store))
+            .map(|area| (area.x + 1, area.y))
     }
 
     fn on_key(
@@ -392,16 +395,100 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
     }
 }
 
-fn form_item_block(title: &str, active: bool) -> Block<'_> {
-    let block = Block::bordered()
-        .border_set(border::ROUNDED)
-        .borders(widgets::Borders::ALL)
-        .padding(widgets::Padding::horizontal(1))
-        .title_position(block::Position::Top)
-        .title(format!(" {title} ").bold());
+impl<S, T: Eq + Clone, A: Access<S, T>> FormItem<S> for RadioGroup<S, T, A> {
+    fn item_title(&self) -> &str {
+        &self.title
+    }
 
-    match active {
-        true => block.blue(),
-        false => block.white(),
+    fn item_state(&self, _store: &RefCell<S>) -> FormItemState {
+        if self.active {
+            FormItemState::Active
+        } else {
+            FormItemState::Inactive
+        }
+    }
+}
+
+pub trait FormItem<S>: Component<S> {
+    fn item_title(&self) -> &str;
+    fn item_state(&self, store: &RefCell<S>) -> FormItemState;
+}
+
+impl<S> FormItem<S> for Box<dyn FormItem<S>> {
+    fn item_title(&self) -> &str {
+        (**self).item_title()
+    }
+
+    fn item_state(&self, store: &RefCell<S>) -> FormItemState {
+        (**self).item_state(store)
+    }
+}
+
+pub enum FormItemState {
+    Inactive,
+    Active,
+}
+
+const S_STEP_ACTIVE: &str = "◆";
+const S_STEP_INACTIVE: &str = "◇";
+// const S_STEP_CANCEL: &str = "■";
+// const S_STEP_ERROR: &str = "▲";
+
+// const S_SIDER_TOP: &str = "┌";
+const S_SIDER_CONNECTOR: &str = "│";
+const S_SIDER_BOTTOM: &str = "└";
+
+fn item_render<S>(
+    is_last: bool,
+    item: &impl FormItem<S>,
+    store: &RefCell<S>,
+    area: &Rect,
+    buf: &mut Buffer,
+) {
+    let color = match item.item_state(store) {
+        FormItemState::Active => Color::Blue,
+        FormItemState::Inactive => Color::Gray,
+    };
+
+    let area_title = Rect::new(area.x + 2, area.y, area.width.saturating_sub(2), 1);
+    Clear.render(area_title, buf);
+    Paragraph::new(item.item_title())
+        .bold()
+        .fg(color)
+        .render(area_title, buf);
+
+    if let Some(c) = buf.cell_mut((area.x, area.y)) {
+        let symbol = match item.item_state(store) {
+            FormItemState::Active => S_STEP_ACTIVE,
+            FormItemState::Inactive => S_STEP_INACTIVE,
+        };
+        c.set_symbol(symbol);
+        c.set_fg(color);
+    }
+
+    for y in 1..area.height.saturating_sub(1) {
+        if let Some(c) = buf.cell_mut((area.x, area.y + y)) {
+            c.set_symbol(S_SIDER_CONNECTOR);
+            c.set_fg(color);
+        }
+    }
+
+    if let Some(c) = buf.cell_mut((area.x, area.y + area.height.saturating_sub(1))) {
+        let symbol = if is_last {
+            S_SIDER_BOTTOM
+        } else {
+            S_SIDER_CONNECTOR
+        };
+        c.set_symbol(symbol);
+        c.set_fg(color);
+    }
+}
+
+fn item_inner(area: &Rect) -> Rect {
+    Rect {
+        x: area.x + 2,
+        y: area.y + 1,
+        width: area.width.saturating_sub(2),
+        height: area.height.saturating_sub(2),
     }
 }

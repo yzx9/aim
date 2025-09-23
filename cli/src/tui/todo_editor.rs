@@ -9,17 +9,19 @@ use ratatui::crossterm::event::KeyCode;
 use ratatui::prelude::*;
 
 use crate::tui::component::{Component, Message};
-use crate::tui::component_form::{Access, Form, Input, PositiveIntegerAccess, RadioGroup};
+use crate::tui::component_form::{
+    Access, Form, FormItem, FormItemState, Input, PositiveIntegerAccess, RadioGroup,
+};
 use crate::tui::component_page::SinglePage;
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::tui::todo_store::TodoStoreLike;
 
-pub fn new_todo_editor<S: TodoStoreLike + 'static>() -> SinglePage<S, Form<S, Box<dyn Component<S>>>>
+pub fn new_todo_editor<S: TodoStoreLike + 'static>() -> SinglePage<S, Form<S, Box<dyn FormItem<S>>>>
 {
     SinglePage::new("Todo Editor".to_owned(), new_todo_form())
 }
 
-pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S, Box<dyn Component<S>>> {
+pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S, Box<dyn FormItem<S>>> {
     Form::new(vec![
         Box::new(new_summary()),
         Box::new(new_due()),
@@ -139,6 +141,20 @@ impl<S: TodoStoreLike> Component<S> for ConditionalPercentComplete<S> {
     }
 }
 
+impl<S: TodoStoreLike> FormItem<S> for ConditionalPercentComplete<S> {
+    fn item_title(&self) -> &str {
+        self.0.item_title()
+    }
+
+    fn item_state(&self, store: &RefCell<S>) -> FormItemState {
+        if self.is_visible(store) {
+            self.0.item_state(store)
+        } else {
+            FormItemState::Inactive
+        }
+    }
+}
+
 fn new_status<S: TodoStoreLike>() -> RadioGroup<S, TodoStatus, StatusAccess> {
     use TodoStatus::*;
     let values = vec![NeedsAction, Completed, InProcess, Cancelled];
@@ -246,6 +262,16 @@ impl<S: TodoStoreLike> Component<S> for FieldPriority<S> {
     fn deactivate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
         self.verbose.deactivate(dispatcher, store);
         self.concise.deactivate(dispatcher, store);
+    }
+}
+
+impl<S: TodoStoreLike> FormItem<S> for FieldPriority<S> {
+    fn item_title(&self) -> &str {
+        self.verbose.item_title()
+    }
+
+    fn item_state(&self, store: &RefCell<S>) -> FormItemState {
+        self.get(store).item_state(store)
     }
 }
 

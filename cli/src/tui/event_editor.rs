@@ -6,18 +6,17 @@ use std::cell::RefCell;
 
 use aimcal_core::EventStatus;
 
-use crate::tui::component::Component;
-use crate::tui::component_form::{Access, Form, Input, RadioGroup};
+use crate::tui::component_form::{Access, Form, FormItem, Input, RadioGroup};
 use crate::tui::component_page::SinglePage;
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::tui::event_store::EventStoreLike;
 
 pub fn new_event_editor<S: EventStoreLike + 'static>()
--> SinglePage<S, Form<S, Box<dyn Component<S>>>> {
+-> SinglePage<S, Form<S, Box<dyn FormItem<S>>>> {
     SinglePage::new("Event Editor".to_owned(), new_event_form())
 }
 
-pub fn new_event_form<S: EventStoreLike + 'static>() -> Form<S, Box<dyn Component<S>>> {
+pub fn new_event_form<S: EventStoreLike + 'static>() -> Form<S, Box<dyn FormItem<S>>> {
     Form::new(vec![
         Box::new(new_summary()),
         Box::new(new_start()),
