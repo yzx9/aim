@@ -175,11 +175,10 @@ impl<S, C: Component<S>> App<S, C> {
         Ok(match event::read()? {
             event::Event::Key(e) if e.kind == KeyEventKind::Press => {
                 // Handle key events for the current component
-                let (form, dispatcher, area) = (&mut self.view, &mut self.dispatcher, self.area);
-                match form.on_key(dispatcher, store, self.area, e.code) {
+                match self.view.on_key(&mut self.dispatcher, store, self.area, e) {
                     Some(msg) => match msg {
                         Message::CursorUpdated => {
-                            self.cursor_pos = self.view.get_cursor_position(store, area);
+                            self.cursor_pos = self.view.get_cursor_position(store, self.area);
                             Some(Message::Handled)
                         }
                         _ => Some(msg),

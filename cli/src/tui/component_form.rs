@@ -4,7 +4,7 @@
 
 use std::{cell::RefCell, rc::Rc, str::FromStr};
 
-use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::prelude::*;
 use ratatui::widgets::{Clear, Paragraph};
 use unicode_width::UnicodeWidthStr;
@@ -82,9 +82,9 @@ impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
         let mut is_last = true;
         for (item, area) in self.items.iter().zip(areas.iter()).rev() {
             // reverse order to draw the last item first, dont assert if the item is visible
-            item_render(is_last, item, store, area, buf);
-            item.render(store, item_inner(area), buf);
-            if is_last && item_is_visible(item, store) {
+            if item_is_visible(item, store) {
+                item_render(is_last, item, store, area, buf);
+                item.render(store, item_inner(area), buf);
                 is_last = false;
             }
         }
@@ -104,7 +104,7 @@ impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
         dispatcher: &mut Dispatcher,
         store: &RefCell<S>,
         area: Rect,
-        key: KeyCode,
+        event: KeyEvent,
     ) -> Option<Message> {
         // Handle key events for the current component
         let areas = self.layout(store).split(area);
@@ -114,12 +114,12 @@ impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
             .zip(areas.iter())
             .take(self.item_index + 1)
             .last()
-            && let Some(msg) = comp.on_key(dispatcher, store, *subarea, key)
+            && let Some(msg) = comp.on_key(dispatcher, store, *subarea, event)
         {
             return Some(msg);
         };
 
-        match key {
+        match event.code {
             KeyCode::Up | KeyCode::BackTab if self.item_index > 0 => {
                 self.navigate(dispatcher, store, -1);
                 Some(Message::CursorUpdated)
@@ -198,14 +198,14 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
         dispatcher: &mut Dispatcher,
         store: &RefCell<S>,
         _area: Rect,
-        key: KeyCode,
+        event: KeyEvent,
     ) -> Option<Message> {
         use KeyCode::*;
-        if !self.active || !matches!(key, Left | Right | Backspace | Char(_)) {
+        if !self.active || !matches!(event.code, Left | Right | Backspace | Char(_)) {
             return None;
         }
 
-        match key {
+        match event.code {
             Left if self.character_index > 0 => self.character_index -= 1,
             Right if self.character_index < A::get(store).len() => self.character_index += 1,
             Backspace if self.character_index > 0 => {
@@ -359,15 +359,15 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
         dispatcher: &mut Dispatcher,
         store: &RefCell<S>,
         _area: Rect,
-        key: KeyCode,
+        event: KeyEvent,
     ) -> Option<Message> {
         if !self.active {
             return None; // Only handle keys when the field is active
         }
 
-        match key {
+        match event.code {
             KeyCode::Left | KeyCode::Right => {
-                let offset = match key {
+                let offset = match event.code {
                     KeyCode::Left => self.values.len() - 1,
                     KeyCode::Right => 1,
                     _ => 0,

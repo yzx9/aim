@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cli: Add command `flush` to truncate all short IDs
 - cli: Add interactive prompt for `delay`, `reschedule` commands
+- cli: Support Ctrl-C in TUI
 - core: Add api `Aim.flush_short_ids`
 - core: Add `DateTimeAnchor::Relative`, remove `DateTimeAnchor::InHours`
 - core: Parse date only string as `DateTimeAnchor`

@@ -5,7 +5,7 @@
 use std::cell::RefCell;
 
 use aimcal_core::{Priority, TodoStatus};
-use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::KeyEvent;
 use ratatui::prelude::*;
 
 use crate::tui::component::{Component, Message};
@@ -112,9 +112,9 @@ impl<S: TodoStoreLike> Component<S> for ConditionalPercentComplete<S> {
         dispatcher: &mut Dispatcher,
         store: &RefCell<S>,
         area: Rect,
-        key: KeyCode,
+        event: KeyEvent,
     ) -> Option<Message> {
-        self.0.on_key(dispatcher, store, area, key)
+        self.0.on_key(dispatcher, store, area, event)
     }
 
     fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
@@ -234,9 +234,9 @@ impl<S: TodoStoreLike> Component<S> for FieldPriority<S> {
         dispatcher: &mut Dispatcher,
         store: &RefCell<S>,
         area: Rect,
-        key: KeyCode,
+        event: KeyEvent,
     ) -> Option<Message> {
-        self.get_mut(store).on_key(dispatcher, store, area, key)
+        self.get_mut(store).on_key(dispatcher, store, area, event)
     }
 
     fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {

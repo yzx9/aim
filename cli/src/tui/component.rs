@@ -4,7 +4,7 @@
 
 use std::cell::RefCell;
 
-use ratatui::{crossterm::event::KeyCode, prelude::*};
+use ratatui::{crossterm::event::KeyEvent, prelude::*};
 
 use crate::tui::dispatcher::Dispatcher;
 
@@ -30,7 +30,7 @@ pub trait Component<S> {
         _dispatcher: &mut Dispatcher,
         _store: &RefCell<S>,
         _area: Rect,
-        _key: KeyCode,
+        _event: KeyEvent,
     ) -> Option<Message> {
         None // Default implementation does nothing
     }
@@ -59,9 +59,9 @@ where
         dispatcher: &mut Dispatcher,
         store: &RefCell<S>,
         area: Rect,
-        key: KeyCode,
+        event: KeyEvent,
     ) -> Option<Message> {
-        (**self).on_key(dispatcher, store, area, key)
+        (**self).on_key(dispatcher, store, area, event)
     }
 
     fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {

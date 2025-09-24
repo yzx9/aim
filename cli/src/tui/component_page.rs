@@ -5,7 +5,7 @@
 use std::cell::RefCell;
 
 use aimcal_core::Kind;
-use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::{Block, Paragraph};
@@ -54,16 +54,19 @@ impl<S, C: Component<S>> Component<S> for SinglePage<S, C> {
         dispatcher: &mut Dispatcher,
         store: &RefCell<S>,
         area: Rect,
-        key: KeyCode,
+        event: KeyEvent,
     ) -> Option<Message> {
-        if let Some(msg) = self.inner.on_key(dispatcher, store, area, key) {
-            return Some(msg);
+        // match global key events first
+        match event.code {
+            KeyCode::Esc => return Some(Message::Exit),
+            KeyCode::Char('c') if event.modifiers.contains(KeyModifiers::CONTROL) => {
+                return Some(Message::Exit);
+            }
+            _ => {}
         }
 
-        match key {
-            KeyCode::Esc => Some(Message::Exit),
-            _ => None,
-        }
+        // then delegate to inner component
+        self.inner.on_key(dispatcher, store, area, event)
     }
 
     fn activate(&mut self, dispatcher: &mut Dispatcher, store: &RefCell<S>) {
@@ -190,12 +193,22 @@ impl<S, C: Component<S>, A: Access<S, Kind>> Component<S> for TabPages<S, C, A> 
         dispatcher: &mut Dispatcher,
         store: &RefCell<S>,
         area: Rect,
-        key: KeyCode,
+        event: KeyEvent,
     ) -> Option<Message> {
+        // match global key events first
+        match event.code {
+            KeyCode::Esc => return Some(Message::Exit),
+            KeyCode::Char('c') if event.modifiers.contains(KeyModifiers::CONTROL) => {
+                return Some(Message::Exit);
+            }
+            _ => {}
+        }
+
+        // then handle tab/page specific events
         let active_index = self.active_index(store)?;
         let len = self.pages.len();
         if self.tab_active {
-            match key {
+            match event.code {
                 KeyCode::Down => {
                     self.tab_active = false;
                     if let Some(page) = self.pages.get_mut(active_index) {
@@ -215,19 +228,17 @@ impl<S, C: Component<S>, A: Access<S, Kind>> Component<S> for TabPages<S, C, A> 
                     }
                     Some(Message::Handled)
                 }
-                KeyCode::Esc => Some(Message::Exit),
                 _ => None,
             }
         } else if let Some(page) = self.pages.get_mut(active_index) {
-            match page.on_key(dispatcher, store, area, key) {
+            match page.on_key(dispatcher, store, area, event) {
                 Some(msg) => Some(msg),
-                None => match key {
+                None => match event.code {
                     KeyCode::Up if !self.tab_active => {
                         self.tab_active = true;
                         page.deactivate(dispatcher, store);
                         Some(Message::CursorUpdated)
                     }
-                    KeyCode::Esc => Some(Message::Exit),
                     _ => None,
                 },
             }
