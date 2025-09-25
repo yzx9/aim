@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cell::RefCell, rc::Rc, str::FromStr};
+use std::{cell::RefCell, rc::Rc};
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::prelude::*;
@@ -149,6 +149,32 @@ impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
     }
 }
 
+pub trait FormItem<S>: Component<S> {
+    fn item_title(&self, store: &RefCell<S>) -> &str;
+    fn item_state(&self, store: &RefCell<S>) -> FormItemState;
+}
+
+impl<S> FormItem<S> for Box<dyn FormItem<S>> {
+    fn item_title(&self, store: &RefCell<S>) -> &str {
+        (**self).item_title(store)
+    }
+
+    fn item_state(&self, store: &RefCell<S>) -> FormItemState {
+        (**self).item_state(store)
+    }
+}
+
+pub enum FormItemState {
+    // Whether the component is currently active (focused).
+    Active,
+
+    // Whether the component is currently inactive (not focused).
+    Inactive,
+
+    /// Whether the component is currently visible. By default, all items are visible.
+    Invisible,
+}
+
 pub trait Access<S, T: ToOwned> {
     fn get(store: &RefCell<S>) -> T;
     fn set(dispatcher: &mut Dispatcher, value: T) -> bool;
@@ -248,7 +274,7 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
 }
 
 impl<S, A: Access<S, String>> FormItem<S> for Input<S, A> {
-    fn item_title(&self) -> &str {
+    fn item_title(&self, _store: &RefCell<S>) -> &str {
         &self.title
     }
 
@@ -257,41 +283,6 @@ impl<S, A: Access<S, String>> FormItem<S> for Input<S, A> {
             FormItemState::Active
         } else {
             FormItemState::Inactive
-        }
-    }
-}
-
-pub struct PositiveIntegerAccess<S, T, A>
-where
-    T: ToString + FromStr + ToOwned + Clone,
-    A: Access<S, Option<T>>,
-{
-    _phantom_s: std::marker::PhantomData<S>,
-    _phantom_a: std::marker::PhantomData<A>,
-    _phantom_t: std::marker::PhantomData<T>,
-}
-
-impl<S, T, A> Access<S, String> for PositiveIntegerAccess<S, T, A>
-where
-    T: Eq + ToString + FromStr + ToOwned + Clone,
-    A: Access<S, Option<T>>,
-{
-    fn get(s: &RefCell<S>) -> String {
-        match A::get(s) {
-            Some(a) => a.to_string(),
-            None => String::new(),
-        }
-    }
-
-    fn set(dispatcher: &mut Dispatcher, value: String) -> bool {
-        let v = value.trim();
-        if v.is_empty() {
-            A::set(dispatcher, None)
-        } else if let Ok(num) = v.parse::<T>() {
-            A::set(dispatcher, Some(num))
-        } else {
-            tracing::debug!(value, "failed to parse as a positive integer");
-            false
         }
     }
 }
@@ -395,7 +386,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
 }
 
 impl<S, T: Eq + Clone, A: Access<S, T>> FormItem<S> for RadioGroup<S, T, A> {
-    fn item_title(&self) -> &str {
+    fn item_title(&self, _store: &RefCell<S>) -> &str {
         &self.title
     }
 
@@ -406,32 +397,6 @@ impl<S, T: Eq + Clone, A: Access<S, T>> FormItem<S> for RadioGroup<S, T, A> {
             FormItemState::Inactive
         }
     }
-}
-
-pub trait FormItem<S>: Component<S> {
-    fn item_title(&self) -> &str;
-    fn item_state(&self, store: &RefCell<S>) -> FormItemState;
-}
-
-impl<S> FormItem<S> for Box<dyn FormItem<S>> {
-    fn item_title(&self) -> &str {
-        (**self).item_title()
-    }
-
-    fn item_state(&self, store: &RefCell<S>) -> FormItemState {
-        (**self).item_state(store)
-    }
-}
-
-pub enum FormItemState {
-    // Whether the component is currently active (focused).
-    Active,
-
-    // Whether the component is currently inactive (not focused).
-    Inactive,
-
-    /// Whether the component is currently visible. By default, all items are visible.
-    Invisible,
 }
 
 const S_STEP_ACTIVE: &str = "◆";
@@ -458,7 +423,7 @@ fn item_render<S>(
 
     let area_title = Rect::new(area.x + 2, area.y, area.width.saturating_sub(2), 1);
     Clear.render(area_title, buf);
-    Paragraph::new(item.item_title())
+    Paragraph::new(item.item_title(store))
         .bold()
         .fg(color)
         .render(area_title, buf);
