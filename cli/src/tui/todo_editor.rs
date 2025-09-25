@@ -132,9 +132,12 @@ impl<S: TodoStoreLike> FormItem<S> for ConditionalPercentComplete<S> {
     }
 
     fn item_state(&self, store: &RefCell<S>) -> FormItemState {
-        match store.borrow().todo().data.status {
-            TodoStatus::InProcess => self.0.item_state(store), // Only visible if the status is InProcess
-            _ => FormItemState::Invisible,
+        let s = store.borrow();
+        let data = &s.todo().data;
+        if data.percent_complete.is_some() || matches!(data.status, TodoStatus::InProcess) {
+            self.0.item_state(store) // Visible if percent_complete is set or status is InProcess
+        } else {
+            FormItemState::Invisible
         }
     }
 }
