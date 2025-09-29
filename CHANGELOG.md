@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2025-09-29
+
 ### Changed
 
 - cli: Always show percent complete if it contains a value
@@ -308,7 +310,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add events and todos command
 - Add dashboard command
 
-[Unreleased]: https://github.com/yzx9/aim/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/yzx9/aim/compare/v0.9.1...HEAD
+[v0.9.1]: https://github.com/yzx9/aim/compare/v0.9.0...v0.9.1
 [v0.9.0]: https://github.com/yzx9/aim/compare/v0.8.2...v0.9.0
 [v0.8.2]: https://github.com/yzx9/aim/compare/v0.8.1...v0.8.2
 [v0.8.1]: https://github.com/yzx9/aim/compare/v0.8.0...v0.8.1
