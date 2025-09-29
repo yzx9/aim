@@ -15,7 +15,7 @@ pub struct CommonArgs;
 
 impl CommonArgs {
     pub fn verbose() -> Arg {
-        arg!(-v --verbose "Show more detailed information")
+        arg!(-v --verbose "[DEPRECATED] Show more detailed information").hide(true)
     }
 
     pub fn get_verbose(matches: &ArgMatches) -> bool {

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cli: Show all todos in `todo list` command
 
+### Deprecated
+
+- cli: Hide verbose option
+
 ## [0.9.1] - 2025-09-29
 
 ### Changed
