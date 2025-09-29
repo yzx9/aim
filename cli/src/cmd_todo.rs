@@ -431,7 +431,7 @@ impl CmdTodoList {
         Self {
             conds: TodoConditions {
                 status: Some(TodoStatus::NeedsAction),
-                due: Some(DateTimeAnchor::InDays(2)),
+                due: None,
             },
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
