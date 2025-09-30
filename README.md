@@ -105,8 +105,19 @@ We'd like to thank the [pimutils](https://github.com/pimutils) project, particul
 
 - [khal](https://github.com/pimutils/khal) - A CLI calendar application
 - [todoman](https://github.com/pimutils/todoman) - A simple task manager
+- [icalendar](https://github.com/hoodie/icalendar) - icalendar library, in Rust of course
 
 Their work has been a significant inspiration for AIM's design and functionality.
+
+## Contribution
+
+Any help in form of descriptive and friendly [issues](https://github.com/yzx9/aim/issues) or comprehensive pull requests are welcome!
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in aim by you, as defined in the [Apache-2.0](www.apache.org/licenses/LICENSE-2.0) license, without any additional terms or conditions.
+
+Thanks goes to these wonderful people:
+
+[![Contributors](https://contrib.rocks/image?repo=yzx9/aim)](https://github.com/yzx9/aim/graphs/contributors)
 
 ## LICENSE
 
