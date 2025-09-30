@@ -475,22 +475,28 @@ const fn args() -> (EventOrTodoArgs, EventArgs) {
     )
 }
 
+// TODO: remove `verbose` in v0.12.0
 fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat, verbose: bool) {
-    let columns = if verbose {
-        vec![
+    let columns = match (output_format, verbose) {
+        (_, true) => vec![
             EventColumn::id(),
+            EventColumn::uid_legacy(),
+            EventColumn::datetime_span(),
+            EventColumn::summary(),
+        ],
+        (OutputFormat::Table, false) => vec![
+            EventColumn::id(),
+            EventColumn::datetime_span(),
+            EventColumn::summary(),
+        ],
+        (OutputFormat::Json, false) => vec![
             EventColumn::uid(),
+            EventColumn::short_id(),
             EventColumn::datetime_span(),
             EventColumn::summary(),
-        ]
-    } else {
-        vec![
-            EventColumn::id(),
-            EventColumn::datetime_span(),
-            EventColumn::summary(),
-        ]
+        ],
     };
-    let formatter = EventFormatter::new(aim.now(), columns).with_output_format(output_format);
+    let formatter = EventFormatter::new(aim.now(), columns, output_format);
     println!("{}", formatter.format(events));
 }
 

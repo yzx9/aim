@@ -479,26 +479,34 @@ const fn args() -> (EventOrTodoArgs, TodoArgs) {
     (EventOrTodoArgs::new(Some(Kind::Todo)), TodoArgs::new(true))
 }
 
+// TODO: remove `verbose` in v0.12.0
 fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: OutputFormat, verbose: bool) {
-    let columns = if verbose {
-        vec![
+    let columns = match (output_format, verbose) {
+        (_, true) => vec![
             TodoColumn::status(),
             TodoColumn::id(),
+            TodoColumn::uid_legacy(),
+            TodoColumn::priority(),
+            TodoColumn::due(),
+            TodoColumn::summary(),
+        ],
+        (OutputFormat::Table, false) => vec![
+            TodoColumn::status(),
+            TodoColumn::id(),
+            TodoColumn::priority(),
+            TodoColumn::due(),
+            TodoColumn::summary(),
+        ],
+        (OutputFormat::Json, false) => vec![
             TodoColumn::uid(),
-            TodoColumn::priority(),
-            TodoColumn::due(),
-            TodoColumn::summary(),
-        ]
-    } else {
-        vec![
+            TodoColumn::short_id(),
             TodoColumn::status(),
-            TodoColumn::id(),
             TodoColumn::priority(),
             TodoColumn::due(),
             TodoColumn::summary(),
-        ]
+        ],
     };
-    let formatter = TodoFormatter::new(aim.now(), columns).with_output_format(output_format);
+    let formatter = TodoFormatter::new(aim.now(), columns, output_format);
     println!("{}", formatter.format(todos));
 }
 

@@ -19,17 +19,12 @@ pub struct EventFormatter {
 }
 
 impl EventFormatter {
-    pub fn new(now: DateTime<Local>, columns: Vec<EventColumn>) -> Self {
+    pub fn new(now: DateTime<Local>, columns: Vec<EventColumn>, format: OutputFormat) -> Self {
         Self {
             now,
             columns,
-            format: OutputFormat::Table,
+            format,
         }
-    }
-
-    pub fn with_output_format(mut self, format: OutputFormat) -> Self {
-        self.format = format;
-        self
     }
 
     pub fn format<'a, E: Event>(&'a self, events: &'a [E]) -> Display<'a, E> {
@@ -59,16 +54,14 @@ impl<'a, E: Event> fmt::Display for Display<'a, E> {
             .collect();
 
         match self.formatter.format {
-            OutputFormat::Json => write!(
-                f,
-                "{}",
-                Table::new(TableStyleJson::new(), &columns, self.events)
-            ),
-            OutputFormat::Table => write!(
-                f,
-                "{}",
-                Table::new(TableStyleBasic::new(), &columns, self.events)
-            ),
+            OutputFormat::Json => {
+                let table = Table::new(TableStyleJson::new(), &columns, self.events);
+                write!(f, "{table}")
+            }
+            OutputFormat::Table => {
+                let table = Table::new(TableStyleBasic::new(), &columns, self.events);
+                write!(f, "{table}")
+            }
         }
     }
 }
@@ -77,9 +70,11 @@ impl<'a, E: Event> fmt::Display for Display<'a, E> {
 pub enum EventColumn {
     DateTimeSpan(EventColumnDateTimeSpan),
     Id(EventColumnId),
+    ShortId(EventColumnShortId),
     Summary(EventColumnSummary),
     TimeSpan(EventColumnTimeSpan),
     Uid(EventColumnUid),
+    UidLegacy(EventColumnUidLegacy),
 }
 
 impl EventColumn {
@@ -95,12 +90,20 @@ impl EventColumn {
         EventColumn::Id(EventColumnId)
     }
 
+    pub fn short_id() -> Self {
+        EventColumn::ShortId(EventColumnShortId)
+    }
+
     pub fn summary() -> Self {
         EventColumn::Summary(EventColumnSummary)
     }
 
     pub fn uid() -> Self {
         EventColumn::Uid(EventColumnUid)
+    }
+
+    pub fn uid_legacy() -> Self {
+        EventColumn::UidLegacy(EventColumnUidLegacy)
     }
 }
 
@@ -115,9 +118,11 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
         match self.column {
             EventColumn::DateTimeSpan(_) => "Date Time",
             EventColumn::Id(_) => "ID",
+            EventColumn::ShortId(_) => "Short ID",
             EventColumn::Summary(_) => "Summary",
             EventColumn::TimeSpan(_) => "Time",
             EventColumn::Uid(_) => "UID",
+            EventColumn::UidLegacy(_) => "UID",
         }
         .into()
     }
@@ -126,9 +131,11 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
         match self.column {
             EventColumn::DateTimeSpan(a) => a.format(data),
             EventColumn::Id(a) => a.format(data),
+            EventColumn::ShortId(a) => a.format(data),
             EventColumn::Summary(a) => a.format(data),
             EventColumn::TimeSpan(a) => a.format(data),
             EventColumn::Uid(a) => a.format(data),
+            EventColumn::UidLegacy(a) => a.format(data),
         }
     }
 
@@ -295,6 +302,28 @@ pub struct EventColumnUid;
 
 impl EventColumnUid {
     fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        event.uid().into()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct EventColumnUidLegacy;
+
+impl EventColumnUidLegacy {
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
         format!("#{}", event.uid()).into()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct EventColumnShortId;
+
+impl EventColumnShortId {
+    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
+        event
+            .short_id()
+            .map(|a| a.to_string())
+            .unwrap_or_default()
+            .into()
     }
 }

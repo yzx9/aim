@@ -80,7 +80,7 @@ impl CmdDashboard {
                     EventColumn::time_span(date),
                     EventColumn::summary(),
                 ];
-                let formatter = EventFormatter::new(aim.now(), columns);
+                let formatter = EventFormatter::new(aim.now(), columns, OutputFormat::Table);
                 println!("{}", formatter.format(&events));
             }
         }

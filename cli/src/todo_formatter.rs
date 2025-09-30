@@ -19,17 +19,12 @@ pub struct TodoFormatter {
 }
 
 impl TodoFormatter {
-    pub fn new(now: DateTime<Local>, columns: Vec<TodoColumn>) -> Self {
+    pub fn new(now: DateTime<Local>, columns: Vec<TodoColumn>, format: OutputFormat) -> Self {
         Self {
             now,
             columns,
-            format: OutputFormat::Table,
+            format,
         }
-    }
-
-    pub fn with_output_format(mut self, format: OutputFormat) -> Self {
-        self.format = format;
-        self
     }
 
     pub fn format<'a, T: Todo>(&'a self, todos: &'a [T]) -> Display<'a, T> {
@@ -59,16 +54,14 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
             .collect();
 
         match self.formatter.format {
-            OutputFormat::Json => write!(
-                f,
-                "{}",
-                Table::new(TableStyleJson::new(), &columns, self.todos)
-            ),
-            OutputFormat::Table => write!(
-                f,
-                "{}",
-                Table::new(TableStyleBasic::new(), &columns, self.todos)
-            ),
+            OutputFormat::Json => {
+                let table = Table::new(TableStyleJson::new(), &columns, self.todos);
+                write!(f, "{table}")
+            }
+            OutputFormat::Table => {
+                let table = Table::new(TableStyleBasic::new(), &columns, self.todos);
+                write!(f, "{table}")
+            }
         }
     }
 }
@@ -78,9 +71,11 @@ pub enum TodoColumn {
     Due(TodoColumnDue),
     Id(TodoColumnId),
     Priority(TodoColumnPriority),
+    ShortId(TodoColumnShortId),
     Status(TodoColumnStatus),
     Summary(TodoColumnSummary),
     Uid(TodoColumnUid),
+    UidLegacy(TodoColumnUidLegacy),
 }
 
 impl TodoColumn {
@@ -96,6 +91,10 @@ impl TodoColumn {
         TodoColumn::Priority(TodoColumnPriority)
     }
 
+    pub fn short_id() -> Self {
+        TodoColumn::ShortId(TodoColumnShortId)
+    }
+
     pub fn status() -> Self {
         TodoColumn::Status(TodoColumnStatus)
     }
@@ -107,6 +106,10 @@ impl TodoColumn {
     pub fn uid() -> Self {
         TodoColumn::Uid(TodoColumnUid)
     }
+
+    pub fn uid_legacy() -> Self {
+        TodoColumn::UidLegacy(TodoColumnUidLegacy)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -117,38 +120,42 @@ struct ColumnMeta<'a> {
 
 impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
-        match &self.column {
+        match self.column {
             TodoColumn::Due(_) => "Due",
             TodoColumn::Id(_) => "ID",
             TodoColumn::Priority(_) => "Priority",
+            TodoColumn::ShortId(_) => "Short ID",
             TodoColumn::Status(_) => "Status",
             TodoColumn::Summary(_) => "Summary",
             TodoColumn::Uid(_) => "UID",
+            TodoColumn::UidLegacy(_) => "UID",
         }
         .into()
     }
 
     fn format<'b>(&self, data: &'b T) -> Cow<'b, str> {
-        match &self.column {
+        match self.column {
             TodoColumn::Due(a) => a.format(data),
             TodoColumn::Id(a) => a.format(data),
             TodoColumn::Priority(a) => a.format(data),
+            TodoColumn::ShortId(a) => a.format(data),
             TodoColumn::Status(a) => a.format(data),
             TodoColumn::Summary(a) => a.format(data),
             TodoColumn::Uid(a) => a.format(data),
+            TodoColumn::UidLegacy(a) => a.format(data),
         }
     }
 
     fn padding_direction(&self) -> PaddingDirection {
         use TodoColumn::*;
-        match &self.column {
-            Id(_) | Priority(_) | Uid(_) => PaddingDirection::Right,
+        match self.column {
+            Id(_) | Priority(_) | Uid(_) | ShortId(_) => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
 
     fn get_color(&self, data: &T) -> Option<Color> {
-        match &self.column {
+        match self.column {
             TodoColumn::Due(v) => v.get_color(data, &self.now),
             TodoColumn::Priority(v) => v.get_color(),
             _ => None,
@@ -254,11 +261,32 @@ impl TodoColumnSummary {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct TodoColumnShortId;
+
+impl TodoColumnShortId {
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        todo.short_id()
+            .map(|a| a.to_string())
+            .unwrap_or_default()
+            .into()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct TodoColumnUid;
 
 impl TodoColumnUid {
     fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
         todo.uid().into()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TodoColumnUidLegacy;
+
+impl TodoColumnUidLegacy {
+    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
+        format!("#{}", todo.uid()).into()
     }
 }
 
