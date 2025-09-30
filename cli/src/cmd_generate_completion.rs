@@ -51,7 +51,7 @@ impl CmdGenerateCompletion {
             Shell::Fish => generate(ClapShell::Fish, &mut cmd, name, buf),
             Shell::PowerShell => generate(ClapShell::PowerShell, &mut cmd, name, buf),
             Shell::Zsh => generate(ClapShell::Zsh, &mut cmd, name, buf),
-            Shell::Nushell => generate(clap_complete_nushell::Nushell {}, &mut cmd, name, buf),
+            Shell::Nushell => generate(clap_complete_nushell::Nushell, &mut cmd, name, buf),
         }
     }
 }
@@ -79,7 +79,6 @@ mod tests {
             .try_get_matches_from(["generate-completion", "bash"])
             .unwrap();
         let parsed = CmdGenerateCompletion::from(&matches);
-
         assert_eq!(parsed.shell, Shell::Bash);
 
         let mut output = vec![];
@@ -89,21 +88,21 @@ mod tests {
 
     #[test]
     fn test_parse_shell_variants() {
-        fn test_shell_parsing(shell_str: &str, expected_shell: Shell) {
+        for (shell, expected) in [
+            ("bash", Shell::Bash),
+            ("elvish", Shell::Elvish),
+            ("fish", Shell::Fish),
+            ("nushell", Shell::Nushell),
+            ("powershell", Shell::PowerShell),
+            ("zsh", Shell::Zsh),
+        ] {
             let cmd = Cli::command();
             let matches = cmd
-                .try_get_matches_from(["aim", "generate-completion", shell_str])
-                .unwrap_or_else(|e| panic!("Failed to parse for shell '{shell_str}': {e}"));
+                .try_get_matches_from(["aim", "generate-completion", shell])
+                .unwrap_or_else(|e| panic!("Failed to parse for shell '{shell}': {e}"));
             let sub_matches = matches.subcommand_matches("generate-completion").unwrap();
             let parsed = CmdGenerateCompletion::from(sub_matches);
-            assert_eq!(parsed.shell, expected_shell);
+            assert_eq!(parsed.shell, expected);
         }
-
-        test_shell_parsing("bash", Shell::Bash);
-        test_shell_parsing("elvish", Shell::Elvish);
-        test_shell_parsing("fish", Shell::Fish);
-        test_shell_parsing("nushell", Shell::Nushell);
-        test_shell_parsing("powershell", Shell::PowerShell);
-        test_shell_parsing("zsh", Shell::Zsh);
     }
 }
