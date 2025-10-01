@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cli: Show all todos in `todo list` command
 - cli: Update json output format for event and todo commands
+- cli: Highlight todos overdue today in bright red
 
 ### Deprecated
 

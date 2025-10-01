@@ -192,20 +192,21 @@ impl TodoColumnDue {
     }
 
     fn compute_color(&self, due: LooseDateTime, now: &DateTime<Local>) -> Option<Color> {
-        const COLOR_OVERDUE: Option<Color> = Some(Color::Red);
-        const COLOR_TODAY: Option<Color> = Some(Color::Yellow);
+        const COLOR_LONG_OVERDUE: Option<Color> = Some(Color::Red);
+        const COLOR_OVERDUE: Option<Color> = Some(Color::BrightRed);
+        const COLOR_COMING: Option<Color> = Some(Color::Yellow);
 
         let t = now.naive_local();
+        let same_day = due.date() == t.date();
         match LooseDateTime::position_in_range(&t, &None, &Some(due)) {
-            RangePosition::InRange => match LooseDateTime::position_in_range(
-                &t,
-                &Some(LooseDateTime::DateOnly(due.date())),
-                &Some(due),
-            ) {
-                RangePosition::InRange => COLOR_TODAY, // due in today && 00:00 ~ due
-                _ => None,
-            },
-            _ => COLOR_OVERDUE,
+            RangePosition::InRange if same_day => COLOR_COMING, // not due && due in today
+            RangePosition::InRange => None,                     // not due
+            RangePosition::After if same_day => COLOR_OVERDUE,  // overdue && due in today
+            RangePosition::After => COLOR_LONG_OVERDUE,         // overdue
+            pos => {
+                tracing::error!(?due, now = ?t, ?pos, "Invalid state when computing due date color.");
+                None
+            }
         }
     }
 }
@@ -298,62 +299,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_compute_color_overdue_yesterday() {
+    fn test_compute_color() {
         let col = TodoColumnDue;
         let due = LooseDateTime::Floating(
-            NaiveDate::from_ymd_opt(2025, 8, 4)
+            NaiveDate::from_ymd_opt(2025, 8, 5)
                 .unwrap()
                 .and_hms_opt(12, 0, 0)
                 .unwrap(),
         );
-        let now = Local.with_ymd_and_hms(2025, 8, 5, 10, 0, 0).unwrap();
 
-        let color = col.compute_color(due, &now);
-        assert_eq!(color, Some(Color::Red));
-    }
-
-    #[test]
-    fn test_compute_color_today_before_due_time() {
-        let col = TodoColumnDue;
-        let due = LooseDateTime::Floating(
-            NaiveDate::from_ymd_opt(2025, 8, 5)
-                .unwrap()
-                .and_hms_opt(18, 0, 0)
-                .unwrap(),
-        );
-        let now = Local.with_ymd_and_hms(2025, 8, 5, 12, 0, 0).unwrap();
-
-        let color = col.compute_color(due, &now);
-        assert_eq!(color, Some(Color::Yellow));
-    }
-
-    #[test]
-    fn test_compute_color_today_after_due_time() {
-        let col = TodoColumnDue;
-        let due = LooseDateTime::Floating(
-            NaiveDate::from_ymd_opt(2025, 8, 5)
-                .unwrap()
-                .and_hms_opt(10, 0, 0)
-                .unwrap(),
-        );
-        let now = Local.with_ymd_and_hms(2025, 8, 5, 12, 0, 0).unwrap();
-
-        let color = col.compute_color(due, &now);
-        assert_eq!(color, Some(Color::Red));
-    }
-
-    #[test]
-    fn test_compute_color_future_date() {
-        let col = TodoColumnDue;
-        let due = LooseDateTime::Floating(
-            NaiveDate::from_ymd_opt(2025, 8, 6)
-                .unwrap()
-                .and_hms_opt(10, 0, 0)
-                .unwrap(),
-        );
-        let now = Local.with_ymd_and_hms(2025, 8, 5, 10, 0, 0).unwrap();
-
-        let color = col.compute_color(due, &now);
-        assert_eq!(color, None);
+        for (title, now, expected) in [
+            (
+                "Overdue yesterday",
+                Local.with_ymd_and_hms(2025, 8, 6, 10, 0, 0).unwrap(),
+                Some(Color::Red),
+            ),
+            (
+                "Today before due time",
+                Local.with_ymd_and_hms(2025, 8, 5, 12, 0, 0).unwrap(),
+                Some(Color::Yellow),
+            ),
+            (
+                "Today after due time",
+                Local.with_ymd_and_hms(2025, 8, 5, 14, 0, 0).unwrap(),
+                Some(Color::BrightRed),
+            ),
+            (
+                "Overdue by one day",
+                Local.with_ymd_and_hms(2025, 8, 6, 12, 0, 0).unwrap(),
+                Some(Color::Red),
+            ),
+            (
+                "Future date",
+                Local.with_ymd_and_hms(2025, 8, 4, 10, 0, 0).unwrap(),
+                None,
+            ),
+        ] {
+            let color = col.compute_color(due, &now);
+            assert_eq!(color, expected, "Failed for case: {}", title);
+        }
     }
 }

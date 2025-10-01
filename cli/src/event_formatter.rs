@@ -275,7 +275,7 @@ impl EventColumnTimeSpan {
                     format!("⇥{}", etime.format("%H:%M"))
                 } else if sdate.year() == self.date.year() && edate.year() == self.date.year() {
                     // sdate <= self.date <= edate, no time, same year, only show month and day
-                    format!("{}~{}", sdate.format("%m-%d"), edate.format("%m-%d")).to_string() // sdate < self.date < edate
+                    format!("{}~{}", sdate.format("%m-%d"), edate.format("%m-%d")).to_string()
                 } else {
                     // sdate <= self.date <= edate, no time, different year, show full date
                     format!("⇸{}", Self::format_date(edate)).to_string()
