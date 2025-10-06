@@ -257,7 +257,7 @@ pub struct TodoColumnSummary;
 
 impl TodoColumnSummary {
     fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        todo.summary().into()
+        todo.summary().replace('\n', "↵").into()
     }
 }
 

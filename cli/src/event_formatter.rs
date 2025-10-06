@@ -175,7 +175,7 @@ pub struct EventColumnSummary;
 
 impl EventColumnSummary {
     fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
-        event.summary().into()
+        event.summary().replace('\n', "↵").into()
     }
 }
 
