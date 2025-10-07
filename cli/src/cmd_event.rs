@@ -479,21 +479,21 @@ const fn args() -> (EventOrTodoArgs, EventArgs) {
 fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat, verbose: bool) {
     let columns = match (output_format, verbose) {
         (_, true) => vec![
-            EventColumn::id(),
-            EventColumn::uid_legacy(),
-            EventColumn::datetime_span(),
-            EventColumn::summary(),
+            EventColumn::Id,
+            EventColumn::UidLegacy,
+            EventColumn::DateTimeSpan,
+            EventColumn::Summary,
         ],
         (OutputFormat::Table, false) => vec![
-            EventColumn::id(),
-            EventColumn::datetime_span(),
-            EventColumn::summary(),
+            EventColumn::Id,
+            EventColumn::DateTimeSpan,
+            EventColumn::Summary,
         ],
         (OutputFormat::Json, false) => vec![
-            EventColumn::uid(),
-            EventColumn::short_id(),
-            EventColumn::datetime_span(),
-            EventColumn::summary(),
+            EventColumn::Uid,
+            EventColumn::ShortId,
+            EventColumn::DateTimeSpan,
+            EventColumn::Summary,
         ],
     };
     let formatter = EventFormatter::new(aim.now(), columns, output_format);

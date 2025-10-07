@@ -68,48 +68,14 @@ impl<'a, T: Todo> fmt::Display for Display<'a, T> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum TodoColumn {
-    Due(TodoColumnDue),
-    Id(TodoColumnId),
-    Priority(TodoColumnPriority),
-    ShortId(TodoColumnShortId),
-    Status(TodoColumnStatus),
-    Summary(TodoColumnSummary),
-    Uid(TodoColumnUid),
-    UidLegacy(TodoColumnUidLegacy),
-}
-
-impl TodoColumn {
-    pub fn due() -> Self {
-        TodoColumn::Due(TodoColumnDue)
-    }
-
-    pub fn id() -> Self {
-        TodoColumn::Id(TodoColumnId)
-    }
-
-    pub fn priority() -> Self {
-        TodoColumn::Priority(TodoColumnPriority)
-    }
-
-    pub fn short_id() -> Self {
-        TodoColumn::ShortId(TodoColumnShortId)
-    }
-
-    pub fn status() -> Self {
-        TodoColumn::Status(TodoColumnStatus)
-    }
-
-    pub fn summary() -> Self {
-        TodoColumn::Summary(TodoColumnSummary)
-    }
-
-    pub fn uid() -> Self {
-        TodoColumn::Uid(TodoColumnUid)
-    }
-
-    pub fn uid_legacy() -> Self {
-        TodoColumn::UidLegacy(TodoColumnUidLegacy)
-    }
+    Due,
+    Id,
+    Priority,
+    ShortId,
+    Status,
+    Summary,
+    Uid,
+    UidLegacy,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -121,174 +87,133 @@ struct ColumnMeta<'a> {
 impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match self.column {
-            TodoColumn::Due(_) => "Due",
-            TodoColumn::Id(_) => "ID",
-            TodoColumn::Priority(_) => "Priority",
-            TodoColumn::ShortId(_) => "Short ID",
-            TodoColumn::Status(_) => "Status",
-            TodoColumn::Summary(_) => "Summary",
-            TodoColumn::Uid(_) => "UID",
-            TodoColumn::UidLegacy(_) => "UID",
+            TodoColumn::Due => "Due",
+            TodoColumn::Id => "ID",
+            TodoColumn::Priority => "Priority",
+            TodoColumn::ShortId => "Short ID",
+            TodoColumn::Status => "Status",
+            TodoColumn::Summary => "Summary",
+            TodoColumn::Uid => "UID",
+            TodoColumn::UidLegacy => "UID",
         }
         .into()
     }
 
     fn format<'b>(&self, data: &'b T) -> Cow<'b, str> {
         match self.column {
-            TodoColumn::Due(a) => a.format(data),
-            TodoColumn::Id(a) => a.format(data),
-            TodoColumn::Priority(a) => a.format(data),
-            TodoColumn::ShortId(a) => a.format(data),
-            TodoColumn::Status(a) => a.format(data),
-            TodoColumn::Summary(a) => a.format(data),
-            TodoColumn::Uid(a) => a.format(data),
-            TodoColumn::UidLegacy(a) => a.format(data),
+            TodoColumn::Due => format_due(data),
+            TodoColumn::Id => format_id(data),
+            TodoColumn::Priority => format_priority(data),
+            TodoColumn::ShortId => format_short_id(data),
+            TodoColumn::Status => format_status(data),
+            TodoColumn::Summary => format_summary(data),
+            TodoColumn::Uid => format_uid(data),
+            TodoColumn::UidLegacy => format_uid_legacy(data),
         }
     }
 
     fn padding_direction(&self) -> PaddingDirection {
         use TodoColumn::*;
         match self.column {
-            Id(_) | Priority(_) | Uid(_) | ShortId(_) => PaddingDirection::Right,
+            Id | Priority | Uid | ShortId => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
 
     fn get_color(&self, data: &T) -> Option<Color> {
         match self.column {
-            TodoColumn::Due(v) => v.get_color(data, &self.now),
-            TodoColumn::Priority(v) => v.get_color(),
+            TodoColumn::Due => get_color_due(data, &self.now),
+            TodoColumn::Priority => get_color_priority(),
             _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct TodoColumnId;
+fn format_id(todo: &impl Todo) -> Cow<'_, str> {
+    if let Some(short_id) = todo.short_id() {
+        short_id.to_string().into()
+    } else {
+        let uid = todo.uid(); // Fallback to the full UID if no short ID is available
+        tracing::warn!(uid, "todo does not have a short ID, using UID instead.",);
+        uid.into()
+    }
+}
 
-impl TodoColumnId {
-    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        if let Some(short_id) = todo.short_id() {
-            short_id.to_string().into()
-        } else {
-            let uid = todo.uid(); // Fallback to the full UID if no short ID is available
-            tracing::warn!(uid, "todo does not have a short ID, using UID instead.",);
-            uid.into()
+fn format_due(todo: &impl Todo) -> Cow<'_, str> {
+    todo.due().map_or("".into(), |a| format_datetime(a).into())
+}
+
+fn get_color_due(todo: &impl Todo, now: &DateTime<Local>) -> Option<Color> {
+    let due = todo.due()?; // Ensure due date is present
+    get_color_due_impl(due, now)
+}
+
+fn get_color_due_impl(due: LooseDateTime, now: &DateTime<Local>) -> Option<Color> {
+    const COLOR_LONG_OVERDUE: Option<Color> = Some(Color::Red);
+    const COLOR_OVERDUE: Option<Color> = Some(Color::BrightRed);
+    const COLOR_COMING: Option<Color> = Some(Color::Yellow);
+
+    let t = now.naive_local();
+    let same_day = due.date() == t.date();
+    match LooseDateTime::position_in_range(&t, &None, &Some(due)) {
+        RangePosition::InRange if same_day => COLOR_COMING, // not due && due in today
+        RangePosition::InRange => None,                     // not due
+        RangePosition::After if same_day => COLOR_OVERDUE,  // overdue && due in today
+        RangePosition::After => COLOR_LONG_OVERDUE,         // overdue
+        pos => {
+            tracing::error!(?due, now = ?t, ?pos, "Invalid state when computing due date color.");
+            None
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct TodoColumnDue;
-
-impl TodoColumnDue {
-    pub fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        todo.due().map_or("".into(), |a| format_datetime(a).into())
+fn format_priority(todo: &impl Todo) -> Cow<'_, str> {
+    match todo.priority() {
+        Priority::P1 | Priority::P2 | Priority::P3 => "!!!",
+        Priority::P4 | Priority::P5 | Priority::P6 => "!!",
+        Priority::P7 | Priority::P8 | Priority::P9 => "!",
+        _ => "",
     }
+    .into()
+}
 
-    fn get_color(&self, todo: &impl Todo, now: &DateTime<Local>) -> Option<Color> {
-        let due = todo.due()?; // Ensure due date is present
-        self.compute_color(due, now)
-    }
+fn get_color_priority() -> Option<Color> {
+    Some(Color::Red)
+}
 
-    fn compute_color(&self, due: LooseDateTime, now: &DateTime<Local>) -> Option<Color> {
-        const COLOR_LONG_OVERDUE: Option<Color> = Some(Color::Red);
-        const COLOR_OVERDUE: Option<Color> = Some(Color::BrightRed);
-        const COLOR_COMING: Option<Color> = Some(Color::Yellow);
-
-        let t = now.naive_local();
-        let same_day = due.date() == t.date();
-        match LooseDateTime::position_in_range(&t, &None, &Some(due)) {
-            RangePosition::InRange if same_day => COLOR_COMING, // not due && due in today
-            RangePosition::InRange => None,                     // not due
-            RangePosition::After if same_day => COLOR_OVERDUE,  // overdue && due in today
-            RangePosition::After => COLOR_LONG_OVERDUE,         // overdue
-            pos => {
-                tracing::error!(?due, now = ?t, ?pos, "Invalid state when computing due date color.");
-                None
+fn format_status(todo: &impl Todo) -> Cow<'_, str> {
+    match todo.status() {
+        TodoStatus::NeedsAction => "[ ]".into(),
+        TodoStatus::Completed => "[x]".into(),
+        TodoStatus::Cancelled => " ✗ ".into(),
+        TodoStatus::InProcess => {
+            let percent = todo.percent_complete().unwrap_or_default();
+            match percent {
+                0 => "[ ]".into(),
+                100 => "[x]".into(),
+                _ => format!("{percent}%").into(),
             }
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct TodoColumnPriority;
+fn format_summary(todo: &impl Todo) -> Cow<'_, str> {
+    todo.summary().replace('\n', "↵").into()
+}
 
-impl TodoColumnPriority {
-    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        match todo.priority() {
-            // TODO: Use a more sophisticated mapping for priority to string
-            Priority::P1 | Priority::P2 | Priority::P3 => "!!!",
-            Priority::P4 | Priority::P5 | Priority::P6 => "!!",
-            Priority::P7 | Priority::P8 | Priority::P9 => "!",
-            _ => "",
-        }
+fn format_short_id(todo: &impl Todo) -> Cow<'_, str> {
+    todo.short_id()
+        .map(|a| a.to_string())
+        .unwrap_or_default()
         .into()
-    }
-
-    fn get_color(&self) -> Option<Color> {
-        Some(Color::Red)
-    }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct TodoColumnStatus;
-
-impl TodoColumnStatus {
-    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        match todo.status() {
-            TodoStatus::NeedsAction => "[ ]".into(),
-            TodoStatus::Completed => "[x]".into(),
-            TodoStatus::Cancelled => " ✗ ".into(),
-            TodoStatus::InProcess => {
-                let percent = todo.percent_complete().unwrap_or_default();
-                match percent {
-                    0 => "[ ]".into(),
-                    100 => "[x]".into(),
-                    _ => format!("{percent}%").into(),
-                }
-            }
-        }
-    }
+fn format_uid<'a>(todo: &'a impl Todo) -> Cow<'a, str> {
+    todo.uid().into()
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct TodoColumnSummary;
-
-impl TodoColumnSummary {
-    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        todo.summary().replace('\n', "↵").into()
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct TodoColumnShortId;
-
-impl TodoColumnShortId {
-    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        todo.short_id()
-            .map(|a| a.to_string())
-            .unwrap_or_default()
-            .into()
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct TodoColumnUid;
-
-impl TodoColumnUid {
-    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        todo.uid().into()
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct TodoColumnUidLegacy;
-
-impl TodoColumnUidLegacy {
-    fn format<'a>(&self, todo: &'a impl Todo) -> Cow<'a, str> {
-        format!("#{}", todo.uid()).into()
-    }
+fn format_uid_legacy<'a>(todo: &'a impl Todo) -> Cow<'a, str> {
+    format!("#{}", todo.uid()).into()
 }
 
 #[cfg(test)]
@@ -300,7 +225,6 @@ mod tests {
 
     #[test]
     fn test_compute_color() {
-        let col = TodoColumnDue;
         let due = LooseDateTime::Floating(
             NaiveDate::from_ymd_opt(2025, 8, 5)
                 .unwrap()
@@ -335,7 +259,7 @@ mod tests {
                 None,
             ),
         ] {
-            let color = col.compute_color(due, &now);
+            let color = get_color_due_impl(due, &now);
             assert_eq!(color, expected, "Failed for case: {}", title);
         }
     }

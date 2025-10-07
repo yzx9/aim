@@ -76,9 +76,9 @@ impl CmdDashboard {
 
                 let date = anchor.resolve_at_start_of_day(&aim.now()).date_naive();
                 let columns = vec![
-                    EventColumn::id(),
-                    EventColumn::time_span(date),
-                    EventColumn::summary(),
+                    EventColumn::Id,
+                    EventColumn::TimeSpan { date },
+                    EventColumn::Summary,
                 ];
                 let formatter = EventFormatter::new(aim.now(), columns, OutputFormat::Table);
                 println!("{}", formatter.format(&events));

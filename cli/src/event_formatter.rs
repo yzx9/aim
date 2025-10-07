@@ -68,43 +68,13 @@ impl<'a, E: Event> fmt::Display for Display<'a, E> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum EventColumn {
-    DateTimeSpan(EventColumnDateTimeSpan),
-    Id(EventColumnId),
-    ShortId(EventColumnShortId),
-    Summary(EventColumnSummary),
-    TimeSpan(EventColumnTimeSpan),
-    Uid(EventColumnUid),
-    UidLegacy(EventColumnUidLegacy),
-}
-
-impl EventColumn {
-    pub fn datetime_span() -> Self {
-        EventColumn::DateTimeSpan(EventColumnDateTimeSpan)
-    }
-
-    pub fn time_span(date: NaiveDate) -> Self {
-        EventColumn::TimeSpan(EventColumnTimeSpan { date })
-    }
-
-    pub fn id() -> Self {
-        EventColumn::Id(EventColumnId)
-    }
-
-    pub fn short_id() -> Self {
-        EventColumn::ShortId(EventColumnShortId)
-    }
-
-    pub fn summary() -> Self {
-        EventColumn::Summary(EventColumnSummary)
-    }
-
-    pub fn uid() -> Self {
-        EventColumn::Uid(EventColumnUid)
-    }
-
-    pub fn uid_legacy() -> Self {
-        EventColumn::UidLegacy(EventColumnUidLegacy)
-    }
+    DateTimeSpan,
+    Id,
+    ShortId,
+    Summary,
+    TimeSpan { date: NaiveDate },
+    Uid,
+    UidLegacy,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -116,214 +86,173 @@ struct ColumnMeta<'a> {
 impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
     fn name(&self) -> Cow<'_, str> {
         match self.column {
-            EventColumn::DateTimeSpan(_) => "Date Time",
-            EventColumn::Id(_) => "ID",
-            EventColumn::ShortId(_) => "Short ID",
-            EventColumn::Summary(_) => "Summary",
-            EventColumn::TimeSpan(_) => "Time",
-            EventColumn::Uid(_) => "UID",
-            EventColumn::UidLegacy(_) => "UID",
+            EventColumn::DateTimeSpan => "Date Time",
+            EventColumn::Id => "ID",
+            EventColumn::ShortId => "Short ID",
+            EventColumn::Summary => "Summary",
+            EventColumn::TimeSpan { date: _ } => "Time",
+            EventColumn::Uid => "UID",
+            EventColumn::UidLegacy => "UID",
         }
         .into()
     }
 
     fn format<'b>(&self, data: &'b E) -> Cow<'b, str> {
         match self.column {
-            EventColumn::DateTimeSpan(a) => a.format(data),
-            EventColumn::Id(a) => a.format(data),
-            EventColumn::ShortId(a) => a.format(data),
-            EventColumn::Summary(a) => a.format(data),
-            EventColumn::TimeSpan(a) => a.format(data),
-            EventColumn::Uid(a) => a.format(data),
-            EventColumn::UidLegacy(a) => a.format(data),
+            EventColumn::DateTimeSpan => format_datetime_span(data),
+            EventColumn::Id => format_id(data),
+            EventColumn::ShortId => format_short_id(data),
+            EventColumn::Summary => format_summary(data),
+            EventColumn::TimeSpan { date } => format_time_span(data, date),
+            EventColumn::Uid => format_uid(data),
+            EventColumn::UidLegacy => format_uid_legacy(data),
         }
     }
 
     fn padding_direction(&self) -> PaddingDirection {
         match self.column {
-            EventColumn::Id(_) | EventColumn::Uid(_) => PaddingDirection::Right,
+            EventColumn::Id | EventColumn::Uid => PaddingDirection::Right,
             _ => PaddingDirection::Left,
         }
     }
 
     fn get_color(&self, data: &E) -> Option<Color> {
         match &self.column {
-            EventColumn::DateTimeSpan(v) => v.get_color(data, &self.now),
-            EventColumn::TimeSpan(v) => v.get_color(data, &self.now),
+            EventColumn::DateTimeSpan => get_color_datetime_span(data, &self.now),
+            EventColumn::TimeSpan { date: _ } => get_color_time_span(data, &self.now),
             _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct EventColumnId;
+fn format_id(event: &impl Event) -> Cow<'_, str> {
+    if let Some(short_id) = event.short_id() {
+        short_id.to_string().into()
+    } else {
+        let uid = event.uid(); // Fallback to the full UID if no short ID is available
+        tracing::warn!(uid, "event does not have a short ID, using UID instead.",);
+        uid.into()
+    }
+}
 
-impl EventColumnId {
-    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
-        if let Some(short_id) = event.short_id() {
-            short_id.to_string().into()
-        } else {
-            let uid = event.uid(); // Fallback to the full UID if no short ID is available
-            tracing::warn!(uid, "event does not have a short ID, using UID instead.",);
-            uid.into()
+fn format_short_id(event: &impl Event) -> Cow<'_, str> {
+    event
+        .short_id()
+        .map(|a| a.to_string())
+        .unwrap_or_default()
+        .into()
+}
+
+fn format_summary(event: &impl Event) -> Cow<'_, str> {
+    event.summary().replace('\n', "↵").into()
+}
+
+fn format_datetime_span(event: &impl Event) -> Cow<'_, str> {
+    match (event.start(), event.end()) {
+        (Some(start), Some(end)) => match start.date() == end.date() {
+            true => match (start.time(), end.time()) {
+                (Some(stime), Some(etime)) => format!(
+                    "{} {}~{}",
+                    start.date().format("%Y-%m-%d"),
+                    stime.format("%H:%M"),
+                    etime.format("%H:%M")
+                ),
+                (Some(stime), None) => format!(
+                    "{} {}~24:00",
+                    start.date().format("%Y-%m-%d"),
+                    stime.format("%H:%M")
+                ),
+                (None, Some(etime)) => format!(
+                    "{} 00:00~{}",
+                    start.date().format("%Y-%m-%d"),
+                    etime.format("%H:%M")
+                ),
+                (None, None) => start.date().format("%Y-%m-%d").to_string(),
+            },
+            false => format!("{}~{}", format_datetime(start), format_datetime(end)),
+        }
+        .into(),
+        (Some(start), None) => format_datetime(start).into(),
+        (None, Some(end)) => format!("~{}", format_datetime(end)).into(),
+        (None, None) => String::new().into(),
+    }
+}
+
+fn get_color_datetime_span(event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
+    const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
+    const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
+
+    let start = event.start()?; // If no start time, no color
+    match LooseDateTime::position_in_range(&now.naive_local(), &Some(start), &event.end()) {
+        RangePosition::Before => COLOR_TODAY_LATE,
+        RangePosition::InRange => COLOR_CURRENT,
+        RangePosition::After => None,
+        RangePosition::InvalidRange => {
+            tracing::warn!(uid = event.uid(), "invalid range for event");
+            None
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct EventColumnSummary;
-
-impl EventColumnSummary {
-    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
-        event.summary().replace('\n', "↵").into()
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct EventColumnDateTimeSpan;
-
-impl EventColumnDateTimeSpan {
-    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
-        match (event.start(), event.end()) {
-            (Some(start), Some(end)) => match start.date() == end.date() {
-                true => match (start.time(), end.time()) {
-                    (Some(stime), Some(etime)) => format!(
-                        "{} {}~{}",
-                        start.date().format("%Y-%m-%d"),
-                        stime.format("%H:%M"),
-                        etime.format("%H:%M")
-                    ),
-                    (Some(stime), None) => format!(
-                        "{} {}~24:00",
-                        start.date().format("%Y-%m-%d"),
-                        stime.format("%H:%M")
-                    ),
-                    (None, Some(etime)) => format!(
-                        "{} 00:00~{}",
-                        start.date().format("%Y-%m-%d"),
-                        etime.format("%H:%M")
-                    ),
-                    (None, None) => start.date().format("%Y-%m-%d").to_string(),
-                },
-                false => format!("{}~{}", format_datetime(start), format_datetime(end)),
-            }
-            .into(),
-            (Some(start), None) => format_datetime(start).into(),
-            (None, Some(end)) => format!("~{}", format_datetime(end)).into(),
-            (None, None) => String::new().into(),
-        }
-    }
-
-    fn get_color(&self, event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
-        Self::event_color(event, now)
-    }
-
-    fn event_color(event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
-        const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
-        const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
-
-        let start = event.start()?; // If no start time, no color
-        match LooseDateTime::position_in_range(&now.naive_local(), &Some(start), &event.end()) {
-            RangePosition::Before => COLOR_TODAY_LATE,
-            RangePosition::InRange => COLOR_CURRENT,
-            RangePosition::After => None,
-            RangePosition::InvalidRange => {
-                tracing::warn!(uid = event.uid(), "invalid range for event");
-                None
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct EventColumnTimeSpan {
-    date: NaiveDate,
-}
-
-impl EventColumnTimeSpan {
-    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
-        match (event.start(), event.end()) {
-            (Some(start), Some(end)) => {
-                let sdate = start.date();
-                let edate = end.date();
-                if edate < sdate {
-                    String::new() // Invalid range
-                } else if edate < self.date {
-                    format!("⇥{}", Self::format_date(edate)).to_string() // in the past
-                } else if sdate > self.date {
-                    format!("{}↦", Self::format_date(sdate)).to_string() // in the future
-                } else if sdate == self.date && sdate == edate {
-                    // today is the only day
-                    match (start.time(), end.time()) {
-                        (Some(stime), Some(etime)) => {
-                            format!("{}~{}", stime.format("%H:%M"), etime.format("%H:%M"))
-                        }
-                        (Some(stime), None) => format!("{}⇥", stime.format("%H:%M")),
-                        (None, Some(etime)) => format!("     ↦{}", etime.format("%H:%M")),
-                        (None, None) => format!("⇹{}", Self::format_date(self.date)),
-                    }
-                } else if sdate == self.date
-                    && sdate < edate
-                    && let Some(stime) = start.time()
-                {
-                    // starts today with time, ends later
-                    format!("{}↦", stime.format("%H:%M")).to_string()
-                } else if edate == self.date
-                    && let Some(etime) = end.time()
-                {
-                    // ends today with time, started earlier
-                    format!("⇥{}", etime.format("%H:%M"))
-                } else if sdate.year() == self.date.year() && edate.year() == self.date.year() {
-                    // sdate <= self.date <= edate, no time, same year, only show month and day
-                    format!("{}~{}", sdate.format("%m-%d"), edate.format("%m-%d")).to_string()
-                } else {
-                    // sdate <= self.date <= edate, no time, different year, show full date
-                    format!("⇸{}", Self::format_date(edate)).to_string()
-                }
-            }
-            .into(),
-            (Some(start), None) => format_datetime(start).into(),
-            (None, Some(end)) => format!("↦{}", format_datetime(end)).into(),
-            (None, None) => String::new().into(),
-        }
-    }
-
-    fn get_color(&self, event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
-        EventColumnDateTimeSpan::event_color(event, now)
-    }
-
-    fn format_date(d: NaiveDate) -> String {
+fn format_time_span<'a>(event: &'a impl Event, date: &NaiveDate) -> Cow<'a, str> {
+    fn format_date(d: &NaiveDate) -> String {
         d.format("%Y-%m-%d").to_string()
     }
-}
 
-#[derive(Debug, Clone, Copy)]
-pub struct EventColumnUid;
-
-impl EventColumnUid {
-    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
-        event.uid().into()
+    match (event.start(), event.end()) {
+        (Some(start), Some(end)) => {
+            let sdate = start.date();
+            let edate = end.date();
+            if edate < sdate {
+                String::new() // Invalid range
+            } else if &edate < date {
+                format!("⇥{}", format_date(&edate)).to_string() // in the past
+            } else if &sdate > date {
+                format!("{}↦", format_date(&sdate)).to_string() // in the future
+            } else if &sdate == date && sdate == edate {
+                // today is the only day
+                match (start.time(), end.time()) {
+                    (Some(stime), Some(etime)) => {
+                        format!("{}~{}", stime.format("%H:%M"), etime.format("%H:%M"))
+                    }
+                    (Some(stime), None) => format!("{}⇥", stime.format("%H:%M")),
+                    (None, Some(etime)) => format!("     ↦{}", etime.format("%H:%M")),
+                    (None, None) => format!("⇹{}", format_date(date)),
+                }
+            } else if &sdate == date
+                && sdate < edate
+                && let Some(stime) = start.time()
+            {
+                // starts today with time, ends later
+                format!("{}↦", stime.format("%H:%M")).to_string()
+            } else if &edate == date
+                && let Some(etime) = end.time()
+            {
+                // ends today with time, started earlier
+                format!("⇥{}", etime.format("%H:%M"))
+            } else if sdate.year() == date.year() && edate.year() == date.year() {
+                // sdate <= self.date <= edate, no time, same year, only show month and day
+                format!("{}~{}", sdate.format("%m-%d"), edate.format("%m-%d")).to_string()
+            } else {
+                // sdate <= self.date <= edate, no time, different year, show full date
+                format!("⇸{}", format_date(&edate)).to_string()
+            }
+        }
+        .into(),
+        (Some(start), None) => format_datetime(start).into(),
+        (None, Some(end)) => format!("↦{}", format_datetime(end)).into(),
+        (None, None) => String::new().into(),
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct EventColumnUidLegacy;
-
-impl EventColumnUidLegacy {
-    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
-        format!("#{}", event.uid()).into()
-    }
+fn get_color_time_span(event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
+    get_color_datetime_span(event, now)
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct EventColumnShortId;
+fn format_uid(event: &impl Event) -> Cow<'_, str> {
+    event.uid().into()
+}
 
-impl EventColumnShortId {
-    fn format<'a>(&self, event: &'a impl Event) -> Cow<'a, str> {
-        event
-            .short_id()
-            .map(|a| a.to_string())
-            .unwrap_or_default()
-            .into()
-    }
+fn format_uid_legacy(event: &impl Event) -> Cow<'_, str> {
+    format!("#{}", event.uid()).into()
 }
