@@ -8,7 +8,7 @@ use aimcal_core::{APP_NAME, Aim};
 use clap::{ArgMatches, Command, ValueHint, arg, builder::styling, crate_version, value_parser};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, Registry, prelude::*};
 
 use crate::cmd_event::{
     CmdEventDelay, CmdEventEdit, CmdEventList, CmdEventNew, CmdEventReschedule,
@@ -24,9 +24,7 @@ use crate::config::parse_config;
 
 /// Run the AIM command-line interface.
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+    init_tracing().await?;
 
     let err = match Cli::parse() {
         Ok(cli) => match cli.run().await {
@@ -36,6 +34,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Err(e) => e,
     };
     println!("{} {}", "Error:".red(), err);
+    Ok(())
+}
+
+pub async fn init_tracing() -> Result<(), Box<dyn Error>> {
+    let stdout_log = tracing_subscriber::fmt::layer().pretty();
+
+    let filter = EnvFilter::builder().try_from_env()?;
+
+    let subscriber = Registry::default().with(filter).with(stdout_log);
+
+    tracing::subscriber::set_global_default(subscriber)?;
     Ok(())
 }
 
