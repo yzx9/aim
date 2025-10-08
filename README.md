@@ -101,7 +101,7 @@ nix run . -- --help
 
 ## Acknowledgements
 
-We'd like to thank the [pimutils](https://github.com/pimutils) project, particularly:
+We'd like to thank all FOSS projects, particularly:
 
 - [khal](https://github.com/pimutils/khal) - A CLI calendar application
 - [todoman](https://github.com/pimutils/todoman) - A simple task manager
