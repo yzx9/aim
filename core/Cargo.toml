@@ -34,7 +34,7 @@ uuid = { version = "1.18.1", features = ["v4"] }
 xdg = "3.0.0"
 
 [dev-dependencies]
-toml = "0.9.7"
+toml = "0.9.8"
 
 [features]
 default = ["sqlite"]
