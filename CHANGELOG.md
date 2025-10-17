@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- cli: Increase default time range of todos in `dashboard` command
+
 ## [0.9.2] - 2025-10-08
 
 ### Changed

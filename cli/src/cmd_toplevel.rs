@@ -7,6 +7,7 @@ use std::error::Error;
 use aimcal_core::{
     Aim, DateTimeAnchor, EventConditions, Id, Kind, Pager, TodoConditions, TodoStatus,
 };
+use chrono::Datelike;
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 
@@ -92,10 +93,17 @@ impl CmdDashboard {
     }
 
     async fn list_todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
-        println!("✅ {}", "To-Dos: within 2 days".bold());
+        let now = aim.now();
+        let days_from_monday = now.weekday().num_days_from_monday();
+        let (days, label) = match days_from_monday {
+            0..5 => (6 - days_from_monday, "this week"),
+            _ => (3, "next 3 days"),
+        };
+
+        println!("✅ {} {}", "To-Dos: within".bold(), label.bold());
         let conds = TodoConditions {
             status: Some(TodoStatus::NeedsAction),
-            due: Some(DateTimeAnchor::InDays(2)),
+            due: Some(DateTimeAnchor::InDays(days as i64)),
         };
         CmdTodoList::list(aim, &conds, OutputFormat::Table, false).await?;
         Ok(())
