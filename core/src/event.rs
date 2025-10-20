@@ -64,7 +64,7 @@ impl Event for icalendar::Event {
 }
 
 /// Darft for an event, used for creating new events.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EventDraft {
     /// The description of the event, if available.
     pub description: Option<String>,
@@ -105,14 +105,7 @@ impl EventDraft {
         }
     }
 
-    /// Converts the draft into a icalendar Event component.
-    pub(crate) fn into_ics(self, now: &DateTime<Local>, uid: &str) -> icalendar::Event {
-        let mut event = icalendar::Event::with_uid(uid);
-
-        if let Some(description) = self.description {
-            Component::description(&mut event, &description);
-        }
-
+    pub(crate) fn resolve(&self, now: DateTime<Local>) -> ResolvedEventDraft<'_> {
         let default_duration = Duration::hours(1);
         let (start, end) = match (self.start, self.end) {
             (Some(start), Some(end)) => (start, end),
@@ -135,17 +128,46 @@ impl EventDraft {
                 (start, end)
             }
             (None, None) => {
-                let start = *now;
+                let start = now;
                 let end = (start + default_duration).into();
                 (start.into(), end)
             }
         };
-        EventLike::starts(&mut event, start);
-        EventLike::ends(&mut event, end);
+
+        ResolvedEventDraft {
+            description: self.description.as_deref(),
+            start,
+            end,
+            status: self.status,
+            summary: &self.summary,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedEventDraft<'a> {
+    pub description: Option<&'a str>,
+    pub start: LooseDateTime,
+    pub end: LooseDateTime,
+    pub status: EventStatus,
+    pub summary: &'a str,
+}
+
+impl<'a> ResolvedEventDraft<'a> {
+    /// Converts the draft into a icalendar Event component.
+    pub(crate) fn into_ics(self, uid: &str) -> icalendar::Event {
+        let mut event = icalendar::Event::with_uid(uid);
+
+        if let Some(description) = self.description {
+            Component::description(&mut event, description);
+        }
+
+        EventLike::starts(&mut event, self.start);
+        EventLike::ends(&mut event, self.end);
 
         icalendar::Event::status(&mut event, self.status.into());
 
-        Component::summary(&mut event, &self.summary);
+        Component::summary(&mut event, self.summary);
 
         event
     }
@@ -180,28 +202,47 @@ impl EventPatch {
             && self.summary.is_none()
     }
 
+    pub(crate) fn resolve(&self) -> ResolvedEventPatch<'_> {
+        ResolvedEventPatch {
+            description: self.description.as_ref().map(|opt| opt.as_deref()),
+            start: self.start,
+            end: self.end,
+            status: self.status,
+            summary: self.summary.as_deref(),
+        }
+    }
+}
+
+/// Patch for an event, allowing partial updates.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ResolvedEventPatch<'a> {
+    pub description: Option<Option<&'a str>>,
+    pub start: Option<Option<LooseDateTime>>,
+    pub end: Option<Option<LooseDateTime>>,
+    pub status: Option<EventStatus>,
+    pub summary: Option<&'a str>,
+}
+
+impl<'a> ResolvedEventPatch<'a> {
     /// Applies the patch to a mutable event, modifying it in place.
-    pub(crate) fn apply_to<'a>(&self, e: &'a mut icalendar::Event) -> &'a mut icalendar::Event {
-        if let Some(description) = &self.description {
-            match description {
-                Some(desc) => e.description(desc),
-                None => e.remove_description(),
-            };
-        }
+    pub fn apply_to<'b>(&self, e: &'b mut icalendar::Event) -> &'b mut icalendar::Event {
+        match self.description {
+            Some(Some(desc)) => e.description(desc),
+            Some(None) => e.remove_description(),
+            None => e,
+        };
 
-        if let Some(start) = &self.start {
-            match start {
-                Some(s) => e.starts(*s),
-                None => e.remove_starts(),
-            };
-        }
+        match self.start {
+            Some(Some(start)) => e.starts(start),
+            Some(None) => e.remove_starts(),
+            None => e,
+        };
 
-        if let Some(end) = &self.end {
-            match end {
-                Some(ed) => e.ends(*ed),
-                None => e.remove_ends(),
-            };
-        }
+        match self.end {
+            Some(Some(end)) => e.ends(end),
+            Some(None) => e.remove_ends(),
+            None => e,
+        };
 
         if let Some(status) = self.status {
             e.status(status.into());
@@ -293,20 +334,20 @@ pub struct EventConditions {
     pub cutoff: Option<DateTimeAnchor>,
 }
 
-#[derive(Debug)]
-pub(crate) struct ParsedEventConditions {
+impl EventConditions {
+    pub(crate) fn resolve(&self, now: &DateTime<Local>) -> ResolvedEventConditions {
+        ResolvedEventConditions {
+            start_before: self.cutoff.map(|w| w.resolve_at_end_of_day(now)),
+            end_after: self.startable.map(|w| w.resolve_at_start_of_day(now)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedEventConditions {
     /// The date and time after which the event must start
     pub start_before: Option<DateTime<Local>>,
 
     /// The date and time after which the event must end
     pub end_after: Option<DateTime<Local>>,
-}
-
-impl ParsedEventConditions {
-    pub fn parse(now: &DateTime<Local>, conds: &EventConditions) -> Self {
-        Self {
-            start_before: conds.cutoff.map(|w| w.resolve_at_end_of_day(now)),
-            end_after: conds.startable.map(|w| w.resolve_at_start_of_day(now)),
-        }
-    }
 }

@@ -4,7 +4,7 @@
 
 use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
-use chrono::{DateTime, Local, TimeZone, Utc};
+use chrono::{DateTime, Local, Utc};
 use icalendar::Component;
 
 use crate::{Config, DateTimeAnchor, LooseDateTime, Priority, SortOrder};
@@ -115,37 +115,64 @@ impl TodoDraft {
     }
 
     /// Converts the draft into a icalendar Todo component.
-    pub(crate) fn into_ics(
-        self,
+    pub(crate) fn resolve<'a>(
+        &'a self,
         config: &Config,
         now: &DateTime<Local>,
-        uid: &str,
-    ) -> icalendar::Todo {
+    ) -> ResolvedTodoDraft<'a> {
+        let due = self
+            .due
+            .or_else(|| config.default_due.map(|d| d.resolve_since_datetime(now)));
+
+        let percent_complete = self.percent_complete.map(|a| a.max(100));
+
+        let priority = self.priority.or(Some(config.default_priority));
+
+        ResolvedTodoDraft {
+            description: self.description.as_deref(),
+            due,
+            percent_complete,
+            priority,
+            status: self.status,
+            summary: &self.summary,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedTodoDraft<'a> {
+    pub description: Option<&'a str>,
+    pub due: Option<LooseDateTime>,
+    pub percent_complete: Option<u8>,
+    pub priority: Option<Priority>,
+    pub status: TodoStatus,
+    pub summary: &'a str,
+}
+
+impl<'a> ResolvedTodoDraft<'a> {
+    /// Converts the draft into a icalendar Todo component.
+    pub(crate) fn into_ics(self, uid: &str) -> icalendar::Todo {
         let mut todo = icalendar::Todo::with_uid(uid);
 
         if let Some(description) = self.description {
-            Component::description(&mut todo, &description);
+            Component::description(&mut todo, description);
         }
 
         if let Some(due) = self.due {
             icalendar::Todo::due(&mut todo, due);
-        } else if let Some(duration) = config.default_due {
-            icalendar::Todo::due(&mut todo, duration.resolve_since_datetime(now));
         }
 
         if let Some(percent) = self.percent_complete {
-            icalendar::Todo::percent_complete(&mut todo, percent.max(100));
+            icalendar::Todo::percent_complete(&mut todo, percent);
         }
 
         if let Some(priority) = self.priority {
             Component::priority(&mut todo, priority.into());
-        } else {
-            Component::priority(&mut todo, config.default_priority.into());
         }
 
         icalendar::Todo::status(&mut todo, self.status.into());
 
-        Component::summary(&mut todo, &self.summary);
+        Component::summary(&mut todo, self.summary);
 
         todo
     }
@@ -184,29 +211,56 @@ impl TodoPatch {
             && self.summary.is_none()
     }
 
+    pub(crate) fn resolve(&self, now: DateTime<Local>) -> ResolvedTodoPatch<'_> {
+        let percent_complete = match self.percent_complete {
+            Some(Some(v)) => Some(Some(v.min(100))),
+            _ => self.percent_complete,
+        };
+
+        ResolvedTodoPatch {
+            description: self.description.as_ref().map(|opt| opt.as_deref()),
+            due: self.due,
+            percent_complete,
+            priority: self.priority,
+            status: self.status,
+            summary: self.summary.as_deref(),
+            now,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedTodoPatch<'a> {
+    pub description: Option<Option<&'a str>>,
+    pub due: Option<Option<LooseDateTime>>,
+    pub percent_complete: Option<Option<u8>>,
+    pub priority: Option<Priority>,
+    pub status: Option<TodoStatus>,
+    pub summary: Option<&'a str>,
+
+    pub now: DateTime<Local>,
+}
+
+impl<'a> ResolvedTodoPatch<'a> {
     /// Applies the patch to a mutable todo item, modifying it in place.
-    pub(crate) fn apply_to<'a, Tz: TimeZone>(
-        &self,
-        now: &DateTime<Tz>,
-        t: &'a mut icalendar::Todo,
-    ) -> &'a mut icalendar::Todo {
-        if let Some(description) = &self.description {
-            match description {
-                Some(desc) => t.description(desc),
-                None => t.remove_description(),
-            };
-        }
+    pub fn apply_to<'b>(&self, t: &'b mut icalendar::Todo) -> &'b mut icalendar::Todo {
+        match self.description {
+            Some(Some(desc)) => t.description(desc),
+            Some(None) => t.remove_description(),
+            None => t,
+        };
 
-        if let Some(due) = &self.due {
-            match due {
-                Some(d) => t.due(*d),
-                None => t.remove_due(),
-            };
-        }
+        match self.due {
+            Some(Some(due)) => t.due(due),
+            Some(None) => t.remove_due(),
+            None => t,
+        };
 
-        if let Some(percent) = self.percent_complete {
-            t.percent_complete(percent.unwrap_or(0).max(100));
-        }
+        match self.percent_complete {
+            Some(Some(v)) => t.percent_complete(v),
+            Some(None) => t.remove_percent_complete(),
+            None => t,
+        };
 
         if let Some(priority) = self.priority {
             t.priority(priority.into());
@@ -216,7 +270,7 @@ impl TodoPatch {
             t.status(status.into());
 
             match status {
-                TodoStatus::Completed => t.completed(now.with_timezone(&Utc)),
+                TodoStatus::Completed => t.completed(self.now.with_timezone(&Utc)),
                 _ if t.get_completed().is_some() => t.remove_completed(),
                 _ => t,
             };
@@ -316,22 +370,19 @@ pub struct TodoConditions {
     pub due: Option<DateTimeAnchor>,
 }
 
-/// Conditions for filtering todo items, such as current time, status, and due date.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct ParsedTodoConditions {
-    /// The status of the todo item to filter by, if any.
-    pub status: Option<TodoStatus>,
-
-    /// The priority of the todo item to filter by, if any.
-    pub due: Option<DateTime<Local>>,
+impl TodoConditions {
+    pub(crate) fn resolve(&self, now: &DateTime<Local>) -> ResolvedTodoConditions {
+        ResolvedTodoConditions {
+            status: self.status,
+            due: self.due.map(|a| a.resolve_at_end_of_day(now)),
+        }
+    }
 }
 
-impl ParsedTodoConditions {
-    pub fn parse(now: &DateTime<Local>, conds: &TodoConditions) -> Self {
-        let status = conds.status;
-        let due = conds.due.map(|a| a.resolve_at_end_of_day(now));
-        ParsedTodoConditions { status, due }
-    }
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedTodoConditions {
+    pub status: Option<TodoStatus>,
+    pub due: Option<DateTime<Local>>,
 }
 
 /// The default sort key for todo items, which is by due date.
@@ -350,35 +401,24 @@ pub enum TodoSort {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum ParsedTodoSort {
-    /// Sort by the due date and time of the todo item.
-    Due(SortOrder),
-
-    /// Sort by the priority of the todo item.
-    Priority {
-        /// Sort order, either ascending or descending.
-        order: SortOrder,
-
-        /// Put items with no priority first or last.
-        none_first: bool,
-    },
-}
-
-impl ParsedTodoSort {
-    pub fn parse(config: &Config, sort: TodoSort) -> Self {
-        match sort {
-            TodoSort::Due(order) => ParsedTodoSort::Due(order),
-            TodoSort::Priority { order, none_first } => ParsedTodoSort::Priority {
-                order,
+impl TodoSort {
+    pub(crate) fn resolve(&self, config: &Config) -> ResolvedTodoSort {
+        match self {
+            TodoSort::Due(order) => ResolvedTodoSort::Due(*order),
+            TodoSort::Priority { order, none_first } => ResolvedTodoSort::Priority {
+                order: *order,
                 none_first: none_first.unwrap_or(config.default_priority_none_fist),
             },
         }
     }
 
-    pub fn parse_vec(config: &Config, sort: &[TodoSort]) -> Vec<Self> {
-        sort.iter()
-            .map(|s| ParsedTodoSort::parse(config, *s))
-            .collect()
+    pub(crate) fn resolve_vec(sort: &[TodoSort], config: &Config) -> Vec<ResolvedTodoSort> {
+        sort.iter().map(|s| s.resolve(config)).collect()
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ResolvedTodoSort {
+    Due(SortOrder),
+    Priority { order: SortOrder, none_first: bool },
 }

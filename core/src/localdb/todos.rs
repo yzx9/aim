@@ -6,7 +6,7 @@ use chrono::{DateTime, Local};
 use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 
 use crate::datetime::STABLE_FORMAT_LOCAL;
-use crate::todo::{ParsedTodoConditions, ParsedTodoSort};
+use crate::todo::{ResolvedTodoConditions, ResolvedTodoSort};
 use crate::{LooseDateTime, Pager, Priority, Todo, TodoStatus};
 
 #[derive(Debug, Clone)]
@@ -65,8 +65,8 @@ WHERE uid = ?;
 
     pub async fn list(
         &self,
-        conds: &ParsedTodoConditions,
-        sort: &[ParsedTodoSort],
+        conds: &ResolvedTodoConditions,
+        sort: &[ResolvedTodoSort],
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
         let mut sql = "\
@@ -80,11 +80,11 @@ FROM todos
             sql += "ORDER BY ";
             for (i, s) in sort.iter().enumerate() {
                 match s {
-                    ParsedTodoSort::Due(order) => {
+                    ResolvedTodoSort::Due(order) => {
                         sql += "due ";
                         sql += order.sql_keyword();
                     }
-                    ParsedTodoSort::Priority { order, none_first } => {
+                    ResolvedTodoSort::Priority { order, none_first } => {
                         sql += match none_first {
                             true => "priority ",
                             false => "((priority + 9) % 10) ",
@@ -115,7 +115,7 @@ FROM todos
             .await
     }
 
-    pub async fn count(&self, conds: &ParsedTodoConditions) -> Result<i64, sqlx::Error> {
+    pub async fn count(&self, conds: &ResolvedTodoConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM todos".to_string();
         sql += &self.build_where(conds);
         sql += ";";
@@ -126,7 +126,7 @@ FROM todos
         Ok(row.0)
     }
 
-    fn build_where(&self, conds: &ParsedTodoConditions) -> String {
+    fn build_where(&self, conds: &ResolvedTodoConditions) -> String {
         let mut where_clauses = Vec::new();
         if conds.status.is_some() {
             where_clauses.push("status = ?");
@@ -144,7 +144,7 @@ FROM todos
 
     fn bind_conditions<'a, O>(
         &self,
-        conds: &'a ParsedTodoConditions,
+        conds: &'a ResolvedTodoConditions,
         mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
     ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
         if let Some(status) = &conds.status {

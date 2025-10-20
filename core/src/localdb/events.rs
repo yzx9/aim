@@ -8,7 +8,7 @@ use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 use crate::{
     Event, EventStatus, LooseDateTime, Pager,
     datetime::{STABLE_FORMAT_DATEONLY, STABLE_FORMAT_LOCAL},
-    event::ParsedEventConditions,
+    event::ResolvedEventConditions,
 };
 
 #[derive(Debug, Clone)]
@@ -63,7 +63,7 @@ WHERE uid = ?;
 
     pub async fn list(
         &self,
-        conds: &ParsedEventConditions,
+        conds: &ResolvedEventConditions,
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
         let mut sql = "\
@@ -84,7 +84,7 @@ FROM events
             .await
     }
 
-    pub async fn count(&self, conds: &ParsedEventConditions) -> Result<i64, sqlx::Error> {
+    pub async fn count(&self, conds: &ResolvedEventConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM events".to_string();
         sql += &self.build_where(conds);
         sql += ";";
@@ -96,7 +96,7 @@ FROM events
         Ok(row.0)
     }
 
-    fn build_where(&self, conds: &ParsedEventConditions) -> String {
+    fn build_where(&self, conds: &ResolvedEventConditions) -> String {
         let mut where_clauses = Vec::new();
         if conds.start_before.is_some() {
             where_clauses.push("start <= ?");
@@ -114,7 +114,7 @@ FROM events
 
     fn bind_conditions<'a, O>(
         &self,
-        conds: &'a ParsedEventConditions,
+        conds: &'a ResolvedEventConditions,
         mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
     ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
         if let Some(start_before) = conds.start_before {

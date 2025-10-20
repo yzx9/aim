@@ -10,11 +10,9 @@ use icalendar::{Calendar, CalendarComponent, Component};
 use tokio::fs;
 use uuid::Uuid;
 
-use crate::event::ParsedEventConditions;
 use crate::io::{add_calendar, parse_ics};
 use crate::localdb::LocalDb;
 use crate::short_id::ShortIds;
-use crate::todo::{ParsedTodoConditions, ParsedTodoSort};
 use crate::{
     Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo, TodoConditions,
     TodoDraft, TodoPatch, TodoSort,
@@ -78,7 +76,7 @@ impl Aim {
         draft: EventDraft,
     ) -> Result<impl Event + 'static, Box<dyn Error>> {
         let uid = self.generate_uid(Kind::Event).await?;
-        let event = draft.into_ics(&self.now, &uid);
+        let event = draft.resolve(self.now).into_ics(&uid);
         let path = self.get_path(&uid);
 
         let calendar = Calendar::new().push(event.clone()).done();
@@ -101,7 +99,7 @@ impl Aim {
         let uid = self.short_ids.get_uid(id).await?;
         let event = match self.db.events.get(&uid).await? {
             Some(todo) => todo,
-            None => return Err("Todo not found".into()),
+            None => return Err("Event not found".into()),
         };
 
         let path: PathBuf = event.path().into();
@@ -116,7 +114,7 @@ impl Aim {
             .find(|a| a.get_uid() == Some(event.uid()))
             .ok_or("Event not found in calendar")?;
 
-        patch.apply_to(e);
+        patch.resolve().apply_to(e);
         let event = e.clone();
         fs::write(&path, calendar.done().to_string())
             .await
@@ -166,7 +164,7 @@ impl Aim {
         conds: &EventConditions,
         pager: &Pager,
     ) -> Result<Vec<impl Event + 'static>, Box<dyn Error>> {
-        let conds = ParsedEventConditions::parse(&self.now, conds);
+        let conds = conds.resolve(&self.now);
         let events = self.db.events.list(&conds, pager).await?;
         let events = self.short_ids.events(events).await?;
         Ok(events)
@@ -174,7 +172,7 @@ impl Aim {
 
     /// Counts the number of events matching the given conditions.
     pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, sqlx::Error> {
-        let conds = ParsedEventConditions::parse(&self.now, conds);
+        let conds = conds.resolve(&self.now);
         self.db.events.count(&conds).await
     }
 
@@ -186,7 +184,7 @@ impl Aim {
     /// Add a new todo from the given draft.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.generate_uid(Kind::Todo).await?;
-        let todo = draft.into_ics(&self.config, &self.now, &uid);
+        let todo = draft.resolve(&self.config, &self.now).into_ics(&uid);
         let path = self.get_path(&uid);
 
         let calendar = Calendar::new().push(todo.clone()).done();
@@ -224,7 +222,7 @@ impl Aim {
             .find(|a| a.get_uid() == Some(todo.uid()))
             .ok_or("Todo not found in calendar")?;
 
-        patch.apply_to(&self.now, t);
+        patch.resolve(self.now).apply_to(t);
         let todo = t.clone();
         fs::write(&path, calendar.done().to_string())
             .await
@@ -253,8 +251,8 @@ impl Aim {
         sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<impl Todo + 'static>, Box<dyn Error>> {
-        let conds = ParsedTodoConditions::parse(&self.now, conds);
-        let sort = ParsedTodoSort::parse_vec(&self.config, sort);
+        let conds = conds.resolve(&self.now);
+        let sort = TodoSort::resolve_vec(sort, &self.config);
         let todos = self.db.todos.list(&conds, &sort, pager).await?;
         let todos = self.short_ids.todos(todos).await?;
         Ok(todos)
@@ -262,7 +260,7 @@ impl Aim {
 
     /// Counts the number of todos matching the given conditions.
     pub async fn count_todos(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
-        let conds = ParsedTodoConditions::parse(&self.now, conds);
+        let conds = conds.resolve(&self.now);
         self.db.todos.count(&conds).await
     }
 
