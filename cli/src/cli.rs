@@ -314,50 +314,57 @@ mod tests {
 
     #[test]
     fn test_parse_config() {
-        let cli = Cli::try_parse_from(vec!["test", "-c", "/tmp/config.toml"]).unwrap();
+        let args = ["test", "-c", "/tmp/config.toml"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert_eq!(cli.config, Some(PathBuf::from("/tmp/config.toml")));
         assert!(matches!(cli.command, Commands::Dashboard(_)));
     }
 
     #[test]
     fn test_parse_default_dashboard() {
-        let cli = Cli::try_parse_from(vec!["test"]).unwrap();
+        let args = ["test"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::Dashboard(_)));
     }
 
     #[test]
     fn test_parse_dashboard() {
-        let cli = Cli::try_parse_from(vec!["test", "dashboard"]).unwrap();
+        let args = ["test", "dashboard"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::Dashboard(_)));
     }
 
     #[test]
     fn test_parse_new() {
-        let cli = Cli::try_parse_from(vec!["test", "new"]).unwrap();
+        let args = ["test", "new"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::New(_)));
     }
 
     #[test]
     fn test_parse_add() {
-        let cli = Cli::try_parse_from(vec!["test", "add"]).unwrap();
+        let args = ["test", "add"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::New(_)));
     }
 
     #[test]
     fn test_parse_edit() {
-        let cli = Cli::try_parse_from(vec!["test", "edit", "id1"]).unwrap();
+        let args = ["test", "edit", "id1"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::Edit(_)));
     }
 
     #[test]
     fn test_parse_flush() {
-        let cli = Cli::try_parse_from(vec!["test", "flush"]).unwrap();
+        let args = ["test", "flush"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::Flush(_)));
     }
 
     #[test]
     fn test_parse_event_new() {
-        let cli = Cli::try_parse_from(vec![
+        let cli = Cli::try_parse_from([
             "test",
             "event",
             "new",
@@ -373,7 +380,7 @@ mod tests {
 
     #[test]
     fn test_parse_event_add() {
-        let cli = Cli::try_parse_from(vec![
+        let args = [
             "test",
             "event",
             "add",
@@ -382,14 +389,14 @@ mod tests {
             "2025-01-01 10:00",
             "--end",
             "2025-01-01 12:00",
-        ])
-        .unwrap();
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::EventNew(_)));
     }
 
     #[test]
     fn test_parse_event_edit() {
-        let args = vec!["test", "event", "edit", "some_id", "-s", "new summary"];
+        let args = ["test", "event", "edit", "some_id", "-s", "new summary"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::EventEdit(cmd) => {
@@ -402,10 +409,11 @@ mod tests {
 
     #[test]
     fn test_parse_event_delay() {
-        let cli = Cli::try_parse_from(vec!["test", "event", "delay", "id1", "id2"]).unwrap();
+        let args = ["test", "event", "delay", "id1", "id2"];
+        let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::EventDelay(cmd) => {
-                let expected_ids = vec![
+                let expected_ids = [
                     Id::ShortIdOrUid("id1".to_string()),
                     Id::ShortIdOrUid("id2".to_string()),
                 ];
@@ -417,10 +425,11 @@ mod tests {
 
     #[test]
     fn test_parse_event_reschedule() {
-        let cli = Cli::try_parse_from(vec!["test", "event", "reschedule", "id1", "id2"]).unwrap();
+        let args = ["test", "event", "reschedule", "id1", "id2"];
+        let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::EventReschedule(cmd) => {
-                let expected_ids = vec![
+                let expected_ids = [
                     Id::ShortIdOrUid("id1".to_string()),
                     Id::ShortIdOrUid("id2".to_string()),
                 ];
@@ -432,31 +441,31 @@ mod tests {
 
     #[test]
     fn test_parse_event_list() {
-        let args = vec!["test", "event", "list", "--output-format", "json"];
+        let args = ["test", "event", "list", "--output-format", "json"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
-            Commands::EventList(cmd) => {
-                assert_eq!(cmd.output_format, OutputFormat::Json);
-            }
+            Commands::EventList(cmd) => assert_eq!(cmd.output_format, OutputFormat::Json),
             _ => panic!("Expected EventList command"),
         }
     }
 
     #[test]
     fn test_parse_todo_new() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "new", "a new todo"]).unwrap();
+        let args = ["test", "todo", "new", "a new todo"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::TodoNew(_)));
     }
 
     #[test]
     fn test_parse_todo_add() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "add", "a new todo"]).unwrap();
+        let args = ["test", "todo", "add", "a new todo"];
+        let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::TodoNew(_)));
     }
 
     #[test]
     fn test_parse_todo_edit() {
-        let args = vec!["test", "todo", "edit", "some_id", "-s", "new summary"];
+        let args = ["test", "todo", "edit", "some_id", "-s", "new summary"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::TodoEdit(cmd) => {
@@ -469,10 +478,11 @@ mod tests {
 
     #[test]
     fn test_parse_todo_undo() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "undo", "id1", "id2"]).unwrap();
+        let args = ["test", "todo", "undo", "id1", "id2"];
+        let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::TodoUndo(cmd) => {
-                let expected_ids = vec![
+                let expected_ids = [
                     Id::ShortIdOrUid("id1".to_string()),
                     Id::ShortIdOrUid("id2".to_string()),
                 ];
@@ -484,10 +494,11 @@ mod tests {
 
     #[test]
     fn test_parse_todo_done() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "done", "id1", "id2"]).unwrap();
+        let args = ["test", "todo", "done", "id1", "id2"];
+        let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::TodoDone(cmd) => {
-                let expected_ids = vec![
+                let expected_ids = [
                     Id::ShortIdOrUid("id1".to_string()),
                     Id::ShortIdOrUid("id2".to_string()),
                 ];
@@ -499,10 +510,11 @@ mod tests {
 
     #[test]
     fn test_parse_todo_cancel() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "cancel", "id1", "id2"]).unwrap();
+        let args = ["test", "todo", "cancel", "id1", "id2"];
+        let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::TodoCancel(cmd) => {
-                let expected_ids = vec![
+                let expected_ids = [
                     Id::ShortIdOrUid("id1".to_string()),
                     Id::ShortIdOrUid("id2".to_string()),
                 ];
@@ -514,10 +526,11 @@ mod tests {
 
     #[test]
     fn test_parse_todo_delay() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "delay", "id1", "id2", "id3"]).unwrap();
+        let args = ["test", "todo", "delay", "id1", "id2", "id3"];
+        let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::TodoDelay(cmd) => {
-                let expected_ids = vec![
+                let expected_ids = [
                     Id::ShortIdOrUid("id1".to_string()),
                     Id::ShortIdOrUid("id2".to_string()),
                     Id::ShortIdOrUid("id3".to_string()),
@@ -530,10 +543,11 @@ mod tests {
 
     #[test]
     fn test_parse_todo_reschedule() {
-        let cli = Cli::try_parse_from(vec!["test", "todo", "reschedule", "id1", "id2"]).unwrap();
+        let args = ["test", "todo", "reschedule", "id1", "id2"];
+        let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::TodoReschedule(cmd) => {
-                let expected_ids = vec![
+                let expected_ids = [
                     Id::ShortIdOrUid("id1".to_string()),
                     Id::ShortIdOrUid("id2".to_string()),
                 ];
@@ -545,28 +559,25 @@ mod tests {
 
     #[test]
     fn test_parse_todo_list() {
-        let args = vec!["test", "todo", "list", "--output-format", "json"];
+        let args = ["test", "todo", "list", "--output-format", "json"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
-            Commands::TodoList(cmd) => {
-                assert_eq!(cmd.output_format, OutputFormat::Json);
-            }
+            Commands::TodoList(cmd) => assert_eq!(cmd.output_format, OutputFormat::Json),
             _ => panic!("Expected TodoList command"),
         }
     }
 
     #[test]
     fn test_parse_done() {
-        let cli = Cli::try_parse_from(vec!["test", "done", "id1", "id2"]).unwrap();
+        let args = ["test", "done", "id1", "id2"];
+        let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
             Commands::TodoDone(cmd) => {
-                assert_eq!(
-                    cmd.ids,
-                    vec![
-                        Id::ShortIdOrUid("id1".to_string()),
-                        Id::ShortIdOrUid("id2".to_string())
-                    ]
-                );
+                let expected_ids = [
+                    Id::ShortIdOrUid("id1".to_string()),
+                    Id::ShortIdOrUid("id2".to_string()),
+                ];
+                assert_eq!(cmd.ids, expected_ids);
             }
             _ => panic!("Expected TodoDone command"),
         }
@@ -574,12 +585,10 @@ mod tests {
 
     #[test]
     fn test_parse_generate_completions() {
-        let args = vec!["test", "generate-completion", "zsh"];
+        let args = ["test", "generate-completion", "zsh"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
-            Commands::GenerateCompletion(cmd) => {
-                assert_eq!(cmd.shell, Shell::Zsh);
-            }
+            Commands::GenerateCompletion(cmd) => assert_eq!(cmd.shell, Shell::Zsh),
             _ => panic!("Expected GenerateCompletion command"),
         }
     }

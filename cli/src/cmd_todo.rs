@@ -450,8 +450,8 @@ impl CmdTodoList {
         output_format: OutputFormat,
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
-        const MAX: i64 = 128;
-        let pager = (MAX, 0).into();
+        const LIMIT: i64 = 128;
+        let pager = (LIMIT, 0).into();
         let sort = vec![
             TodoSort::Priority {
                 order: SortOrder::Desc,
@@ -460,10 +460,10 @@ impl CmdTodoList {
             TodoSort::Due(SortOrder::Desc),
         ];
         let todos = aim.list_todos(conds, &sort, &pager).await?;
-        if todos.len() >= (MAX as usize) {
+        if todos.len() >= (LIMIT as usize) {
             let total = aim.count_todos(conds).await?;
-            if total > MAX {
-                let prompt = format!("Displaying the {MAX}/{total} todos");
+            if total > LIMIT {
+                let prompt = format!("Displaying the {LIMIT}/{total} todos");
                 println!("{}", prompt.italic());
             }
         } else if todos.is_empty() && output_format == OutputFormat::Table {
@@ -481,30 +481,11 @@ const fn args() -> (EventOrTodoArgs, TodoArgs) {
 
 // TODO: remove `verbose` in v0.12.0
 fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: OutputFormat, verbose: bool) {
+    use TodoColumn::*;
     let columns = match (output_format, verbose) {
-        (_, true) => vec![
-            TodoColumn::Status,
-            TodoColumn::Id,
-            TodoColumn::UidLegacy,
-            TodoColumn::Priority,
-            TodoColumn::Due,
-            TodoColumn::Summary,
-        ],
-        (OutputFormat::Table, false) => vec![
-            TodoColumn::Status,
-            TodoColumn::Id,
-            TodoColumn::Priority,
-            TodoColumn::Due,
-            TodoColumn::Summary,
-        ],
-        (OutputFormat::Json, false) => vec![
-            TodoColumn::Uid,
-            TodoColumn::ShortId,
-            TodoColumn::Status,
-            TodoColumn::Priority,
-            TodoColumn::Due,
-            TodoColumn::Summary,
-        ],
+        (_, true) => vec![Status, Id, UidLegacy, Priority, Due, Summary],
+        (OutputFormat::Table, false) => vec![Status, Id, Priority, Due, Summary],
+        (OutputFormat::Json, false) => vec![Uid, ShortId, Status, Priority, Due, Summary],
     };
     let formatter = TodoFormatter::new(aim.now(), columns, output_format);
     println!("{}", formatter.format(todos));
@@ -518,26 +499,24 @@ mod tests {
 
     #[test]
     fn test_parse_new() {
-        let cmd = CmdTodoNew::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "new",
-                "Another summary",
-                "--description",
-                "A description",
-                "--due",
-                "2025-01-01 12:00:00",
-                "--percent",
-                "66",
-                "--priority",
-                "1",
-                "--status",
-                "completed",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
-            .unwrap();
+        let args = [
+            "new",
+            "Another summary",
+            "--description",
+            "A description",
+            "--due",
+            "2025-01-01 12:00:00",
+            "--percent",
+            "66",
+            "--priority",
+            "1",
+            "--status",
+            "completed",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdTodoNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoNew::from(&matches);
 
         assert_eq!(parsed.description, Some("A description".to_string()));
@@ -554,10 +533,8 @@ mod tests {
 
     #[test]
     fn test_parse_new_tui() {
-        let cmd = CmdTodoNew::command();
-        let matches = cmd
-            .try_get_matches_from(["new", "--output-format", "json", "--verbose"])
-            .unwrap();
+        let args = ["new", "--output-format", "json", "--verbose"];
+        let matches = CmdTodoNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoNew::from(&matches);
 
         assert!(parsed.tui());
@@ -567,28 +544,26 @@ mod tests {
 
     #[test]
     fn test_parse_edit() {
-        let cmd = CmdTodoEdit::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "edit",
-                "test_id",
-                "--description",
-                "A description",
-                "--due",
-                "2025-01-01 12:00:00",
-                "--priority",
-                "1",
-                "--percent",
-                "66",
-                "--status",
-                "needs-action",
-                "--summary",
-                "Another summary",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
-            .unwrap();
+        let args = [
+            "edit",
+            "test_id",
+            "--description",
+            "A description",
+            "--due",
+            "2025-01-01 12:00:00",
+            "--priority",
+            "1",
+            "--percent",
+            "66",
+            "--status",
+            "needs-action",
+            "--summary",
+            "Another summary",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdTodoEdit::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoEdit::from(&matches);
 
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
@@ -620,10 +595,8 @@ mod tests {
 
     #[test]
     fn test_parse_done() {
-        let cmd = CmdTodoDone::command();
-        let matches = cmd
-            .try_get_matches_from(["done", "abc", "--output-format", "json", "--verbose"])
-            .unwrap();
+        let args = ["done", "abc", "--output-format", "json", "--verbose"];
+        let matches = CmdTodoDone::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoDone::from(&matches);
 
         assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
@@ -633,18 +606,16 @@ mod tests {
 
     #[test]
     fn test_parse_done_multi() {
-        let cmd = CmdTodoDone::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "done",
-                "a",
-                "b",
-                "c",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
-            .unwrap();
+        let args = [
+            "done",
+            "a",
+            "b",
+            "c",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdTodoDone::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoDone::from(&matches);
 
         let expected_ids = vec![
@@ -659,10 +630,8 @@ mod tests {
 
     #[test]
     fn test_parse_undo() {
-        let cmd = CmdTodoUndo::command();
-        let matches = cmd
-            .try_get_matches_from(["undo", "a", "b", "c", "--output-format", "json"])
-            .unwrap();
+        let args = ["undo", "a", "b", "c", "--output-format", "json"];
+        let matches = CmdTodoUndo::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoUndo::from(&matches);
 
         let expected_ids = vec![
@@ -676,10 +645,8 @@ mod tests {
 
     #[test]
     fn test_parse_cancel() {
-        let cmd = CmdTodoCancel::command();
-        let matches = cmd
-            .try_get_matches_from(["cancel", "a", "b", "c", "--output-format", "json"])
-            .unwrap();
+        let args = ["cancel", "a", "b", "c", "--output-format", "json"];
+        let matches = CmdTodoCancel::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoCancel::from(&matches);
 
         let expected_ids = vec![
@@ -693,20 +660,18 @@ mod tests {
 
     #[test]
     fn test_parse_delay() {
-        let cmd = CmdTodoDelay::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "delay",
-                "a",
-                "b",
-                "c",
-                "--time",
-                "1d",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
-            .unwrap();
+        let args = [
+            "delay",
+            "a",
+            "b",
+            "c",
+            "--time",
+            "1d",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdTodoDelay::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoDelay::from(&matches);
 
         let expected_ids = vec![
@@ -722,19 +687,19 @@ mod tests {
 
     #[test]
     fn test_parse_reschedule() {
-        let cmd = CmdTodoReschedule::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "reschedule",
-                "a",
-                "b",
-                "c",
-                "--time",
-                "1d",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
+        let args = [
+            "reschedule",
+            "a",
+            "b",
+            "c",
+            "--time",
+            "1d",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdTodoReschedule::command()
+            .try_get_matches_from(args)
             .unwrap();
         let parsed = CmdTodoReschedule::from(&matches);
 
@@ -751,10 +716,8 @@ mod tests {
 
     #[test]
     fn test_parse_list() {
-        let cmd = CmdTodoList::command();
-        let matches = cmd
-            .try_get_matches_from(["list", "--output-format", "json", "--verbose"])
-            .unwrap();
+        let args = ["list", "--output-format", "json", "--verbose"];
+        let matches = CmdTodoList::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoList::from(&matches);
 
         assert_eq!(parsed.output_format, OutputFormat::Json);

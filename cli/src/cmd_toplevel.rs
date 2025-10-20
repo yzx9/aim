@@ -325,8 +325,7 @@ async fn separate_ids(aim: &Aim, ids: Vec<Id>) -> Result<(Vec<Id>, Vec<Id>), Box
     let mut event_ids = vec![];
     let mut todo_ids = vec![];
     for id in ids {
-        let kind = aim.get_kind(&id).await?;
-        match kind {
+        match aim.get_kind(&id).await? {
             Kind::Event => event_ids.push(id),
             Kind::Todo => todo_ids.push(id),
         }
@@ -340,17 +339,15 @@ mod tests {
 
     #[test]
     fn test_parse_dashboard() {
-        let cmd = CmdDashboard::command();
-        let matches = cmd.try_get_matches_from(["dashboard"]).unwrap();
+        let args = ["dashboard"];
+        let matches = CmdDashboard::command().try_get_matches_from(args).unwrap();
         let _ = CmdDashboard::from(&matches);
     }
 
     #[test]
     fn test_parse_delay() {
-        let cmd = CmdEventDelay::command();
-        let matches = cmd
-            .try_get_matches_from(["delay", "a", "b", "c", "--time", "1d", "--verbose"])
-            .unwrap();
+        let args = ["delay", "a", "b", "c", "--time", "1d", "--verbose"];
+        let matches = CmdEventDelay::command().try_get_matches_from(args).unwrap();
         let parsed = CmdDelay::from(&matches);
 
         let expected_ids = vec![
@@ -365,10 +362,8 @@ mod tests {
 
     #[test]
     fn test_parse_reschedule() {
-        let cmd = CmdReschedule::command();
-        let matches = cmd
-            .try_get_matches_from(["reschedule", "a", "b", "c", "--time", "1h", "--verbose"])
-            .unwrap();
+        let args = ["reschedule", "a", "b", "c", "--time", "1h", "--verbose"];
+        let matches = CmdReschedule::command().try_get_matches_from(args).unwrap();
         let parsed = CmdReschedule::from(&matches);
 
         let expected_ids = vec![
@@ -383,8 +378,8 @@ mod tests {
 
     #[test]
     fn test_parse_flush() {
-        let cmd = CmdFlush::command();
-        let matches = cmd.try_get_matches_from(["flush"]).unwrap();
+        let args = ["flush"];
+        let matches = CmdFlush::command().try_get_matches_from(args).unwrap();
         let _ = CmdFlush::from(&matches);
     }
 }

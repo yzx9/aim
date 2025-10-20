@@ -355,33 +355,19 @@ impl CmdEventReschedule {
             let event = aim.get_event(id).await?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), Some(end)) => {
+                    use LooseDateTime::*;
                     let s = time.resolve_since_datetime(&aim.now());
+                    #[rustfmt::skip]
                     let e = match (start, end) {
-                        (LooseDateTime::DateOnly(ds), LooseDateTime::DateOnly(de)) => {
-                            (s.date() + (de - ds)).into()
-                        }
-                        (LooseDateTime::DateOnly(ds), LooseDateTime::Floating(dte)) => {
-                            (s.date() + (dte.date() - ds)).into()
-                        }
-                        (LooseDateTime::DateOnly(ds), LooseDateTime::Local(dte)) => {
-                            (s.date() + (dte.date_naive() - ds)).into()
-                        }
-                        (LooseDateTime::Floating(dts), LooseDateTime::DateOnly(dte)) => {
-                            s + (dte - dts.date())
-                        }
-                        (LooseDateTime::Floating(dts), LooseDateTime::Floating(dte)) => {
-                            s + (dte - dts)
-                        }
-                        (LooseDateTime::Floating(dts), LooseDateTime::Local(dte)) => {
-                            s + (dte.naive_local() - dts) // Treat floating as local
-                        }
-                        (LooseDateTime::Local(dts), LooseDateTime::DateOnly(de)) => {
-                            s + (de - dts.date_naive())
-                        }
-                        (LooseDateTime::Local(dts), LooseDateTime::Floating(dte)) => {
-                            s + (dte - dts.naive_local()) // Treat floating as local
-                        }
-                        (LooseDateTime::Local(dts), LooseDateTime::Local(dte)) => s + (dte - dts),
+                        (DateOnly(ds),  DateOnly(de))  => (s.date() + (de - ds)).into(),
+                        (DateOnly(ds),  Floating(dte)) => (s.date() + (dte.date() - ds)).into(),
+                        (DateOnly(ds),  Local(dte))    => (s.date() + (dte.date_naive() - ds)).into(),
+                        (Floating(dts), DateOnly(dte)) => s + (dte - dts.date()),
+                        (Floating(dts), Floating(dte)) => s + (dte - dts),
+                        (Floating(dts), Local(dte))    => s + (dte.naive_local() - dts), // Treat floating as local
+                        (Local(dts),    DateOnly(de))  => s + (de - dts.date_naive()),
+                        (Local(dts),    Floating(dte)) => s + (dte - dts.naive_local()), // Treat floating as local
+                        (Local(dts),    Local(dte))    => s + (dte - dts),
                     };
                     (Some(s), Some(e))
                 }
@@ -449,13 +435,13 @@ impl CmdEventList {
         output_format: OutputFormat,
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
-        const MAX: i64 = 128;
-        let pager: Pager = (MAX, 0).into();
+        const LIMIT: i64 = 128;
+        let pager: Pager = (LIMIT, 0).into();
         let events = aim.list_events(conds, &pager).await?;
-        if events.len() >= (MAX as usize) {
+        if events.len() >= (LIMIT as usize) {
             let total = aim.count_events(conds).await?;
-            if total > MAX {
-                let prompt = format!("Displaying the {MAX}/{total} events");
+            if total > LIMIT {
+                let prompt = format!("Displaying the {LIMIT}/{total} events");
                 println!("{}", prompt.italic());
             }
         } else if events.is_empty() && output_format == OutputFormat::Table {
@@ -477,24 +463,11 @@ const fn args() -> (EventOrTodoArgs, EventArgs) {
 
 // TODO: remove `verbose` in v0.12.0
 fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat, verbose: bool) {
+    use EventColumn::*;
     let columns = match (output_format, verbose) {
-        (_, true) => vec![
-            EventColumn::Id,
-            EventColumn::UidLegacy,
-            EventColumn::DateTimeSpan,
-            EventColumn::Summary,
-        ],
-        (OutputFormat::Table, false) => vec![
-            EventColumn::Id,
-            EventColumn::DateTimeSpan,
-            EventColumn::Summary,
-        ],
-        (OutputFormat::Json, false) => vec![
-            EventColumn::Uid,
-            EventColumn::ShortId,
-            EventColumn::DateTimeSpan,
-            EventColumn::Summary,
-        ],
+        (_, true) => vec![Id, UidLegacy, DateTimeSpan, Summary],
+        (OutputFormat::Table, false) => vec![Id, DateTimeSpan, Summary],
+        (OutputFormat::Json, false) => vec![Uid, ShortId, DateTimeSpan, Summary],
     };
     let formatter = EventFormatter::new(aim.now(), columns, output_format);
     println!("{}", formatter.format(events));
@@ -506,24 +479,22 @@ mod tests {
 
     #[test]
     fn test_parse_event_new() {
-        let cmd = CmdEventNew::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "new",
-                "Another summary",
-                "--description",
-                "A description",
-                "--start",
-                "2025-01-01 12:00:00",
-                "--end",
-                "2025-01-01 14:00:00",
-                "--status",
-                "tentative",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
-            .unwrap();
+        let args = [
+            "new",
+            "Another summary",
+            "--description",
+            "A description",
+            "--start",
+            "2025-01-01 12:00:00",
+            "--end",
+            "2025-01-01 14:00:00",
+            "--status",
+            "tentative",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdEventNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventNew::from(&matches);
 
         assert_eq!(parsed.description, Some("A description".to_string()));
@@ -539,8 +510,8 @@ mod tests {
 
     #[test]
     fn test_parse_new_tui() {
-        let cmd = CmdEventNew::command();
-        let matches = cmd.try_get_matches_from(["new"]).unwrap();
+        let args = ["new"];
+        let matches = CmdEventNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventNew::from(&matches);
 
         assert!(parsed.tui());
@@ -548,26 +519,24 @@ mod tests {
 
     #[test]
     fn test_parse_edit() {
-        let cmd = CmdEventEdit::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "edit",
-                "test_id",
-                "--description",
-                "A description",
-                "--start",
-                "2025-01-01 12:00:00",
-                "--end",
-                "2025-01-01 14:00:00",
-                "--status",
-                "tentative",
-                "--summary",
-                "Another summary",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
-            .unwrap();
+        let args = [
+            "edit",
+            "test_id",
+            "--description",
+            "A description",
+            "--start",
+            "2025-01-01 12:00:00",
+            "--end",
+            "2025-01-01 14:00:00",
+            "--status",
+            "tentative",
+            "--summary",
+            "Another summary",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdEventEdit::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventEdit::from(&matches);
 
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
@@ -594,20 +563,18 @@ mod tests {
 
     #[test]
     fn test_parse_delay() {
-        let cmd = CmdEventDelay::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "delay",
-                "a",
-                "b",
-                "c",
-                "--time",
-                "1d",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
-            .unwrap();
+        let args = [
+            "delay",
+            "a",
+            "b",
+            "c",
+            "--time",
+            "1d",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdEventDelay::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventDelay::from(&matches);
 
         let expected_ids = vec![
@@ -623,19 +590,19 @@ mod tests {
 
     #[test]
     fn test_parse_reschedule() {
-        let cmd = CmdEventReschedule::command();
-        let matches = cmd
-            .try_get_matches_from([
-                "reschedule",
-                "a",
-                "b",
-                "c",
-                "--time",
-                "1d",
-                "--output-format",
-                "json",
-                "--verbose",
-            ])
+        let args = [
+            "reschedule",
+            "a",
+            "b",
+            "c",
+            "--time",
+            "1d",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
+        let matches = CmdEventReschedule::command()
+            .try_get_matches_from(args)
             .unwrap();
         let parsed = CmdEventReschedule::from(&matches);
 
@@ -652,10 +619,8 @@ mod tests {
 
     #[test]
     fn test_parse_list() {
-        let cmd = CmdEventList::command();
-        let matches = cmd
-            .try_get_matches_from(["list", "--output-format", "json", "--verbose"])
-            .unwrap();
+        let args = ["list", "--output-format", "json", "--verbose"];
+        let matches = CmdEventList::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventList::from(&matches);
 
         assert_eq!(parsed.output_format, OutputFormat::Json);

@@ -74,9 +74,9 @@ mod tests {
 
     #[test]
     fn test_parse_generate_completion() {
-        let cmd = CmdGenerateCompletion::command();
-        let matches = cmd
-            .try_get_matches_from(["generate-completion", "bash"])
+        let args = ["generate-completion", "bash"];
+        let matches = CmdGenerateCompletion::command()
+            .try_get_matches_from(args)
             .unwrap();
         let parsed = CmdGenerateCompletion::from(&matches);
         assert_eq!(parsed.shell, Shell::Bash);
