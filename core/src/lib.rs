@@ -24,6 +24,7 @@ mod aim;
 mod config;
 mod datetime;
 mod event;
+mod io;
 mod localdb;
 mod short_id;
 mod todo;

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use chrono::{DateTime, Local};
 use icalendar::{Calendar, CalendarComponent, Component};
@@ -11,6 +11,7 @@ use tokio::fs;
 use uuid::Uuid;
 
 use crate::event::ParsedEventConditions;
+use crate::io::{add_calendar, parse_ics};
 use crate::localdb::LocalDb;
 use crate::short_id::ShortIds;
 use crate::todo::{ParsedTodoConditions, ParsedTodoSort};
@@ -43,18 +44,17 @@ impl Aim {
 
         let short_ids = ShortIds::new(db.clone());
         let calendar_path = config.calendar_path.clone();
-        let that = Self {
+        add_calendar(&db, &calendar_path)
+            .await
+            .map_err(|e| format!("Failed to add calendar files: {e}"))?;
+
+        Ok(Self {
             now,
             config,
             db,
             short_ids,
             calendar_path,
-        };
-        that.add_calendar(&that.calendar_path)
-            .await
-            .map_err(|e| format!("Failed to add calendar files: {e}"))?;
-
-        Ok(that)
+        })
     }
 
     /// The current time in the AIM instance.
@@ -106,7 +106,7 @@ impl Aim {
 
         let path: PathBuf = event.path().into();
         let mut calendar = parse_ics(&path).await?;
-        let t = calendar
+        let e = calendar
             .components
             .iter_mut()
             .filter_map(|a| match a {
@@ -116,15 +116,15 @@ impl Aim {
             .find(|a| a.get_uid() == Some(event.uid()))
             .ok_or("Event not found in calendar")?;
 
-        patch.apply_to(t);
-        let todo = t.clone();
+        patch.apply_to(e);
+        let event = e.clone();
         fs::write(&path, calendar.done().to_string())
             .await
             .map_err(|e| format!("Failed to write calendar file: {e}"))?;
 
-        self.db.upsert_event(&path, &todo).await?;
+        self.db.upsert_event(&path, &event).await?;
 
-        let todo = self.short_ids.event(todo).await?;
+        let todo = self.short_ids.event(event).await?;
         Ok(todo)
     }
 
@@ -276,56 +276,6 @@ impl Aim {
         self.db.close().await
     }
 
-    #[tracing::instrument(skip(self))]
-    async fn add_calendar(&self, calendar_path: &PathBuf) -> Result<(), Box<dyn Error>> {
-        let mut reader = fs::read_dir(calendar_path)
-            .await
-            .map_err(|e| format!("Failed to read directory: {e}"))?;
-
-        let mut handles = vec![];
-        let mut count_ics = 0;
-
-        while let Some(entry) = reader.next_entry().await? {
-            let path = entry.path();
-            match path.extension() {
-                Some(ext) if ext == "ics" => {
-                    count_ics += 1;
-                    let that = self.clone();
-                    handles.push(tokio::spawn(async move {
-                        if let Err(err) = that.add_ics(&path).await {
-                            tracing::error!(path = %path.display(), err, "failed to process file");
-                        }
-                    }));
-                }
-                _ => {}
-            }
-        }
-
-        for handle in handles {
-            handle.await?;
-        }
-
-        tracing::debug!(count = count_ics, "total .ics files processed");
-        Ok(())
-    }
-
-    async fn add_ics(self, path: &Path) -> Result<(), Box<dyn Error>> {
-        tracing::debug!(path = %path.display(), "parsing file");
-        let calendar = parse_ics(path).await?;
-
-        tracing::debug!(path = %path.display(), components = calendar.components.len(), "found components");
-        for component in calendar.components {
-            tracing::debug!(?component, "processing component");
-            match component {
-                CalendarComponent::Event(event) => self.db.upsert_event(path, &event).await?,
-                CalendarComponent::Todo(todo) => self.db.upsert_todo(path, &todo).await?,
-                _ => tracing::warn!(?component, "ignoring unsupported component type"),
-            }
-        }
-
-        Ok(())
-    }
-
     async fn generate_uid(&self, kind: Kind) -> Result<String, Box<dyn Error>> {
         for i in 0..16 {
             let uid = Uuid::new_v4().to_string(); // TODO: better uid
@@ -367,12 +317,4 @@ async fn prepare(config: &Config) -> Result<(), Box<dyn Error>> {
         fs::create_dir_all(parent).await?;
     }
     Ok(())
-}
-
-async fn parse_ics(path: &Path) -> Result<Calendar, Box<dyn Error>> {
-    fs::read_to_string(path)
-        .await
-        .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?
-        .parse()
-        .map_err(|e| format!("Failed to parse calendar: {e}").into())
 }
