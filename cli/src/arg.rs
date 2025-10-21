@@ -46,7 +46,7 @@ impl EventOrTodoArgs {
         Self { kind }
     }
 
-    pub fn kind(&self) -> Arg {
+    pub fn kind(self) -> Arg {
         let arg = arg!(-t --type <TYPE>)
             .value_parser(value_parser!(Kind))
             .help("Type of item to edit");
@@ -62,7 +62,7 @@ impl EventOrTodoArgs {
         matches.get_one("type").copied()
     }
 
-    pub fn id(&self) -> Arg {
+    pub fn id(self) -> Arg {
         arg!(id: <ID>).help(format!(
             "The short id or uid of the {} to edit",
             self.kind_name()
@@ -78,7 +78,7 @@ impl EventOrTodoArgs {
         Id::ShortIdOrUid(id)
     }
 
-    pub fn ids(&self) -> Arg {
+    pub fn ids(self) -> Arg {
         arg!(id: <ID>)
             .help(format!(
                 "The short id or uid of the {} to edit",
@@ -95,7 +95,7 @@ impl EventOrTodoArgs {
             .collect()
     }
 
-    pub fn description(&self) -> Arg {
+    pub fn description(self) -> Arg {
         arg!(--description <DESCRIPTION>).help(format!("Description of the {}", self.kind_name()))
     }
 
@@ -105,7 +105,7 @@ impl EventOrTodoArgs {
 
     /// Status of either event or todo. Prefer using `EventArgs::status` or `TodoArgs::status` if
     /// the kind is known.
-    pub fn status(&self) -> Arg {
+    pub fn status(self) -> Arg {
         arg!(--status <STATUS>)
             .help(format!("Status of the {}", self.kind_name()))
             .value_parser(value_parser!(EventOrTodoStatus))
@@ -115,7 +115,7 @@ impl EventOrTodoArgs {
         matches.get_one("status").copied()
     }
 
-    pub fn summary(&self, positional: bool) -> Arg {
+    pub fn summary(self, positional: bool) -> Arg {
         let arg = if positional {
             arg!(summary: [SUMMARY])
         } else {
@@ -128,7 +128,7 @@ impl EventOrTodoArgs {
         matches.get_one("summary").cloned()
     }
 
-    pub fn time(&self, operation: &str) -> Arg {
+    pub fn time(self, operation: &str) -> Arg {
         arg!(time: -t --time <TIME>)
             .help(format!(
                 "Time to {operation} (2025-01-01 [9:00], 14:00, tomorrow...)"
@@ -140,7 +140,7 @@ impl EventOrTodoArgs {
         matches.get_one("time").copied()
     }
 
-    fn kind_name(&self) -> &'static str {
+    fn kind_name(self) -> &'static str {
         match self.kind {
             Some(Kind::Event) => "event",
             Some(Kind::Todo) => "todo",
@@ -159,7 +159,7 @@ impl EventArgs {
         Self { monopolize }
     }
 
-    pub fn start(&self) -> Arg {
+    pub fn start(self) -> Arg {
         arg!(--start <START>).help(self.monopolize("Start date and time of the event"))
     }
 
@@ -167,7 +167,7 @@ impl EventArgs {
         matches.get_one("start").cloned()
     }
 
-    pub fn end(&self) -> Arg {
+    pub fn end(self) -> Arg {
         arg!(--end <END>).help(self.monopolize("End date and time of the event"))
     }
 
@@ -175,7 +175,7 @@ impl EventArgs {
         matches.get_one("end").cloned()
     }
 
-    pub fn status(&self) -> Arg {
+    pub fn status(self) -> Arg {
         arg!(--status <STATUS>)
             .help(self.monopolize("Status of the event"))
             .value_parser(value_parser!(EventStatus))
@@ -185,7 +185,7 @@ impl EventArgs {
         matches.get_one("status").copied()
     }
 
-    fn monopolize(&self, help: impl ToString) -> String {
+    fn monopolize(self, help: impl ToString) -> String {
         if self.monopolize {
             help.to_string()
         } else {
@@ -204,7 +204,7 @@ impl TodoArgs {
         Self { monopolize }
     }
 
-    pub fn due(&self) -> Arg {
+    pub fn due(self) -> Arg {
         arg!(--due <DUE>).help(self.monopolize("Due date and time of the todo"))
     }
 
@@ -212,7 +212,7 @@ impl TodoArgs {
         matches.get_one("due").cloned()
     }
 
-    pub fn percent_complete(&self) -> Arg {
+    pub fn percent_complete(self) -> Arg {
         pub fn from_0_to_100(s: &str) -> Result<u8, String> {
             number_range(s, 0, 100)
         }
@@ -226,7 +226,7 @@ impl TodoArgs {
         matches.get_one("percent").copied()
     }
 
-    pub fn priority(&self) -> Arg {
+    pub fn priority(self) -> Arg {
         arg!(-p --priority <PRIORITY>)
             .help(self.monopolize("Priority of the todo"))
             .value_parser(value_parser!(Priority))
@@ -236,7 +236,7 @@ impl TodoArgs {
         matches.get_one("priority").copied()
     }
 
-    pub fn status(&self) -> Arg {
+    pub fn status(self) -> Arg {
         arg!(--status <STATUS>)
             .help(self.monopolize("Status of the todo"))
             .value_parser(value_parser!(TodoStatus))
@@ -246,7 +246,7 @@ impl TodoArgs {
         matches.get_one("status").copied()
     }
 
-    fn monopolize(&self, help: impl ToString) -> String {
+    fn monopolize(self, help: impl ToString) -> String {
         if self.monopolize {
             help.to_string()
         } else {

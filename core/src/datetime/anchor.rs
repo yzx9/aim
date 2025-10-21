@@ -123,7 +123,7 @@ impl DateTimeAnchor {
                 0 => match start {
                     LooseDateTime::Local(dt) => next_suggested_time(&dt.naive_local()),
                     LooseDateTime::Floating(dt) => next_suggested_time(dt),
-                    LooseDateTime::DateOnly(d) => first_suggested_time(d),
+                    LooseDateTime::DateOnly(d) => first_suggested_time(*d),
                 },
                 _ => {
                     let date = start.date() + TimeDelta::days(n);
@@ -323,8 +323,8 @@ fn next_suggested_time(now: &NaiveDateTime) -> LooseDateTime {
     LooseDateTime::DateOnly(date)
 }
 
-fn first_suggested_time(date: &NaiveDate) -> LooseDateTime {
-    let dt = NaiveDateTime::new(*date, NaiveTime::from_hms_opt(HOURS[0], 0, 0).unwrap());
+fn first_suggested_time(date: NaiveDate) -> LooseDateTime {
+    let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(HOURS[0], 0, 0).unwrap());
     LooseDateTime::from_local_datetime(dt)
 }
 

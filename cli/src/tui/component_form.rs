@@ -83,8 +83,8 @@ impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
         for (item, area) in self.items.iter().zip(areas.iter()).rev() {
             // reverse order to draw the last item first, dont assert if the item is visible
             if item_is_visible(item, store) {
-                item_render(is_last, item, store, area, buf);
-                item.render(store, item_inner(area), buf);
+                item_render(is_last, item, store, *area, buf);
+                item.render(store, item_inner(*area), buf);
                 is_last = false;
             }
         }
@@ -340,7 +340,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> Component<S> for RadioGroup<S, T, A> {
     }
 
     fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
-        self.split(item_inner(&area))
+        self.split(item_inner(area))
             .get(self.selected(store))
             .map(|area| (area.x + 1, area.y))
     }
@@ -412,7 +412,7 @@ fn item_render<S>(
     is_last: bool,
     item: &impl FormItem<S>,
     store: &RefCell<S>,
-    area: &Rect,
+    area: Rect,
     buf: &mut Buffer,
 ) {
     let color = match item.item_state(store) {
@@ -456,7 +456,7 @@ fn item_render<S>(
     }
 }
 
-fn item_inner(area: &Rect) -> Rect {
+fn item_inner(area: Rect) -> Rect {
     Rect {
         x: area.x + 2,
         y: area.y + 1,

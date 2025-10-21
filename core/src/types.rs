@@ -44,7 +44,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub(crate) fn to_str_stable(self: &Kind) -> &'static str {
+    pub(crate) fn to_str_stable(self) -> &'static str {
         match self {
             Kind::Todo => "todo",
             Kind::Event => "event",

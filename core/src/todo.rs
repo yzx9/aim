@@ -402,11 +402,11 @@ pub enum TodoSort {
 }
 
 impl TodoSort {
-    pub(crate) fn resolve(&self, config: &Config) -> ResolvedTodoSort {
+    pub(crate) fn resolve(self, config: &Config) -> ResolvedTodoSort {
         match self {
-            TodoSort::Due(order) => ResolvedTodoSort::Due(*order),
+            TodoSort::Due(order) => ResolvedTodoSort::Due(order),
             TodoSort::Priority { order, none_first } => ResolvedTodoSort::Priority {
-                order: *order,
+                order,
                 none_first: none_first.unwrap_or(config.default_priority_none_fist),
             },
         }

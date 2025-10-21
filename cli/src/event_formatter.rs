@@ -103,7 +103,7 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
             EventColumn::Id => format_id(data),
             EventColumn::ShortId => format_short_id(data),
             EventColumn::Summary => format_summary(data),
-            EventColumn::TimeSpan { date } => format_time_span(data, date),
+            EventColumn::TimeSpan { date } => format_time_span(data, *date),
             EventColumn::Uid => format_uid(data),
             EventColumn::UidLegacy => format_uid_legacy(data),
         }
@@ -118,8 +118,8 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
 
     fn get_color(&self, data: &E) -> Option<Color> {
         match &self.column {
-            EventColumn::DateTimeSpan => get_color_datetime_span(data, &self.now),
-            EventColumn::TimeSpan { date: _ } => get_color_time_span(data, &self.now),
+            EventColumn::DateTimeSpan => get_color_datetime_span(data, self.now),
+            EventColumn::TimeSpan { date: _ } => get_color_time_span(data, self.now),
             _ => None,
         }
     }
@@ -178,7 +178,7 @@ fn format_datetime_span(event: &impl Event) -> Cow<'_, str> {
     }
 }
 
-fn get_color_datetime_span(event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
+fn get_color_datetime_span(event: &impl Event, now: DateTime<Local>) -> Option<Color> {
     const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
     const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
 
@@ -194,8 +194,8 @@ fn get_color_datetime_span(event: &impl Event, now: &DateTime<Local>) -> Option<
     }
 }
 
-fn format_time_span<'a>(event: &'a impl Event, date: &NaiveDate) -> Cow<'a, str> {
-    fn format_date(d: &NaiveDate) -> String {
+fn format_time_span<'a>(event: &'a impl Event, date: NaiveDate) -> Cow<'a, str> {
+    fn format_date(d: NaiveDate) -> String {
         d.format("%Y-%m-%d").to_string()
     }
 
@@ -205,11 +205,11 @@ fn format_time_span<'a>(event: &'a impl Event, date: &NaiveDate) -> Cow<'a, str>
             let edate = end.date();
             if edate < sdate {
                 String::new() // Invalid range
-            } else if &edate < date {
-                format!("⇥{}", format_date(&edate)).to_string() // in the past
-            } else if &sdate > date {
-                format!("{}↦", format_date(&sdate)).to_string() // in the future
-            } else if &sdate == date && sdate == edate {
+            } else if edate < date {
+                format!("⇥{}", format_date(edate)).to_string() // in the past
+            } else if sdate > date {
+                format!("{}↦", format_date(sdate)).to_string() // in the future
+            } else if sdate == date && sdate == edate {
                 // today is the only day
                 match (start.time(), end.time()) {
                     (Some(stime), Some(etime)) => {
@@ -219,13 +219,13 @@ fn format_time_span<'a>(event: &'a impl Event, date: &NaiveDate) -> Cow<'a, str>
                     (None, Some(etime)) => format!("     ↦{}", etime.format("%H:%M")),
                     (None, None) => format!("⇹{}", format_date(date)),
                 }
-            } else if &sdate == date
+            } else if sdate == date
                 && sdate < edate
                 && let Some(stime) = start.time()
             {
                 // starts today with time, ends later
                 format!("{}↦", stime.format("%H:%M")).to_string()
-            } else if &edate == date
+            } else if edate == date
                 && let Some(etime) = end.time()
             {
                 // ends today with time, started earlier
@@ -235,7 +235,7 @@ fn format_time_span<'a>(event: &'a impl Event, date: &NaiveDate) -> Cow<'a, str>
                 format!("{}~{}", sdate.format("%m-%d"), edate.format("%m-%d")).to_string()
             } else {
                 // sdate <= self.date <= edate, no time, different year, show full date
-                format!("⇸{}", format_date(&edate)).to_string()
+                format!("⇸{}", format_date(edate)).to_string()
             }
         }
         .into(),
@@ -245,7 +245,7 @@ fn format_time_span<'a>(event: &'a impl Event, date: &NaiveDate) -> Cow<'a, str>
     }
 }
 
-fn get_color_time_span(event: &impl Event, now: &DateTime<Local>) -> Option<Color> {
+fn get_color_time_span(event: &impl Event, now: DateTime<Local>) -> Option<Color> {
     get_color_datetime_span(event, now)
 }
 

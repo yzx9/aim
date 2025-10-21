@@ -146,12 +146,12 @@ fn new_priority<S: TodoStoreLike>() -> ComponentPriority<S> {
 
     let options_verb = values_verb
         .iter()
-        .map(|a| fmt_priority(a, true).to_string())
+        .map(|a| fmt_priority(*a, true).to_string())
         .collect();
 
     let options = values
         .iter()
-        .map(|a| fmt_priority(a, false).to_string())
+        .map(|a| fmt_priority(*a, false).to_string())
         .collect();
 
     const TITLE: &str = "Priority";
@@ -160,7 +160,7 @@ fn new_priority<S: TodoStoreLike>() -> ComponentPriority<S> {
     FormItemSwitch::new(verbose, concise)
 }
 
-const fn fmt_priority(priority: &Priority, verbose: bool) -> &'static str {
+const fn fmt_priority(priority: Priority, verbose: bool) -> &'static str {
     match priority {
         Priority::P2 if !verbose => "HIGH",
         Priority::P5 if !verbose => "MID",
