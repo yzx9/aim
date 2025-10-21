@@ -14,7 +14,7 @@ pub trait TodoStoreLike {
     where
         Self: 'a;
 
-    fn todo<'a>(&'a self) -> Self::Output<'a>;
+    fn todo(&self) -> Self::Output<'_>;
 }
 
 #[derive(Debug)]
@@ -61,7 +61,7 @@ impl TodoStore {
     }
 
     fn new(data: TodoData) -> Self {
-        use Priority::*;
+        use Priority::{P1, P3, P4, P6, P7, P9};
         let verbose_priority = matches!(data.priority, P1 | P3 | P4 | P6 | P7 | P9);
         Self {
             data,
@@ -115,12 +115,12 @@ impl TodoStore {
         let callback = Rc::new(RefCell::new(move |action: &Action| match action {
             Action::UpdateTodoDescription(v) => {
                 let mut that = that.borrow_mut();
-                that.data.description = v.clone();
+                that.data.description.clone_from(v);
                 that.dirty.description = true;
             }
             Action::UpdateTodoDue(v) => {
                 let mut that = that.borrow_mut();
-                that.data.due = v.clone();
+                that.data.due.clone_from(v);
                 that.dirty.due = true;
             }
             Action::UpdateTodoPercentComplete(v) => {
@@ -140,7 +140,7 @@ impl TodoStore {
             }
             Action::UpdateTodoSummary(v) => {
                 let mut that = that.borrow_mut();
-                that.data.summary = v.clone();
+                that.data.summary.clone_from(v);
                 that.dirty.summary = true;
             }
             Action::SubmitChanges => {
@@ -172,6 +172,7 @@ pub struct TodoData {
 }
 
 #[derive(Debug, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct TodoMarker {
     description: bool,
     due: bool,

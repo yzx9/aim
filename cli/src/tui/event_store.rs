@@ -14,7 +14,7 @@ pub trait EventStoreLike {
     where
         Self: 'a;
 
-    fn event<'a>(&'a self) -> Self::Output<'a>;
+    fn event(&self) -> Self::Output<'_>;
 }
 
 #[derive(Debug)]
@@ -102,17 +102,17 @@ impl EventStore {
         let callback = Rc::new(RefCell::new(move |action: &Action| match action {
             Action::UpdateEventDescription(v) => {
                 let mut that = that.borrow_mut();
-                that.data.description = v.clone();
+                that.data.description.clone_from(v);
                 that.dirty.description = true;
             }
             Action::UpdateEventStart(v) => {
                 let mut that = that.borrow_mut();
-                that.data.start = v.clone();
+                that.data.start.clone_from(v);
                 that.dirty.start = true;
             }
             Action::UpdateEventEnd(v) => {
                 let mut that = that.borrow_mut();
-                that.data.end = v.clone();
+                that.data.end.clone_from(v);
                 that.dirty.end = true;
             }
             Action::UpdateEventStatus(v) => {
@@ -122,7 +122,7 @@ impl EventStore {
             }
             Action::UpdateEventSummary(v) => {
                 let mut that = that.borrow_mut();
-                that.data.summary = v.clone();
+                that.data.summary.clone_from(v);
                 that.dirty.summary = true;
             }
             Action::SubmitChanges => {
@@ -165,6 +165,7 @@ impl Default for EventData {
 }
 
 #[derive(Debug, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct EventMarker {
     description: bool,
     start: bool,

@@ -44,7 +44,7 @@ impl<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> Display for Table<'a, T,
 
                 if j < columns.len() - 1 {
                     write!(f, "{}", self.style.cell_separator())?;
-                };
+                }
             }
 
             write!(f, "{}", self.style.row_ending(data))?;
@@ -62,22 +62,27 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
 
     fn build<'b>(&self, columns: &'a [C], table: &'b [Vec<Cow<'a, str>>]) -> Vec<Self::ColumnMeta>;
 
+    #[allow(clippy::unnecessary_literal_bound)]
     fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
     }
 
+    #[allow(clippy::unnecessary_literal_bound)]
     fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
     }
 
+    #[allow(clippy::unnecessary_literal_bound)]
     fn row_starting(&self, _data: &T) -> &str {
         ""
     }
 
+    #[allow(clippy::unnecessary_literal_bound)]
     fn row_ending(&self, _data: &T) -> &str {
         ""
     }
 
+    #[allow(clippy::unnecessary_literal_bound)]
     fn row_separator(&self) -> &str {
         "\n"
     }
@@ -91,6 +96,7 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
         cell
     }
 
+    #[allow(clippy::unnecessary_literal_bound)]
     fn cell_separator(&self) -> &str {
         " "
     }
@@ -240,23 +246,23 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
         columns.iter().map(|col| col.name()).collect()
     }
 
-    fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
+    fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &'static str {
         "["
     }
 
-    fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
+    fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &'static str {
         "]"
     }
 
-    fn row_starting(&self, _data: &T) -> &str {
+    fn row_starting(&self, _data: &T) -> &'static str {
         "{"
     }
 
-    fn row_ending(&self, _data: &T) -> &str {
+    fn row_ending(&self, _data: &T) -> &'static str {
         "}"
     }
 
-    fn row_separator(&self) -> &str {
+    fn row_separator(&self) -> &'static str {
         ","
     }
 
@@ -277,14 +283,14 @@ impl<'a, T, C: 'a + TableColumn<T>> TableStyle<'a, T, C> for TableStyleJson {
         format!(r#""{column}":"{escaped}""#).into()
     }
 
-    fn cell_separator(&self) -> &str {
+    fn cell_separator(&self) -> &'static str {
         ","
     }
 }
 
 /// Computes the maximum display width for each column in a 2D table of strings.
 fn get_column_max_width(table: &[Vec<Cow<'_, str>>]) -> Vec<usize> {
-    let mut max_width = vec![0; table.first().map(Vec::len).unwrap_or(0)];
+    let mut max_width = vec![0; table.first().map_or(0, Vec::len)];
     for row in table {
         for (i, cell) in row.iter().enumerate() {
             if let Some(max_width) = max_width.get_mut(i) {
@@ -355,7 +361,7 @@ mod tests {
             if data.active { "Yes" } else { "No" }.into()
         }
         fn get_color(&self, data: &TestData) -> Option<Color> {
-            if !data.active { Some(Color::Red) } else { None }
+            if data.active { None } else { Some(Color::Red) }
         }
     }
 

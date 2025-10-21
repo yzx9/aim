@@ -15,8 +15,8 @@ pub struct Todos {
 }
 
 impl Todos {
-    pub async fn new(pool: SqlitePool) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self { pool })
+    pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
     }
 
     pub async fn upsert(&self, todo: &TodoRecord) -> Result<(), sqlx::Error> {
@@ -74,7 +74,7 @@ SELECT uid, path, completed, description, percent, priority, status, summary, du
 FROM todos
 "
         .to_string();
-        sql += &self.build_where(conds);
+        sql += &Self::build_where(conds);
 
         if !sort.is_empty() {
             sql += "ORDER BY ";
@@ -117,16 +117,16 @@ FROM todos
 
     pub async fn count(&self, conds: &ResolvedTodoConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM todos".to_string();
-        sql += &self.build_where(conds);
+        sql += &Self::build_where(conds);
         sql += ";";
 
         let mut query = sqlx::query_as(&sql);
-        query = self.bind_conditions(conds, query);
+        query = Self::bind_conditions(conds, query);
         let row: (i64,) = query.fetch_one(&self.pool).await?;
         Ok(row.0)
     }
 
-    fn build_where(&self, conds: &ResolvedTodoConditions) -> String {
+    fn build_where(conds: &ResolvedTodoConditions) -> String {
         let mut where_clauses = Vec::new();
         if conds.status.is_some() {
             where_clauses.push("status = ?");
@@ -135,15 +135,14 @@ FROM todos
             where_clauses.push("due <= ?");
         }
 
-        if !where_clauses.is_empty() {
-            format!(" WHERE {} ", where_clauses.join(" AND "))
-        } else {
+        if where_clauses.is_empty() {
             String::new()
+        } else {
+            format!(" WHERE {} ", where_clauses.join(" AND "))
         }
     }
 
     fn bind_conditions<'a, O>(
-        &self,
         conds: &'a ResolvedTodoConditions,
         mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
     ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
@@ -172,8 +171,8 @@ pub struct TodoRecord {
 }
 
 impl TodoRecord {
-    pub fn from<T: Todo>(path: String, todo: &T) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self {
+    pub fn from<T: Todo>(path: String, todo: &T) -> Self {
+        Self {
             uid: todo.uid().to_string(),
             path,
             summary: todo.summary().to_string(),
@@ -183,7 +182,7 @@ impl TodoRecord {
             percent: todo.percent_complete(),
             priority: todo.priority().into(),
             status: todo.status().to_string(),
-        })
+        }
     }
 
     pub fn path(&self) -> &str {

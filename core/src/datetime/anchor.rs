@@ -35,21 +35,25 @@ enum DayBoundary {
 
 impl DateTimeAnchor {
     /// Represents the current time.
+    #[must_use]
     pub fn now() -> Self {
         DateTimeAnchor::Relative(0)
     }
 
     /// Represents the current date.
+    #[must_use]
     pub fn today() -> Self {
         DateTimeAnchor::InDays(0)
     }
 
     /// Represents tomorrow, which is one day after today.
+    #[must_use]
     pub fn tomorrow() -> Self {
         DateTimeAnchor::InDays(1)
     }
 
     /// Represents yesterday, which is one day before today.
+    #[must_use]
     pub fn yesterday() -> Self {
         DateTimeAnchor::InDays(-1)
     }
@@ -94,6 +98,7 @@ impl DateTimeAnchor {
     }
 
     /// Resolve the `DateTimeAnchor` to a `LooseDateTime` based on the provided current local time.
+    #[must_use]
     pub fn resolve_at(self, now: &LooseDateTime) -> LooseDateTime {
         match self {
             DateTimeAnchor::InDays(n) => *now + TimeDelta::days(n),
@@ -117,6 +122,7 @@ impl DateTimeAnchor {
     }
 
     /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `DateTime<Tz>`.
+    #[must_use]
     pub fn resolve_since(self, start: &LooseDateTime) -> LooseDateTime {
         match self {
             DateTimeAnchor::InDays(n) => match n {
@@ -127,7 +133,8 @@ impl DateTimeAnchor {
                 },
                 _ => {
                     let date = start.date() + TimeDelta::days(n);
-                    let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+                    let time = NaiveTime::from_hms_opt(9, 0, 0).unwrap_or_default();
+                    let dt = NaiveDateTime::new(date, time);
                     LooseDateTime::from_local_datetime(dt)
                 }
             },
@@ -150,13 +157,15 @@ impl DateTimeAnchor {
     }
 
     /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `DateTime<Tz>`.
+    #[must_use]
     pub fn resolve_since_datetime<Tz: TimeZone>(self, start: &DateTime<Tz>) -> LooseDateTime {
         match self {
             DateTimeAnchor::InDays(n) => match n {
                 0 => next_suggested_time(&start.naive_local()),
                 _ => {
                     let date = start.date_naive() + TimeDelta::days(n);
-                    let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+                    let time = NaiveTime::from_hms_opt(9, 0, 0).unwrap_or_default();
+                    let dt = NaiveDateTime::new(date, time);
                     LooseDateTime::from_local_datetime(dt)
                 }
             },
@@ -204,6 +213,7 @@ impl DateTimeAnchor {
         since = "0.9.0",
         note = "use `resolve_at` method instead, will be removed in 0.12.0"
     )]
+    #[must_use]
     // TODO: remove this function in 0.12.0
     pub fn parse_from_loose(self, now: &LooseDateTime) -> LooseDateTime {
         self.resolve_at(now)
@@ -267,7 +277,7 @@ impl<'de> serde::Deserialize<'de> for DateTimeAnchor {
     {
         struct Visitor;
 
-        impl<'de> de::Visitor<'de> for Visitor {
+        impl de::Visitor<'_> for Visitor {
             type Value = DateTimeAnchor;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -786,7 +796,7 @@ mod tests {
         ] {
             let anchor: DateTimeAnchor = s.parse().unwrap();
             let expected = DateTimeAnchor::Relative(10);
-            assert_eq!(anchor, expected, "Failed to parse '{}'", s);
+            assert_eq!(anchor, expected, "Failed to parse '{s}'");
 
             // No "in " prefix allowed for seconds
             let prefix_in = DateTimeAnchor::from_str(&format!("in {s}"));
@@ -810,7 +820,7 @@ mod tests {
         ] {
             let anchor: DateTimeAnchor = s.parse().unwrap();
             let expected = DateTimeAnchor::Relative(10 * 60);
-            assert_eq!(anchor, expected, "Failed to parse '{}'", s);
+            assert_eq!(anchor, expected, "Failed to parse '{s}'");
 
             // No "in " prefix allowed for minutes
             let prefix_in = DateTimeAnchor::from_str(&format!("in {s}"));
@@ -837,7 +847,7 @@ mod tests {
         ] {
             let anchor: DateTimeAnchor = s.parse().unwrap();
             let expected = DateTimeAnchor::Relative(10 * 60 * 60);
-            assert_eq!(anchor, expected, "Failed to parse '{}'", s);
+            assert_eq!(anchor, expected, "Failed to parse '{s}'");
         }
     }
 
@@ -856,7 +866,7 @@ mod tests {
         ] {
             let anchor: DateTimeAnchor = s.parse().unwrap();
             let expected = DateTimeAnchor::InDays(10);
-            assert_eq!(anchor, expected, "Failed to parse '{}'", s);
+            assert_eq!(anchor, expected, "Failed to parse '{s}'");
         }
     }
 
@@ -889,7 +899,7 @@ mod tests {
                     .with_ymd_and_hms(2025, 1, 1, expected_hour, 0, 0)
                     .unwrap(),
             );
-            assert_eq!(result, expected, "{}", description);
+            assert_eq!(result, expected, "{description}");
         }
     }
 

@@ -128,6 +128,7 @@ impl EventOrTodoArgs {
         matches.get_one("summary").cloned()
     }
 
+    #[allow(clippy::unused_self)]
     pub fn time(self, operation: &str) -> Arg {
         arg!(time: -t --time <TIME>)
             .help(format!(
@@ -160,7 +161,7 @@ impl EventArgs {
     }
 
     pub fn start(self) -> Arg {
-        arg!(--start <START>).help(self.monopolize("Start date and time of the event"))
+        arg!(--start <START>).help(self.monopolize(&"Start date and time of the event"))
     }
 
     pub fn get_start(matches: &ArgMatches) -> Option<String> {
@@ -168,7 +169,7 @@ impl EventArgs {
     }
 
     pub fn end(self) -> Arg {
-        arg!(--end <END>).help(self.monopolize("End date and time of the event"))
+        arg!(--end <END>).help(self.monopolize(&"End date and time of the event"))
     }
 
     pub fn get_end(matches: &ArgMatches) -> Option<String> {
@@ -177,7 +178,7 @@ impl EventArgs {
 
     pub fn status(self) -> Arg {
         arg!(--status <STATUS>)
-            .help(self.monopolize("Status of the event"))
+            .help(self.monopolize(&"Status of the event"))
             .value_parser(value_parser!(EventStatus))
     }
 
@@ -185,7 +186,7 @@ impl EventArgs {
         matches.get_one("status").copied()
     }
 
-    fn monopolize(self, help: impl ToString) -> String {
+    fn monopolize(self, help: &impl ToString) -> String {
         if self.monopolize {
             help.to_string()
         } else {
@@ -205,7 +206,7 @@ impl TodoArgs {
     }
 
     pub fn due(self) -> Arg {
-        arg!(--due <DUE>).help(self.monopolize("Due date and time of the todo"))
+        arg!(--due <DUE>).help(self.monopolize(&"Due date and time of the todo"))
     }
 
     pub fn get_due(matches: &ArgMatches) -> Option<String> {
@@ -218,7 +219,7 @@ impl TodoArgs {
         }
 
         arg!(--percent <PERCENT>)
-            .help(self.monopolize("Percent complete of the todo (0-100)"))
+            .help(self.monopolize(&"Percent complete of the todo (0-100)"))
             .value_parser(from_0_to_100)
     }
 
@@ -228,7 +229,7 @@ impl TodoArgs {
 
     pub fn priority(self) -> Arg {
         arg!(-p --priority <PRIORITY>)
-            .help(self.monopolize("Priority of the todo"))
+            .help(self.monopolize(&"Priority of the todo"))
             .value_parser(value_parser!(Priority))
     }
 
@@ -238,7 +239,7 @@ impl TodoArgs {
 
     pub fn status(self) -> Arg {
         arg!(--status <STATUS>)
-            .help(self.monopolize("Status of the todo"))
+            .help(self.monopolize(&"Status of the todo"))
             .value_parser(value_parser!(TodoStatus))
     }
 
@@ -246,7 +247,7 @@ impl TodoArgs {
         matches.get_one("status").copied()
     }
 
-    fn monopolize(self, help: impl ToString) -> String {
+    fn monopolize(self, help: &impl ToString) -> String {
         if self.monopolize {
             help.to_string()
         } else {

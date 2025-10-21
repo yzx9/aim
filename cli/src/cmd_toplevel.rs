@@ -44,6 +44,7 @@ impl CmdDashboard {
         Ok(())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     async fn list_events(aim: &Aim) -> Result<(), Box<dyn Error>> {
         const MAX: i64 = 128;
 
@@ -68,7 +69,7 @@ impl CmdDashboard {
                 flag = false;
 
                 println!(" {} {}", "►".green(), title.italic());
-                if events.len() >= (MAX as usize) {
+                if events.len() >= MAX as usize {
                     let total = aim.count_events(&conds).await?;
                     if total > MAX {
                         println!("Displaying the {total}/{MAX} events");
@@ -103,7 +104,7 @@ impl CmdDashboard {
         println!("✅ {} {}", "To-Dos: within".bold(), label.bold());
         let conds = TodoConditions {
             status: Some(TodoStatus::NeedsAction),
-            due: Some(DateTimeAnchor::InDays(days as i64)),
+            due: Some(DateTimeAnchor::InDays(i64::from(days))),
         };
         CmdTodoList::list(aim, &conds, OutputFormat::Table, false).await?;
         Ok(())

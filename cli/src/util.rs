@@ -70,7 +70,7 @@ pub fn unicode_width_of_slice(s: &str, first_n_chars: usize) -> usize {
     }
 }
 
-/// Return the byte range of the grapheme cluster at index `g_idx` in `s`.
+/// The byte range of the grapheme cluster at index `g_idx` in `s`.
 /// If out of bounds, returns None.
 pub fn byte_range_of_grapheme_at(s: &str, g_idx: usize) -> Option<std::ops::Range<usize>> {
     for (i, (byte_start, g)) in s.grapheme_indices(true).enumerate() {

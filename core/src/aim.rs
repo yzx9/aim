@@ -30,16 +30,16 @@ pub struct Aim {
 
 impl Aim {
     /// Creates a new AIM instance with the given configuration.
+    ///
+    /// # Errors
+    /// If initialization fails.
     pub async fn new(mut config: Config) -> Result<Self, Box<dyn Error>> {
         let now = Local::now();
 
         config.normalize()?;
         prepare(&config).await?;
 
-        let db = LocalDb::open(&config.state_dir)
-            .await
-            .map_err(|e| format!("Failed to initialize db: {e}"))?;
-
+        let db = initialize_db(&config).await?;
         let short_ids = ShortIds::new(db.clone());
         let calendar_path = config.calendar_path.clone();
         add_calendar(&db, &calendar_path)
@@ -56,6 +56,7 @@ impl Aim {
     }
 
     /// The current time in the AIM instance.
+    #[must_use]
     pub fn now(&self) -> DateTime<Local> {
         self.now
     }
@@ -66,11 +67,28 @@ impl Aim {
     }
 
     /// Create a default event draft based on the AIM configuration.
+    #[must_use]
     pub fn default_event_draft(&self) -> EventDraft {
         EventDraft::default(self.now)
     }
 
+    /// Get a event by its id.
+    ///
+    /// # Errors
+    /// If the event is not found or database access fails.
+    pub async fn get_event(&self, id: &Id) -> Result<impl Event + 'static, Box<dyn Error>> {
+        let uid = self.short_ids.get_uid(id).await?;
+        match self.db.events.get(&uid).await {
+            Ok(Some(event)) => Ok(self.short_ids.event(event).await?),
+            Ok(None) => Err("Event not found".into()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     /// Add a new event from the given draft.
+    ///
+    /// # Errors
+    /// If the event is not found, database or file system access fails.
     pub async fn new_event(
         &self,
         draft: EventDraft,
@@ -91,15 +109,17 @@ impl Aim {
     }
 
     /// Upsert an event into the calendar.
+    ///
+    /// # Errors
+    /// If the event is not found, database or file system access fails.
     pub async fn update_event(
         &self,
         id: &Id,
         patch: EventPatch,
     ) -> Result<impl Event + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
-        let event = match self.db.events.get(&uid).await? {
-            Some(todo) => todo,
-            None => return Err("Event not found".into()),
+        let Some(event) = self.db.events.get(&uid).await? else {
+            return Err("Event not found".into());
         };
 
         let path: PathBuf = event.path().into();
@@ -127,6 +147,9 @@ impl Aim {
     }
 
     /// Get the kind of the given id, which can be either an event or a todo.
+    ///
+    /// # Errors
+    /// If the id is not found or database access fails.
     pub async fn get_kind(&self, id: &Id) -> Result<Kind, Box<dyn Error>> {
         tracing::debug!(?id, "getting kind of id");
         if let Some(data) = self.short_ids.get(id).await? {
@@ -148,17 +171,10 @@ impl Aim {
         Err("Id not found".into())
     }
 
-    /// Get a event by its id.
-    pub async fn get_event(&self, id: &Id) -> Result<impl Event + 'static, Box<dyn Error>> {
-        let uid = self.short_ids.get_uid(id).await?;
-        match self.db.events.get(&uid).await {
-            Ok(Some(event)) => Ok(self.short_ids.event(event).await?),
-            Ok(None) => Err("Event not found".into()),
-            Err(e) => Err(e.into()),
-        }
-    }
-
     /// List events matching the given conditions.
+    ///
+    /// # Errors
+    /// If database access fails.
     pub async fn list_events(
         &self,
         conds: &EventConditions,
@@ -171,17 +187,24 @@ impl Aim {
     }
 
     /// Counts the number of events matching the given conditions.
+    ///
+    /// # Errors
+    /// If database access fails.
     pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, sqlx::Error> {
         let conds = conds.resolve(&self.now);
         self.db.events.count(&conds).await
     }
 
     /// Create a default todo draft based on the AIM configuration.
+    #[must_use]
     pub fn default_todo_draft(&self) -> TodoDraft {
         TodoDraft::default(&self.config, &self.now)
     }
 
     /// Add a new todo from the given draft.
+    ///
+    /// # Errors
+    /// If the todo is not found, database or file system access fails.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.generate_uid(Kind::Todo).await?;
         let todo = draft.resolve(&self.config, &self.now).into_ics(&uid);
@@ -199,15 +222,17 @@ impl Aim {
     }
 
     /// Upsert an event into the calendar.
+    ///
+    /// # Errors
+    /// If the todo is not found, database or file system access fails.
     pub async fn update_todo(
         &self,
         id: &Id,
         patch: TodoPatch,
     ) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
-        let todo = match self.db.todos.get(&uid).await? {
-            Some(todo) => todo,
-            None => return Err("Todo not found".into()),
+        let Some(todo) = self.db.todos.get(&uid).await? else {
+            return Err("Todo not found".into());
         };
 
         let path: PathBuf = todo.path().into();
@@ -235,6 +260,9 @@ impl Aim {
     }
 
     /// Get a todo by its id.
+    ///
+    /// # Errors
+    /// If the todo is not found or database access fails.
     pub async fn get_todo(&self, id: &Id) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
         match self.db.todos.get(&uid).await {
@@ -245,6 +273,9 @@ impl Aim {
     }
 
     /// List todos matching the given conditions, sorted and paginated.
+    ///
+    /// # Errors
+    /// If database access fails.
     pub async fn list_todos(
         &self,
         conds: &TodoConditions,
@@ -259,17 +290,26 @@ impl Aim {
     }
 
     /// Counts the number of todos matching the given conditions.
+    ///
+    /// # Errors
+    /// If database access fails.
     pub async fn count_todos(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
         let conds = conds.resolve(&self.now);
         self.db.todos.count(&conds).await
     }
 
     /// Flush the short IDs to remove all entries.
+    ///
+    /// # Errors
+    /// If database access fails.
     pub async fn flush_short_ids(&self) -> Result<(), Box<dyn Error>> {
         self.short_ids.flush().await
     }
 
     /// Close the AIM instance, saving any changes to the database.
+    ///
+    /// # Errors
+    /// If closing the database fails.
     pub async fn close(self) -> Result<(), Box<dyn Error>> {
         self.db.close().await
     }
@@ -315,4 +355,16 @@ async fn prepare(config: &Config) -> Result<(), Box<dyn Error>> {
         fs::create_dir_all(parent).await?;
     }
     Ok(())
+}
+
+async fn initialize_db(config: &Config) -> Result<LocalDb, Box<dyn Error>> {
+    const NAME: &str = "aim.db";
+    let db = if let Some(parent) = &config.state_dir {
+        LocalDb::open(Some(&parent.join(NAME))).await
+    } else {
+        LocalDb::open(None).await
+    }
+    .map_err(|e| format!("Failed to initialize db: {e}"))?;
+
+    Ok(db)
 }

@@ -16,6 +16,7 @@ pub enum Id {
 
 impl Id {
     /// Weather the ID is a short ID or a UID.
+    #[must_use]
     pub fn maybe_short_id(&self) -> Option<NonZeroU32> {
         match self {
             Id::ShortIdOrUid(id) => id.parse::<NonZeroU32>().ok(),
@@ -24,6 +25,7 @@ impl Id {
     }
 
     /// Always returns the UID string slice, even if the ID is a short ID.
+    #[must_use]
     pub fn as_uid(&self) -> &str {
         match self {
             Id::Uid(uid) => uid,
@@ -206,7 +208,7 @@ impl<'de> serde::Deserialize<'de> for Priority {
     {
         struct PriorityVisitor;
 
-        impl<'de> serde::de::Visitor<'de> for PriorityVisitor {
+        impl serde::de::Visitor<'_> for PriorityVisitor {
             type Value = Priority;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

@@ -117,7 +117,7 @@ impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
             && let Some(msg) = comp.on_key(dispatcher, store, *subarea, event)
         {
             return Some(msg);
-        };
+        }
 
         match event.code {
             KeyCode::Up | KeyCode::BackTab if self.item_index > 0 => {
@@ -129,7 +129,7 @@ impl<S, C: FormItem<S>> Component<S> for Form<S, C> {
                 Some(Message::CursorUpdated)
             }
             KeyCode::Enter => {
-                dispatcher.dispatch(Action::SubmitChanges);
+                dispatcher.dispatch(&Action::SubmitChanges);
                 Some(Message::Exit)
             }
             _ => None,
@@ -190,7 +190,7 @@ pub struct Input<S, A: Access<S, String>> {
 }
 
 impl<S, A: Access<S, String>> Input<S, A> {
-    pub fn new(title: impl ToString) -> Self {
+    pub fn new(title: &(impl ToString + ?Sized)) -> Self {
         Self {
             title: title.to_string(),
             active: false,
@@ -214,7 +214,7 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
 
         let v = A::get(store);
         let width = unicode_width_of_slice(v.as_str(), self.character_index);
-        let x = area.x + (width as u16) + 2; // border 1 + padding 1
+        let x = area.x + u16::try_from(width).unwrap_or_default() + 2; // border 1 + padding 1
         let y = area.y + 1; // title line: 1
         Some((x, y))
     }
@@ -226,7 +226,7 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
         _area: Rect,
         event: KeyEvent,
     ) -> Option<Message> {
-        use KeyCode::*;
+        use KeyCode::{Backspace, Char, Left, Right};
         if !self.active || !matches!(event.code, Left | Right | Backspace | Char(_)) {
             return None;
         }
@@ -248,15 +248,14 @@ impl<S, A: Access<S, String>> Component<S> for Input<S, A> {
                 let byte_index = v
                     .char_indices()
                     .nth(self.character_index)
-                    .map(|(i, _)| i)
-                    .unwrap_or(v.len());
+                    .map_or(v.len(), |(i, _)| i);
                 v.insert(byte_index, c);
                 if A::set(dispatcher, v) {
                     self.character_index += 1;
                 }
             }
             _ => {}
-        };
+        }
 
         // Always update the cursor position for simplicity
         Some(Message::CursorUpdated)
@@ -298,7 +297,7 @@ pub struct RadioGroup<S, T: Eq + Clone, A: Access<S, T>> {
 }
 
 impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
-    pub fn new(title: impl ToString, values: Vec<T>, options: Vec<String>) -> Self {
+    pub fn new(title: &(impl ToString + ?Sized), values: Vec<T>, options: Vec<String>) -> Self {
         Self {
             title: title.to_string(),
             values,
@@ -323,7 +322,7 @@ impl<S, T: Eq + Clone, A: Access<S, T>> RadioGroup<S, T, A> {
             .options
             .iter()
             // 6 = border left (1) + active marker [ ] (3) + space (1) + border right (1)
-            .map(|s| Constraint::Min(6 + s.width() as u16));
+            .map(|s| Constraint::Min(6 + u16::try_from(s.width()).unwrap_or_default()));
 
         Layout::horizontal(constraints)
     }

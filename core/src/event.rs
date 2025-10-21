@@ -153,7 +153,7 @@ pub struct ResolvedEventDraft<'a> {
     pub summary: &'a str,
 }
 
-impl<'a> ResolvedEventDraft<'a> {
+impl ResolvedEventDraft<'_> {
     /// Converts the draft into a icalendar Event component.
     pub(crate) fn into_ics(self, uid: &str) -> icalendar::Event {
         let mut event = icalendar::Event::with_uid(uid);
@@ -194,6 +194,7 @@ pub struct EventPatch {
 
 impl EventPatch {
     /// Is this patch empty, meaning no fields are set
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.description.is_none()
             && self.start.is_none()
@@ -223,7 +224,7 @@ pub struct ResolvedEventPatch<'a> {
     pub summary: Option<&'a str>,
 }
 
-impl<'a> ResolvedEventPatch<'a> {
+impl ResolvedEventPatch<'_> {
     /// Applies the patch to a mutable event, modifying it in place.
     pub fn apply_to<'b>(&self, e: &'b mut icalendar::Event) -> &'b mut icalendar::Event {
         match self.description {

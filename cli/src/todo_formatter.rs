@@ -41,7 +41,7 @@ pub struct Display<'a, T: Todo> {
     formatter: &'a TodoFormatter,
 }
 
-impl<'a, T: Todo> fmt::Display for Display<'a, T> {
+impl<T: Todo> fmt::Display for Display<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let columns: Vec<_> = self
             .formatter
@@ -84,7 +84,7 @@ struct ColumnMeta<'a> {
     now: DateTime<Local>,
 }
 
-impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
+impl<T: Todo> TableColumn<T> for ColumnMeta<'_> {
     fn name(&self) -> Cow<'_, str> {
         match self.column {
             TodoColumn::Due => "Due",
@@ -93,8 +93,7 @@ impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
             TodoColumn::ShortId => "Short ID",
             TodoColumn::Status => "Status",
             TodoColumn::Summary => "Summary",
-            TodoColumn::Uid => "UID",
-            TodoColumn::UidLegacy => "UID",
+            TodoColumn::Uid | TodoColumn::UidLegacy => "UID",
         }
         .into()
     }
@@ -113,7 +112,7 @@ impl<'a, T: Todo> TableColumn<T> for ColumnMeta<'a> {
     }
 
     fn padding_direction(&self) -> PaddingDirection {
-        use TodoColumn::*;
+        use TodoColumn::{Id, Priority, ShortId, Uid};
         match self.column {
             Id | Priority | Uid | ShortId => PaddingDirection::Right,
             _ => PaddingDirection::Left,
@@ -172,11 +171,12 @@ fn format_priority(todo: &impl Todo) -> Cow<'_, str> {
         Priority::P1 | Priority::P2 | Priority::P3 => "!!!",
         Priority::P4 | Priority::P5 | Priority::P6 => "!!",
         Priority::P7 | Priority::P8 | Priority::P9 => "!",
-        _ => "",
+        Priority::None => "",
     }
     .into()
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn get_color_priority() -> Option<Color> {
     Some(Color::Red)
 }
@@ -208,11 +208,11 @@ fn format_short_id(todo: &impl Todo) -> Cow<'_, str> {
         .into()
 }
 
-fn format_uid<'a>(todo: &'a impl Todo) -> Cow<'a, str> {
+fn format_uid(todo: &impl Todo) -> Cow<'_, str> {
     todo.uid().into()
 }
 
-fn format_uid_legacy<'a>(todo: &'a impl Todo) -> Cow<'a, str> {
+fn format_uid_legacy(todo: &impl Todo) -> Cow<'_, str> {
     format!("#{}", todo.uid()).into()
 }
 
@@ -260,7 +260,7 @@ mod tests {
             ),
         ] {
             let color = get_color_due_impl(due, &now);
-            assert_eq!(color, expected, "Failed for case: {}", title);
+            assert_eq!(color, expected, "Failed for case: {title}");
         }
     }
 }

@@ -93,7 +93,7 @@ impl CmdTodoNew {
         }
 
         if let Some(summary) = &self.summary {
-            draft.summary = summary.clone();
+            draft.summary.clone_from(summary);
         }
 
         // If TUI is needed, launch the TUI editor to let user edit the draft
@@ -127,6 +127,7 @@ impl CmdTodoNew {
     }
 
     /// Determine whether to use TUI mode, which is true if not all required fields are provided
+    #[allow(clippy::ref_option)]
     pub(crate) fn need_tui(summary: &Option<String>) -> bool {
         summary.is_none()
     }
@@ -444,6 +445,7 @@ impl CmdTodoList {
         Ok(())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub async fn list(
         aim: &Aim,
         conds: &TodoConditions,
@@ -451,6 +453,7 @@ impl CmdTodoList {
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         const LIMIT: i64 = 128;
+
         let pager = (LIMIT, 0).into();
         let sort = vec![
             TodoSort::Priority {
@@ -460,7 +463,7 @@ impl CmdTodoList {
             TodoSort::Due(SortOrder::Desc),
         ];
         let todos = aim.list_todos(conds, &sort, &pager).await?;
-        if todos.len() >= (LIMIT as usize) {
+        if todos.len() >= LIMIT as usize {
             let total = aim.count_todos(conds).await?;
             if total > LIMIT {
                 let prompt = format!("Displaying the {LIMIT}/{total} todos");
@@ -481,7 +484,7 @@ const fn args() -> (EventOrTodoArgs, TodoArgs) {
 
 // TODO: remove `verbose` in v0.12.0
 fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: OutputFormat, verbose: bool) {
-    use TodoColumn::*;
+    use TodoColumn::{Due, Id, Priority, ShortId, Status, Summary, Uid, UidLegacy};
     let columns = match (output_format, verbose) {
         (_, true) => vec![Status, Id, UidLegacy, Priority, Due, Summary],
         (OutputFormat::Table, false) => vec![Status, Id, Priority, Due, Summary],

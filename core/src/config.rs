@@ -35,6 +35,9 @@ pub struct Config {
 
 impl Config {
     /// Normalize the configuration.
+    ///
+    /// # Errors
+    /// If path normalization fails.
     #[tracing::instrument(skip(self))]
     pub fn normalize(&mut self) -> Result<(), Box<dyn Error>> {
         // Normalize calendar path
@@ -51,7 +54,7 @@ impl Config {
                 Ok(a) => self.state_dir = Some(a.join(APP_NAME)),
                 Err(err) => tracing::warn!(err, "failed to get state directory"),
             },
-        };
+        }
 
         Ok(())
     }

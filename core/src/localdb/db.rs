@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 
@@ -24,21 +24,15 @@ pub struct LocalDb {
 impl LocalDb {
     /// Opens a sqlite database connection.
     /// If `state_dir` is `None`, it opens an in-memory database.
-    pub async fn open(state_dir: &Option<PathBuf>) -> Result<Self, Box<dyn Error>> {
-        let options = match state_dir {
-            Some(dir) => {
-                const NAME: &str = "aim.db";
-
-                tracing::info!(dir = %dir.display(), "connecting to SQLite database");
-                let dir = dir.to_str().ok_or("Invalid path encoding")?;
-                SqliteConnectOptions::new()
-                    .filename(format!("{dir}/{NAME}"))
-                    .create_if_missing(true)
-            }
-            None => {
-                tracing::info!("connecting to in-memory SQLite database");
-                SqliteConnectOptions::new().in_memory(true)
-            }
+    pub async fn open(filename: Option<&Path>) -> Result<Self, Box<dyn Error>> {
+        let options = if let Some(filename) = filename {
+            tracing::info!(dir = %filename.display(), "connecting to SQLite database");
+            SqliteConnectOptions::new()
+                .filename(filename.to_str().ok_or("Invalid path encoding")?)
+                .create_if_missing(true)
+        } else {
+            tracing::info!("connecting to in-memory SQLite database");
+            SqliteConnectOptions::new().in_memory(true)
         };
 
         let pool = SqlitePoolOptions::new()
@@ -52,8 +46,8 @@ impl LocalDb {
             .map_err(|e| format!("Failed to run migrations: {e}"))?;
 
         tracing::debug!("ensuring tables in the database");
-        let events = Events::new(pool.clone()).await?;
-        let todos = Todos::new(pool.clone()).await?;
+        let events = Events::new(pool.clone());
+        let todos = Todos::new(pool.clone());
         let short_ids = ShortIds::new(pool.clone());
         Ok(LocalDb {
             pool,
@@ -69,7 +63,7 @@ impl LocalDb {
         event: &impl Event,
     ) -> Result<(), Box<dyn Error>> {
         let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
-        let record = EventRecord::from(path.clone(), event)?;
+        let record = EventRecord::from(path.clone(), event);
         self.events
             .insert(record)
             .await
@@ -78,7 +72,7 @@ impl LocalDb {
 
     pub async fn upsert_todo(&self, path: &Path, todo: &impl Todo) -> Result<(), Box<dyn Error>> {
         let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
-        let record = TodoRecord::from(path.clone(), todo)?;
+        let record = TodoRecord::from(path.clone(), todo);
         self.todos
             .upsert(&record)
             .await

@@ -120,6 +120,7 @@ impl CmdEventNew {
     }
 
     /// Determine whether TUI is needed based on the provided arguments.
+    #[allow(clippy::ref_option)]
     pub(crate) fn need_tui(summary: &Option<String>, start: &Option<String>) -> bool {
         summary.is_none() || start.is_none()
     }
@@ -215,7 +216,7 @@ impl CmdEventEdit {
                     return Ok(());
                 }
             }
-        };
+        }
 
         // Update the event
         let event = aim.update_event(&self.id, patch).await?;
@@ -355,7 +356,7 @@ impl CmdEventReschedule {
             let event = aim.get_event(id).await?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), Some(end)) => {
-                    use LooseDateTime::*;
+                    use LooseDateTime::{DateOnly, Floating, Local};
                     let s = time.resolve_since_datetime(&aim.now());
                     #[rustfmt::skip]
                     let e = match (start, end) {
@@ -429,6 +430,7 @@ impl CmdEventList {
     }
 
     /// List events with the given conditions and output format.
+    #[allow(clippy::cast_possible_truncation)]
     pub async fn list(
         aim: &Aim,
         conds: &EventConditions,
@@ -436,6 +438,7 @@ impl CmdEventList {
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         const LIMIT: i64 = 128;
+
         let pager: Pager = (LIMIT, 0).into();
         let events = aim.list_events(conds, &pager).await?;
         if events.len() >= (LIMIT as usize) {
@@ -463,7 +466,7 @@ const fn args() -> (EventOrTodoArgs, EventArgs) {
 
 // TODO: remove `verbose` in v0.12.0
 fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat, verbose: bool) {
-    use EventColumn::*;
+    use EventColumn::{DateTimeSpan, Id, ShortId, Summary, Uid, UidLegacy};
     let columns = match (output_format, verbose) {
         (_, true) => vec![Id, UidLegacy, DateTimeSpan, Summary],
         (OutputFormat::Table, false) => vec![Id, DateTimeSpan, Summary],

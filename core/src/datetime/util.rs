@@ -102,10 +102,10 @@ mod tests {
     fn test_from_local_datetime_single() {
         let tz = Utc;
         // Use the newer DateTime::from_timestamp instead of deprecated NaiveDateTime::from_timestamp_opt
-        let dt = DateTime::from_timestamp(1609459200, 0).unwrap(); // 2021-01-01 00:00:00 UTC
+        let dt = DateTime::from_timestamp(1_609_459_200, 0).unwrap(); // 2021-01-01 00:00:00 UTC
         let naive = dt.naive_utc();
         let result = from_local_datetime(&tz, naive);
-        assert_eq!(result.timestamp(), 1609459200);
+        assert_eq!(result.timestamp(), 1_609_459_200);
     }
 
     #[test]

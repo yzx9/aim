@@ -23,8 +23,11 @@ use crate::cmd_tui::{CmdEdit, CmdNew};
 use crate::config::parse_config;
 
 /// Run the AIM command-line interface.
+///
+/// # Errors
+/// If an error occurs while running the CLI
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    init_tracing().await?;
+    init_tracing()?;
 
     let err = match Cli::parse() {
         Ok(cli) => match cli.run().await {
@@ -37,7 +40,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub async fn init_tracing() -> Result<(), Box<dyn Error>> {
+pub fn init_tracing() -> Result<(), Box<dyn Error>> {
     let stdout_log = tracing_subscriber::fmt::layer().pretty();
 
     let filter = EnvFilter::builder().try_from_env()?;
@@ -60,6 +63,7 @@ pub struct Cli {
 
 impl Cli {
     /// Create the command-line interface
+    #[must_use]
     pub fn command() -> Command {
         const STYLES: styling::Styles = styling::Styles::styled()
             .header(styling::AnsiColor::Green.on_default().bold())
@@ -122,25 +126,36 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
     }
 
     /// Parse the command-line arguments
+    ///
+    /// # Errors
+    /// If an error occurs while parsing the arguments
     pub fn parse() -> Result<Self, Box<dyn Error>> {
         let commands = Self::command();
         let matches = commands.get_matches();
-        Self::from(matches)
+        Self::from(&matches)
     }
 
     /// Parse the specified arguments
+    ///
+    /// # Errors
+    /// If an error occurs while parsing the arguments
     pub fn try_parse_from<I, T>(args: I) -> Result<Self, Box<dyn Error>>
     where
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
+        #[allow(clippy::enum_glob_use)]
         let commands = Self::command();
         let matches = commands.try_get_matches_from(args)?;
-        Self::from(matches)
+        Self::from(&matches)
     }
 
     /// Create a CLI instance from the `ArgMatches`
-    pub fn from(matches: ArgMatches) -> Result<Self, Box<dyn Error>> {
+    ///
+    /// # Errors
+    /// If an error occurs while parsing the arguments
+    #[allow(clippy::enum_glob_use)]
+    pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
         use Commands::*;
         let command = match matches.subcommand() {
             Some((CmdDashboard::NAME, matches)) => Dashboard(CmdDashboard::from(matches)),
@@ -185,6 +200,9 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
     }
 
     /// Run the command
+    ///
+    /// # Errors
+    /// If an error occurs while running the command
     pub async fn run(self) -> Result<(), Box<dyn Error>> {
         self.command.run(self.config).await
     }
@@ -256,6 +274,10 @@ pub enum Commands {
 
 impl Commands {
     /// Run the command with the given configuration
+    ///
+    /// # Errors
+    /// If an error occurs while running the command
+    #[allow(clippy::enum_glob_use)]
     #[rustfmt::skip]
     #[tracing::instrument(skip_all, fields(trace_id = %uuid::Uuid::new_v4()))]
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
@@ -281,7 +303,7 @@ impl Commands {
             TodoDelay(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoReschedule(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoList(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
-            GenerateCompletion(a) => a.run(),
+            GenerateCompletion(a) => { a.run(); Ok(()) }
         }
     }
 

@@ -100,7 +100,7 @@ impl<S: EventTodoStoreLike> Access<S, Kind> for EventTodoStoreActiveAccess<S> {
     }
 
     fn set(dispatcher: &mut Dispatcher, value: Kind) -> bool {
-        dispatcher.dispatch(Action::Activate(value));
+        dispatcher.dispatch(&Action::Activate(value));
         true
     }
 }

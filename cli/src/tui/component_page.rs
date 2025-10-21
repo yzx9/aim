@@ -22,7 +22,7 @@ pub struct SinglePage<S, C: Component<S>> {
 }
 
 impl<S, C: Component<S>> SinglePage<S, C> {
-    pub fn new(title: impl ToString, inner: C) -> Self {
+    pub fn new(title: &impl ToString, inner: C) -> Self {
         Self {
             title: title.to_string(),
             inner,
@@ -116,7 +116,7 @@ impl<S, C: Component<S>, A: Access<S, Kind>> TabPages<S, C, A> {
         }
     }
 
-    fn layout(&self) -> Layout {
+    fn layout() -> Layout {
         Layout::vertical([Constraint::Max(1), Constraint::Fill(1)])
     }
 
@@ -128,18 +128,15 @@ impl<S, C: Component<S>, A: Access<S, Kind>> TabPages<S, C, A> {
 
 impl<S, C: Component<S>, A: Access<S, Kind>> Component<S> for TabPages<S, C, A> {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
-        let active_index = match self.active_index(store) {
-            Some(index) => index,
-            None => return, // No active page found
+        let Some(active_index) = self.active_index(store) else {
+            return; // No active page found
         };
 
-        let areas = self.layout().split(area);
+        let areas = Self::layout().split(area);
         if let Some(area) = areas.first() {
-            let tabs = Layout::horizontal(
-                self.titles
-                    .iter()
-                    .map(|title| Constraint::Min(2 + title.width() as u16)),
-            );
+            let tabs = Layout::horizontal(self.titles.iter().map(|title| {
+                Constraint::Min(2 + u16::try_from(title.width()).unwrap_or_default())
+            }));
 
             let areas = tabs.split(*area);
             for (i, (title, area)) in self.titles.iter().zip(areas.iter()).enumerate() {
@@ -177,7 +174,7 @@ impl<S, C: Component<S>, A: Access<S, Kind>> Component<S> for TabPages<S, C, A> 
         }
 
         let active_index = self.active_index(store)?;
-        let areas = self.layout().split(area);
+        let areas = Self::layout().split(area);
         if let Some(active_page) = self.pages.get(active_index)
             && let Some(area) = areas.get(1)
         {
@@ -218,13 +215,13 @@ impl<S, C: Component<S>, A: Access<S, Kind>> Component<S> for TabPages<S, C, A> 
                 }
                 KeyCode::Left if self.tab_active && active_index > 0 => {
                     if let Some(id) = self.identifiers.get_mut(active_index - 1) {
-                        dispatcher.dispatch(Action::Activate(*id));
+                        dispatcher.dispatch(&Action::Activate(*id));
                     }
                     Some(Message::Handled)
                 }
                 KeyCode::Right if self.tab_active && active_index < len - 1 => {
                     if let Some(id) = self.identifiers.get_mut(active_index + 1) {
-                        dispatcher.dispatch(Action::Activate(*id));
+                        dispatcher.dispatch(&Action::Activate(*id));
                     }
                     Some(Message::Handled)
                 }

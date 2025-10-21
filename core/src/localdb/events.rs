@@ -17,8 +17,8 @@ pub struct Events {
 }
 
 impl Events {
-    pub async fn new(pool: SqlitePool) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self { pool })
+    pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
     }
 
     pub async fn insert(&self, event: EventRecord) -> Result<(), sqlx::Error> {
@@ -71,11 +71,11 @@ SELECT uid, path, summary, description, status, start, end
 FROM events
 "
         .to_string();
-        sql += &self.build_where(conds);
+        sql += &Self::build_where(conds);
         sql += "ORDER BY start ASC LIMIT ? OFFSET ?;";
 
         let mut executable = sqlx::query_as(&sql);
-        executable = self.bind_conditions(conds, executable);
+        executable = Self::bind_conditions(conds, executable);
 
         executable
             .bind(pager.limit)
@@ -86,17 +86,17 @@ FROM events
 
     pub async fn count(&self, conds: &ResolvedEventConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM events".to_string();
-        sql += &self.build_where(conds);
+        sql += &Self::build_where(conds);
         sql += ";";
 
         let mut executable = sqlx::query_as(&sql);
-        executable = self.bind_conditions(conds, executable);
+        executable = Self::bind_conditions(conds, executable);
 
         let row: (i64,) = executable.fetch_one(&self.pool).await?;
         Ok(row.0)
     }
 
-    fn build_where(&self, conds: &ResolvedEventConditions) -> String {
+    fn build_where(conds: &ResolvedEventConditions) -> String {
         let mut where_clauses = Vec::new();
         if conds.start_before.is_some() {
             where_clauses.push("start <= ?");
@@ -105,15 +105,14 @@ FROM events
             where_clauses.push("(end >= ? OR end = ?)");
         }
 
-        if !where_clauses.is_empty() {
-            format!(" WHERE {} ", where_clauses.join(" AND "))
-        } else {
+        if where_clauses.is_empty() {
             String::new()
+        } else {
+            format!(" WHERE {} ", where_clauses.join(" AND "))
         }
     }
 
     fn bind_conditions<'a, O>(
-        &self,
         conds: &'a ResolvedEventConditions,
         mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
     ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
@@ -141,8 +140,8 @@ pub struct EventRecord {
 }
 
 impl EventRecord {
-    pub fn from<E: Event>(path: String, event: &E) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self {
+    pub fn from<E: Event>(path: String, event: &E) -> Self {
+        Self {
             uid: event.uid().to_string(),
             path,
             summary: event.summary().to_string(),
@@ -153,7 +152,7 @@ impl EventRecord {
             status: event.status().map(|s| s.to_string()).unwrap_or_default(),
             start: event.start().map(|a| a.format_stable()).unwrap_or_default(),
             end: event.end().map(|a| a.format_stable()).unwrap_or_default(),
-        })
+        }
     }
 
     pub fn path(&self) -> &str {

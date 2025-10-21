@@ -30,6 +30,7 @@ pub enum LooseDateTime {
 
 impl LooseDateTime {
     /// The date part.
+    #[must_use]
     pub fn date(&self) -> NaiveDate {
         match self {
             LooseDateTime::DateOnly(d) => *d,
@@ -39,6 +40,7 @@ impl LooseDateTime {
     }
 
     /// The time part, if available.
+    #[must_use]
     pub fn time(&self) -> Option<NaiveTime> {
         match self {
             LooseDateTime::DateOnly(_) => None,
@@ -58,6 +60,7 @@ impl LooseDateTime {
     }
 
     /// Determines the position of a given datetime relative to a start and optional end date.
+    #[must_use]
     pub fn position_in_range(
         t: &NaiveDateTime,
         start: &Option<LooseDateTime>,
@@ -285,6 +288,7 @@ mod tests {
         assert_eq!(d3.with_end_of_day(), datetime);
     }
 
+    #[allow(clippy::many_single_char_names)]
     fn datetime(y: i32, m: u32, d: u32, h: u32, mm: u32, s: u32) -> Option<NaiveDateTime> {
         NaiveDate::from_ymd_opt(y, m, d).and_then(|a| a.and_hms_opt(h, mm, s))
     }
@@ -440,7 +444,7 @@ mod tests {
     #[test]
     fn test_from_local_datetime() {
         // Test with a valid datetime that should produce a single result
-        let datetime = DateTime::from_timestamp(1609459200, 0)
+        let datetime = DateTime::from_timestamp(1_609_459_200, 0)
             .expect("Valid timestamp for 2021-01-01 00:00:00")
             .naive_local();
         let loose_dt = LooseDateTime::from_local_datetime(datetime);

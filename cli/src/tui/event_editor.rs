@@ -13,7 +13,7 @@ use crate::tui::event_store::EventStoreLike;
 
 pub fn new_event_editor<S: EventStoreLike + 'static>()
 -> SinglePage<S, Form<S, Box<dyn FormItem<S>>>> {
-    SinglePage::new("Event Editor", new_event_form())
+    SinglePage::new(&"Event Editor", new_event_form())
 }
 
 pub fn new_event_form<S: EventStoreLike + 'static>() -> Form<S, Box<dyn FormItem<S>>> {
@@ -40,7 +40,7 @@ macro_rules! new_input {
             }
 
             fn set(dispatcher: &mut Dispatcher, value: String) -> bool {
-                dispatcher.dispatch(Action::$action(value));
+                dispatcher.dispatch(&Action::$action(value));
                 true
             }
         }
@@ -65,7 +65,7 @@ new_input!(new_start, "Start", StartAccess, start, UpdateEventStart);
 new_input!(new_end, "End", EndAccess, end, UpdateEventEnd);
 
 fn new_status<S: EventStoreLike>() -> RadioGroup<S, EventStatus, StatusAccess> {
-    use EventStatus::*;
+    use EventStatus::{Cancelled, Confirmed, Tentative};
     let values = vec![Tentative, Confirmed, Cancelled];
     let options = values.iter().map(ToString::to_string).collect();
     RadioGroup::new("Status", values, options)
@@ -79,7 +79,7 @@ impl<S: EventStoreLike> Access<S, EventStatus> for StatusAccess {
     }
 
     fn set(dispatcher: &mut Dispatcher, value: EventStatus) -> bool {
-        dispatcher.dispatch(Action::UpdateEventStatus(value));
+        dispatcher.dispatch(&Action::UpdateEventStatus(value));
         true
     }
 }

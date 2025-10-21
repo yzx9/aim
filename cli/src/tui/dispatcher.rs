@@ -23,9 +23,9 @@ impl Dispatcher {
         self.subscribers.push(callback);
     }
 
-    pub fn dispatch(&mut self, action: Action) {
+    pub fn dispatch(&mut self, action: &Action) {
         for sub in &self.subscribers {
-            (sub.borrow_mut())(&action);
+            (sub.borrow_mut())(action);
         }
     }
 }

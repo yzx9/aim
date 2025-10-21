@@ -32,7 +32,7 @@ impl ShortIds {
             && let Some(data) = self.db.short_ids.get_by_short_id(short_id).await?
         {
             return Ok(data.uid);
-        };
+        }
 
         Ok(id.as_uid().to_owned())
     }

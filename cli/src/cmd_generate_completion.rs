@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{error::Error, io};
+use std::io;
 
 use clap::{ArgMatches, Command, ValueEnum, arg, value_parser};
 use clap_complete::generate;
@@ -34,10 +34,9 @@ impl CmdGenerateCompletion {
         }
     }
 
-    pub fn run(self) -> Result<(), Box<dyn Error>> {
+    pub fn run(self) {
         tracing::debug!(?self, "generating shell completion...");
         self.generate(&mut io::stdout());
-        Ok(())
     }
 
     pub fn generate(self, buf: &mut impl io::Write) {
@@ -83,7 +82,7 @@ mod tests {
 
         let mut output = vec![];
         parsed.generate(&mut output);
-        assert!(!output.is_empty())
+        assert!(!output.is_empty());
     }
 
     #[test]

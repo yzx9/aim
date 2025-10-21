@@ -41,7 +41,7 @@ pub struct Display<'a, E: Event> {
     formatter: &'a EventFormatter,
 }
 
-impl<'a, E: Event> fmt::Display for Display<'a, E> {
+impl<E: Event> fmt::Display for Display<'_, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let columns: Vec<_> = self
             .formatter
@@ -83,7 +83,7 @@ struct ColumnMeta<'a> {
     now: DateTime<Local>,
 }
 
-impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
+impl<E: Event> TableColumn<E> for ColumnMeta<'_> {
     fn name(&self) -> Cow<'_, str> {
         match self.column {
             EventColumn::DateTimeSpan => "Date Time",
@@ -91,8 +91,7 @@ impl<'a, E: Event> TableColumn<E> for ColumnMeta<'a> {
             EventColumn::ShortId => "Short ID",
             EventColumn::Summary => "Summary",
             EventColumn::TimeSpan { date: _ } => "Time",
-            EventColumn::Uid => "UID",
-            EventColumn::UidLegacy => "UID",
+            EventColumn::Uid | EventColumn::UidLegacy => "UID",
         }
         .into()
     }
@@ -194,7 +193,7 @@ fn get_color_datetime_span(event: &impl Event, now: DateTime<Local>) -> Option<C
     }
 }
 
-fn format_time_span<'a>(event: &'a impl Event, date: NaiveDate) -> Cow<'a, str> {
+fn format_time_span(event: &impl Event, date: NaiveDate) -> Cow<'_, str> {
     fn format_date(d: NaiveDate) -> String {
         d.format("%Y-%m-%d").to_string()
     }

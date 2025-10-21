@@ -16,7 +16,7 @@ use crate::tui::todo_store::TodoStoreLike;
 
 pub fn new_todo_editor<S: TodoStoreLike + 'static>() -> SinglePage<S, Form<S, Box<dyn FormItem<S>>>>
 {
-    SinglePage::new("Todo Editor", new_todo_form())
+    SinglePage::new(&"Todo Editor", new_todo_form())
 }
 
 pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S, Box<dyn FormItem<S>>> {
@@ -33,7 +33,7 @@ pub fn new_todo_form<S: TodoStoreLike + 'static>() -> Form<S, Box<dyn FormItem<S
 macro_rules! new_input {
     ($fn: ident, $title:expr, $acc: ident, $field: ident, $action: ident) => {
         fn $fn<S: TodoStoreLike>() -> Input<S, $acc> {
-            Input::new($title)
+            Input::new(&$title)
         }
 
         struct $acc;
@@ -44,7 +44,7 @@ macro_rules! new_input {
             }
 
             fn set(dispatcher: &mut Dispatcher, value: String) -> bool {
-                dispatcher.dispatch(Action::$action(value));
+                dispatcher.dispatch(&Action::$action(value));
                 true
             }
         }
@@ -75,7 +75,7 @@ impl<S: TodoStoreLike> Access<S, Option<u8>> for PercentCompleteAccess {
     }
 
     fn set(dispatcher: &mut Dispatcher, value: Option<u8>) -> bool {
-        dispatcher.dispatch(Action::UpdateTodoPercentComplete(value));
+        dispatcher.dispatch(&Action::UpdateTodoPercentComplete(value));
         true
     }
 }
@@ -99,14 +99,14 @@ type ComponentPercentComplete<S> = VisibleIf<
 >;
 
 fn new_percent_complete<S: TodoStoreLike>() -> ComponentPercentComplete<S> {
-    VisibleIf::new(Input::new("Percent complete"))
+    VisibleIf::new(Input::new(&"Percent complete"))
 }
 
 fn new_status<S: TodoStoreLike>() -> RadioGroup<S, TodoStatus, StatusAccess> {
-    use TodoStatus::*;
+    use TodoStatus::{Cancelled, Completed, InProcess, NeedsAction};
     let values = vec![NeedsAction, Completed, InProcess, Cancelled];
     let options = values.iter().map(ToString::to_string).collect();
-    RadioGroup::new("Status", values, options)
+    RadioGroup::new(&"Status", values, options)
 }
 
 struct StatusAccess;
@@ -117,7 +117,7 @@ impl<S: TodoStoreLike> Access<S, TodoStatus> for StatusAccess {
     }
 
     fn set(dispatcher: &mut Dispatcher, value: TodoStatus) -> bool {
-        dispatcher.dispatch(Action::UpdateTodoStatus(value));
+        dispatcher.dispatch(&Action::UpdateTodoStatus(value));
         true
     }
 }
@@ -140,7 +140,10 @@ type ComponentPriority<S> = FormItemSwitch<
 >;
 
 fn new_priority<S: TodoStoreLike>() -> ComponentPriority<S> {
-    use Priority::*;
+    use Priority::{None, P1, P2, P3, P4, P5, P6, P7, P8, P9};
+
+    const TITLE: &str = "Priority";
+
     let values_verb = vec![P1, P2, P3, P4, P5, P6, P7, P8, P9, None];
     let values = vec![P2, P5, P8, None];
 
@@ -154,7 +157,6 @@ fn new_priority<S: TodoStoreLike>() -> ComponentPriority<S> {
         .map(|a| fmt_priority(*a, false).to_string())
         .collect();
 
-    const TITLE: &str = "Priority";
     let verbose = RadioGroup::new(TITLE, values_verb, options_verb);
     let concise = RadioGroup::new(TITLE, values, options);
     FormItemSwitch::new(verbose, concise)
@@ -186,7 +188,7 @@ impl<S: TodoStoreLike> Access<S, Priority> for PriorityAccess {
     }
 
     fn set(dispatcher: &mut Dispatcher, value: Priority) -> bool {
-        dispatcher.dispatch(Action::UpdateTodoPriority(value));
+        dispatcher.dispatch(&Action::UpdateTodoPriority(value));
         true
     }
 }

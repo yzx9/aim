@@ -24,7 +24,7 @@ impl ShortIds {
     ) -> Result<Option<UidAndShortId>, sqlx::Error> {
         let row: Option<(String, String)> =
             sqlx::query_as("SELECT uid, kind FROM short_ids WHERE short_id = ?;")
-                .bind(short_id.get() as i64)
+                .bind(i64::from(short_id.get()))
                 .fetch_optional(&self.pool)
                 .await?;
 

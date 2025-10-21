@@ -65,9 +65,10 @@ impl Todo for icalendar::Todo {
     }
 
     fn priority(&self) -> Priority {
-        self.get_priority()
-            .map(|p| Priority::from(p as u8))
-            .unwrap_or_default()
+        match self.get_priority() {
+            Some(p) => Priority::from(u8::try_from(p.min(9)).unwrap_or_default()),
+            _ => Priority::default(),
+        }
     }
 
     fn status(&self) -> TodoStatus {
@@ -149,7 +150,7 @@ pub struct ResolvedTodoDraft<'a> {
     pub summary: &'a str,
 }
 
-impl<'a> ResolvedTodoDraft<'a> {
+impl ResolvedTodoDraft<'_> {
     /// Converts the draft into a icalendar Todo component.
     pub(crate) fn into_ics(self, uid: &str) -> icalendar::Todo {
         let mut todo = icalendar::Todo::with_uid(uid);
@@ -202,6 +203,7 @@ pub struct TodoPatch {
 
 impl TodoPatch {
     /// Is this patch empty, meaning no fields are set
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.description.is_none()
             && self.due.is_none()
@@ -241,7 +243,7 @@ pub struct ResolvedTodoPatch<'a> {
     pub now: DateTime<Local>,
 }
 
-impl<'a> ResolvedTodoPatch<'a> {
+impl ResolvedTodoPatch<'_> {
     /// Applies the patch to a mutable todo item, modifying it in place.
     pub fn apply_to<'b>(&self, t: &'b mut icalendar::Todo) -> &'b mut icalendar::Todo {
         match self.description {

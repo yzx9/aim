@@ -143,9 +143,9 @@ impl CmdNew {
             todo_draft.description = Some(desc);
         }
 
-        if let Some(summary) = self.summary.clone() {
-            event_draft.summary = summary.clone();
-            todo_draft.summary = summary;
+        if let Some(summary) = self.summary {
+            event_draft.summary.clone_from(&summary);
+            todo_draft.summary.clone_from(&summary);
         }
 
         match self.status {
@@ -165,7 +165,7 @@ impl CmdNew {
             (Some(start), None) => event_draft.start = parse_datetime(&aim.now(), &start)?,
             (None, Some(end)) => event_draft.end = parse_datetime(&aim.now(), &end)?,
             (None, None) => { /* do nothing */ }
-        };
+        }
 
         // fields (todo specific)
         //
@@ -239,7 +239,7 @@ impl CmdNew {
         }
 
         if let Some(summary) = &self.summary {
-            draft.summary = summary.clone();
+            draft.summary.clone_from(summary);
         }
 
         match self.status {
@@ -258,7 +258,7 @@ impl CmdNew {
             (Some(start), None) => draft.start = parse_datetime(&aim.now(), start)?,
             (None, Some(end)) => draft.end = parse_datetime(&aim.now(), end)?,
             (None, None) => { /* do nothing */ }
-        };
+        }
 
         Ok(draft)
     }
@@ -274,7 +274,7 @@ impl CmdNew {
         }
 
         if let Some(summary) = &self.summary {
-            draft.summary = summary.clone();
+            draft.summary.clone_from(summary);
         }
 
         match self.status {
@@ -441,7 +441,7 @@ impl CmdEdit {
                     start: self.start,
                     status: self.status.map(|s| match s {
                         EventOrTodoStatus::Event(status) => status,
-                        _ => EventStatus::default(),
+                        EventOrTodoStatus::Todo(_) => EventStatus::default(),
                     }),
                     summary: self.summary,
 
@@ -461,7 +461,7 @@ impl CmdEdit {
                     priority: self.priority,
                     status: self.status.map(|s| match s {
                         EventOrTodoStatus::Todo(status) => status,
-                        _ => TodoStatus::default(),
+                        EventOrTodoStatus::Event(_) => TodoStatus::default(),
                     }),
                     summary: self.summary,
 

@@ -15,11 +15,15 @@
     unused_import_braces,
     unused_qualifications,
     clippy::dbg_macro,
-    clippy::doc_markdown,
     clippy::indexing_slicing,
-    clippy::redundant_closure_for_method_calls,
-    clippy::trivially_copy_pass_by_ref,
-    clippy::large_types_passed_by_value
+    clippy::pedantic
+)]
+// Allow certain clippy lints that are too restrictive for this crate
+#![allow(
+    clippy::option_option,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::match_bool
 )]
 
 mod aim;

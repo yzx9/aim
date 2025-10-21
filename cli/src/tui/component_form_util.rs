@@ -193,9 +193,9 @@ where
     T: ToString + FromStr + ToOwned + Clone,
     A: Access<S, Option<T>>,
 {
-    _phantom_s: std::marker::PhantomData<S>,
-    _phantom_a: std::marker::PhantomData<A>,
-    _phantom_t: std::marker::PhantomData<T>,
+    _s: std::marker::PhantomData<S>,
+    _a: std::marker::PhantomData<A>,
+    _t: std::marker::PhantomData<T>,
 }
 
 impl<S, T, A> Access<S, String> for PositiveIntegerAccess<S, T, A>
