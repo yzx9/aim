@@ -98,13 +98,11 @@ impl CmdTodoNew {
 
         // If TUI is needed, launch the TUI editor to let user edit the draft
         if tui {
-            draft = match tui::draft_todo(aim, draft)? {
-                Some(data) => data,
-                None => {
-                    tracing::info!("user cancel the todo editing");
-                    return Ok(());
-                }
-            }
+            let Some(draft_tui) = tui::draft_todo(aim, draft)? else {
+                tracing::info!("user cancel the todo editing");
+                return Ok(());
+            };
+            draft = draft_tui;
         }
 
         // Create the todo

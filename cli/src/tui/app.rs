@@ -4,9 +4,7 @@
 
 use std::{cell::RefCell, error::Error, rc::Rc};
 
-use aimcal_core::{
-    Aim, Event, EventDraft, EventPatch, EventStatus, Kind, Todo, TodoDraft, TodoPatch,
-};
+use aimcal_core::{Aim, Event, EventDraft, EventPatch, Kind, Todo, TodoDraft, TodoPatch};
 use ratatui::Terminal;
 use ratatui::crossterm::event::{self, KeyEventKind};
 use ratatui::layout::Rect;
@@ -20,14 +18,8 @@ use crate::tui::event_todo_editor::{EventOrTodoDraft, EventTodoStore, new_event_
 use crate::tui::todo_editor::new_todo_editor;
 use crate::tui::todo_store::TodoStore;
 
-pub fn draft_event(aim: &mut Aim) -> Result<Option<EventDraft>, Box<dyn Error>> {
-    let store = EventStore::from_draft(EventDraft {
-        description: None,
-        end: None,
-        start: None,
-        status: EventStatus::default(),
-        summary: String::new(),
-    });
+pub fn draft_event(aim: &mut Aim, draft: EventDraft) -> Result<Option<EventDraft>, Box<dyn Error>> {
+    let store = EventStore::from_draft(draft);
     let store = run_event_editor(aim, store)?;
     match store.submit {
         true => store.submit_draft(aim).map(Some),

@@ -91,13 +91,11 @@ impl CmdEventNew {
 
         // If TUI is needed, launch the TUI to edit the draft
         if tui {
-            draft = match tui::draft_event(aim)? {
-                Some(data) => data,
-                None => {
-                    tracing::info!("user cancel the event creation");
-                    return Ok(());
-                }
-            }
+            let Some(draft_tui) = tui::draft_event(aim, draft)? else {
+                tracing::info!("user cancel the event creation");
+                return Ok(());
+            };
+            draft = draft_tui;
         }
 
         // Create the event
