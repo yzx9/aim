@@ -68,14 +68,20 @@ impl CmdEventNew {
         // Prepare a draft with the provided arguments
         let mut draft = aim.default_event_draft();
 
-        let (start, end) = match (self.start, self.end) {
-            (Some(start), Some(end)) => parse_datetime_range(&now, &start, &end)?,
-            (Some(start), None) => (parse_datetime(&now, &start)?, None),
-            (None, Some(end)) => (None, parse_datetime(&now, &end)?),
-            (None, None) => (None, None),
-        };
-        draft.start = start;
-        draft.end = end;
+        match (self.start, self.end) {
+            (Some(start), Some(end)) => {
+                (draft.start, draft.end) = parse_datetime_range(&now, &start, &end)?;
+            }
+            (Some(start), None) => {
+                draft.start = parse_datetime(&now, &start)?;
+                draft.end = None;
+            }
+            (None, Some(end)) => {
+                draft.start = None;
+                draft.end = parse_datetime(&now, &end)?;
+            }
+            (None, None) => {}
+        }
 
         if let Some(description) = self.description {
             draft.description = Some(description);
