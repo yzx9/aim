@@ -8,6 +8,7 @@ use aimcal_core::{APP_NAME, Aim};
 use clap::{ArgMatches, Command, ValueHint, arg, builder::styling, crate_version, value_parser};
 use colored::Colorize;
 use futures::{FutureExt, future::BoxFuture};
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, Registry, prelude::*};
 
 use crate::cmd_event::{
@@ -43,7 +44,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 pub fn init_tracing() -> Result<(), Box<dyn Error>> {
     let stdout_log = tracing_subscriber::fmt::layer().pretty();
 
-    let filter = EnvFilter::builder().try_from_env()?;
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::ERROR.into())
+        .from_env_lossy();
 
     let subscriber = Registry::default().with(filter).with(stdout_log);
 
