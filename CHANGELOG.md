@@ -7,13 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- core: Always set `created` property
+
 ### Changed
 
 - cli: Increase default time range of todos in `dashboard` command
 
 ### Fixed
 
-- cli: Should initiaze TUI editor fields from CLI
+- cli: Should initialize TUI editor fields from CLI
 - cli: Should not override default time range if no value specified
 
 ## [0.9.2] - 2025-10-08

@@ -69,7 +69,7 @@ impl Aim {
     /// Create a default event draft based on the AIM configuration.
     #[must_use]
     pub fn default_event_draft(&self) -> EventDraft {
-        EventDraft::default(self.now)
+        EventDraft::default(&self.now)
     }
 
     /// Get a event by its id.
@@ -94,7 +94,7 @@ impl Aim {
         draft: EventDraft,
     ) -> Result<impl Event + 'static, Box<dyn Error>> {
         let uid = self.generate_uid(Kind::Event).await?;
-        let event = draft.resolve(self.now).into_ics(&uid);
+        let event = draft.resolve(&self.now).into_ics(&uid);
         let path = self.get_path(&uid);
 
         let calendar = Calendar::new().push(event.clone()).done();
@@ -134,7 +134,7 @@ impl Aim {
             .find(|a| a.get_uid() == Some(event.uid()))
             .ok_or("Event not found in calendar")?;
 
-        patch.resolve().apply_to(e);
+        patch.resolve(self.now).apply_to(e);
         let event = e.clone();
         fs::write(&path, calendar.done().to_string())
             .await
@@ -247,7 +247,7 @@ impl Aim {
             .find(|a| a.get_uid() == Some(todo.uid()))
             .ok_or("Todo not found in calendar")?;
 
-        patch.resolve(self.now).apply_to(t);
+        patch.resolve(&self.now).apply_to(t);
         let todo = t.clone();
         fs::write(&path, calendar.done().to_string())
             .await

@@ -119,7 +119,7 @@ impl TodoDraft {
     pub(crate) fn resolve<'a>(
         &'a self,
         config: &Config,
-        now: &DateTime<Local>,
+        now: &'a DateTime<Local>,
     ) -> ResolvedTodoDraft<'a> {
         let due = self
             .due
@@ -136,6 +136,8 @@ impl TodoDraft {
             priority,
             status: self.status,
             summary: &self.summary,
+
+            now,
         }
     }
 }
@@ -148,6 +150,8 @@ pub struct ResolvedTodoDraft<'a> {
     pub priority: Option<Priority>,
     pub status: TodoStatus,
     pub summary: &'a str,
+
+    pub now: &'a DateTime<Local>,
 }
 
 impl ResolvedTodoDraft<'_> {
@@ -175,6 +179,8 @@ impl ResolvedTodoDraft<'_> {
 
         Component::summary(&mut todo, self.summary);
 
+        // Set the creation time to now
+        Component::created(&mut todo, self.now.with_timezone(&Utc));
         todo
     }
 }
@@ -213,7 +219,7 @@ impl TodoPatch {
             && self.summary.is_none()
     }
 
-    pub(crate) fn resolve(&self, now: DateTime<Local>) -> ResolvedTodoPatch<'_> {
+    pub(crate) fn resolve<'a>(&'a self, now: &'a DateTime<Local>) -> ResolvedTodoPatch<'a> {
         let percent_complete = match self.percent_complete {
             Some(Some(v)) => Some(Some(v.min(100))),
             _ => self.percent_complete,
@@ -240,7 +246,7 @@ pub struct ResolvedTodoPatch<'a> {
     pub status: Option<TodoStatus>,
     pub summary: Option<&'a str>,
 
-    pub now: DateTime<Local>,
+    pub now: &'a DateTime<Local>,
 }
 
 impl ResolvedTodoPatch<'_> {
@@ -282,6 +288,10 @@ impl ResolvedTodoPatch<'_> {
             t.summary(summary);
         }
 
+        // Set the creation time to now if it is not already set
+        if t.get_created().is_none() {
+            Component::created(t, self.now.with_timezone(&Utc));
+        }
         t
     }
 }

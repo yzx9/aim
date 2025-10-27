@@ -4,7 +4,7 @@
 
 use std::{fmt::Display, num::NonZeroU32, str::FromStr};
 
-use chrono::{DateTime, Duration, Local, Timelike};
+use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use icalendar::{Component, EventLike};
 
 use crate::{DateTimeAnchor, LooseDateTime};
@@ -84,12 +84,12 @@ pub struct EventDraft {
 
 impl EventDraft {
     /// Creates a new empty patch.
-    pub(crate) fn default(now: DateTime<Local>) -> Self {
+    pub(crate) fn default(now: &DateTime<Local>) -> Self {
         // next 00 or 30 minute
         let start = if now.minute() < 30 {
             now.with_minute(30).unwrap().with_second(0).unwrap()
         } else {
-            (now + Duration::hours(1))
+            (*now + Duration::hours(1))
                 .with_minute(0)
                 .unwrap()
                 .with_second(0)
@@ -105,7 +105,7 @@ impl EventDraft {
         }
     }
 
-    pub(crate) fn resolve(&self, now: DateTime<Local>) -> ResolvedEventDraft<'_> {
+    pub(crate) fn resolve<'a>(&'a self, now: &'a DateTime<Local>) -> ResolvedEventDraft<'a> {
         let default_duration = Duration::hours(1);
         let (start, end) = match (self.start, self.end) {
             (Some(start), Some(end)) => (start, end),
@@ -128,7 +128,7 @@ impl EventDraft {
                 (start, end)
             }
             (None, None) => {
-                let start = now;
+                let start = *now;
                 let end = (start + default_duration).into();
                 (start.into(), end)
             }
@@ -140,6 +140,8 @@ impl EventDraft {
             end,
             status: self.status,
             summary: &self.summary,
+
+            now,
         }
     }
 }
@@ -151,6 +153,8 @@ pub struct ResolvedEventDraft<'a> {
     pub end: LooseDateTime,
     pub status: EventStatus,
     pub summary: &'a str,
+
+    pub now: &'a DateTime<Local>,
 }
 
 impl ResolvedEventDraft<'_> {
@@ -169,6 +173,8 @@ impl ResolvedEventDraft<'_> {
 
         Component::summary(&mut event, self.summary);
 
+        // Set the creation time to now
+        Component::created(&mut event, self.now.with_timezone(&Utc));
         event
     }
 }
@@ -203,13 +209,15 @@ impl EventPatch {
             && self.summary.is_none()
     }
 
-    pub(crate) fn resolve(&self) -> ResolvedEventPatch<'_> {
+    pub(crate) fn resolve(&self, now: DateTime<Local>) -> ResolvedEventPatch<'_> {
         ResolvedEventPatch {
             description: self.description.as_ref().map(|opt| opt.as_deref()),
             start: self.start,
             end: self.end,
             status: self.status,
             summary: self.summary.as_deref(),
+
+            now,
         }
     }
 }
@@ -222,6 +230,8 @@ pub struct ResolvedEventPatch<'a> {
     pub end: Option<Option<LooseDateTime>>,
     pub status: Option<EventStatus>,
     pub summary: Option<&'a str>,
+
+    pub now: DateTime<Local>,
 }
 
 impl ResolvedEventPatch<'_> {
@@ -253,6 +263,10 @@ impl ResolvedEventPatch<'_> {
             e.summary(summary);
         }
 
+        // Set the creation time to now if it is not already set
+        if e.get_created().is_none() {
+            Component::created(e, self.now.with_timezone(&Utc));
+        }
         e
     }
 }
