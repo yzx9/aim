@@ -4,7 +4,10 @@
 
 use std::{fmt, str::FromStr, sync::OnceLock};
 
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Timelike};
+use chrono::format::{Parsed, StrftimeItems};
+use chrono::{
+    DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Timelike,
+};
 use regex::Regex;
 use serde::de;
 
@@ -249,6 +252,10 @@ impl FromStr for DateTimeAnchor {
         } else if let Ok(date) = NaiveDate::parse_from_str(t, "%Y-%m-%d") {
             // Parse as date only
             Ok(Self::DateTime(LooseDateTime::DateOnly(date)))
+        } else if let Some(date) = parse_md_with_year(t, Local::now().year()) {
+            // Parse as date only (with current year)
+            // TODO: handle year
+            Ok(Self::DateTime(LooseDateTime::DateOnly(date)))
         } else if let Ok(time) = NaiveTime::parse_from_str(t, "%H:%M") {
             // Parse as time only
             Ok(Self::Time(time))
@@ -338,9 +345,17 @@ fn first_suggested_time(date: NaiveDate) -> LooseDateTime {
     LooseDateTime::from_local_datetime(dt)
 }
 
+fn parse_md_with_year(s: &str, year: i32) -> Option<NaiveDate> {
+    let mut p = Parsed::new();
+    chrono::format::parse(&mut p, s, StrftimeItems::new("%m-%d")).ok()?;
+    let month = p.month?;
+    let day = p.day?;
+    NaiveDate::from_ymd_opt(year, month, day)
+}
+
 #[cfg(test)]
 mod tests {
-    use chrono::{NaiveDate, Utc};
+    use chrono::{Datelike, NaiveDate, Utc};
 
     use super::*;
 
@@ -759,6 +774,24 @@ mod tests {
             let anchor: DateTimeAnchor = s.parse().unwrap();
             assert_eq!(anchor, expected);
         }
+    }
+
+    #[test]
+    fn test_from_str_date_only() {
+        let anchor: DateTimeAnchor = "2025-01-15".parse().unwrap();
+        let expected = DateTimeAnchor::DateTime(LooseDateTime::DateOnly(
+            NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
+        ));
+        assert_eq!(anchor, expected);
+    }
+
+    #[test]
+    fn test_from_str_date_only_without_year() {
+        let anchor: DateTimeAnchor = "01-15".parse().unwrap();
+        let expected = DateTimeAnchor::DateTime(LooseDateTime::DateOnly(
+            NaiveDate::from_ymd_opt(Local::now().year(), 1, 15).unwrap(),
+        ));
+        assert_eq!(anchor, expected);
     }
 
     #[test]

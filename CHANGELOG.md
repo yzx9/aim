@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - core: Always set `created` property
+- core: Parse month day as datetime anchor
 
 ### Changed
 
