@@ -364,6 +364,7 @@ mod tests {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
         assert_eq!(DateTimeAnchor::now().resolve_at_start_of_day(&now), now);
         assert_eq!(DateTimeAnchor::now().resolve_at_end_of_day(&now), now);
+
         #[allow(deprecated)]
         {
             assert_eq!(DateTimeAnchor::now().parse_as_start_of_day(&now), now);
@@ -398,29 +399,6 @@ mod tests {
     }
 
     #[test]
-    fn test_anchor_relative() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 0, 0).unwrap();
-        let anchor = DateTimeAnchor::Relative(2 * 60 * 60 + 30 * 60 + 45);
-
-        let parsed = anchor.resolve_at_start_of_day(&now);
-        let expected = Utc.with_ymd_and_hms(2025, 1, 1, 17, 30, 45).unwrap();
-        assert_eq!(parsed, expected);
-
-        let parsed = anchor.resolve_at_end_of_day(&now);
-        assert_eq!(parsed, expected);
-
-        // Test deprecated functions still work
-        #[allow(deprecated)]
-        {
-            let parsed = anchor.parse_as_start_of_day(&now);
-            assert_eq!(parsed, expected);
-
-            let parsed = anchor.parse_as_end_of_day(&now);
-            assert_eq!(parsed, expected);
-        }
-    }
-
-    #[test]
     fn test_anchor_time_dateonly() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
         let date = NaiveDate::from_ymd_opt(2025, 1, 5).unwrap();
@@ -448,56 +426,47 @@ mod tests {
     }
 
     #[test]
-    fn test_anchor_time_floating() {
+    fn test_anchor_time_variants() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
-        let date = NaiveDate::from_ymd_opt(2025, 1, 5).unwrap();
-        let time = NaiveTime::from_hms_opt(14, 30, 0).unwrap();
-        let datetime = NaiveDateTime::new(date, time);
-        let loose_datetime = LooseDateTime::Floating(datetime);
-        let anchor = DateTimeAnchor::DateTime(loose_datetime);
+        for (name, anchor, expected) in [
+            (
+                "Relative (+2h30m45s)",
+                DateTimeAnchor::Relative(2 * 60 * 60 + 30 * 60 + 45),
+                Utc.with_ymd_and_hms(2025, 1, 1, 18, 1, 30).unwrap(),
+            ),
+            (
+                "Floating",
+                {
+                    let date = NaiveDate::from_ymd_opt(2025, 1, 5).unwrap();
+                    let time = NaiveTime::from_hms_opt(14, 30, 0).unwrap();
+                    let datetime = NaiveDateTime::new(date, time);
+                    DateTimeAnchor::DateTime(LooseDateTime::Floating(datetime))
+                },
+                Utc.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap(),
+            ),
+            (
+                "Local",
+                {
+                    let local_dt = Local.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap();
+                    DateTimeAnchor::DateTime(LooseDateTime::Local(local_dt))
+                },
+                Utc.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap(),
+            ),
+        ] {
+            let parsed = anchor.resolve_at_start_of_day(&now);
+            assert_eq!(parsed, expected, "start_of_day failed for {name}");
 
-        let parsed = anchor.resolve_at_start_of_day(&now);
-        let expected = Utc.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap();
-        assert_eq!(parsed, expected);
+            let parsed = anchor.resolve_at_end_of_day(&now);
+            assert_eq!(parsed, expected, "end_of_day failed for {name}");
 
-        let parsed = anchor.resolve_at_end_of_day(&now);
-        let expected = Utc.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap();
-        assert_eq!(parsed, expected);
+            #[allow(deprecated)]
+            {
+                let parsed = anchor.parse_as_start_of_day(&now);
+                assert_eq!(parsed, expected, "parse_as_start_of_day failed for {name}",);
 
-        // Test deprecated functions still work
-        #[allow(deprecated)]
-        {
-            let parsed = anchor.parse_as_start_of_day(&now);
-            assert_eq!(parsed, expected);
-
-            let parsed = anchor.parse_as_end_of_day(&now);
-            assert_eq!(parsed, expected);
-        }
-    }
-
-    #[test]
-    fn test_anchor_time_local() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
-        let local_dt = Local.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap();
-        let loose_local = LooseDateTime::Local(local_dt);
-        let anchor = DateTimeAnchor::DateTime(loose_local);
-
-        let parsed = anchor.resolve_at_start_of_day(&now);
-        let expected = Utc.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap();
-        assert_eq!(parsed, expected);
-
-        let parsed = anchor.resolve_at_end_of_day(&now);
-        let expected = Utc.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap();
-        assert_eq!(parsed, expected);
-
-        // Test deprecated functions still work
-        #[allow(deprecated)]
-        {
-            let parsed = anchor.parse_as_start_of_day(&now);
-            assert_eq!(parsed, expected);
-
-            let parsed = anchor.parse_as_end_of_day(&now);
-            assert_eq!(parsed, expected);
+                let parsed = anchor.parse_as_end_of_day(&now);
+                assert_eq!(parsed, expected, "parse_as_end_of_day failed for {name}");
+            }
         }
     }
 
@@ -564,250 +533,167 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_at_in_days() {
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap());
-        let anchor = DateTimeAnchor::DateTime(expected);
-        let result = anchor.resolve_at(&expected);
-        assert_eq!(result, expected);
+    fn test_resolve_at_table_driven() {
+        for (name, anchor, now, expected) in [
+            (
+                "AtInDays (same datetime)",
+                DateTimeAnchor::DateTime(LooseDateTime::Local(
+                    Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap(),
+                )),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
+            ),
+            (
+                "Relative (+3 hours)",
+                DateTimeAnchor::Relative(3 * 60 * 60),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 0, 0).unwrap()),
+            ),
+            (
+                "DateTime (absolute 10:00)",
+                DateTimeAnchor::DateTime(LooseDateTime::Local(
+                    Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap(),
+                )),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap()),
+            ),
+            (
+                "Time (10:00 today)",
+                DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap()),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap()),
+            ),
+        ] {
+            let result = anchor.resolve_at(&now);
+            assert_eq!(result, expected, "resolve_at failed for case: {name}");
 
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_loose(&expected);
-            assert_eq!(result, expected);
+            #[allow(deprecated)]
+            {
+                let result = anchor.parse_from_loose(&now);
+                assert_eq!(result, expected, "parse_from_loose failed for case: {name}");
+            }
         }
     }
 
     #[test]
-    fn test_resolve_at_relative() {
-        let anchor = DateTimeAnchor::Relative(3 * 60 * 60);
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
-        let result = anchor.resolve_at(&now.into());
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 0, 0).unwrap());
-        assert_eq!(result, expected);
-
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_loose(&now.into());
-            assert_eq!(result, expected);
+    fn test_resolve_since() {
+        let dt = |y, m, d, hh, mm, ss| {
+            LooseDateTime::Local(Local.with_ymd_and_hms(y, m, d, hh, mm, ss).unwrap())
+        };
+        let now: LooseDateTime = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
+        for (name, anchor, expected) in [
+            ("DateTime == now", DateTimeAnchor::DateTime(now), now),
+            (
+                "Relative +3:25:45",
+                DateTimeAnchor::Relative(3 * 60 * 60 + 25 * 60 + 45),
+                dt(2025, 1, 1, 15, 25, 45),
+            ),
+            (
+                "Explicit DateTime 10:00",
+                DateTimeAnchor::DateTime(dt(2025, 1, 1, 10, 0, 0)),
+                dt(2025, 1, 1, 10, 0, 0),
+            ),
+            (
+                "Time before now -> tomorrow 10:00",
+                DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap()),
+                dt(2025, 1, 2, 10, 0, 0),
+            ),
+            (
+                "Time after now -> today 14:00",
+                DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 0, 0).unwrap()),
+                dt(2025, 1, 1, 14, 0, 0),
+            ),
+        ] {
+            let result = anchor.resolve_since(&now);
+            assert_eq!(result, expected, "case failed: {name}");
         }
-    }
-
-    #[test]
-    fn test_resolve_at_datetime() {
-        let anchor = DateTimeAnchor::DateTime(LooseDateTime::Local(
-            Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap(),
-        ));
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
-        let result = anchor.resolve_at(&now.into());
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap());
-        assert_eq!(result, expected);
-
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_loose(&now.into());
-            assert_eq!(result, expected);
-        }
-    }
-
-    #[test]
-    fn test_resolve_at_time() {
-        let anchor = DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap());
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
-        let result = anchor.resolve_at(&now.into());
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap());
-        assert_eq!(result, expected);
-
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_loose(&now.into());
-            assert_eq!(result, expected);
-        }
-    }
-
-    #[test]
-    fn test_resolve_since_in_days() {
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
-        let expected = now;
-        let anchor = DateTimeAnchor::DateTime(expected);
-        let result = anchor.resolve_since(&now);
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_resolve_since_relative() {
-        let anchor = DateTimeAnchor::Relative(3 * 60 * 60 + 25 * 60 + 45);
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
-        let result = anchor.resolve_since(&now);
-        let expected =
-            LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 25, 45).unwrap());
-        assert_eq!(result, expected);
     }
 
     #[test]
     fn test_resolve_since_datetime() {
-        let anchor = DateTimeAnchor::DateTime(LooseDateTime::Local(
-            Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap(),
-        ));
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
-        let result = anchor.resolve_since(&now);
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap());
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_resolve_since_time_before_now() {
-        // Test "HH:MM" (before now, should be tomorrow)
-        let anchor = DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap());
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
-        let result = anchor.resolve_since(&now);
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 2, 10, 0, 0).unwrap());
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_resolve_since_time_after_now() {
-        // Test "HH:MM" (after now, should be today)
-        let anchor = DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 0, 0).unwrap());
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
-        let result = anchor.resolve_since(&now);
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 14, 0, 0).unwrap());
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_resolve_since_datetime_in_days() {
         let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
-        let expected = now.into();
-        let anchor = DateTimeAnchor::DateTime(expected);
-        let result = anchor.resolve_since_datetime(&now);
-        assert_eq!(result, expected);
+        for (name, anchor, expected) in [
+            (
+                "DateTimeAnchor::DateTime (same datetime)",
+                DateTimeAnchor::DateTime(LooseDateTime::Local(now)),
+                LooseDateTime::Local(now),
+            ),
+            (
+                "DateTimeAnchor::Relative (3h25m45s later)",
+                DateTimeAnchor::Relative(3 * 60 * 60 + 25 * 60 + 45),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 25, 45).unwrap()),
+            ),
+            (
+                "DateTimeAnchor::DateTime (specific datetime before now)",
+                DateTimeAnchor::DateTime(LooseDateTime::Local(
+                    Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap(),
+                )),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap()),
+            ),
+            (
+                "DateTimeAnchor::Time (before now → tomorrow)",
+                DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap()),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 2, 10, 0, 0).unwrap()),
+            ),
+            (
+                "DateTimeAnchor::Time (after now → today)",
+                DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 0, 0).unwrap()),
+                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 14, 0, 0).unwrap()),
+            ),
+        ] {
+            let result = anchor.resolve_since_datetime(&now);
+            assert_eq!(result, expected, "failed: {name} → resolve_since_datetime",);
 
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_dt(&now);
-            assert_eq!(result, expected);
+            // Deprecated API should behave identically
+            #[allow(deprecated)]
+            {
+                let deprecated_result = anchor.parse_from_dt(&now);
+                assert_eq!(
+                    deprecated_result, expected,
+                    "failed: {name} → parse_from_dt (deprecated)",
+                );
+            }
         }
     }
 
     #[test]
-    fn test_resolve_since_datetime_relative() {
-        let anchor = DateTimeAnchor::Relative(3 * 60 * 60 + 25 * 60 + 45);
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
-        let result = anchor.resolve_since_datetime(&now);
-        let expected =
-            LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 25, 45).unwrap());
-        assert_eq!(result, expected);
-
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_dt(&now);
-            assert_eq!(result, expected);
-        }
-    }
-
-    #[test]
-    fn test_resolve_since_datetime_datetime() {
-        let anchor = DateTimeAnchor::DateTime(LooseDateTime::Local(
-            Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap(),
-        ));
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
-        let result = anchor.resolve_since_datetime(&now);
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap());
-        assert_eq!(result, expected);
-
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_dt(&now);
-            assert_eq!(result, expected);
-        }
-    }
-
-    #[test]
-    fn test_resolve_since_datetime_time_before_now() {
-        // Test "HH:MM" (before now, should be tomorrow)
-        let anchor = DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap());
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
-        let result = anchor.resolve_since_datetime(&now);
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 2, 10, 0, 0).unwrap());
-        assert_eq!(result, expected);
-
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_dt(&now);
-            assert_eq!(result, expected);
-        }
-    }
-
-    #[test]
-    fn test_resolve_since_datetime_time_after_now() {
-        // Test "HH:MM" (after now, should be today)
-        let anchor = DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 0, 0).unwrap());
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
-        let result = anchor.resolve_since_datetime(&now);
-        let expected = LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 14, 0, 0).unwrap());
-        assert_eq!(result, expected);
-
-        // Test deprecated function still works
-        #[allow(deprecated)]
-        {
-            let result = anchor.parse_from_dt(&now);
-            assert_eq!(result, expected);
-        }
-    }
-
-    #[test]
-    fn test_from_str_keywords() {
+    fn test_from_str() {
         for (s, expected) in [
+            // Keywords
             ("now", DateTimeAnchor::now()),
             ("today", DateTimeAnchor::today()),
             ("yesterday", DateTimeAnchor::yesterday()),
             ("tomorrow", DateTimeAnchor::tomorrow()),
+            // Date only
+            (
+                "2025-01-15",
+                DateTimeAnchor::DateTime(LooseDateTime::DateOnly(
+                    NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
+                )),
+            ),
+            // Date only with current year
+            (
+                "01-15",
+                DateTimeAnchor::DateTime(LooseDateTime::DateOnly(
+                    NaiveDate::from_ymd_opt(Local::now().year(), 1, 15).unwrap(),
+                )),
+            ),
+            // DateTime
+            (
+                "2025-01-15 14:30",
+                DateTimeAnchor::DateTime(LooseDateTime::Local(
+                    Local.with_ymd_and_hms(2025, 1, 15, 14, 30, 0).unwrap(),
+                )),
+            ),
+            // Time only
+            (
+                "14:30",
+                DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 30, 0).unwrap()),
+            ),
         ] {
             let anchor: DateTimeAnchor = s.parse().unwrap();
-            assert_eq!(anchor, expected);
+            assert_eq!(anchor, expected, "Failed to parse '{s}'",);
         }
-    }
-
-    #[test]
-    fn test_from_str_date_only() {
-        let anchor: DateTimeAnchor = "2025-01-15".parse().unwrap();
-        let expected = DateTimeAnchor::DateTime(LooseDateTime::DateOnly(
-            NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
-        ));
-        assert_eq!(anchor, expected);
-    }
-
-    #[test]
-    fn test_from_str_date_only_without_year() {
-        let anchor: DateTimeAnchor = "01-15".parse().unwrap();
-        let expected = DateTimeAnchor::DateTime(LooseDateTime::DateOnly(
-            NaiveDate::from_ymd_opt(Local::now().year(), 1, 15).unwrap(),
-        ));
-        assert_eq!(anchor, expected);
-    }
-
-    #[test]
-    fn test_from_str_datetime() {
-        let anchor: DateTimeAnchor = "2025-01-15 14:30".parse().unwrap();
-        let expected = DateTimeAnchor::DateTime(LooseDateTime::Local(
-            Local.with_ymd_and_hms(2025, 1, 15, 14, 30, 0).unwrap(),
-        ));
-        assert_eq!(anchor, expected);
-    }
-
-    #[test]
-    fn test_from_str_time() {
-        let anchor: DateTimeAnchor = "14:30".parse().unwrap();
-        let expected = DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 30, 0).unwrap());
-        assert_eq!(anchor, expected);
     }
 
     #[test]
@@ -818,95 +704,88 @@ mod tests {
     }
 
     #[test]
-    fn test_from_str_seconds() {
-        for s in [
-            "10s",
-            "10sec",
-            "10seconds",
-            "   10   s   ",
-            "   10   sec   ",
-            "   10   seconds   ",
+    fn test_from_str_seconds_minutes() {
+        for (tests, expected) in [
+            (
+                [
+                    "10s",
+                    "10sec",
+                    "10seconds",
+                    "   10   s   ",
+                    "   10   sec   ",
+                    "   10   seconds   ",
+                ],
+                DateTimeAnchor::Relative(10),
+            ),
+            (
+                [
+                    "10m",
+                    "10min",
+                    "10minutes",
+                    "   10   m   ",
+                    "   10   min   ",
+                    "   10   minutes   ",
+                ],
+                DateTimeAnchor::Relative(10 * 60),
+            ),
         ] {
-            let anchor: DateTimeAnchor = s.parse().unwrap();
-            let expected = DateTimeAnchor::Relative(10);
-            assert_eq!(anchor, expected, "Failed to parse '{s}'");
+            for s in tests {
+                let anchor: DateTimeAnchor = s.parse().unwrap();
+                assert_eq!(anchor, expected, "Failed to parse '{s}'");
 
-            // No "in " prefix allowed for seconds
-            let prefix_in = DateTimeAnchor::from_str(&format!("in {s}"));
-            assert!(prefix_in.is_err());
+                // No "in " prefix allowed for seconds
+                let prefix_in = DateTimeAnchor::from_str(&format!("in {s}"));
+                assert!(prefix_in.is_err());
 
-            // No uppercase allowed for seconds
-            let uppercase = DateTimeAnchor::from_str(&s.to_uppercase());
-            assert!(uppercase.is_err());
+                // No uppercase allowed for seconds
+                let uppercase = DateTimeAnchor::from_str(&s.to_uppercase());
+                assert!(uppercase.is_err());
+            }
         }
     }
 
     #[test]
-    fn test_from_str_minutes() {
-        for s in [
-            "10m",
-            "10min",
-            "10minutes",
-            "   10   m   ",
-            "   10   min   ",
-            "   10   minutes   ",
+    fn test_from_str_hours_days() {
+        for (tests, expected) in [
+            (
+                [
+                    "in 10hours",
+                    "in 10H",
+                    "   IN   10   hours   ",
+                    "10hours",
+                    "10 HOURS",
+                    "   10   hours   ",
+                    "10h",
+                    "10 H",
+                    "   10   h   ",
+                ],
+                DateTimeAnchor::Relative(10 * 60 * 60),
+            ),
+            (
+                [
+                    "in 10days",
+                    "in 10D",
+                    "   IN   10   days   ",
+                    "10days",
+                    "10 DAYS",
+                    "   10   days   ",
+                    "10d",
+                    "10 D",
+                    "   10   d   ",
+                ],
+                DateTimeAnchor::InDays(10),
+            ),
         ] {
-            let anchor: DateTimeAnchor = s.parse().unwrap();
-            let expected = DateTimeAnchor::Relative(10 * 60);
-            assert_eq!(anchor, expected, "Failed to parse '{s}'");
-
-            // No "in " prefix allowed for minutes
-            let prefix_in = DateTimeAnchor::from_str(&format!("in {s}"));
-            assert!(prefix_in.is_err());
-
-            // No uppercase allowed for minutes
-            let uppercase = DateTimeAnchor::from_str(&s.to_uppercase());
-            assert!(uppercase.is_err());
-        }
-    }
-
-    #[test]
-    fn test_from_str_hours() {
-        for s in [
-            "in 10hours",
-            "in 10H",
-            "   IN   10   hours   ",
-            "10hours",
-            "10 HOURS",
-            "   10   hours   ",
-            "10h",
-            "10 H",
-            "   10   h   ",
-        ] {
-            let anchor: DateTimeAnchor = s.parse().unwrap();
-            let expected = DateTimeAnchor::Relative(10 * 60 * 60);
-            assert_eq!(anchor, expected, "Failed to parse '{s}'");
-        }
-    }
-
-    #[test]
-    fn test_from_str_days() {
-        for s in [
-            "in 10days",
-            "in 10D",
-            "   IN   10   days   ",
-            "10days",
-            "10 DAYS",
-            "   10   days   ",
-            "10d",
-            "10 D",
-            "   10   d   ",
-        ] {
-            let anchor: DateTimeAnchor = s.parse().unwrap();
-            let expected = DateTimeAnchor::InDays(10);
-            assert_eq!(anchor, expected, "Failed to parse '{s}'");
+            for s in tests {
+                let anchor: DateTimeAnchor = s.parse().unwrap();
+                assert_eq!(anchor, expected, "Failed to parse '{s}'");
+            }
         }
     }
 
     #[test]
     fn test_next_suggested_time() {
-        let test_cases = vec![
-            // (current_hour, current_min, expected_hour, description)
+        for (hour, min, expected_hour, description) in [
             (8, 30, 9, "Before 9 AM, should suggest 9 AM"),
             (
                 10,
@@ -922,16 +801,13 @@ mod tests {
             ),
             (9, 0, 13, "Exactly at 9 AM, should suggest 1 PM"),
             (13, 0, 18, "Exactly at 1 PM, should suggest 6 PM"),
-        ];
-
-        for (hour, min, expected_hour, description) in test_cases {
+        ] {
             let now = Local.with_ymd_and_hms(2025, 1, 1, hour, min, 0).unwrap();
             let result = next_suggested_time(&now.naive_local());
-            let expected = LooseDateTime::Local(
-                Local
-                    .with_ymd_and_hms(2025, 1, 1, expected_hour, 0, 0)
-                    .unwrap(),
-            );
+            let dt = Local
+                .with_ymd_and_hms(2025, 1, 1, expected_hour, 0, 0)
+                .unwrap();
+            let expected = LooseDateTime::Local(dt);
             assert_eq!(result, expected, "{description}");
         }
     }
