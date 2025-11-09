@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["aimcal", "cli", "core"]
+members = ["aimcal", "cli", "core", "ical"]
 default-members = ["cli"]
 
 [workspace.package]
