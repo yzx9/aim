@@ -4,16 +4,22 @@ AIM (Analyze. Interact. Manage) is a Rust-based calendar and task management app
 
 ## Project Structure
 
-The project is organized as a Cargo workspace with three main crates:
+The project is organized as a Cargo workspace with four main crates:
 
 ```
 aim/            # Workspace root
 ├── core/       # Core library (aimcal-core)
 ├── cli/        # Command-line interface (aimcal-cli)
+├── ical/       # iCalendar parser (aimcal-ical)
 ├── aimcal/     # Public API facade crate
 ├── Cargo.toml  # Workspace configuration
 └── AGENTS.md   # This file
 ```
+
+### Public API Crate (`aimcal/`)
+
+Facade crate that exposes the public API.
+This crate can be ignored unless specifically requested by users.
 
 ### Core Crate (`core/`)
 
@@ -33,10 +39,14 @@ Command-line interface that provides:
 - Intuitive command structure using clap
 - Interactive TUI modes using ratatui
 
-### Public API Crate (`aimcal/`)
+### iCal Crate (`ical/`)
 
-Facade crate that exposes the public API.
-This crate can be ignored unless specifically requested by users.
+iCalendar parsing and serialization library:
+
+- Parsing of iCalendar format (RFC 5545) using efficient lexical analysis
+- Component-based representation of calendar data
+- Support for properties, parameters, and nested components
+- Error reporting with detailed diagnostics
 
 ## Code Standards
 
@@ -52,6 +62,7 @@ This crate can be ignored unless specifically requested by users.
 - **Unit tests**: Comprehensive coverage for individual functions
 - **Naming conventions**: Following Rust standard naming
 - **Tracing instrumentation**: Comprehensive logging for debugging
+- **Language**: Always write code and comments in English
 
 ### Documentation Standards
 
@@ -73,29 +84,28 @@ This crate can be ignored unless specifically requested by users.
 The project uses `just` as a command runner to simplify common development tasks.
 See the `justfile` for all available commands.
 
-### Building
+### Common Development Tasks
 
 ```bash
 # Build all crates
 cargo build
 
-# Build release version
-cargo build --release
-
 # Build specific crate
 cargo build -p aimcal-core
+
+# Add a new database migration
+just migrate-add <name>
+
+# List all available just commands
+just
 ```
 
-### Testing
+### Testing && Code Quality
 
 ```bash
 # Using just (runs all tests in workspace with all features)
 just test
-```
 
-### Code Quality
-
-```bash
 # Run the application (using cargo directly)
 cargo run
 
@@ -104,14 +114,4 @@ cargo fmt
 
 # Runs clippy on workspace with all targets and features
 just lint
-```
-
-### Common Development Tasks
-
-```bash
-# Add a new database migration
-just migrate-add <name>
-
-# List all available just commands
-just
 ```

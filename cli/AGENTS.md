@@ -6,11 +6,12 @@ The CLI module provides a command-line interface for the AIM calendar applicatio
 
 ```
 cli/src/
+├── arg.rs              # CLI arguments utils
 ├── cli.rs              # Main CLI entry point and command routing
-├── cmd_dashboard.rs    # Dashboard command for overview display
 ├── cmd_event.rs        # Event management commands (new, edit, list)
 ├── cmd_generate_completion.rs  # Shell completion generation
 ├── cmd_todo.rs         # Todo management commands (new, edit, done, etc.)
+├── cmd_toplevel.rs     # Toplevel command (dashboard, delay, reschedule, flush)
 ├── cmd_tui.rs          # TUI mode commands (new, edit)
 ├── config.rs           # CLI-specific configuration handling
 ├── event_formatter.rs  # Event display formatting for different output modes
@@ -36,77 +37,49 @@ The central command router that:
 
 ## Command Structure
 
-The CLI supports a hierarchical command structure:
+The CLI provides a hierarchical command structure:
 
 ```
 aim [OPTIONS] [COMMAND] [SUBCOMMAND]
-├── dashboard                        # Show overview (default)
-├── new                              # Interactive creation
-├── edit <ID>                        # Interactive editing
-├── event
-│   ├── new/add [SUMMARY]            # Create event
-│   ├── edit <ID>                    # Edit event
-│   └── list                         # List events
-└── todo
-    ├── new/add [SUMMARY]            # Create todo
-    ├── edit <ID>                    # Edit todo
-    ├── done <ID>...                 # Mark done
-    ├── undo <ID>...                 # Mark needs-action
-    ├── cancel <ID>...               # Mark cancelled
-    ├── delay <ID> <TIMEDELTA>       # Delay due date
-    └── list                         # List todos
 ```
 
-### Command Implementations
+### Main Commands
 
-The CLI supports a hierarchical command structure:
+- **`dashboard`** *(default)*: Show upcoming events and todos
+- **`new`**/**`add`**: Create event/todo with optional TUI mode
+- **`edit`**: Modify event/todo with optional TUI mode
+- **`delay`**: Delay events/todos based on original times
+- **`reschedule`**: Reschedule events/todos based on current time
+- **`flush`**: Clear all short ID mappings
 
-```
-aim [OPTIONS] [COMMAND] [SUBCOMMAND]
-├── dashboard                        # Show overview (default)
-├── new                              # Interactive creation
-├── edit <ID>                        # Interactive editing
-├── event
-│   ├── new/add [SUMMARY]            # Create event
-│   ├── edit <ID>                    # Edit event
-│   └── list                         # List events
-└── todo
-    ├── new/add [SUMMARY]            # Create todo
-    ├── edit <ID>                    # Edit todo
-    ├── done <ID>...                 # Mark done
-    ├── undo <ID>...                 # Mark needs-action
-    ├── cancel <ID>...               # Mark cancelled
-    ├── delay <ID> <TIMEDELTA>       # Delay due date
-    └── list                         # List todos
-```
+### Event Management (`event` or `e`)
 
-Individual command modules that handle specific functionality:
+- **`event new/add`**: Create event (start/end times, description, status, summary)
+- **`event edit`**: Modify existing event
+- **`event delay`**: Postpone event based on original start time
+- **`event reschedule`**: Reschedule event based on current time
+- **`event list`**: Display events with filtering options
 
-#### Event Commands (src/cmd_event.rs)
+### Todo Management (`todo` or `t`)
 
-- `event new/add` - Create new calendar event with optional TUI mode
-- `event edit` - Modify existing event with optional TUI mode
-- `event list` - Display upcoming events with filtering and formatting options
+- **`todo new/add`**: Create todo (due date, description, priority, status, summary)
+- **`todo edit`**: Modify existing todo
+- **`todo done`**: Mark todos as completed
+- **`todo undo`**: Mark todos as needs-action
+- **`todo cancel`**: Mark todos as cancelled
+- **`todo delay`**: Postpone todo due dates based on original due dates
+- **`todo reschedule`**: Reschedule todos based on current time
+- **`todo list`**: Display todos with sorting/filtering options
 
-#### Todo Commands (src/cmd_todo.rs)
+### Global Options
 
-- `todo new/add` - Create new todo item with optional TUI mode
-- `todo edit` - Modify existing todo item with optional TUI mode
-- `todo done` - Mark todos as completed
-- `todo undo` - Mark todos as needs-action
-- `todo cancel` - Mark todos as cancelled
-- `todo delay` - Postpone todo due dates
-- `todo list` - Display todo lists with sorting and filtering
+- **`-c`**/**`--config`**: Configuration file path
+- **`--output-format`**: `table` (default) or `json`
+- **`--verbose`**: Additional output details
 
-#### TUI Commands (src/cmd_tui.rs)
+### TUI Mode
 
-- `new` - Create new event or todo with optional TUI mode
-- `edit` - Modify existing of existing items with optional TUI mode
-
-#### Utility Commands
-
-- `dashboard` - Overview display of upcoming events and todos
-- `generate-completion` - Shell completion script generation
+Many commands support both direct CLI mode and interactive TUI mode. TUI mode activates automatically when not all required fields are provided.
 
 ### Formatting and Display
 
@@ -180,3 +153,4 @@ CLI-specific configuration management:
 - Consistent error handling with user-friendly messages
 - Colorized output for enhanced user experience
 - Configuration-driven behavior with sensible defaults
+- Always write code and comments in English

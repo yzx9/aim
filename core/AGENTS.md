@@ -106,3 +106,4 @@ Shared data structures used throughout the application:
 - Configuration-driven behavior with sensible defaults
 - Comprehensive test coverage for critical components
 - Clean separation of concerns between modules
+- Always write code and comments in English
