@@ -3,10 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use ariadne::{Color, Label, Report, ReportKind};
+use chumsky::extra::ParserExtra;
 use chumsky::input::{Stream, ValueInput};
 use chumsky::prelude::*;
 
 use crate::lexer::{Token, lex};
+
+const KW_BEGIN: &str = "BEGIN";
+const KW_END: &str = "END";
 
 /// Parse an iCalendar component from source code
 ///
@@ -59,7 +63,7 @@ pub fn parse<'src>(src: &'src str) -> Result<Component<'src>, Vec<Report<'src>>>
     let token_stream = Stream::from_iter(token_iter)
         // Tell chumsky to split the (Token, SimpleSpan) stream into its parts so that it can handle the spans for us
         // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
-        .map((0..src.len()).into(), |(t, s): (_, _)| (t, s));
+        .map((0..src.len()).into(), |(t, s)| (t, s));
 
     // Parse the token stream with our chumsky parser
     component()
@@ -119,10 +123,10 @@ fn begin<'tokens, 'src: 'tokens, I>()
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
-    just(Token::Word("BEGIN"))
+    just(Token::Word(KW_BEGIN))
         .ignore_then(just(Token::Colon))
         .ignore_then(select! { Token::Word(s) => s })
-        .then_ignore(just(Token::Newline))
+        .then_ignore(newline())
 }
 
 fn end<'tokens, 'src: 'tokens, I>()
@@ -131,7 +135,7 @@ fn end<'tokens, 'src: 'tokens, I>()
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
-    just(Token::Word("END"))
+    just(Token::Word(KW_END))
         .ignore_then(just(Token::Colon))
         .ignore_then(select! { Token::Word(s) => s })
         .try_map_with(|got, e| {
@@ -144,7 +148,7 @@ where
                 ))
             }
         })
-        .then_ignore(just(Token::Newline).or_not())
+        .then_ignore(newline().or_not())
 }
 
 #[derive(Debug, Clone)]
@@ -160,7 +164,7 @@ fn property<'tokens, 'src: 'tokens, I>()
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
-    let name = select! { Token::Word(s) if s != "BEGIN" && s != "END" => s };
+    let name = select! { Token::Word(s) if s != KW_BEGIN && s != KW_END => s };
 
     let params = just(Token::Semi)
         .ignore_then(param())
@@ -172,8 +176,8 @@ where
         .then(
             select! {
                 Token::Word(s) => s,
-                Token::Quoted(s) => s,
-                Token::Space => " ",
+                // Token::Quoted(s) => s,
+                Token::Symbol(s) => s,
             }
             .repeated()
             .at_least(1)
@@ -186,7 +190,7 @@ where
             params,
             value: RawValue { text: value },
         })
-        .then_ignore(just(Token::Newline).or_not())
+        .then_ignore(newline().or_not())
 }
 
 #[derive(Debug, Clone)]
@@ -203,19 +207,34 @@ where
     select! { Token::Word(s) => s }
         .then_ignore(just(Token::Eq))
         .then(
-            select! { Token::Word(s) => s }
-                .separated_by(just(Token::Comma))
-                .collect::<Vec<_>>(),
+            select! {
+                Token::Word(s) => s,
+                Token::Symbol(s) => s
+            }
+            .repeated()
+            .collect::<Vec<_>>()
+            .separated_by(just(Token::Comma))
+            .collect::<Vec<_>>(),
         )
         .map(|(name, values)| Parameter {
             name: name.to_string(),
-            values: values.into_iter().map(|s| s.to_string()).collect(),
+            values: values.into_iter().map(|s| s.concat().to_string()).collect(),
         })
 }
 
 #[derive(Debug, Clone)]
 pub struct RawValue {
     pub text: String, // Unfolded and unescaped raw value
+}
+
+pub fn newline<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, (), E> + Clone
+where
+    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    E: ParserExtra<'tokens, I>,
+{
+    just(Token::Control("\r"))
+        .then(just(Token::Control("\n")))
+        .ignored()
 }
 
 #[cfg(test)]
@@ -230,8 +249,7 @@ mod tests {
                 Err(()) => panic!("lex error"),
             });
 
-            let token_stream =
-                Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s): (_, _)| (t, s));
+            let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
             begin()
                 .ignore_with_ctx(end())
@@ -267,8 +285,7 @@ END:VEVENT\r\n\
                 Err(()) => panic!("lex error"),
             });
 
-            let token_stream =
-                Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s): (_, _)| (t, s));
+            let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
             begin()
                 .ignore_with_ctx(end())
@@ -304,20 +321,21 @@ END:VEVENT\r\n\
                 Err(()) => panic!("lex error"),
             });
 
-            let token_stream =
-                Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s): (_, _)| (t, s));
+            let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
             property().parse(token_stream).into_result()
         }
 
-        let result = parse("SUMMARY:Hello World!\r\n");
-        assert!(result.is_ok());
+        let src = "SUMMARY:Hello World!\r\n";
+        let result = parse(src);
+        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
         let prop = result.unwrap();
         assert_eq!(prop.name, "SUMMARY");
         assert_eq!(prop.value.text, "Hello World!");
 
-        let result = parse("DTSTART;TZID=America/New_York:20251113T100000\r\n");
-        assert!(result.is_ok());
+        let src = "DTSTART;TZID=America/New_York:20251113T100000\r\n";
+        let result = parse(src);
+        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
         let prop = result.unwrap();
         assert_eq!(prop.name, "DTSTART");
         assert_eq!(prop.params.len(), 1);
@@ -334,14 +352,14 @@ END:VEVENT\r\n\
                 Err(()) => panic!("lex error"),
             });
 
-            let token_stream =
-                Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s): (_, _)| (t, s));
+            let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
             param().parse(token_stream).into_result()
         }
 
-        let result = parse("TZID=America/New_York");
-        assert!(result.is_ok());
+        let src = "TZID=America/New_York";
+        let result = parse(src);
+        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
         let param = result.unwrap();
         assert_eq!(param.name, "TZID");
         assert_eq!(param.values, vec!["America/New_York"]);

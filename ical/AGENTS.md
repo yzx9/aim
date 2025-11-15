@@ -19,20 +19,22 @@ Handles tokenization of iCalendar data:
 
 - Uses the `logos` crate for efficient lexical analysis
 - Defines `Token` enum for all iCalendar syntax elements
-- Recognizes words, delimiters, whitespace, and quoted strings
-- Handles basic iCalendar folding (CRLF whitespace sequences)
+- Recognizes words, delimiters, control characters, symbols, and escape sequences
+- Handles iCalendar folding (CRLF whitespace sequences)
 
 #### Token Types
 
-- `Word`: Alphanumeric characters, underscores, hyphens, and other non-syntax characters
+- `Word`: Alphanumeric characters, underscores, hyphens, and other ASCII word characters (0-9, A-Z, a-z, _, -)
 - `Semi`: Semicolon (;) used to separate properties
 - `Colon`: Colon (:) separator between property names and values
 - `Eq`: Equal sign (=) for parameter values
 - `Comma`: Comma (,) for parameter value lists
-- `Newline`: Carriage return + line feed (\r\n) sequence
-- `Space`: Space character for folding detection
-- `Tab`: Tab character for folding detection
-- `Quoted`: Quoted strings with escape sequence support
+- `Quote`: Double quote (") character
+- `Control`: Control characters (ASCII 0x00-0x1F and 0x7F)
+- `Symbol`: ASCII symbols and special characters
+- `Escape`: Escape sequences (backslash followed by specific characters)
+- `Folding`: CRLF followed by space or tab for iCalendar folding
+- `UnicodeText`: Non-ASCII Unicode text
 
 ### Parser (src/parser.rs)
 
