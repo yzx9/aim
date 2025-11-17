@@ -7,6 +7,7 @@ use std::fmt::{Debug, Display};
 use logos::Logos;
 
 #[derive(PartialEq, Eq, Clone, Copy, logos::Logos)]
+#[logos(skip r#"\r\n[ \t]"#)] // skip folding
 pub enum Token<'a> {
     /// Semicolon (;)
     #[token(";")]
@@ -42,10 +43,6 @@ pub enum Token<'a> {
     #[regex(r"\\[\\;,Nn]")]
     Escape(&'a str),
 
-    /// Folding indicator: CRLF followed by a space or tab
-    #[regex(r#"\r\n[ \t]"#)]
-    Folding(&'a str),
-
     /// ASCII word characters: 0-9, A-Z, a-z, underscore
     #[regex("[0-9A-Za-z_-]+")]
     Word(&'a str),
@@ -63,11 +60,13 @@ impl Display for Token<'_> {
             Self::Eq => write!(f, "Eq"),
             Self::Comma => write!(f, "Comma"),
             Self::Quote => write!(f, "Quote"),
-            Self::Control(s) => write!(f, "Control({s})"),
+            Self::Control(s) => match s.as_bytes().first() {
+                Some(i) => write!(f, "Control(U+{i:02X})"),
+                None => write!(f, "Control(<empty>)"),
+            },
             Self::Symbol(s) => write!(f, "Symbol({s})"),
             Self::Escape(s) => write!(f, "Escape({s})"),
-            Self::Folding(s) => write!(f, "Folding({s})"),
-            Self::Word(s) => write!(f, "AsciiWord({s})"),
+            Self::Word(s) => write!(f, "Word({s})"),
             Self::UnicodeText(s) => write!(f, "Unicodetext({s})"),
         }
     }
@@ -88,6 +87,21 @@ mod tests {
     use super::Token::*;
     use super::*;
 
+    #[test]
+    fn test_folding() {
+        let src = "\r\n \r\n\t\r \n \r\n";
+        let expected = [
+            Control("\r"),
+            Symbol(" "),
+            Control("\n"),
+            Symbol(" "),
+            Control("\r"),
+            Control("\n"),
+        ];
+        let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
+        assert_eq!(tokens, expected);
+    }
+
     macro_rules! test_ascii_range {
         ($name:ident, $from:expr, $to:expr, $token:ident, $single_char:expr) => {
             #[test]
@@ -96,19 +110,19 @@ mod tests {
                     let c = i as u8 as char;
                     let src = c.to_string();
                     let mut lexer = lex(&src);
-                    assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:04X}",);
-                    assert_eq!(lexer.next(), None, "U+{i:04X}");
+                    assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:02X}",);
+                    assert_eq!(lexer.next(), None, "U+{i:02X}");
 
                     let src2 = format!("{c}{c}");
                     let mut lexer = lex(&src2);
                     if $single_char {
                         // Ensure it does not match as part of a longer token
-                        assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:04X}");
-                        assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:04X}");
+                        assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:02X}");
+                        assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:02X}");
                     } else {
-                        assert_eq!(lexer.next(), Some(Ok(Token::$token(&src2))), "U+{i:04X}");
+                        assert_eq!(lexer.next(), Some(Ok(Token::$token(&src2))), "U+{i:02X}");
                     }
-                    assert_eq!(lexer.next(), None, "U+{i:04X}");
+                    assert_eq!(lexer.next(), None, "U+{i:02X}");
                 }
             }
         };
@@ -145,23 +159,6 @@ mod tests {
     }
 
     #[test]
-    fn test_folding_token() {
-        let src = "\r\n \r\n\t\r \n \r\n";
-        let expected = [
-            Folding("\r\n "),
-            Folding("\r\n\t"),
-            Control("\r"),
-            Symbol(" "),
-            Control("\n"),
-            Symbol(" "),
-            Control("\r"),
-            Control("\n"),
-        ];
-        let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
-        assert_eq!(tokens, expected);
-    }
-
-    #[test]
     fn test_escape_characters() {
         let src = r#"\\\;\,\N\n\r"#;
         let expected = [
@@ -179,9 +176,11 @@ mod tests {
 
     #[test]
     fn test_word_parsing() {
-        let src = "ABC_foo_123 你好🎉🎊Hello世界";
+        let src = "ABC_foo-123 456 你好🎉🎊Hello世界";
         let expected = [
-            Word("ABC_foo_123"),
+            Word("ABC_foo-123"),
+            Symbol(" "),
+            Word("456"),
             Symbol(" "),
             UnicodeText("你好🎉🎊"),
             Word("Hello"),
@@ -202,7 +201,6 @@ mod tests {
             Quote,
             Symbol(" "),
             Word("description"),
-            Folding("\r\n "),
             Word("with"),
             Symbol(" "),
             Word("folding"),

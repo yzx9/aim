@@ -8,6 +8,7 @@ use chumsky::input::{Stream, ValueInput};
 use chumsky::prelude::*;
 
 use crate::lexer::{Token, lex};
+use crate::property_value::{PropertyValue, property_value};
 
 const KW_BEGIN: &str = "BEGIN";
 const KW_END: &str = "END";
@@ -90,10 +91,10 @@ pub fn parse<'src>(src: &'src str) -> Result<Component<'src>, Vec<Report<'src>>>
 }
 
 #[derive(Debug, Clone)]
-pub struct Component<'a> {
-    pub name: &'a str, // "VCALENDAR" / "VEVENT" / "VTIMEZONE" / "VALARM" / ...
-    pub properties: Vec<Property>, // Keep the original order
-    pub components: Vec<Component<'a>>,
+pub struct Component<'src> {
+    pub name: &'src str, // "VCALENDAR" / "VEVENT" / "VTIMEZONE" / "VALARM" / ...
+    pub properties: Vec<Property<'src>>, // Keep the original order
+    pub components: Vec<Component<'src>>,
 }
 
 fn component<'tokens, 'src: 'tokens, I>()
@@ -152,45 +153,37 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct Property {
-    pub group: Option<String>,
-    pub name: String,           // Case insensitive, keep original for writing back
+pub struct Property<'src> {
+    pub group: Option<&'src str>,
+    pub name: &'src str, // Case insensitive, keep original for writing back
     pub params: Vec<Parameter>, // Allow duplicates & multi-values
-    pub value: RawValue,        // Textual value (untyped)
+    pub value: PropertyValue<'src>, // Textual value (untyped)
 }
 
 fn property<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, Property, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+-> impl Parser<'tokens, I, Property<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
-    let name = select! { Token::Word(s) if s != KW_BEGIN && s != KW_END => s };
+    let name = select! {
+        Token::Word(s) if s != KW_BEGIN && s != KW_END => s
+    };
 
     let params = just(Token::Semi)
-        .ignore_then(param())
+        .ignore_then(parameter())
         .repeated()
         .collect::<Vec<_>>();
 
     name.then(params)
         .then_ignore(just(Token::Colon))
-        .then(
-            select! {
-                Token::Word(s) => s,
-                // Token::Quoted(s) => s,
-                Token::Symbol(s) => s,
-            }
-            .repeated()
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .map(|tokens| tokens.into_iter().collect::<String>()),
-        )
+        .then(property_value())
+        .then_ignore(newline())
         .map(|((name, params), value)| Property {
             group: None, // For now, we're not handling groups
-            name: name.to_string(),
+            name,
             params,
-            value: RawValue { text: value },
+            value,
         })
-        .then_ignore(newline().or_not())
 }
 
 #[derive(Debug, Clone)]
@@ -199,7 +192,7 @@ pub struct Parameter {
     pub values: Vec<String>, // Split by commas
 }
 
-fn param<'tokens, 'src: 'tokens, I>()
+fn parameter<'tokens, 'src: 'tokens, I>()
 -> impl Parser<'tokens, I, Parameter, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
@@ -220,11 +213,6 @@ where
             name: name.to_string(),
             values: values.into_iter().map(|s| s.concat().to_string()).collect(),
         })
-}
-
-#[derive(Debug, Clone)]
-pub struct RawValue {
-    pub text: String, // Unfolded and unescaped raw value
 }
 
 pub fn newline<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, (), E> + Clone
@@ -315,7 +303,9 @@ END:VEVENT\r\n\
 
     #[test]
     fn test_property() {
-        fn parse(src: &str) -> Result<Property, Vec<Rich<'_, Token<'_>>>> {
+        fn parse<'tokens, 'src: 'tokens>(
+            src: &'src str,
+        ) -> Result<Property<'src>, Vec<Rich<'src, Token<'tokens>>>> {
             let lexer = lex(src).spanned().map(|(token, span)| match token {
                 Ok(tok) => (tok, span.into()),
                 Err(()) => panic!("lex error"),
@@ -328,20 +318,23 @@ END:VEVENT\r\n\
 
         let src = "SUMMARY:Hello World!\r\n";
         let result = parse(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
+        assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
         assert_eq!(prop.name, "SUMMARY");
-        assert_eq!(prop.value.text, "Hello World!");
+        assert_eq!(prop.value, PropertyValue::Text("Hello World!".to_string()));
 
-        let src = "DTSTART;TZID=America/New_York:20251113T100000\r\n";
+        let src = "DTSTART;TZID=America/New_York:20251113\r\n T100000\r\n";
         let result = parse(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
+        assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
         assert_eq!(prop.name, "DTSTART");
         assert_eq!(prop.params.len(), 1);
         assert_eq!(prop.params[0].name, "TZID");
         assert_eq!(prop.params[0].values, vec!["America/New_York"]);
-        assert_eq!(prop.value.text, "20251113T100000");
+        assert_eq!(
+            prop.value,
+            PropertyValue::Text("20251113T100000".to_string())
+        );
     }
 
     #[test]
@@ -354,7 +347,7 @@ END:VEVENT\r\n\
 
             let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
-            param().parse(token_stream).into_result()
+            parameter().parse(token_stream).into_result()
         }
 
         let src = "TZID=America/New_York";

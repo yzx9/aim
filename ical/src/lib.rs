@@ -4,5 +4,6 @@
 
 mod lexer;
 mod parser;
+mod property_value;
 
 pub use parser::{Component, parse};
