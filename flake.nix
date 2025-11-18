@@ -47,6 +47,7 @@
               ./aimcal
               ./cli
               ./core
+              ./ical
               ./Cargo.toml
               ./Cargo.lock
             ];
