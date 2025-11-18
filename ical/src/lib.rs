@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod lexer;
-mod parser;
 mod property_value;
+mod syntax;
 
-pub use parser::{Component, parse};
+pub use syntax::syntax;

@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chumsky::prelude::*;
-use chumsky::{Parser, input::Stream, input::ValueInput, text::Char};
+use chumsky::{Parser, input::Stream, input::ValueInput};
 
 use crate::lexer::Token;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum PropertyValue<'src> {
     Binary(&'src str),
     Boolean(bool),
@@ -16,6 +17,7 @@ pub enum PropertyValue<'src> {
     Text(String), // TODO: zero-copy
 }
 
+#[allow(dead_code)]
 pub fn property_value<'tokens, 'src: 'tokens, I>()
 -> impl Parser<'tokens, I, PropertyValue<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
@@ -85,7 +87,7 @@ where
     // case-sensitive
 
     let int = any::<_, extra::Err<Rich<'tokens, char>>>()
-        .filter(|c: &char| c.is_digit(10))
+        .filter(|c: &char| c.is_ascii_digit())
         .repeated()
         .at_least(1)
         .collect::<Vec<_>>()

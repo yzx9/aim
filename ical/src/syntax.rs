@@ -2,13 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::{fmt::Display, ops::Range, str::Chars};
+
 use ariadne::{Color, Label, Report, ReportKind};
-use chumsky::extra::ParserExtra;
+use chumsky::container::Container;
 use chumsky::input::{Stream, ValueInput};
 use chumsky::prelude::*;
+use chumsky::span::Span;
 
 use crate::lexer::{Token, lex};
-use crate::property_value::{PropertyValue, property_value};
 
 const KW_BEGIN: &str = "BEGIN";
 const KW_END: &str = "END";
@@ -20,20 +22,20 @@ const KW_END: &str = "END";
 /// Parsing valid iCalendar source will return the root component
 ///
 /// ```
-/// # use aimcal_ical::parse;
+/// # use aimcal_ical::syntax;
 /// let ical_src = "\
 /// BEGIN:VCALENDAR\r\n\
 /// BEGIN:VEVENT\r\n\
 /// END:VEVENT\r\n\
 /// END:VCALENDAR\r\n\
 /// ";
-/// assert!(parse(ical_src).is_ok());
+/// assert!(syntax(ical_src).is_ok());
 /// ```
 ///
 /// Parsing invalid iCalendar source will return error reports
 ///
 /// ```
-/// # use aimcal_ical::parse;
+/// # use aimcal_ical::syntax;
 /// use ariadne::Source;
 /// let invalid_ical_src = "\
 /// BEGIN:VCALENDAR\r\n\
@@ -41,13 +43,13 @@ const KW_END: &str = "END";
 /// END:VCALENDAR\r\n\
 /// END:VEVENT\r\n\
 /// ";
-/// let result = parse(invalid_ical_src);
+/// let result = syntax(invalid_ical_src);
 /// assert!(result.is_err());
 /// for report in result.unwrap_err().iter() {
 ///   report.eprint(Source::from(invalid_ical_src));
 /// }
 /// ```
-pub fn parse<'src>(src: &'src str) -> Result<Component<'src>, Vec<Report<'src>>> {
+pub fn syntax<'src>(src: &'src str) -> Result<RawComponent<'src>, Vec<Report<'src>>> {
     // Create a logos lexer over the source code
     let token_iter = lex(src)
         .spanned()
@@ -91,30 +93,43 @@ pub fn parse<'src>(src: &'src str) -> Result<Component<'src>, Vec<Report<'src>>>
 }
 
 #[derive(Debug, Clone)]
-pub struct Component<'src> {
+pub struct RawComponent<'src> {
     pub name: &'src str, // "VCALENDAR" / "VEVENT" / "VTIMEZONE" / "VALARM" / ...
-    pub properties: Vec<Property<'src>>, // Keep the original order
-    pub components: Vec<Component<'src>>,
+    pub properties: Vec<RawProperty<'src>>, // Keep the original order
+    pub children: Vec<RawComponent<'src>>,
 }
 
 fn component<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, Component<'tokens>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+-> impl Parser<'tokens, I, RawComponent<'tokens>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
     recursive(|component| {
-        let properties = property().repeated().collect::<Vec<Property>>();
-
-        let subcomponents = component.repeated().collect::<Vec<Component<'tokens>>>();
-
-        let body = map_ctx(|_name: &&'tokens str| (), properties.then(subcomponents));
+        let body = choice((
+            property().map(|a| (Some(a), None)),
+            component.map(|b| (None, Some(b))),
+        ))
+        .repeated()
+        .collect::<Vec<_>>()
+        .map(|items| {
+            let mut properties = Vec::new();
+            let mut children = Vec::new();
+            for (a, b) in items {
+                if let Some(prop) = a {
+                    properties.push(prop);
+                } else if let Some(child) = b {
+                    children.push(child);
+                }
+            }
+            (properties, children)
+        });
 
         begin()
-            .ignore_with_ctx(body.then(end()))
-            .map(|((properties, components), name)| Component {
+            .ignore_with_ctx(map_ctx(|_name| (), body).then(end()))
+            .map(|((properties, children), name)| RawComponent {
                 name,
                 properties,
-                components,
+                children,
             })
     })
 }
@@ -127,7 +142,7 @@ where
     just(Token::Word(KW_BEGIN))
         .ignore_then(just(Token::Colon))
         .ignore_then(select! { Token::Word(s) => s })
-        .then_ignore(newline())
+        .then_ignore(just(Token::Newline))
 }
 
 fn end<'tokens, 'src: 'tokens, I>()
@@ -149,37 +164,41 @@ where
                 ))
             }
         })
-        .then_ignore(newline().or_not())
+        .then_ignore(just(Token::Newline).or_not())
 }
 
 #[derive(Debug, Clone)]
-pub struct Property<'src> {
-    pub group: Option<&'src str>,
-    pub name: &'src str, // Case insensitive, keep original for writing back
-    pub params: Vec<Parameter>, // Allow duplicates & multi-values
-    pub value: PropertyValue<'src>, // Textual value (untyped)
+pub struct RawProperty<'src> {
+    pub name: StrSegments<'src>, // Case insensitive, keep original for writing back
+    pub params: Vec<RawParameter<'src>>, // Allow duplicates & multi-values
+    pub value: Vec<StrSegments<'src>>, // Textual value (untyped)
 }
 
 fn property<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, Property<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+-> impl Parser<'tokens, I, RawProperty<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
     let name = select! {
-        Token::Word(s) if s != KW_BEGIN && s != KW_END => s
-    };
+        Token::Word(s) if s != KW_BEGIN && s != KW_END => s,
+    }
+    .map_with(|s, e| (s, e.span()))
+    .repeated()
+    .at_least(1)
+    .collect::<StrSegments>();
 
     let params = just(Token::Semi)
         .ignore_then(parameter())
         .repeated()
-        .collect::<Vec<_>>();
+        .collect();
+
+    let values = value().separated_by(just(Token::Comma)).collect();
 
     name.then(params)
         .then_ignore(just(Token::Colon))
-        .then(property_value())
-        .then_ignore(newline())
-        .map(|((name, params), value)| Property {
-            group: None, // For now, we're not handling groups
+        .then(values)
+        .then_ignore(just(Token::Newline))
+        .map(|((name, params), value)| RawProperty {
             name,
             params,
             value,
@@ -187,42 +206,177 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct Parameter {
-    pub name: String,        // e.g. "TZID", "VALUE", "CN", "ROLE", "PARTSTAT"
-    pub values: Vec<String>, // Split by commas
+pub struct RawParameter<'src> {
+    pub name: StrSegments<'src>, // e.g. "TZID", "VALUE", "CN", "ROLE", "PARTSTAT"
+    pub values: Vec<RawParameterValue<'src>>, // Split by commas
+}
+
+#[derive(Debug, Clone)]
+pub struct RawParameterValue<'src> {
+    #[allow(dead_code)]
+    value: StrSegments<'src>,
+
+    #[allow(dead_code)]
+    quoted: bool,
 }
 
 fn parameter<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, Parameter, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+-> impl Parser<'tokens, I, RawParameter<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
-    select! { Token::Word(s) => s }
-        .then_ignore(just(Token::Eq))
-        .then(
+    let name = select! {
+        Token::Word(s) => s
+    }
+    .map_with(|s, e| (s, e.span()))
+    .repeated()
+    .at_least(1)
+    .collect::<StrSegments<'_>>();
+
+    let quoted_string = just(Token::Quote)
+        .ignore_then(
             select! {
+                Token::Semi => ";",
+                Token::Colon => ":",
+                Token::Comma => ",",
+                Token::Symbol(s) => s,
+                Token::Escape(s) => s,
                 Token::Word(s) => s,
-                Token::Symbol(s) => s
+                Token::UnicodeText(s) => s,
             }
+            .map_with(|s, e| (s, e.span()))
             .repeated()
-            .collect::<Vec<_>>()
-            .separated_by(just(Token::Comma))
-            .collect::<Vec<_>>(),
+            .collect::<StrSegments>(),
         )
-        .map(|(name, values)| Parameter {
-            name: name.to_string(),
-            values: values.into_iter().map(|s| s.concat().to_string()).collect(),
-        })
+        .then_ignore(just(Token::Quote))
+        .map(|s| RawParameterValue {
+            value: s,
+            quoted: true,
+        });
+
+    // safe characters
+    let paramtext = select! {
+        Token::Symbol(s) => s,
+        Token::Escape(s) => s,
+        Token::Word(s) => s,
+        Token::UnicodeText(s) => s,
+    }
+    .map_with(|s, e| (s, e.span()))
+    .repeated()
+    .collect::<StrSegments>()
+    .map(|s| RawParameterValue {
+        value: s,
+        quoted: false,
+    });
+
+    let value = choice((paramtext, quoted_string))
+        .separated_by(just(Token::Comma))
+        .collect::<Vec<_>>();
+
+    name.then_ignore(just(Token::Eq))
+        .then(value)
+        .map(|(name, values)| RawParameter { name, values })
 }
 
-pub fn newline<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, (), E> + Clone
+fn value<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, StrSegments<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
-    E: ParserExtra<'tokens, I>,
 {
-    just(Token::Control("\r"))
-        .then(just(Token::Control("\n")))
-        .ignored()
+    select! {
+        Token::Quote => r#"""#,
+        Token::Word(s) => s,
+        Token::Symbol(s) => s,
+        Token::Escape(s) => match s {
+            r"\n" | r"\N" => "\n",
+            r"\;" => ";",
+            r"\," => ",",
+            r"\\" => r"\",
+            _ => unreachable!(),
+        },
+        Token::UnicodeText(s) => s,
+    }
+    .map_with(|s, e| (s, e.span()))
+    .repeated()
+    .at_least(1)
+    .collect::<StrSegments>()
+}
+
+#[derive(Debug, Clone)]
+struct StrSegment<'src> {
+    segment: &'src str,
+
+    #[allow(dead_code)]
+    span: Range<usize>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct StrSegments<'src>(Vec<StrSegment<'src>>);
+
+impl<'src> StrSegments<'src> {
+    fn iter_chars<'segs: 'src>(&'segs self) -> StrSegmentsCharsIter<'src, 'segs> {
+        StrSegmentsCharsIter {
+            segments: &self.0,
+            seg_idx: 0,
+            chars: None,
+        }
+    }
+}
+
+impl<'src, S> Container<(&'src str, S)> for StrSegments<'src>
+where
+    S: Span<Offset = usize>,
+{
+    fn with_capacity(n: usize) -> Self {
+        Self(Vec::with_capacity(n))
+    }
+
+    // TODO: maybe we can expand last segment if possible
+    fn push(&mut self, (segment, span): (&'src str, S)) {
+        self.0.push(StrSegment {
+            segment,
+            span: span.start()..span.end(),
+        });
+    }
+}
+
+impl Display for StrSegments<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for c in self.iter_chars() {
+            write!(f, "{c}")?;
+        }
+        Ok(())
+    }
+}
+
+struct StrSegmentsCharsIter<'src, 'segs: 'src> {
+    segments: &'segs [StrSegment<'src>],
+    seg_idx: usize,
+    chars: Option<Chars<'src>>,
+}
+
+impl<'src, 'segs> Iterator for StrSegmentsCharsIter<'src, 'segs> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.seg_idx < self.segments.len() {
+            match self.chars {
+                Some(ref mut chars) => match chars.next() {
+                    Some(c) => return Some(c),
+                    None => {
+                        self.seg_idx += 1;
+                        self.chars = None;
+                    }
+                },
+                None => {
+                    let seg = self.segments.get(self.seg_idx).unwrap();
+                    self.chars = Some(seg.segment.chars());
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[cfg(test)]
@@ -305,7 +459,7 @@ END:VEVENT\r\n\
     fn test_property() {
         fn parse<'tokens, 'src: 'tokens>(
             src: &'src str,
-        ) -> Result<Property<'src>, Vec<Rich<'src, Token<'tokens>>>> {
+        ) -> Result<RawProperty<'src>, Vec<Rich<'src, Token<'tokens>>>> {
             let lexer = lex(src).spanned().map(|(token, span)| match token {
                 Ok(tok) => (tok, span.into()),
                 Err(()) => panic!("lex error"),
@@ -320,26 +474,36 @@ END:VEVENT\r\n\
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name, "SUMMARY");
-        assert_eq!(prop.value, PropertyValue::Text("Hello World!".to_string()));
+        assert_eq!(prop.name.to_string(), "SUMMARY");
+        assert_eq!(
+            prop.value.iter().map(|a| a.to_string()).collect::<Vec<_>>(),
+            ["Hello World!"]
+        );
 
         let src = "DTSTART;TZID=America/New_York:20251113\r\n T100000\r\n";
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name, "DTSTART");
+        assert_eq!(prop.name.to_string(), "DTSTART");
         assert_eq!(prop.params.len(), 1);
-        assert_eq!(prop.params[0].name, "TZID");
-        assert_eq!(prop.params[0].values, vec!["America/New_York"]);
+        assert_eq!(prop.params[0].name.to_string(), "TZID");
         assert_eq!(
-            prop.value,
-            PropertyValue::Text("20251113T100000".to_string())
+            prop.params[0]
+                .values
+                .iter()
+                .map(|a| a.value.to_string())
+                .collect::<Vec<_>>(),
+            ["America/New_York"]
+        );
+        assert_eq!(
+            prop.value.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+            ["20251113T100000"]
         );
     }
 
     #[test]
     fn test_param() {
-        fn parse(src: &str) -> Result<Parameter, Vec<Rich<'_, Token<'_>>>> {
+        fn parse<'src>(src: &'src str) -> Result<RawParameter<'src>, Vec<Rich<'src, Token<'src>>>> {
             let lexer = lex(src).spanned().map(|(token, span)| match token {
                 Ok(tok) => (tok, span.into()),
                 Err(()) => panic!("lex error"),
@@ -354,7 +518,14 @@ END:VEVENT\r\n\
         let result = parse(src);
         assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
         let param = result.unwrap();
-        assert_eq!(param.name, "TZID");
-        assert_eq!(param.values, vec!["America/New_York"]);
+        assert_eq!(param.name.to_string(), "TZID");
+        assert_eq!(
+            param
+                .values
+                .iter()
+                .map(|a| a.value.to_string())
+                .collect::<Vec<_>>(),
+            ["America/New_York"]
+        );
     }
 }

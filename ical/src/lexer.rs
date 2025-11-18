@@ -6,9 +6,16 @@ use std::fmt::{Debug, Display};
 
 use logos::Logos;
 
+pub fn lex<'a>(src: &'a str) -> logos::Lexer<'a, Token<'a>> {
+    Token::lexer(src)
+}
+
 #[derive(PartialEq, Eq, Clone, Copy, logos::Logos)]
 #[logos(skip r#"\r\n[ \t]"#)] // skip folding
 pub enum Token<'a> {
+    #[token("\r\n")]
+    Newline,
+
     /// Semicolon (;)
     #[token(";")]
     Semi,
@@ -31,7 +38,7 @@ pub enum Token<'a> {
 
     /// Control characters: ASCII 0x00..0x1F and 0x7F
     /// NOTE: Only matches single control characters to avoid conflict with `Folding`
-    #[regex(r"[\x00-\x1F\x7F]")] // TODO: use \p{Cc} to cover all control characters?
+    #[regex(r"[\x00-\x1F\x7F]")]
     Control(&'a str),
 
     /// ASCII symbols: sequences of printable ASCII characters excluding symbols
@@ -39,7 +46,9 @@ pub enum Token<'a> {
     #[regex(r#"[ !#$%&'()*+./<>?@\[\\\]\^`\{|\}~]"#)]
     Symbol(&'a str),
 
-    /// Escape characters
+    /// ESCAPED-CHAR = ("\\" / "\;" / "\," / "\N" / "\n")
+    ///    ; \\ encodes \, \N or \n encodes newline
+    ///    ; \; encodes ;, \, encodes ,
     #[regex(r"\\[\\;,Nn]")]
     Escape(&'a str),
 
@@ -47,7 +56,8 @@ pub enum Token<'a> {
     #[regex("[0-9A-Za-z_-]+")]
     Word(&'a str),
 
-    /// Non-ASCII Unicode text
+    /// NON-US-ASCII  = UTF8-2 / UTF8-3 / UTF8-4
+    ///    ; UTF8-2, UTF8-3, and UTF8-4 are defined in [RFC3629]
     #[regex(r#"[^\x00-\x7F]+"#)]
     UnicodeText(&'a str),
 }
@@ -55,6 +65,7 @@ pub enum Token<'a> {
 impl Display for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Newline => write!(f, "Newline"),
             Self::Semi => write!(f, "Semi"),
             Self::Colon => write!(f, "Colon"),
             Self::Eq => write!(f, "Eq"),
@@ -78,10 +89,6 @@ impl Debug for Token<'_> {
     }
 }
 
-pub fn lex<'a>(src: &'a str) -> logos::Lexer<'a, Token<'a>> {
-    Token::lexer(src)
-}
-
 #[cfg(test)]
 mod tests {
     use super::Token::*;
@@ -95,8 +102,7 @@ mod tests {
             Symbol(" "),
             Control("\n"),
             Symbol(" "),
-            Control("\r"),
-            Control("\n"),
+            Newline,
         ];
         let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
         assert_eq!(tokens, expected);
