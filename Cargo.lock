@@ -74,7 +74,6 @@ dependencies = [
  "ariadne",
  "chumsky",
  "logos",
- "regex",
 ]
 
 [[package]]

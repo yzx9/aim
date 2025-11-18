@@ -2,11 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::sync::OnceLock;
-
 use chumsky::prelude::*;
-use chumsky::{Parser, input::ValueInput};
-use regex::Regex;
+use chumsky::{Parser, input::Stream, input::ValueInput, text::Char};
 
 use crate::lexer::Token;
 
@@ -60,16 +57,22 @@ where
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PropertyValueDuration {
-    Week {
-        negative: bool,
-        week: u32,
-    },
-    DateTime {
+    Date {
         negative: bool,
         day: u32,
         hour: u32,
         minute: u32,
         second: u32,
+    },
+    Time {
+        negative: bool,
+        hour: u32,
+        minute: u32,
+        second: u32,
+    },
+    Week {
+        negative: bool,
+        week: u32,
     },
 }
 
@@ -80,40 +83,107 @@ where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
     // case-sensitive
-    const RE: &str = r"^(?<sign>[+-]?)P((?<week>\d+)W|((?<day>\d+)D)?T((?<hour>\d)+H)?((?<minute>\d)+M)?((?<second>\d)+S))$";
-    static REGEX: OnceLock<Regex> = OnceLock::new();
-    let re = REGEX.get_or_init(|| Regex::new(RE).unwrap());
 
-    select! { Token::Word(s) => s }.try_map(|s, span| {
-        let caps = re
-            .captures(s)
-            .ok_or(Rich::custom(span, "Invalid duration format"))?;
+    let int = any::<_, extra::Err<Rich<'tokens, char>>>()
+        .filter(|c: &char| c.is_digit(10))
+        .repeated()
+        .at_least(1)
+        .collect::<Vec<_>>()
+        .try_map(|chars, span| {
+            String::from_iter(chars.iter())
+                .parse::<u32>()
+                .map_err(|e| Rich::custom(span, format!("Invalid integer: {e}")))
+        });
 
-        let negative = matches!(caps.name("sign").map_or("", |m| m.as_str()), "-");
+    let week = int
+        .then_ignore(just('W'))
+        .map(|week| PropertyValueDuration::Week {
+            negative: false,
+            week,
+        });
 
-        let parse_group = |name| {
-            caps.name(name).map_or(Ok(0), |m| {
-                m.as_str()
-                    .parse()
-                    .map_err(|e| Rich::custom(span, format!("Invalid {name} value: {e}")))
-            })
+    let second = int.then_ignore(just('S'));
+    let minute = int.then_ignore(just('M')).then(second.or_not());
+    let hour = int
+        .then_ignore(just('H'))
+        .then(minute.or_not())
+        .map(|(h, ms)| PropertyValueDuration::Time {
+            negative: false,
+            hour: h,
+            minute: ms.map(|(m, _s)| m).unwrap_or(0),
+            second: ms.map(|(_m, s)| s.unwrap_or(0)).unwrap_or(0),
+        });
+    let time = just('T').ignore_then(hour);
+
+    let day = int.then_ignore(just('D'));
+    let date = day.then(time.or_not()).map(|(day, time)| {
+        let (hour, minute, second) = match time {
+            Some(PropertyValueDuration::Time {
+                hour,
+                minute,
+                second,
+                ..
+            }) => (hour, minute, second),
+            None => (0, 0, 0),
+            _ => unreachable!(),
         };
+        PropertyValueDuration::Date {
+            negative: false,
+            day,
+            hour,
+            minute,
+            second,
+        }
+    });
 
-        let dur = match caps.name("week") {
-            Some(_) => PropertyValueDuration::Week {
-                negative,
-                week: parse_group("week")?,
-            },
-            None => PropertyValueDuration::DateTime {
-                negative,
-                day: parse_group("day")?,
-                hour: parse_group("hour")?,
-                minute: parse_group("minute")?,
-                second: parse_group("second")?,
-            },
-        };
-        Ok(PropertyValue::Duration(dur))
-    })
+    let sign = one_of("+-").or_not();
+    let dur = sign
+        .then_ignore(just("P"))
+        .then(choice((date, time, week)))
+        .map(|(sign, dur)| {
+            let negative = matches!(sign, Some('-'));
+            match dur {
+                PropertyValueDuration::Week { week, .. } => {
+                    PropertyValueDuration::Week { negative, week }
+                }
+                PropertyValueDuration::Time {
+                    hour,
+                    minute,
+                    second,
+                    ..
+                } => PropertyValueDuration::Time {
+                    negative,
+                    hour,
+                    minute,
+                    second,
+                },
+                PropertyValueDuration::Date {
+                    day,
+                    hour,
+                    minute,
+                    second,
+                    ..
+                } => PropertyValueDuration::Date {
+                    negative,
+                    day,
+                    hour,
+                    minute,
+                    second,
+                },
+            }
+        });
+
+    select! { Token::Word(s) => s }
+        .repeated()
+        .collect::<Vec<_>>()
+        .try_map(move |chunks: Vec<&'src str>, span| {
+            let iter = chunks.into_iter().flat_map(|s| s.chars());
+            let stream = Stream::from_iter(iter); // TODO: map span
+            match dur.parse(stream).into_result() {
+                Ok(v) => Ok(PropertyValue::Duration(v)),
+                Err(_e) => Err(Rich::custom(span, "Invalid duration")), // TODO: e
+            }
+        })
 }
 
 // TODO: 3.3.7. Float
@@ -268,12 +338,26 @@ mod tests {
         let val = result.unwrap();
         assert_eq!(
             val,
-            PropertyValue::Duration(PropertyValueDuration::DateTime {
+            PropertyValue::Duration(PropertyValueDuration::Date {
                 negative: true,
                 day: 3,
                 hour: 4,
                 minute: 5,
                 second: 6
+            })
+        );
+
+        let src = "-PT10H11M12S";
+        let result = parse_duration(src);
+        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
+        let val = result.unwrap();
+        assert_eq!(
+            val,
+            PropertyValue::Duration(PropertyValueDuration::Time {
+                negative: true,
+                hour: 10,
+                minute: 11,
+                second: 12
             })
         );
     }
