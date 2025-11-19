@@ -5,8 +5,12 @@
 use std::{fmt::Display, ops::Range, str::Chars};
 
 use ariadne::{Color, Label, Report, ReportKind};
+use chumsky::DefaultExpected;
 use chumsky::container::Container;
-use chumsky::input::{Stream, ValueInput};
+use chumsky::error::Error;
+use chumsky::extra::ParserExtra;
+use chumsky::input::Stream;
+use chumsky::inspector::Inspector;
 use chumsky::prelude::*;
 use chumsky::span::Span;
 
@@ -69,7 +73,7 @@ pub fn syntax<'src>(src: &'src str) -> Result<RawComponent<'src>, Vec<Report<'sr
         .map((0..src.len()).into(), |(t, s)| (t, s));
 
     // Parse the token stream with our chumsky parser
-    component()
+    component::<'_, '_, _, Rich<'src, Token<'_>>>()
         .parse(token_stream)
         .into_result()
         .map_err(|errs| {
@@ -99,33 +103,20 @@ pub struct RawComponent<'src> {
     pub children: Vec<RawComponent<'src>>,
 }
 
-fn component<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, RawComponent<'tokens>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+fn component<'tokens, 'src: 'tokens, I, Err>()
+-> impl Parser<'tokens, I, RawComponent<'src>, extra::Err<Err>> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    Err: Error<'tokens, I> + 'tokens,
 {
     recursive(|component| {
-        let body = choice((
-            property().map(|a| (Some(a), None)),
-            component.map(|b| (None, Some(b))),
-        ))
-        .repeated()
-        .collect::<Vec<_>>()
-        .map(|items| {
-            let mut properties = Vec::new();
-            let mut children = Vec::new();
-            for (a, b) in items {
-                if let Some(prop) = a {
-                    properties.push(prop);
-                } else if let Some(child) = b {
-                    children.push(child);
-                }
-            }
-            (properties, children)
-        });
+        let body = choice((property().map(Either::Left), component.map(Either::Right)))
+            .repeated()
+            .collect::<Vec<_>>()
+            .map(|a| a.into_iter().partition_either());
 
         begin()
-            .ignore_with_ctx(map_ctx(|_name| (), body).then(end()))
+            .ignore_with_ctx(map_ctx(|_| (), body).then(end()))
             .map(|((properties, children), name)| RawComponent {
                 name,
                 properties,
@@ -134,10 +125,10 @@ where
     })
 }
 
-fn begin<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, &'tokens str, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+fn begin<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, &'src str, E> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    E: ParserExtra<'tokens, I>,
 {
     just(Token::Word(KW_BEGIN))
         .ignore_then(just(Token::Colon))
@@ -145,24 +136,27 @@ where
         .then_ignore(just(Token::Newline))
 }
 
-fn end<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, &'tokens str, extra::Full<Rich<'tokens, Token<'src>>, (), &'tokens str>>
-+ Clone
+fn end<'tokens, 'src: 'tokens, I, Err, State>()
+-> impl Parser<'tokens, I, &'src str, extra::Full<Err, State, &'src str>> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    Err: Error<'tokens, I>,
+    State: Inspector<'tokens, I>,
 {
     just(Token::Word(KW_END))
         .ignore_then(just(Token::Colon))
         .ignore_then(select! { Token::Word(s) => s })
-        .try_map_with(|got, e| {
-            if &got == e.ctx() {
-                Ok(got)
-            } else {
-                Err(Rich::custom(
+        .validate(|got, e, emitter| {
+            let expected = e.ctx();
+            if &got != expected {
+                emitter.emit(Err::expected_found(
+                    #[allow(clippy::explicit_auto_deref)]
+                    [DefaultExpected::Token(Token::Word(*expected).into())],
+                    Some(Token::Word(got).into()),
                     e.span(),
-                    format!("END mismatch: got {got}, expected {}", e.ctx()),
-                ))
+                ));
             }
+            got
         })
         .then_ignore(just(Token::Newline).or_not())
 }
@@ -174,10 +168,10 @@ pub struct RawProperty<'src> {
     pub value: Vec<StrSegments<'src>>, // Textual value (untyped)
 }
 
-fn property<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, RawProperty<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+fn property<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, RawProperty<'src>, E> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    E: ParserExtra<'tokens, I>,
 {
     let name = select! {
         Token::Word(s) if s != KW_BEGIN && s != KW_END => s,
@@ -220,10 +214,11 @@ pub struct RawParameterValue<'src> {
     quoted: bool,
 }
 
-fn parameter<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, RawParameter<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+fn parameter<'tokens, 'src: 'tokens, I, E>()
+-> impl Parser<'tokens, I, RawParameter<'src>, E> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    E: ParserExtra<'tokens, I>,
 {
     let name = select! {
         Token::Word(s) => s
@@ -278,10 +273,10 @@ where
         .map(|(name, values)| RawParameter { name, values })
 }
 
-fn value<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, StrSegments<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+fn value<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, StrSegments<'src>, E> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    E: ParserExtra<'tokens, I>,
 {
     select! {
         Token::Quote => r#"""#,
@@ -379,6 +374,34 @@ impl<'src, 'segs> Iterator for StrSegmentsCharsIter<'src, 'segs> {
     }
 }
 
+enum Either<L, R> {
+    Left(L),
+    Right(R),
+}
+
+trait EitherIterExt<L, R> {
+    fn partition_either(self) -> (Vec<L>, Vec<R>);
+}
+
+impl<L, R, I> EitherIterExt<L, R> for I
+where
+    I: Iterator<Item = Either<L, R>>,
+{
+    fn partition_either(self) -> (Vec<L>, Vec<R>) {
+        let mut lefts = Vec::new();
+        let mut rights = Vec::new();
+        for v in self {
+            match v {
+                Either::Left(a) => lefts.push(a),
+                Either::Right(b) => rights.push(b),
+            }
+        }
+        lefts.shrink_to_fit();
+        rights.shrink_to_fit();
+        (lefts, rights)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -393,7 +416,7 @@ mod tests {
 
             let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
-            begin()
+            begin::<'_, '_, _, extra::Err<_>>()
                 .ignore_with_ctx(end())
                 .parse(token_stream)
                 .into_result()
@@ -412,11 +435,11 @@ BEGIN:VCALENDAR\r\n\
 END:VEVENT\r\n\
 ";
         let mismatched = parse(mismatched);
-        let expected = Err(vec![Rich::custom(
-            (17..27).into(),
-            "END mismatch: got VEVENT, expected VCALENDAR",
-        )]);
-        assert_eq!(mismatched, expected);
+        assert!(mismatched.is_err());
+        let errs = mismatched.unwrap_err();
+        assert_eq!(errs.len(), 1);
+        let expected_msg = "found 'Word(VEVENT)' expected 'Word(VCALENDAR)'";
+        assert_eq!(&errs[0].to_string(), expected_msg);
     }
 
     #[test]
@@ -429,7 +452,7 @@ END:VEVENT\r\n\
 
             let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
-            begin()
+            begin::<'_, '_, _, extra::Err<_>>()
                 .ignore_with_ctx(end())
                 .parse(token_stream)
                 .into_result()
@@ -448,11 +471,11 @@ BEGIN:VCALENDAR\r\n\
 END:VEVENT\r\n\
 ";
         let mismatched = parse(mismatched);
-        let expected = Err(vec![Rich::custom(
-            (17..27).into(),
-            "END mismatch: got VEVENT, expected VCALENDAR",
-        )]);
-        assert_eq!(mismatched, expected);
+        assert!(mismatched.is_err());
+        let errs = mismatched.unwrap_err();
+        assert_eq!(errs.len(), 1);
+        let expected_msg = "found 'Word(VEVENT)' expected 'Word(VCALENDAR)'";
+        assert_eq!(&errs[0].to_string(), expected_msg);
     }
 
     #[test]
@@ -467,7 +490,9 @@ END:VEVENT\r\n\
 
             let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
-            property().parse(token_stream).into_result()
+            property::<'_, '_, _, extra::Err<_>>()
+                .parse(token_stream)
+                .into_result()
         }
 
         let src = "SUMMARY:Hello World!\r\n";
@@ -511,7 +536,9 @@ END:VEVENT\r\n\
 
             let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
 
-            parameter().parse(token_stream).into_result()
+            parameter::<'_, '_, _, extra::Err<_>>()
+                .parse(token_stream)
+                .into_result()
         }
 
         let src = "TZID=America/New_York";

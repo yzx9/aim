@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use chumsky::extra::ParserExtra;
 use chumsky::prelude::*;
-use chumsky::{Parser, input::Stream, input::ValueInput};
+use chumsky::{Parser, input::Stream};
 
 use crate::lexer::Token;
 
@@ -21,7 +22,7 @@ pub enum PropertyValue<'src> {
 pub fn property_value<'tokens, 'src: 'tokens, I>()
 -> impl Parser<'tokens, I, PropertyValue<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
     choice((
         value_boolean(),
@@ -34,10 +35,11 @@ where
 // TODO: 3.3.1. Binary
 
 /// 3.3.2. Boolean
-fn value_boolean<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, PropertyValue<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+fn value_boolean<'tokens, 'src: 'tokens, I, E>()
+-> impl Parser<'tokens, I, PropertyValue<'src>, E> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    E: ParserExtra<'tokens, I>,
 {
     // case-sensitive
     select! {
@@ -82,7 +84,7 @@ pub enum PropertyValueDuration {
 fn value_duration<'tokens, 'src: 'tokens, I>()
 -> impl Parser<'tokens, I, PropertyValue<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
     // case-sensitive
 
@@ -194,7 +196,7 @@ where
 fn value_integer<'tokens, 'src: 'tokens, I>()
 -> impl Parser<'tokens, I, PropertyValue<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
 {
     // FIXME: RFC 5545 allows leading "+" sign, but logos lexer does not handle it well.
     // FIXME: Also, it only supports abc.xyz format, not scientific notation.
@@ -214,10 +216,11 @@ where
 // TODO: 3.3.10. Recurrence Rule
 
 /// 3.3.11. Text
-fn value_text<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, PropertyValue<'src>, extra::Err<Rich<'tokens, Token<'src>>>> + Clone
+fn value_text<'tokens, 'src: 'tokens, I, E>()
+-> impl Parser<'tokens, I, PropertyValue<'src>, E> + Clone
 where
-    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    E: ParserExtra<'tokens, I>,
 {
     select! {
         // Token::Semi => ";",
@@ -267,7 +270,9 @@ mod tests {
                 Err(()) => panic!("lex error"),
             });
             let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
-            value_boolean().parse(token_stream).into_result()
+            value_boolean::<'_, '_, _, extra::Err<_>>()
+                .parse(token_stream)
+                .into_result()
         }
 
         let src = "TRUE";
@@ -374,7 +379,9 @@ mod tests {
                 Err(()) => panic!("lex error"),
             });
             let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
-            value_text().parse(token_stream).into_result()
+            value_text::<'_, '_, _, extra::Err<_>>()
+                .parse(token_stream)
+                .into_result()
         }
 
         for (src, expected) in [
