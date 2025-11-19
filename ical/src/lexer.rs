@@ -35,14 +35,15 @@ pub enum Token<'a> {
     #[token("=")]
     Equal,
 
-    /// Control characters: ASCII 0x00..0x1F and 0x7F
+    /// CONTROL = %x00-08 / %x0A-1F / %x7F
+    ///    ; All the controls except HTAB
     /// NOTE: Only matches single control characters to avoid conflict with `Folding`
-    #[regex(r"[\x00-\x1F\x7F]")]
+    #[regex(r"[\x00-\x08\x0A-\x1F\x7F]")]
     Control(&'a str),
 
-    /// ASCII symbols: sequences of printable ASCII characters excluding symbols
+    /// ASCII symbols: sequences of printable ASCII characters excluding
     /// NOTE: only matches single symbol to avoid conflict with `Escape`
-    #[regex(r#"[ !#$%&'()*+./<>?@\[\\\]\^`\{|\}~]"#)]
+    #[regex(r#"[\t !#$%&'()*+./<>?@\[\\\]\^`\{|\}~]"#)]
     Symbol(&'a str),
 
     /// Carriage Return (\r, decimal codepoint 13) followed by Line Feed (\n, decimal codepoint 10)
@@ -112,10 +113,10 @@ mod tests {
     }
 
     macro_rules! test_ascii_range {
-        ($name:ident, $from:expr, $to:expr, $token:ident, $single_char:expr) => {
+        ($name:ident, $range:expr, $token:ident, $single_char:expr) => {
             #[test]
             fn $name() {
-                for i in $from..=$to {
+                for i in $range {
                     let c = i as u8 as char;
                     let src = c.to_string();
                     let mut lexer = lex(&src);
@@ -137,27 +138,29 @@ mod tests {
         };
     }
 
-    test_ascii_range!(test_ascii_chars_00_1f, 0x00, 0x1F, Control, true);
-    test_ascii_range!(test_ascii_chars_20_21, 0x20, 0x21, Symbol, true);
+    test_ascii_range!(test_ascii_chars_00_08, 0x00..=0x08, Control, true);
+    test_ascii_range!(test_ascii_chars_09_09, 0x09..=0x09, Symbol, true);
+    test_ascii_range!(test_ascii_chars_0a_1f, 0x0A..=0x1F, Control, true);
+    test_ascii_range!(test_ascii_chars_20_21, 0x20..=0x21, Symbol, true);
     // 0x22 is Quote
-    test_ascii_range!(test_ascii_chars_23_2b, 0x23, 0x2B, Symbol, true);
+    test_ascii_range!(test_ascii_chars_23_2b, 0x23..=0x2B, Symbol, true);
     // 0x2C is Comma
-    test_ascii_range!(test_ascii_chars_2e_2f, 0x2E, 0x2F, Symbol, true);
-    test_ascii_range!(test_ascii_chars_30_39, 0x30, 0x39, Word, false);
+    test_ascii_range!(test_ascii_chars_2e_2f, 0x2E..=0x2F, Symbol, true);
+    test_ascii_range!(test_ascii_chars_30_39, 0x30..=0x39, Word, false);
     // 0x3A is Colon
     // 0x3B is Semi
-    test_ascii_range!(test_ascii_chars_3c_3c, 0x3C, 0x3C, Symbol, true);
+    test_ascii_range!(test_ascii_chars_3c_3c, 0x3C..=0x3C, Symbol, true);
     // 0x3D is Eq
-    test_ascii_range!(test_ascii_chars_3e_40, 0x3E, 0x40, Symbol, true);
-    test_ascii_range!(test_ascii_chars_41_5a, 0x41, 0x5A, Word, false);
-    test_ascii_range!(test_ascii_chars_5b_5b, 0x5B, 0x5B, Symbol, true);
+    test_ascii_range!(test_ascii_chars_3e_40, 0x3E..=0x40, Symbol, true);
+    test_ascii_range!(test_ascii_chars_41_5a, 0x41..=0x5A, Word, false);
+    test_ascii_range!(test_ascii_chars_5b_5b, 0x5B..=0x5B, Symbol, true);
     // 0x5C is Backslash, double backslash is Escape
-    test_ascii_range!(test_ascii_chars_5d_5e, 0x5D, 0x5E, Symbol, true);
+    test_ascii_range!(test_ascii_chars_5d_5e, 0x5D..=0x5E, Symbol, true);
     // 0x5F is Underscore, part of word
-    test_ascii_range!(test_ascii_chars_60_60, 0x60, 0x60, Symbol, true);
-    test_ascii_range!(test_ascii_chars_61_7a, 0x61, 0x7A, Word, false);
-    test_ascii_range!(test_ascii_chars_7b_7e, 0x7B, 0x7E, Symbol, true);
-    test_ascii_range!(test_ascii_chars_7f_7f, 0x7F, 0x7F, Control, true);
+    test_ascii_range!(test_ascii_chars_60_60, 0x60..=0x60, Symbol, true);
+    test_ascii_range!(test_ascii_chars_61_7a, 0x61..=0x7A, Word, false);
+    test_ascii_range!(test_ascii_chars_7b_7e, 0x7B..=0x7E, Symbol, true);
+    test_ascii_range!(test_ascii_chars_7f_7f, 0x7F..=0x7F, Control, true);
 
     #[test]
     fn test_ascii_chars_special() {
