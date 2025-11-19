@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//! Lexer for iCalendar files as defined in RFC 5545
+
 use std::fmt::{Debug, Display};
 
 use logos::Logos;
@@ -13,28 +15,25 @@ pub fn lex<'a>(src: &'a str) -> logos::Lexer<'a, Token<'a>> {
 #[derive(PartialEq, Eq, Clone, Copy, logos::Logos)]
 #[logos(skip r#"\r\n[ \t]"#)] // skip folding
 pub enum Token<'a> {
-    #[token("\r\n")]
-    Newline,
+    /// Double Quote ("), decimal codepoint 22
+    #[token(r#"""#)]
+    DQuote,
 
-    /// Semicolon (;)
-    #[token(";")]
-    Semi,
-
-    /// Colon (:)
-    #[token(":")]
-    Colon,
-
-    /// Equal sign (=)
-    #[token("=")]
-    Eq,
-
-    /// Comma (,)
+    /// Comma (,), decimal codepoint 44
     #[token(",")]
     Comma,
 
-    /// Double Quote (")
-    #[token(r#"""#)]
-    Quote,
+    /// Colon (:), decimal codepoint 58
+    #[token(":")]
+    Colon,
+
+    /// Semicolon (;), decimal codepoint 59
+    #[token(";")]
+    Semicolon,
+
+    /// Equal sign (=), decimal codepoint 61
+    #[token("=")]
+    Equal,
 
     /// Control characters: ASCII 0x00..0x1F and 0x7F
     /// NOTE: Only matches single control characters to avoid conflict with `Folding`
@@ -45,6 +44,10 @@ pub enum Token<'a> {
     /// NOTE: only matches single symbol to avoid conflict with `Escape`
     #[regex(r#"[ !#$%&'()*+./<>?@\[\\\]\^`\{|\}~]"#)]
     Symbol(&'a str),
+
+    /// Carriage Return (\r, decimal codepoint 13) followed by Line Feed (\n, decimal codepoint 10)
+    #[token("\r\n")]
+    Newline,
 
     /// ESCAPED-CHAR = ("\\" / "\;" / "\," / "\N" / "\n")
     ///    ; \\ encodes \, \N or \n encodes newline
@@ -65,20 +68,20 @@ pub enum Token<'a> {
 impl Display for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Newline => write!(f, "Newline"),
-            Self::Semi => write!(f, "Semi"),
-            Self::Colon => write!(f, "Colon"),
-            Self::Eq => write!(f, "Eq"),
+            Self::DQuote => write!(f, "DQuote"),
             Self::Comma => write!(f, "Comma"),
-            Self::Quote => write!(f, "Quote"),
+            Self::Colon => write!(f, "Colon"),
+            Self::Semicolon => write!(f, "Semicolon"),
+            Self::Equal => write!(f, "Equal"),
             Self::Control(s) => match s.as_bytes().first() {
                 Some(i) => write!(f, "Control(U+{i:02X})"),
                 None => write!(f, "Control(<empty>)"),
             },
             Self::Symbol(s) => write!(f, "Symbol({s})"),
+            Self::Newline => write!(f, "Newline"),
             Self::Escape(s) => write!(f, "Escape({s})"),
             Self::Word(s) => write!(f, "Word({s})"),
-            Self::UnicodeText(s) => write!(f, "Unicodetext({s})"),
+            Self::UnicodeText(s) => write!(f, "UnicodeText({s})"),
         }
     }
 }
@@ -159,7 +162,15 @@ mod tests {
     #[test]
     fn test_ascii_chars_special() {
         let src = r#";:=,"\_"#;
-        let expected = [Semi, Colon, Eq, Comma, Quote, Symbol(r"\"), Word("_")];
+        let expected = [
+            Semicolon,
+            Colon,
+            Equal,
+            Comma,
+            DQuote,
+            Symbol(r"\"),
+            Word("_"),
+        ];
         let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
         assert_eq!(tokens, expected);
     }
@@ -202,9 +213,9 @@ mod tests {
         let expected = [
             Word("SUMMARY"),
             Colon,
-            Quote,
+            DQuote,
             Word("Test"),
-            Quote,
+            DQuote,
             Symbol(" "),
             Word("description"),
             Word("with"),

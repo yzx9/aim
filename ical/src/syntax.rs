@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//! Parser for iCalendar syntax as defined in RFC 5545, built on top of the lexer, no type.
+
 use std::{fmt::Display, ops::Range, str::Chars};
 
 use ariadne::{Color, Label, Report, ReportKind};
@@ -21,7 +23,7 @@ const KW_END: &str = "END";
 
 /// Parse an iCalendar component from source code
 ///
-/// # Examples
+/// ## Examples
 ///
 /// Parsing valid iCalendar source will return the root component
 ///
@@ -181,7 +183,7 @@ where
     .at_least(1)
     .collect::<StrSegments>();
 
-    let params = just(Token::Semi)
+    let params = just(Token::Semicolon)
         .ignore_then(parameter())
         .repeated()
         .collect();
@@ -228,12 +230,12 @@ where
     .at_least(1)
     .collect::<StrSegments<'_>>();
 
-    let quoted_string = just(Token::Quote)
+    let quoted_string = just(Token::DQuote)
         .ignore_then(
             select! {
-                Token::Semi => ";",
-                Token::Colon => ":",
                 Token::Comma => ",",
+                Token::Colon => ":",
+                Token::Semicolon => ";",
                 Token::Symbol(s) => s,
                 Token::Escape(s) => s,
                 Token::Word(s) => s,
@@ -243,7 +245,7 @@ where
             .repeated()
             .collect::<StrSegments>(),
         )
-        .then_ignore(just(Token::Quote))
+        .then_ignore(just(Token::DQuote))
         .map(|s| RawParameterValue {
             value: s,
             quoted: true,
@@ -268,7 +270,7 @@ where
         .separated_by(just(Token::Comma))
         .collect::<Vec<_>>();
 
-    name.then_ignore(just(Token::Eq))
+    name.then_ignore(just(Token::Equal))
         .then(value)
         .map(|(name, values)| RawParameter { name, values })
 }
@@ -279,16 +281,16 @@ where
     E: ParserExtra<'tokens, I>,
 {
     select! {
-        Token::Quote => r#"""#,
-        Token::Word(s) => s,
+        Token::DQuote => r#"""#,
         Token::Symbol(s) => s,
-        Token::Escape(s) => match s {
+        Token::Escape(s) => match s { // TODO: should unescape in later stage?
             r"\n" | r"\N" => "\n",
             r"\;" => ";",
             r"\," => ",",
             r"\\" => r"\",
             _ => unreachable!(),
         },
+        Token::Word(s) => s,
         Token::UnicodeText(s) => s,
     }
     .map_with(|s, e| (s, e.span()))

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//! Parsers for property values as defined in RFC 5545 Section 3.3.
+
 use chumsky::extra::ParserExtra;
 use chumsky::prelude::*;
 use chumsky::{Parser, input::Stream};
@@ -223,11 +225,11 @@ where
     E: ParserExtra<'tokens, I>,
 {
     select! {
-        // Token::Semi => ";",
-        Token::Colon => ":",
-        Token::Eq => "=",
+        Token::DQuote => "\"",
         // Token::Comma => ",",
-        Token::Quote => "\"",
+        // Token::Semicolon => ";",
+        Token::Colon => ":",
+        Token::Equal => "=",
         // Token::Control(s) => s,
         Token::Symbol(s) if s != r"\" => s,
         Token::Escape(s) => match s {
