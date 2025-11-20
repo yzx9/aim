@@ -4,8 +4,13 @@
 
 //! Lexer for iCalendar files as defined in RFC 5545
 
-use std::fmt::{Debug, Display};
+use std::fmt::{self, Debug, Display};
+use std::ops::Range;
+use std::str::Chars;
 
+use chumsky::input::{Input, MapExtra};
+use chumsky::span::SimpleSpan;
+use chumsky::{container::Container, extra::ParserExtra};
 use logos::Logos;
 
 pub fn lex<'a>(src: &'a str) -> logos::Lexer<'a, Token<'a>> {
@@ -90,6 +95,142 @@ impl Display for Token<'_> {
 impl Debug for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self, f)
+    }
+}
+
+pub type Span = Range<usize>;
+
+#[derive(Debug, Clone)]
+pub struct SpannedToken<'src>(pub Token<'src>, pub Span);
+
+impl<'src> SpannedToken<'src> {
+    pub(crate) fn from_map_extra<'tokens, I, E>(
+        token: Token<'src>,
+        e: &mut MapExtra<'tokens, '_, I, E>,
+    ) -> Self
+    where
+        'src: 'tokens,
+        I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+        E: ParserExtra<'tokens, I>,
+    {
+        let span = e.span();
+        let range = span.start..span.end;
+        SpannedToken(token, range)
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct SpannedTokens<'src>(Vec<SpannedToken<'src>>);
+
+impl<'src> SpannedTokens<'src> {
+    pub fn into_iter(self) -> std::vec::IntoIter<SpannedToken<'src>> {
+        self.0.into_iter()
+    }
+
+    pub(crate) fn into_iter_chars<'segs: 'src>(self) -> SpannedTokensCharsIntoIter<'src> {
+        SpannedTokensCharsIntoIter {
+            segments: self.0,
+            seg_idx: 0,
+            chars: None,
+        }
+    }
+}
+
+impl<'src> FromIterator<SpannedToken<'src>> for SpannedTokens<'src> {
+    fn from_iter<T: IntoIterator<Item = SpannedToken<'src>>>(iter: T) -> Self {
+        Self(Vec::from_iter(iter))
+    }
+}
+
+impl<'src> Container<SpannedToken<'src>> for SpannedTokens<'src> {
+    fn with_capacity(n: usize) -> Self {
+        Self(Vec::with_capacity(n))
+    }
+
+    // TODO: maybe we can expand last segment if possible?
+    // However, reslicing the &str in Token may be tricky.
+    // Or we can reslicing based on span during synactical analysis.
+    fn push(&mut self, token: SpannedToken<'src>) {
+        self.0.push(token);
+    }
+}
+
+impl Display for SpannedTokens<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        for t in self.0.iter() {
+            match &t.0 {
+                Token::DQuote => write!(f, "\"")?,
+                Token::Comma => write!(f, ",")?,
+                Token::Colon => write!(f, ":")?,
+                Token::Semicolon => write!(f, ";")?,
+                Token::Equal => write!(f, "=")?,
+                Token::Newline => write!(f, "\r\n")?,
+                Token::Control(s)
+                | Token::Symbol(s)
+                | Token::Escape(s)
+                | Token::Word(s)
+                | Token::UnicodeText(s) => {
+                    write!(f, "{s}")?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct SpannedTokensCharsIntoIter<'src> {
+    segments: Vec<SpannedToken<'src>>,
+    seg_idx: usize,
+    chars: Option<Chars<'src>>,
+}
+
+impl<'src> Iterator for SpannedTokensCharsIntoIter<'src> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.seg_idx < self.segments.len() {
+            match self.chars {
+                Some(ref mut chars) => match chars.next() {
+                    Some(c) => return Some(c),
+                    None => {
+                        self.seg_idx += 1;
+                        self.chars = None;
+                    }
+                },
+                None => {
+                    let seg = self.segments.get(self.seg_idx).unwrap();
+                    match &seg.0 {
+                        Token::DQuote
+                        | Token::Comma
+                        | Token::Colon
+                        | Token::Semicolon
+                        | Token::Equal => {
+                            self.seg_idx += 1;
+                            return Some(match &seg.0 {
+                                Token::DQuote => '"',
+                                Token::Comma => ',',
+                                Token::Colon => ':',
+                                Token::Semicolon => ';',
+                                Token::Equal => '=',
+                                _ => unreachable!(),
+                            });
+                        }
+                        Token::Newline => {
+                            self.chars = Some("\r\n".chars());
+                        }
+                        Token::Control(s)
+                        | Token::Symbol(s)
+                        | Token::Escape(s)
+                        | Token::Word(s)
+                        | Token::UnicodeText(s) => {
+                            self.chars = Some(s.chars());
+                        }
+                    }
+                }
+            }
+        }
+
+        None
     }
 }
 

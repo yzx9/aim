@@ -6,9 +6,13 @@ The iCal module provides parsing and serialization capabilities for the iCalenda
 
 ```
 ical/src/
-├── lib.rs    # Public API exports
-├── lexer.rs  # Lexical analysis of iCalendar format
-└── parser.rs # Parsing logic for iCalendar components
+├── lib.rs            # Public API exports
+├── keyword.rs        # Keywords defined in RFC 5545
+├── lexer.rs          # Lexical analysis
+├── property_spec.rs  # Property specification
+├── property_value.rs # Parsing property value
+├── syntax.rs         # Parsing syntax for components
+└── typed.rs          # Parsing types
 ```
 
 ## Main Components
