@@ -24,47 +24,58 @@ Handles tokenization of iCalendar data:
 
 #### Token Types
 
-- `Word`: Alphanumeric characters, underscores, hyphens, and other ASCII word characters (0-9, A-Z, a-z, _, -)
-- `Semi`: Semicolon (;) used to separate properties
-- `Colon`: Colon (:) separator between property names and values
-- `Eq`: Equal sign (=) for parameter values
+- `DQuote`: Double quote (") character
 - `Comma`: Comma (,) for parameter value lists
-- `Quote`: Double quote (") character
-- `Control`: Control characters (ASCII 0x00-0x1F and 0x7F)
+- `Colon`: Colon (:) separator between property names and values
+- `Semicolon`: Semicolon (;) used to separate properties
+- `Equal`: Equal sign (=) for parameter values
+- `Control`: All control characters except HTAB (ASCII 0x00-0x18, 0x0A-1F and 0x7F)
 - `Symbol`: ASCII symbols and special characters
+- `Newline`: Carriage Return followed by Line Feed
 - `Escape`: Escape sequences (backslash followed by specific characters)
-- `Folding`: CRLF followed by space or tab for iCalendar folding
+- `Word`: Alphanumeric characters, underscores, hyphens, and other ASCII word characters (0-9, A-Z, a-z, \_, -)
 - `UnicodeText`: Non-ASCII Unicode text
 
-### Parser (src/parser.rs)
+### Syntax Parser (src/syntax.rs)
 
-Handles parsing of iCalendar components using the `chumsky` parsing framework:
+Handles parsing of iCalendar components without type using the `chumsky` parsing framework:
 
-- Provides `parse()` function for parsing iCalendar strings
-- Defines `Component` struct for representing iCalendar components
-- Defines `Property` struct for representing component properties
-- Defines `Param` struct for representing property parameters
-- Defines `RawValue` struct for representing unescaped property values
+- Provides `syntax()` function for parsing iCalendar strings into `RawComponent`
+- Defines `RawComponent` struct for representing iCalendar components with name, properties, and nested children
+- Defines `RawProperty` struct for representing component properties with name, parameters, and values
+- Defines `RawParameter` struct for representing property parameters with name and multiple values
+- Defines `RawParameterValue` struct for representing property parameter values (quoted or unquoted)
+- Defines `StrSegments` struct for representing unescaped property values with span tracking
 - Implements error reporting with `ariadne` for detailed diagnostics
 
 #### Component Structure
 
-- `name`: Component name (e.g., "VCALENDAR", "VEVENT", "VTODO")
-- `props`: Vector of properties with preserved ordering
-- `subcomponents`: Vector of nested components
+- `RawComponent`: Contains component name, ordered properties vector, and nested children vector
+- `RawProperty`: Contains name as `StrSegments`, parameters vector, and multi-value vector
+- `RawParameter`: Contains name as `StrSegments` and vector of `RawParameterValue`
+- `RawParameterValue`: Contains value as `StrSegments` and quoted flag
+- `StrSegments`: Efficient string representation that preserves original spans and supports iteration
 
-#### Property Structure
+#### Parser Features
 
-- `group`: Optional property group
-- `name`: Property name (case-insensitive but preserved for output)
-- `params`: Vector of parameters (allowing duplicates and multi-values)
-- `value`: Raw property value (unfolded and unescaped)
+- **Recursive parsing**: Handles nested components using chumsky's recursive parser
+- **BEGIN/END validation**: Ensures matching BEGIN and END tags with proper component names
+- **Property parsing**: Supports property names with groups, parameters, and multi-values
+- **Parameter parsing**: Handles both quoted and unquoted parameter values
+- **Value parsing**: Processes escaped characters and various token types
+- **Error recovery**: Provides detailed error reports with source context and span information
+- **Zero-copy design**: Uses string slices and spans for efficient parsing
 
-#### Value Processing
+#### Key Constants
 
-- `ValueSegs`: Tracks segments of values that may span multiple lines
-- `unescape_into()`: Handles unescaping of iCalendar values according to RFC 5545
-- `resolve_unescaped()`: Combines segments and unescapes values as needed
+- `KW_BEGIN`: "BEGIN" token for component start
+- `KW_END`: "END" token for component end
+
+#### Helper Types
+
+- `Either<L, R>`: Utility enum for partitioning properties vs components
+- `EitherIterExt`: Trait extension for partitioning either iterators
+- `StrSegmentsCharsIter`: Iterator for traversing characters across string segments
 
 ## Dependencies
 
