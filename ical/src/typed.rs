@@ -7,11 +7,12 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use chumsky::error::Rich;
+use chumsky::error::{Error, Rich};
+use chumsky::input::Stream;
 
-use crate::lexer::SpannedTokens;
+use crate::lexer::{SpannedTokens, SpannedTokensCharsIntoIter};
 use crate::property_spec::{PROPERTY_SPECS, PropertySpec};
-use crate::property_value::{PropertyValue, PropertyValueKind, parse_property_value};
+use crate::property_value::{PropertyValue, PropertyValueKind, PropertyValueParser};
 use crate::syntax::{RawComponent, RawProperty};
 
 static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> =
@@ -20,10 +21,12 @@ static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> =
 pub fn typed_analysis<'src>(
     components: Vec<RawComponent<'src>>,
 ) -> Result<Vec<TypedComponent<'src>>, Vec<Rich<'src, char>>> {
+    let prop_parser = PropertyValueParser::<Rich<'_, _>>::new();
+
     let mut errors = Vec::new();
     let mut typed_components = Vec::new();
     for comp in components.into_iter() {
-        match typed_component(comp) {
+        match typed_component(&prop_parser, comp) {
             Ok(typed_comp) => typed_components.push(typed_comp),
             Err(errs) => errors.extend(errs),
         }
@@ -43,13 +46,17 @@ pub struct TypedComponent<'src> {
     pub children: Vec<TypedComponent<'src>>,
 }
 
-fn typed_component<'src>(
+fn typed_component<'src, 'b, Err>(
+    parser: &'b PropertyValueParser<'src, Err>,
     comp: RawComponent<'src>,
-) -> Result<TypedComponent<'src>, Vec<Rich<'src, char>>> {
+) -> Result<TypedComponent<'src>, Vec<Err>>
+where
+    Err: Error<'src, Stream<SpannedTokensCharsIntoIter<'src>>> + 'src,
+{
     let mut errors = Vec::new();
     let mut properties = Vec::new();
     for prop in comp.properties.into_iter() {
-        match type_property(prop) {
+        match type_property(parser, prop) {
             Ok(prop) => properties.push(prop),
             Err(errs) => errors.extend(errs),
         }
@@ -57,9 +64,9 @@ fn typed_component<'src>(
 
     let mut children = Vec::new();
     for comp in comp.children.into_iter() {
-        match typed_component(comp) {
-            Ok(child) => children.push(child.clone()),
-            Err(errs) => errors.extend(errs.clone()),
+        match typed_component(parser, comp) {
+            Ok(child) => children.push(child),
+            Err(errs) => errors.extend(errs),
         }
     }
 
@@ -93,25 +100,26 @@ pub struct TypedParameterValue<'src> {
     pub quoted: bool,
 }
 
-fn type_property<'src>(
+fn type_property<'b, 'src: 'b, Err>(
+    parser: &'b PropertyValueParser<'src, Err>,
     prop: RawProperty<'src>,
-) -> Result<TypedProperty<'src>, Vec<Rich<'src, char>>> {
+) -> Result<TypedProperty<'src>, Vec<Err>>
+where
+    Err: Error<'src, Stream<SpannedTokensCharsIntoIter<'src>>> + 'src,
+{
     let prop_name = prop.name.to_string().to_ascii_uppercase();
     let kind = kind_of(&prop_name, &prop);
-    let results: Vec<_> = prop
-        .value
-        .into_iter()
-        .map(|a| parse_property_value(kind, a))
-        .collect();
 
-    let has_errors = results.iter().any(|r| r.is_err());
-    if has_errors {
-        let errors: Vec<_> = results
-            .into_iter()
-            .filter_map(|r| r.err())
-            .flatten()
-            .collect();
+    let mut errors = Vec::new();
+    let mut values = Vec::new();
+    for v in prop.value.into_iter() {
+        match parser.parse(kind, v) {
+            Ok(v) => values.push(v),
+            Err(errs) => errors.extend(errs),
+        }
+    }
 
+    if !errors.is_empty() {
         return Err(errors);
     }
 
@@ -130,7 +138,7 @@ fn type_property<'src>(
                 .collect(),
         })
         .collect();
-    let values = results.into_iter().map(|r| r.unwrap()).collect();
+
     Ok(TypedProperty::<'src> {
         name: prop.name,
         params,

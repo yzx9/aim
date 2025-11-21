@@ -38,8 +38,8 @@ pub static PROPERTY_SPECS: &[PropertySpec] = &[
     },
     PropertySpec {
         name: KW_RRULE,
-        default_kind: PropertyValueKind::Rrule,
-        allowed_kinds: &[PropertyValueKind::Rrule],
+        default_kind: PropertyValueKind::RecurrenceRule,
+        allowed_kinds: &[PropertyValueKind::RecurrenceRule],
         multiple_valued: false,
     },
     PropertySpec {

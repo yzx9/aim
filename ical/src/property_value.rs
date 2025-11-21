@@ -7,29 +7,107 @@
 use std::fmt::Display;
 use std::str::FromStr;
 
+use chumsky::error::Error;
 use chumsky::extra::ParserExtra;
 use chumsky::input::ValueInput;
 use chumsky::prelude::*;
 use chumsky::{Parser, input::Stream};
+use jiff::civil::{Date, Time, date, time};
 
 use crate::keyword::{
-    KW_BINARY, KW_BOOLEAN, KW_DATE, KW_DATETIME, KW_DURATION, KW_INTEGER, KW_PERIOD, KW_RRULE,
-    KW_TEXT, KW_URI,
+    KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_DATE, KW_DATETIME, KW_DURATION, KW_FLOAT, KW_INTEGER,
+    KW_PERIOD, KW_RRULE, KW_TEXT, KW_TIME, KW_URI, KW_UTC_OFFSET,
 };
-use crate::lexer::{SpannedToken, SpannedTokens, Token};
+use crate::lexer::{SpannedToken, SpannedTokens, SpannedTokensCharsIntoIter, Token};
+
+/// The properties in an iCalendar object are strongly typed.  The definition
+/// of each property restricts the value to be one of the value data types, or
+/// simply value types, defined in this section. The value type for a property
+/// will either be specified implicitly as the default value type or will be
+/// explicitly specified with the "VALUE" parameter.  If the value type of a
+/// property is one of the alternate valid types, then it MUST be explicitly
+/// specified with the "VALUE" parameter.
+///
+/// See RFC 5545 Section 3.3 for more details.
+#[derive(Debug, Clone)]
+pub enum PropertyValue<'src> {
+    /// This value type is used to identify properties that contain a character
+    /// encoding of inline binary data.  For example, an inline attachment of a
+    /// document might be included in an iCalendar object.
+    ///
+    /// See RFC 5545 Section 3.3.1 for more details.
+    Binary(SpannedTokens<'src>),
+
+    /// This value type is used to identify properties that contain either a
+    /// "TRUE" or "FALSE" Boolean value.
+    ///
+    /// See RFC 5545 Section 3.3.2 for more details.
+    Boolean(bool),
+
+    // TODO: 3.3.3. Calendar User Address
+    //
+    /// This value type is used to identify values that contain a calendar date.
+    ///
+    /// See RFC 5545 Section 3.3.4 for more details.
+    Date(Date),
+
+    // TODO: 3.3.5. Date-Time
+    //
+    /// This value type is used to identify properties that contain a duration
+    /// of time.
+    ///
+    /// See RFC 5545 Section 3.3.6 for more details.
+    Duration(PropertyValueDuration),
+
+    /// This value type is used to identify properties that contain a real-
+    /// number value.
+    ///
+    /// See RFC 5545 Section 3.3.7 for more details.
+    Float(f64),
+
+    /// This value type is used to identify properties that contain a signed
+    /// integer value.
+    ///
+    /// See RFC 5545 Section 3.3.8 for more details.
+    Integer(i32),
+
+    // TODO: 3.3.9. Period of Time
+    // TODO: 3.3.10. Recurrence Rule
+    //
+    /// This value type is used to identify values that contain human-readable
+    /// text.
+    ///
+    /// See RFC 5545 Section 3.3.11 for more details.
+    Text(SpannedTokens<'src>),
+
+    /// This value type is used to identify values that contain a time of day.
+    Time(PropertyValueTime),
+    //
+    // TODO: 3.3.13. URI
+    //
+    /// This value type is used to identify properties that contain an offset
+    /// from UTC to local time.
+    ///
+    /// See RFC 5545 Section 3.3.14 for more details.
+    UtcOffset(PropertyValueUtcOffset),
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PropertyValueKind {
     Binary,
     Boolean,
-    Text,
+    CalendarUserAddress,
     Date,
     DateTime,
     Duration,
+    Float,
     Integer,
-    Uri,
     Period,
-    Rrule,
+    RecurrenceRule,
+    Text,
+    Time,
+    Uri,
+    UtcOffset,
 }
 
 impl FromStr for PropertyValueKind {
@@ -39,14 +117,18 @@ impl FromStr for PropertyValueKind {
         match s {
             KW_BINARY => Ok(PropertyValueKind::Binary),
             KW_BOOLEAN => Ok(PropertyValueKind::Boolean),
-            KW_TEXT => Ok(PropertyValueKind::Text),
+            KW_CAL_ADDRESS => Ok(PropertyValueKind::CalendarUserAddress),
             KW_DATE => Ok(PropertyValueKind::Date),
             KW_DATETIME => Ok(PropertyValueKind::DateTime),
             KW_DURATION => Ok(PropertyValueKind::Duration),
+            KW_FLOAT => Ok(PropertyValueKind::Float),
             KW_INTEGER => Ok(PropertyValueKind::Integer),
-            KW_URI => Ok(PropertyValueKind::Uri),
             KW_PERIOD => Ok(PropertyValueKind::Period),
-            KW_RRULE => Ok(PropertyValueKind::Rrule),
+            KW_RRULE => Ok(PropertyValueKind::RecurrenceRule),
+            KW_TEXT => Ok(PropertyValueKind::Text),
+            KW_URI => Ok(PropertyValueKind::Uri),
+            KW_TIME => Ok(PropertyValueKind::Time),
+            KW_UTC_OFFSET => Ok(PropertyValueKind::UtcOffset),
             _ => Err(()),
         }
     }
@@ -57,14 +139,18 @@ impl AsRef<str> for PropertyValueKind {
         match self {
             PropertyValueKind::Binary => KW_BINARY,
             PropertyValueKind::Boolean => KW_BOOLEAN,
-            PropertyValueKind::Text => KW_TEXT,
+            PropertyValueKind::CalendarUserAddress => KW_CAL_ADDRESS,
             PropertyValueKind::Date => KW_DATE,
             PropertyValueKind::DateTime => KW_DATETIME,
             PropertyValueKind::Duration => KW_DURATION,
+            PropertyValueKind::Float => KW_FLOAT,
             PropertyValueKind::Integer => KW_INTEGER,
-            PropertyValueKind::Uri => KW_URI,
             PropertyValueKind::Period => KW_PERIOD,
-            PropertyValueKind::Rrule => KW_RRULE,
+            PropertyValueKind::RecurrenceRule => KW_RRULE,
+            PropertyValueKind::Text => KW_TEXT,
+            PropertyValueKind::Time => KW_TIME,
+            PropertyValueKind::Uri => KW_URI,
+            PropertyValueKind::UtcOffset => KW_UTC_OFFSET,
         }
     }
 }
@@ -75,42 +161,94 @@ impl Display for PropertyValueKind {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum PropertyValue<'src> {
-    Binary(SpannedTokens<'src>),
-    Boolean(bool),
-    Duration(PropertyValueDuration),
-    Integer(i32),
-    Text(SpannedTokens<'src>),
+type BoxedParser<'src, Err> = Boxed<
+    'src,
+    'src,
+    Stream<SpannedTokensCharsIntoIter<'src>>,
+    PropertyValue<'src>,
+    extra::Err<Err>,
+>;
+
+#[rustfmt::skip]
+#[derive(Clone)]
+pub struct PropertyValueParser<'src, Err>
+where
+    Err: Error<'src, Stream<SpannedTokensCharsIntoIter<'src>>> + 'src,
+{
+    boolean:    BoxedParser<'src, Err>,
+    date:       BoxedParser<'src, Err>,
+    duration:   BoxedParser<'src, Err>,
+    float:      BoxedParser<'src, Err>,
+    integer:    BoxedParser<'src, Err>,
+    time:       BoxedParser<'src, Err>,
+    utc_offset: BoxedParser<'src, Err>,
 }
 
-pub fn parse_property_value<'src, 'b: 'src>(
-    kind: PropertyValueKind,
-    tokens: SpannedTokens<'src>,
-) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
-    use PropertyValueKind::{Binary, Boolean, Duration, Integer, Text};
-
-    match kind {
-        Binary => return Ok(PropertyValue::Binary(tokens.clone())),
-        Text => return Ok(property_value_text(tokens.clone())),
-        _ => {}
+impl<'src, Err> PropertyValueParser<'src, Err>
+where
+    Err: Error<'src, Stream<SpannedTokensCharsIntoIter<'src>>>,
+{
+    pub fn new() -> Self {
+        Self {
+            boolean: property_value_boolean().boxed(),
+            date: property_value_date().boxed(),
+            duration: property_value_duration().boxed(),
+            float: property_value_float().boxed(),
+            integer: property_value_integer().boxed(),
+            time: property_value_time().boxed(),
+            utc_offset: property_value_utc_offset().boxed(),
+        }
     }
 
-    // TODO: this is slow than u8, and maybe buggy in span
-    // TODO: map span
-    let stream = Stream::from_iter(tokens.into_iter_chars());
-    match kind {
-        Boolean => property_value_boolean::<'_, _, extra::Err<_>>().parse(stream),
-        Duration => property_value_duration::<'_, _, extra::Err<_>>().parse(stream),
-        Integer => property_value_integer::<'_, _, extra::Err<_>>().parse(stream),
-        _ => unimplemented!("Parser for {kind} is not implemented"),
+    pub fn parse(
+        &self,
+        kind: PropertyValueKind,
+        tokens: SpannedTokens<'src>,
+    ) -> Result<PropertyValue<'src>, Vec<Err>> {
+        use PropertyValueKind::{
+            Binary, Boolean, Date, Duration, Float, Integer, Text, Time, UtcOffset,
+        };
+
+        match kind {
+            Binary => return Ok(property_value_binary(tokens)),
+            Text => return Ok(property_value_text(tokens)),
+            _ => {}
+        }
+
+        // TODO: map span
+        let stream = Stream::from_iter(tokens.into_iter_chars());
+        match kind {
+            Boolean => self.boolean.parse(stream),
+            Date => self.date.parse(stream),
+            Duration => self.duration.parse(stream),
+            Float => self.float.parse(stream),
+            Integer => self.integer.parse(stream),
+            Time => self.time.parse(stream),
+            UtcOffset => self.utc_offset.parse(stream),
+            _ => unimplemented!("Parser for {kind} is not implemented"),
+        }
+        .into_result()
     }
-    .into_result()
 }
 
-// TODO: 3.3.1. Binary
+/// Format Definition:  This value type is defined by the following notation:
+///
+///    binary     = *(4b-char) [b-end]
+///    ; A "BASE64" encoded character string, as defined by [RFC4648].
+///
+///    b-end      = (2b-char "==") / (3b-char "=")
+///
+///    b-char = ALPHA / DIGIT / "+" / "/"
+///
+fn property_value_binary<'src>(tokens: SpannedTokens<'src>) -> PropertyValue<'src> {
+    // TODO: check is it a valid BASE64
+    PropertyValue::Binary(tokens)
+}
 
-/// 3.3.2. Boolean
+/// Format Definition:  This value type is defined by the following notation:
+///
+///    boolean    = "TRUE" / "FALSE"
+///
 fn property_value_boolean<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -156,7 +294,18 @@ pub enum PropertyValueDuration {
     },
 }
 
-/// 3.3.6. Duration
+/// Format Definition:  This value type is defined by the following notation:
+///
+///    dur-value  = (["+"] / "-") "P" (dur-date / dur-time / dur-week)
+///
+///    dur-date   = dur-day [dur-time]
+///    dur-time   = "T" (dur-hour / dur-minute / dur-second)
+///    dur-week   = 1*DIGIT "W"
+///    dur-hour   = 1*DIGIT "H" [dur-minute]
+///    dur-minute = 1*DIGIT "M" [dur-second]
+///    dur-second = 1*DIGIT "S"
+///    dur-day    = 1*DIGIT "D"
+///
 fn property_value_duration<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -170,108 +319,171 @@ where
         .collect::<String>()
         .map(|str| str.parse::<u32>().unwrap()); // TODO: handle parse error
 
-    let week = int
-        .then_ignore(just('W'))
-        .map(|week| PropertyValueDuration::Week {
-            positive: false,
-            week,
-        });
+    let week = int.then_ignore(just('W'));
 
     let second = int.then_ignore(just('S'));
     let minute = int.then_ignore(just('M')).then(second.or_not());
-    let hour = int
-        .then_ignore(just('H'))
-        .then(minute.or_not())
-        .map(|(h, ms)| PropertyValueDuration::DateTime {
-            positive: true,
-            day: 0,
-            hour: h,
-            minute: ms.map(|(m, _s)| m).unwrap_or(0),
-            second: ms.map(|(_m, s)| s.unwrap_or(0)).unwrap_or(0),
-        });
+    let hour = int.then_ignore(just('H')).then(minute.or_not());
     let time = just('T').ignore_then(hour);
 
     let day = int.then_ignore(just('D'));
-    let date = day.then(time.or_not()).map(|(day, time)| {
-        let (hour, minute, second) = match time {
-            Some(PropertyValueDuration::DateTime {
+    let date = day.then(time.or_not());
+
+    let sign = one_of("+-").or_not().map(|sign| !matches!(sign, Some('-')));
+    let prefix = sign.then_ignore(just("P"));
+    choice((
+        prefix.then(date).map(|(positive, (day, time))| {
+            let hour = time.map(|t| t.0).unwrap_or(0);
+            let minute = time.and_then(|t| t.1).map(|m_s| m_s.0).unwrap_or(0);
+            let second = time.and_then(|t| t.1).and_then(|m_s| m_s.1).unwrap_or(0);
+            PropertyValue::Duration(PropertyValueDuration::DateTime {
+                positive,
+                day,
                 hour,
                 minute,
                 second,
-                ..
-            }) => (hour, minute, second),
-            None => (0, 0, 0),
-            _ => unreachable!(),
-        };
-        PropertyValueDuration::DateTime {
-            positive: false,
-            day,
-            hour,
-            minute,
-            second,
-        }
-    });
+            })
+        }),
+        prefix.then(time).map(|(positive, (h, ms))| {
+            PropertyValue::Duration(PropertyValueDuration::DateTime {
+                positive,
+                day: 0,
+                hour: h,
+                minute: ms.map(|(m, _s)| m).unwrap_or(0),
+                second: ms.map(|(_m, s)| s.unwrap_or(0)).unwrap_or(0),
+            })
+        }),
+        prefix.then(week).map(|(positive, week)| {
+            PropertyValue::Duration(PropertyValueDuration::Week { positive, week })
+        }),
+    ))
+}
 
+/// Format Definition:  This value type is defined by the following notation:
+///
+///   date               = date-value
+///
+///   date-value         = date-fullyear date-month date-mday
+///   date-fullyear      = 4DIGIT
+///   date-month         = 2DIGIT        ;01-12
+///   date-mday          = 2DIGIT        ;01-28, 01-29, 01-30, 01-31
+///                                      ;based on month/year
+fn property_value_date<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
+where
+    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    let i16 = one_of("0123456789").map(|c: char| c.to_digit(10).unwrap() as i16); // safe unwrap and convert
+    let year = i16
+        .then(i16)
+        .then(i16)
+        .then(i16)
+        .map(|(((a, b), c), d)| 1000 * a + 100 * b + 10 * c + d);
+
+    let i8 = one_of("0123456789").map(|c: char| c.to_digit(10).unwrap() as i8); // safe unwrap and convert
+    let month = i8.then(i8).map(|(a, b)| 10 * a + b);
+    let day = i8.then(i8).map(|(a, b)| 10 * a + b);
+    year.then(month)
+        .then(day)
+        .map(|((y, m), d)| PropertyValue::Date(date(y, m, d)))
+}
+
+/// Format Definition:  This value type is defined by the following notation:
+///
+///    float      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
+///
+fn property_value_float<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
+where
+    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
     let sign = one_of("+-").or_not();
-    sign.then_ignore(just("P"))
-        .then(choice((date, time, week)))
-        .map(|(sign, dur)| {
-            let positive = !matches!(sign, Some('-'));
-            let v = match dur {
-                // TODO: avoid clone
-                PropertyValueDuration::Week { week, .. } => {
-                    PropertyValueDuration::Week { positive, week }
-                }
-                PropertyValueDuration::DateTime {
-                    day,
-                    hour,
-                    minute,
-                    second,
-                    ..
-                } => PropertyValueDuration::DateTime {
-                    positive,
-                    day,
-                    hour,
-                    minute,
-                    second,
-                },
-            };
-            PropertyValue::Duration(v)
+    let integer_part = one_of("0123456789")
+        .repeated()
+        .at_least(1)
+        .collect::<String>();
+
+    let fractional_part = just('.').ignore_then(integer_part);
+
+    sign.then(integer_part)
+        .then(fractional_part.or_not())
+        .map(|((sign, int_part), frac_part)| {
+            let capacity = sign.map_or(0, |_| 1)
+                + int_part.len()
+                + frac_part.as_ref().map_or(0, |f| 1 + f.len());
+
+            let mut float_str = String::with_capacity(capacity);
+            if let Some(s) = sign {
+                float_str.push(s);
+            }
+            float_str.push_str(&int_part);
+            if let Some(frac) = frac_part {
+                float_str.push('.');
+                float_str.push_str(&frac);
+            }
+            let f = float_str.parse::<f64>().unwrap(); // TODO: handle parse error
+            PropertyValue::Float(f)
         })
 }
 
-// TODO: 3.3.7. Float
-// FIXME: it only supports abc.xyz format, not scientific notation.
-
-/// 3.3.8. Integer
+/// Format Definition:  This value type is defined by the following notation:
+///
+///    integer    = (["+"] / "-") 1*DIGIT
+///
 fn property_value_integer<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    // FIXME: RFC 5545 allows leading "+" sign, but logos lexer does not handle it well.
     let sign = one_of("+-").or_not();
-    sign.then(
-        one_of("0123456789")
-            .repeated()
-            .at_least(1)
-            .at_most(10) // i32 max is 10 digits: 2_147_483_647
-            .collect::<String>(),
-    )
-    .map(|(sign, digits)| {
-        let i = digits.parse::<i32>().unwrap(); // TODO: handle parse error
-        match sign {
-            Some('-') => PropertyValue::Integer(-i),
-            _ => PropertyValue::Integer(i),
-        }
-    })
+    let positive = sign
+        .then(
+            one_of("0123456789")
+                .repeated()
+                .at_least(1)
+                .at_most(10) // i32 max is 10 digits: 2_147_483_647
+                .collect::<String>(),
+        )
+        .map(|(sign, digits)| {
+            let negative = matches!(sign, Some('-'));
+            if negative && digits == "2147483648" {
+                PropertyValue::Integer(i32::MIN) // parsing will overflow
+            } else {
+                println!("Parsing integer: sign={:?}, digits={}", sign, digits);
+                let v = digits.parse::<i32>().unwrap(); // TODO: handle parse error
+                if negative {
+                    PropertyValue::Integer(-v)
+                } else {
+                    PropertyValue::Integer(v)
+                }
+            }
+        });
+
+    let zero = sign
+        .ignore_then(just('0').repeated().at_least(1))
+        .map(|_| PropertyValue::Integer(0));
+
+    zero.or(positive)
 }
 
 // TODO: 3.3.9. Period of Time
 
 // TODO: 3.3.10. Recurrence Rule
 
-/// 3.3.11. Text
+/// Format Definition:  This value type is defined by the following notation:
+///
+///    text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
+///    ; Folded according to description above
+///
+///    ESCAPED-CHAR = ("\\" / "\;" / "\," / "\N" / "\n")
+///    ; \\ encodes \, \N or \n encodes newline
+///    ; \; encodes ;, \, encodes ,
+///
+///    TSAFE-CHAR = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-5B / %x5D-7E / NON-
+///    US-ASCII
+///    ; Any character except CONTROLs not needed by the current
+///    ; character set, DQUOTE, ";", ":", "\", ","
+///
 fn property_value_text<'src>(tokens: SpannedTokens<'src>) -> PropertyValue<'src> {
     let tokens = tokens
         .into_iter()
@@ -293,11 +505,129 @@ fn property_value_text<'src>(tokens: SpannedTokens<'src>) -> PropertyValue<'src>
     PropertyValue::Text(tokens)
 }
 
-// TODO: 3.3.12. Time
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PropertyValueTime {
+    pub time: Time,
+    pub utc: bool,
+}
+
+/// Format Definition:  This value type is defined by the following notation:
+///
+///    time         = time-hour time-minute time-second [time-utc]
+///
+///    time-hour    = 2DIGIT        ;00-23
+///    time-minute  = 2DIGIT        ;00-59
+///    time-second  = 2DIGIT        ;00-60
+///    ;The "60" value is used to account for positive "leap" seconds.
+///
+///    time-utc     = "Z"
+///
+fn property_value_time<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
+where
+    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    let time_hour = choice((
+        one_of("01")
+            .then(one_of("0123456789"))
+            .map(|(a, b): (char, char)| {
+                (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8
+            }), // safe unwrap and convert
+        one_of("2")
+            .ignore_then(one_of("0123"))
+            .map(|b: char| (20 + b.to_digit(10).unwrap()) as i8), // safe unwrap and convert
+    ));
+
+    let time_minute = one_of("012345")
+        .then(one_of("0123456789"))
+        .map(|(a, b): (char, char)| (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8); // safe unwrap and convert
+
+    let time_second = choice((
+        one_of("012345")
+            .then(one_of("0123456789"))
+            .map(|(a, b): (char, char)| {
+                (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8
+            }), // safe unwrap and convert
+        just('6').ignore_then(just("0").ignored().map(|_| 59)), // We contract leap second 60 to 59 for simplicity
+    ));
+
+    time_hour
+        .then(time_minute)
+        .then(time_second)
+        .then(just('Z').or_not())
+        .map(|(((hour, minute), second), utc)| {
+            PropertyValue::Time(PropertyValueTime {
+                time: time(hour, minute, second, 0),
+                utc: utc.is_some(),
+            })
+        })
+}
 
 // TODO: 3.3.13. URI
 
-// TODO: 3.3.14. UTC Offset
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PropertyValueUtcOffset {
+    /// true if positive offset, false if negative
+    pub positive: bool,
+
+    /// 0-23
+    pub hour: i8,
+
+    /// 0-59
+    pub minute: i8,
+
+    /// 0-60, optional
+    pub second: i8,
+}
+
+/// Format Definition:  This value type is defined by the following notation:
+///
+///    utc-offset = time-numzone
+///
+///    time-numzone = ("+" / "-") time-hour time-minute [time-second]
+///
+fn property_value_utc_offset<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
+where
+    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    let time_hour = choice((
+        one_of("01")
+            .then(one_of("0123456789"))
+            .map(|(a, b): (char, char)| {
+                (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8
+            }), // safe unwrap and convert
+        one_of("2")
+            .ignore_then(one_of("0123"))
+            .map(|b: char| (20 + b.to_digit(10).unwrap()) as i8), // safe unwrap and convert
+    ));
+
+    let time_minute = one_of("012345")
+        .then(one_of("0123456789"))
+        .map(|(a, b): (char, char)| (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8); // safe unwrap and convert
+
+    let time_second = choice((
+        one_of("012345")
+            .then(one_of("0123456789"))
+            .map(|(a, b): (char, char)| {
+                (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8
+            }), // safe unwrap and convert
+        just('6').ignore_then(just("0").ignored().map(|_| 59)), // We contract leap second 60 to 59 for simplicity
+    ));
+
+    one_of("+-")
+        .then(time_hour)
+        .then(time_minute)
+        .then(time_second.or_not())
+        .map(|(((sign, hour), minute), second)| {
+            PropertyValue::UtcOffset(PropertyValueUtcOffset {
+                positive: !matches!(sign, '-'),
+                hour,
+                minute,
+                second: second.unwrap_or(0),
+            })
+        })
+}
 
 #[cfg(test)]
 mod tests {
@@ -309,7 +639,7 @@ mod tests {
 
     #[test]
     fn test_boolean() {
-        fn parse_bool<'tokens, 'src: 'tokens>(
+        fn parse<'tokens, 'src: 'tokens>(
             src: &'src str,
         ) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
             let stream = Stream::from_iter(src.chars());
@@ -318,28 +648,65 @@ mod tests {
                 .into_result()
         }
 
-        let src = "TRUE";
-        let result = parse_bool(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
-        let val = result.unwrap();
-        match val {
-            PropertyValue::Boolean(b) => assert!(b),
-            _ => panic!("Expected PropertyValue::Boolean"),
+        for (src, expected) in [("TRUE", true), ("FALSE", false)] {
+            match parse(src) {
+                Ok(PropertyValue::Boolean(b)) => assert_eq!(b, expected),
+                e => panic!("Expected Ok(PropertyValue::Boolean({expected})), got {e:?}"),
+            }
         }
 
-        let src = "FALSE";
-        let result = parse_bool(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
-        let val = result.unwrap();
-        match val {
-            PropertyValue::Boolean(b) => assert!(!b),
-            _ => panic!("Expected PropertyValue::Boolean"),
+        let fail_cases = ["True", "False", "true", "false", "1", "0", "YES", "NO", ""];
+        for src in fail_cases {
+            assert!(parse(src).is_err(), "Parse {src} should fail");
+        }
+    }
+
+    #[test]
+    fn test_duration() {
+        use PropertyValueDuration::{DateTime, Week};
+
+        fn parse<'src>(src: &'src str) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
+            let stream = Stream::from_iter(src.chars());
+            property_value_duration::<'_, _, extra::Err<_>>()
+                .parse(stream)
+                .into_result()
+        }
+
+        #[rustfmt::skip]
+        let success_cases = [
+            // in RFC 5545 Section 3.3.6 examples
+            ("P15DT5H0M20S", DateTime { positive: true, day: 15, hour: 5, minute: 0, second: 20 }),
+            ("P2W", Week { positive: true, week: 2 }),
+            // extra tests
+            ("+P3W", Week { positive: true, week: 3 }),
+            ("-P1W", Week { positive: false, week: 1 }),
+            ("+P3DT4H5M6S",  DateTime { positive:  true, day: 3, hour:  4, minute:  5, second:  6 }),
+            ("-PT10H11M12S", DateTime { positive: false, day: 0, hour: 10, minute: 11, second: 12 }),
+        ];
+        for (src, expected) in success_cases {
+            match parse(src) {
+                Ok(PropertyValue::Duration(d)) => assert_eq!(d, expected),
+                e => panic!("Expected Ok(PropertyValue::Duration({expected:?})), got {e:?}"),
+            }
+        }
+
+        let fail_cases = [
+            "P",           // missing duration value
+            "PT",          // missing time value
+            "P3X",         // invalid designator
+            "P-3W",        // invalid negative sign position
+            "P3DT4H5M6",   // missing 'S' designator
+            "3W",          // missing 'P' designator
+            "P10H11M12S3", // missing 'T' designator
+        ];
+        for src in fail_cases {
+            assert!(parse(src).is_err(), "Parse {src} should fail");
         }
     }
 
     #[test]
     fn test_integer() {
-        fn parse_integer<'tokens, 'src: 'tokens>(
+        fn parse<'tokens, 'src: 'tokens>(
             src: &'src str,
         ) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
             let stream = Stream::from_iter(src.chars());
@@ -348,87 +715,48 @@ mod tests {
                 .into_result()
         }
 
-        let src = "12345";
-        let result = parse_integer(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
-        let val = result.unwrap();
-        match val {
-            PropertyValue::Integer(i) => assert_eq!(i, 12345),
-            _ => panic!("Expected PropertyValue::Integer"),
+        #[rustfmt::skip]
+        let success_cases = [
+            // Examples from RFC 5545 Section 3.3.8
+            ("1234567890", 1234567890),
+            ("-1234567890", -1234567890),
+            ("+1234567890", 1234567890),
+            ("432109876", 432109876),
+            // extra tests
+            ( "0", 0),
+            ("+0", 0),
+            ("-0", 0),
+            ("+0000000000000000000000", 0),
+            ("12345", 12345),
+            ("-6789", -6789),
+            ("+2147483647",  2147483647), // i32 max
+            ("-2147483648", -2147483648), // i32 min
+        ];
+        for (src, expected) in success_cases {
+            match parse(src) {
+                Ok(PropertyValue::Integer(i)) => assert_eq!(i, expected),
+                e => panic!("Expected Ok(PropertyValue::Integer{expected}), got {e:?}"),
+            }
         }
 
-        let src = "-6789";
-        let result = parse_integer(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
-        let val = result.unwrap();
-        match val {
-            PropertyValue::Integer(i) => assert_eq!(i, -6789),
-            _ => panic!("Expected PropertyValue::Integer"),
-        }
-    }
-
-    #[test]
-    fn test_duration() {
-        fn parse_duration<'src>(
-            src: &'src str,
-        ) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
-            let stream = Stream::from_iter(src.chars());
-            property_value_duration::<'_, _, extra::Err<_>>()
-                .parse(stream)
-                .into_result()
-        }
-
-        let src = "P2W";
-        let result = parse_duration(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
-        let val = result.unwrap();
-        let expected = PropertyValueDuration::Week {
-            positive: true,
-            week: 2,
-        };
-        match val {
-            PropertyValue::Duration(d) => assert_eq!(d, expected),
-            _ => panic!("Expected PropertyValue::Duration::Week"),
-        }
-
-        let src = "+P3DT4H5M6S";
-        let result = parse_duration(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
-        let val = result.unwrap();
-        match val {
-            PropertyValue::Duration(d) => assert_eq!(
-                d,
-                PropertyValueDuration::DateTime {
-                    positive: true,
-                    day: 3,
-                    hour: 4,
-                    minute: 5,
-                    second: 6
-                }
-            ),
-            _ => panic!("Expected PropertyValue::Duration::Date"),
-        }
-
-        let src = "-PT10H11M12S";
-        let result = parse_duration(src);
-        assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
-        let val = result.unwrap();
-        let expected = PropertyValueDuration::DateTime {
-            positive: false,
-            day: 0,
-            hour: 10,
-            minute: 11,
-            second: 12,
-        };
-        match val {
-            PropertyValue::Duration(d) => assert_eq!(d, expected),
-            _ => panic!("Expected PropertyValue::Duration::Time"),
+        let fail_cases = [
+            // "+2147483648",           // i32 max + 1
+            // "-2147483649",           // i32 min - 1
+            "12345678901234567890",  // overflow
+            "-12345678901234567890", // underflow
+            "+",                     // missing digits
+            "-",                     // missing digits
+            "",                      // empty string
+            "12a34",                 // invalid character
+        ];
+        for src in fail_cases {
+            assert!(parse(src).is_err(), "Parse {src} should fail");
         }
     }
 
     #[test]
     fn test_text() {
-        fn parse_text(src: &'_ str) -> PropertyValue<'_> {
+        fn parse(src: &'_ str) -> PropertyValue<'_> {
             let tokens = lex(src)
                 .spanned()
                 .map(|(token, span)| match token {
@@ -440,19 +768,114 @@ mod tests {
             property_value_text(tokens)
         }
 
-        for (src, expected) in [
+        #[rustfmt::skip]
+        let success_cases = [
+            // Examples from RFC 5545 Section 3.3.11
+            (r"Project XYZ Final Review\nConference Room - 3B\nCome Prepared.", 
+              "Project XYZ Final Review\nConference Room - 3B\nCome Prepared."),
+            // extra tests
             (r#"Hello\, World\; \N"#, "Hello, World; \n"),
-            (
-                r#""Quoted Text" and more text"#,
-                r#""Quoted Text" and more text"#,
-            ),
+            ( r#""Quoted Text" and more text"#, r#""Quoted Text" and more text"#,),
             ("Unicode 字符串 🎉", "Unicode 字符串 🎉"),
             ("123\r\n 456\r\n\t789", "123456789"),
-        ] {
-            match parse_text(src) {
+        ];
+        for (src, expected) in success_cases {
+            match parse(src) {
                 PropertyValue::Text(ref segments) => assert_eq!(segments.to_string(), expected),
                 _ => panic!("Expected PropertyValue::Text"),
             }
+        }
+    }
+
+    #[test]
+    fn test_time() {
+        fn parse<'tokens, 'src: 'tokens>(
+            src: &'src str,
+        ) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
+            let stream = Stream::from_iter(src.chars());
+            property_value_time::<'_, _, extra::Err<_>>()
+                .parse(stream)
+                .into_result()
+        }
+
+        #[rustfmt::skip]
+        let success_cases = [
+            // Examples from RFC 5545 Section 3.3.12
+            ("135501",  PropertyValueTime { time: time(13, 55,  1, 0), utc: false }),
+            ("135501Z", PropertyValueTime { time: time(13, 55,  1, 0), utc:  true }),
+            // extra tests
+            ("000000",  PropertyValueTime { time: time( 0,  0,  0, 0), utc: false }),
+            ("235959",  PropertyValueTime { time: time(23, 59, 59, 0), utc: false }),
+            ("120000Z", PropertyValueTime { time: time(12,  0,  0, 0), utc:  true }),
+            ("000060",  PropertyValueTime { time: time( 0,  0, 59, 0), utc: false }), // leap second
+        ];
+        for (src, expected) in success_cases {
+            match parse(src) {
+                Ok(PropertyValue::Time(t)) => assert_eq!(t, expected),
+                e => panic!("Expected Ok(PropertyValue::Time({expected:?})), got {e:?}"),
+            }
+        }
+
+        let fail_cases = [
+            // examples from RFC 5545 Section 3.3.12
+            "230000-0800", // invalid time format
+            // extra tests
+            "240000",   // invalid hour
+            "126060",   // invalid minute
+            "123461",   // invalid second
+            "12000",    // missing digit
+            "120000ZZ", // extra character
+            "",         // empty string
+        ];
+        for src in fail_cases {
+            assert!(parse(src).is_err(), "Parse {src} should fail");
+        }
+    }
+    // Example:  The following UTC offsets are given for standard time for
+    //    New York (five hours behind UTC) and Geneva (one hour ahead of
+    //    UTC):
+    //
+    //     -0500
+    //
+    //     +0100
+
+    #[test]
+    fn test_utc_offset() {
+        fn parse<'tokens, 'src: 'tokens>(
+            src: &'src str,
+        ) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
+            let stream = Stream::from_iter(src.chars());
+            property_value_utc_offset::<'_, _, extra::Err<_>>()
+                .parse(stream)
+                .into_result()
+        }
+        #[rustfmt::skip]
+        let success_cases = [
+            // Examples from RFC 5545 Section 3.3.14
+            (  "-0500", PropertyValueUtcOffset{positive: false, hour: 5, minute:  0, second:  0}),
+            (  "+0100", PropertyValueUtcOffset{positive:  true, hour: 1, minute:  0, second:  0}),
+            // extra tests
+            (  "+0000", PropertyValueUtcOffset{positive:  true, hour: 0, minute:  0, second:  0}),
+            ("-123456", PropertyValueUtcOffset{positive: false, hour:12, minute: 34, second: 56}),
+        ];
+        for (src, expected) in success_cases {
+            match parse(src) {
+                Ok(PropertyValue::UtcOffset(v)) => assert_eq!(v, expected),
+                e => panic!("Expected Ok({expected:?}), got {e:?}"),
+            }
+        }
+
+        let fail_cases = [
+            "0500",     // missing sign
+            "+2400",    // invalid hour
+            "-1260",    // invalid minute
+            "+123461",  // invalid second
+            "+120",     // missing digit
+            "+120000Z", // extra character
+            "",         // empty string
+        ];
+        for src in fail_cases {
+            assert!(parse(src).is_err(), "Parse {src} should fail");
         }
     }
 }

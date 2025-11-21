@@ -55,10 +55,10 @@ Handles parsing of iCalendar components without type using the `chumsky` parsing
 #### Component Structure
 
 - `RawComponent`: Contains component name, ordered properties vector, and nested children vector
-- `RawProperty`: Contains name as `StrSegments`, parameters vector, and multi-value vector
-- `RawParameter`: Contains name as `StrSegments` and vector of `RawParameterValue`
-- `RawParameterValue`: Contains value as `StrSegments` and quoted flag
-- `StrSegments`: Efficient string representation that preserves original spans and supports iteration
+- `RawProperty`: Contains name as `SpannedTokens`, parameters vector, and multi-value vector
+- `RawParameter`: Contains name as `SpannedTokens` and vector of `RawParameterValue`
+- `RawParameterValue`: Contains value as `SpannedTokens` and quoted flag
+- `SpannedTokens`: Efficient string representation that preserves original spans and supports iteration
 
 #### Parser Features
 
