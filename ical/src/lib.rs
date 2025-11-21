@@ -2,6 +2,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//! Parse and represent iCalendar components and properties.
+
+#![warn(
+    trivial_casts,
+    trivial_numeric_casts,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    missing_docs,
+    unsafe_code,
+    unstable_features,
+    unused_import_braces,
+    unused_qualifications,
+    clippy::dbg_macro,
+    clippy::indexing_slicing,
+    clippy::pedantic
+)]
+// Allow certain clippy lints that are too restrictive for this crate
+#![allow(
+    clippy::option_option,
+    clippy::similar_names,
+    clippy::single_match_else,
+    clippy::match_bool
+)]
+
 mod keyword;
 mod lexer;
 mod property_spec;
@@ -22,6 +46,10 @@ pub use crate::syntax::syntax_analysis;
 pub use crate::typed::typed_analysis;
 
 /// Parse an iCalendar component from source code
+///
+/// ## Errors
+///
+/// If there are lexing or parsing errors, a vector of error reports will be returned.
 ///
 /// ## Examples
 ///

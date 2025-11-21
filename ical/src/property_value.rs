@@ -233,22 +233,24 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///    binary     = *(4b-char) [b-end]
-///    ; A "BASE64" encoded character string, as defined by [RFC4648].
+/// ```text
+/// binary     = *(4b-char) [b-end]
+/// ; A "BASE64" encoded character string, as defined by [RFC4648].
 ///
-///    b-end      = (2b-char "==") / (3b-char "=")
+/// b-end      = (2b-char "==") / (3b-char "=")
 ///
-///    b-char = ALPHA / DIGIT / "+" / "/"
-///
-fn property_value_binary<'src>(tokens: SpannedTokens<'src>) -> PropertyValue<'src> {
+/// b-char = ALPHA / DIGIT / "+" / "/"
+/// ```
+fn property_value_binary(tokens: SpannedTokens<'_>) -> PropertyValue<'_> {
     // TODO: check is it a valid BASE64
     PropertyValue::Binary(tokens)
 }
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///    boolean    = "TRUE" / "FALSE"
-///
+/// ```text
+/// boolean    = "TRUE" / "FALSE"
+/// ```
 fn property_value_boolean<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -260,7 +262,7 @@ where
         .ignore_then(just('U'))
         .ignore_then(just('E'))
         .ignored()
-        .map(|_| PropertyValue::Boolean(true));
+        .map(|()| PropertyValue::Boolean(true));
 
     let f = just('F')
         .ignore_then(just('A'))
@@ -268,7 +270,7 @@ where
         .ignore_then(just('S'))
         .ignore_then(just('E'))
         .ignored()
-        .map(|_| PropertyValue::Boolean(false));
+        .map(|()| PropertyValue::Boolean(false));
 
     choice((t, f))
 }
@@ -294,18 +296,20 @@ pub enum PropertyValueDuration {
     },
 }
 
+#[allow(clippy::doc_link_with_quotes)]
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///    dur-value  = (["+"] / "-") "P" (dur-date / dur-time / dur-week)
+/// ```text
+/// dur-value  = (["+"] / "-") "P" (dur-date / dur-time / dur-week)
 ///
-///    dur-date   = dur-day [dur-time]
-///    dur-time   = "T" (dur-hour / dur-minute / dur-second)
-///    dur-week   = 1*DIGIT "W"
-///    dur-hour   = 1*DIGIT "H" [dur-minute]
-///    dur-minute = 1*DIGIT "M" [dur-second]
-///    dur-second = 1*DIGIT "S"
-///    dur-day    = 1*DIGIT "D"
-///
+/// dur-date   = dur-day [dur-time]
+/// dur-time   = "T" (dur-hour / dur-minute / dur-second)
+/// dur-week   = 1*DIGIT "W"
+/// dur-hour   = 1*DIGIT "H" [dur-minute]
+/// dur-minute = 1*DIGIT "M" [dur-second]
+/// dur-second = 1*DIGIT "S"
+/// dur-day    = 1*DIGIT "D"
+/// ```
 fn property_value_duration<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -333,8 +337,8 @@ where
     let prefix = sign.then_ignore(just("P"));
     choice((
         prefix.then(date).map(|(positive, (day, time))| {
-            let hour = time.map(|t| t.0).unwrap_or(0);
-            let minute = time.and_then(|t| t.1).map(|m_s| m_s.0).unwrap_or(0);
+            let hour = time.map_or(0, |t| t.0);
+            let minute = time.and_then(|t| t.1).map_or(0, |m_s| m_s.0);
             let second = time.and_then(|t| t.1).and_then(|m_s| m_s.1).unwrap_or(0);
             PropertyValue::Duration(PropertyValueDuration::DateTime {
                 positive,
@@ -349,8 +353,8 @@ where
                 positive,
                 day: 0,
                 hour: h,
-                minute: ms.map(|(m, _s)| m).unwrap_or(0),
-                second: ms.map(|(_m, s)| s.unwrap_or(0)).unwrap_or(0),
+                minute: ms.map_or(0, |(m, _)| m),
+                second: ms.map_or(0, |(_, s)| s.unwrap_or(0)),
             })
         }),
         prefix.then(week).map(|(positive, week)| {
@@ -361,26 +365,28 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///   date               = date-value
+/// ```text
+/// date               = date-value
 ///
-///   date-value         = date-fullyear date-month date-mday
-///   date-fullyear      = 4DIGIT
-///   date-month         = 2DIGIT        ;01-12
-///   date-mday          = 2DIGIT        ;01-28, 01-29, 01-30, 01-31
-///                                      ;based on month/year
+/// date-value         = date-fullyear date-month date-mday
+/// date-fullyear      = 4DIGIT
+/// date-month         = 2DIGIT        ;01-12
+/// date-mday          = 2DIGIT        ;01-28, 01-29, 01-30, 01-31
+///                                    ;based on month/year
+/// ```
 fn property_value_date<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    let i16 = one_of("0123456789").map(|c: char| c.to_digit(10).unwrap() as i16); // safe unwrap and convert
+    let i16 = one_of("0123456789").map(|c: char| i16_or_default(to_digit10(c)));
     let year = i16
         .then(i16)
         .then(i16)
         .then(i16)
         .map(|(((a, b), c), d)| 1000 * a + 100 * b + 10 * c + d);
 
-    let i8 = one_of("0123456789").map(|c: char| c.to_digit(10).unwrap() as i8); // safe unwrap and convert
+    let i8 = one_of("0123456789").map(|c: char| i8_or_default(to_digit10(c)));
     let month = i8.then(i8).map(|(a, b)| 10 * a + b);
     let day = i8.then(i8).map(|(a, b)| 10 * a + b);
     year.then(month)
@@ -390,8 +396,9 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///    float      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
-///
+/// ```text
+/// float      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
+/// ```
 fn property_value_float<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -428,8 +435,9 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///    integer    = (["+"] / "-") 1*DIGIT
-///
+/// ```text
+/// integer    = (["+"] / "-") 1*DIGIT
+/// ```
 fn property_value_integer<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -449,7 +457,6 @@ where
             if negative && digits == "2147483648" {
                 PropertyValue::Integer(i32::MIN) // parsing will overflow
             } else {
-                println!("Parsing integer: sign={:?}, digits={}", sign, digits);
                 let v = digits.parse::<i32>().unwrap(); // TODO: handle parse error
                 if negative {
                     PropertyValue::Integer(-v)
@@ -461,7 +468,7 @@ where
 
     let zero = sign
         .ignore_then(just('0').repeated().at_least(1))
-        .map(|_| PropertyValue::Integer(0));
+        .map(|()| PropertyValue::Integer(0));
 
     zero.or(positive)
 }
@@ -472,19 +479,20 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///    text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
-///    ; Folded according to description above
+/// ```text
+/// text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
+/// ; Folded according to description above
 ///
-///    ESCAPED-CHAR = ("\\" / "\;" / "\," / "\N" / "\n")
-///    ; \\ encodes \, \N or \n encodes newline
-///    ; \; encodes ;, \, encodes ,
+/// ESCAPED-CHAR = ("\\" / "\;" / "\," / "\N" / "\n")
+/// ; \\ encodes \, \N or \n encodes newline
+/// ; \; encodes ;, \, encodes ,
 ///
-///    TSAFE-CHAR = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-5B / %x5D-7E / NON-
-///    US-ASCII
-///    ; Any character except CONTROLs not needed by the current
-///    ; character set, DQUOTE, ";", ":", "\", ","
-///
-fn property_value_text<'src>(tokens: SpannedTokens<'src>) -> PropertyValue<'src> {
+/// TSAFE-CHAR = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-5B / %x5D-7E / NON-US-
+/// ASCII
+/// ; Any character except CONTROLs not needed by the current
+/// ; character set, DQUOTE, ";", ":", "\", ","
+/// ```
+fn property_value_text(tokens: SpannedTokens<'_>) -> PropertyValue<'_> {
     let tokens = tokens
         .into_iter()
         .map(|t| match t {
@@ -513,15 +521,16 @@ pub struct PropertyValueTime {
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///    time         = time-hour time-minute time-second [time-utc]
+/// ```text
+/// time         = time-hour time-minute time-second [time-utc]
 ///
-///    time-hour    = 2DIGIT        ;00-23
-///    time-minute  = 2DIGIT        ;00-59
-///    time-second  = 2DIGIT        ;00-60
-///    ;The "60" value is used to account for positive "leap" seconds.
+/// time-hour    = 2DIGIT        ;00-23
+/// time-minute  = 2DIGIT        ;00-59
+/// time-second  = 2DIGIT        ;00-60
+/// ;The "60" value is used to account for positive "leap" seconds.
 ///
-///    time-utc     = "Z"
-///
+/// time-utc     = "Z"
+/// ```
 fn property_value_time<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -530,25 +539,21 @@ where
     let time_hour = choice((
         one_of("01")
             .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| {
-                (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8
-            }), // safe unwrap and convert
+            .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b))),
         one_of("2")
             .ignore_then(one_of("0123"))
-            .map(|b: char| (20 + b.to_digit(10).unwrap()) as i8), // safe unwrap and convert
+            .map(|b: char| i8_or_default(20 + to_digit10(b))),
     ));
 
     let time_minute = one_of("012345")
         .then(one_of("0123456789"))
-        .map(|(a, b): (char, char)| (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8); // safe unwrap and convert
+        .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b)));
 
     let time_second = choice((
         one_of("012345")
             .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| {
-                (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8
-            }), // safe unwrap and convert
-        just('6').ignore_then(just("0").ignored().map(|_| 59)), // We contract leap second 60 to 59 for simplicity
+            .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b))),
+        just('6').ignore_then(just("0").ignored().map(|()| 59)), // We contract leap second 60 to 59 for simplicity
     ));
 
     time_hour
@@ -582,10 +587,11 @@ pub struct PropertyValueUtcOffset {
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-///    utc-offset = time-numzone
+/// ```text
+/// utc-offset = time-numzone
 ///
-///    time-numzone = ("+" / "-") time-hour time-minute [time-second]
-///
+/// time-numzone = ("+" / "-") time-hour time-minute [time-second]
+/// ```
 fn property_value_utc_offset<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -594,25 +600,21 @@ where
     let time_hour = choice((
         one_of("01")
             .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| {
-                (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8
-            }), // safe unwrap and convert
+            .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b))),
         one_of("2")
             .ignore_then(one_of("0123"))
-            .map(|b: char| (20 + b.to_digit(10).unwrap()) as i8), // safe unwrap and convert
+            .map(|b: char| i8_or_default(20 + to_digit10(b))),
     ));
 
     let time_minute = one_of("012345")
         .then(one_of("0123456789"))
-        .map(|(a, b): (char, char)| (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8); // safe unwrap and convert
+        .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b)));
 
     let time_second = choice((
         one_of("012345")
             .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| {
-                (10 * a.to_digit(10).unwrap() + b.to_digit(10).unwrap()) as i8
-            }), // safe unwrap and convert
-        just('6').ignore_then(just("0").ignored().map(|_| 59)), // We contract leap second 60 to 59 for simplicity
+            .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b))), // safe unwrap and convert
+        just('6').ignore_then(just("0").ignored().map(|()| 59)), // We contract leap second 60 to 59 for simplicity
     ));
 
     one_of("+-")
@@ -627,6 +629,18 @@ where
                 second: second.unwrap_or(0),
             })
         })
+}
+
+fn i16_or_default(i: u32) -> i16 {
+    i16::try_from(i).unwrap_or_default()
+}
+
+fn i8_or_default(i: u32) -> i8 {
+    i8::try_from(i).unwrap_or_default()
+}
+
+fn to_digit10(c: char) -> u32 {
+    c.to_digit(10).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -665,7 +679,7 @@ mod tests {
     fn test_duration() {
         use PropertyValueDuration::{DateTime, Week};
 
-        fn parse<'src>(src: &'src str) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
+        fn parse(src: &'_ str) -> Result<PropertyValue<'_>, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             property_value_duration::<'_, _, extra::Err<_>>()
                 .parse(stream)
@@ -718,10 +732,10 @@ mod tests {
         #[rustfmt::skip]
         let success_cases = [
             // Examples from RFC 5545 Section 3.3.8
-            ("1234567890", 1234567890),
-            ("-1234567890", -1234567890),
-            ("+1234567890", 1234567890),
-            ("432109876", 432109876),
+            ("1234567890", 1_234_567_890),
+            ("-1234567890", -1_234_567_890),
+            ("+1234567890", 1_234_567_890),
+            ("432109876", 432_109_876),
             // extra tests
             ( "0", 0),
             ("+0", 0),
@@ -729,8 +743,8 @@ mod tests {
             ("+0000000000000000000000", 0),
             ("12345", 12345),
             ("-6789", -6789),
-            ("+2147483647",  2147483647), // i32 max
-            ("-2147483648", -2147483648), // i32 min
+            ("+2147483647",  2_147_483_647), // i32 max
+            ("-2147483648", -2_147_483_648), // i32 min
         ];
         for (src, expected) in success_cases {
             match parse(src) {
@@ -774,7 +788,7 @@ mod tests {
             (r"Project XYZ Final Review\nConference Room - 3B\nCome Prepared.", 
               "Project XYZ Final Review\nConference Room - 3B\nCome Prepared."),
             // extra tests
-            (r#"Hello\, World\; \N"#, "Hello, World; \n"),
+            (r"Hello\, World\; \N", "Hello, World; \n"),
             ( r#""Quoted Text" and more text"#, r#""Quoted Text" and more text"#,),
             ("Unicode 字符串 🎉", "Unicode 字符串 🎉"),
             ("123\r\n 456\r\n\t789", "123456789"),

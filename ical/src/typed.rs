@@ -15,17 +15,25 @@ use crate::property_spec::{PROPERTY_SPECS, PropertySpec};
 use crate::property_value::{PropertyValue, PropertyValueKind, PropertyValueParser};
 use crate::syntax::{RawComponent, RawProperty};
 
-static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> =
-    LazyLock::new(|| HashMap::from_iter(PROPERTY_SPECS.iter().map(|spec| (spec.name, spec))));
+static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
+    PROPERTY_SPECS
+        .iter()
+        .map(|spec| (spec.name, spec))
+        .collect()
+});
 
-pub fn typed_analysis<'src>(
-    components: Vec<RawComponent<'src>>,
-) -> Result<Vec<TypedComponent<'src>>, Vec<Rich<'src, char>>> {
+/// Perform typed analysis on raw components, returning typed components or errors.
+///
+/// ## Errors
+/// If there are typing errors, a vector of rich errors will be returned.
+pub fn typed_analysis(
+    components: Vec<RawComponent<'_>>,
+) -> Result<Vec<TypedComponent<'_>>, Vec<Rich<'_, char>>> {
     let prop_parser = PropertyValueParser::<Rich<'_, _>>::new();
 
     let mut errors = Vec::new();
     let mut typed_components = Vec::new();
-    for comp in components.into_iter() {
+    for comp in components {
         match typed_component(&prop_parser, comp) {
             Ok(typed_comp) => typed_components.push(typed_comp),
             Err(errs) => errors.extend(errs),
@@ -55,7 +63,7 @@ where
 {
     let mut errors = Vec::new();
     let mut properties = Vec::new();
-    for prop in comp.properties.into_iter() {
+    for prop in comp.properties {
         match type_property(parser, prop) {
             Ok(prop) => properties.push(prop),
             Err(errs) => errors.extend(errs),
@@ -63,7 +71,7 @@ where
     }
 
     let mut children = Vec::new();
-    for comp in comp.children.into_iter() {
+    for comp in comp.children {
         match typed_component(parser, comp) {
             Ok(child) => children.push(child),
             Err(errs) => errors.extend(errs),
@@ -112,7 +120,7 @@ where
 
     let mut errors = Vec::new();
     let mut values = Vec::new();
-    for v in prop.value.into_iter() {
+    for v in prop.value {
         match parser.parse(kind, v) {
             Ok(v) => values.push(v),
             Err(errs) => errors.extend(errs),

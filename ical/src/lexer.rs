@@ -4,7 +4,7 @@
 
 //! Lexer for iCalendar files as defined in RFC 5545
 
-use std::fmt::{self, Debug, Display};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Range;
 use std::str::Chars;
 
@@ -13,7 +13,7 @@ use chumsky::span::SimpleSpan;
 use chumsky::{container::Container, extra::ParserExtra};
 use logos::Logos;
 
-pub fn lex<'a>(src: &'a str) -> logos::Lexer<'a, Token<'a>> {
+pub fn lex(src: &'_ str) -> logos::Lexer<'_, Token<'_>> {
     Token::lexer(src)
 }
 
@@ -72,7 +72,7 @@ pub enum Token<'a> {
 }
 
 impl Display for Token<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::DQuote => write!(f, "DQuote"),
             Self::Comma => write!(f, "Comma"),
@@ -93,7 +93,7 @@ impl Display for Token<'_> {
 }
 
 impl Debug for Token<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self, f)
     }
 }
@@ -156,8 +156,8 @@ impl<'src> Container<SpannedToken<'src>> for SpannedTokens<'src> {
 }
 
 impl Display for SpannedTokens<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
-        for t in self.0.iter() {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for t in &self.0 {
             match &t.0 {
                 Token::DQuote => write!(f, "\"")?,
                 Token::Comma => write!(f, ",")?,
@@ -184,7 +184,7 @@ pub struct SpannedTokensCharsIntoIter<'src> {
     chars: Option<Chars<'src>>,
 }
 
-impl<'src> Iterator for SpannedTokensCharsIntoIter<'src> {
+impl Iterator for SpannedTokensCharsIntoIter<'_> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -258,7 +258,7 @@ mod tests {
             #[test]
             fn $name() {
                 for i in $range {
-                    let c = i as u8 as char;
+                    let c = u8::try_from(i).unwrap_or_default() as char;
                     let src = c.to_string();
                     let mut lexer = lex(&src);
                     assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:02X}",);
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_escape_characters() {
-        let src = r#"\\\;\,\N\n\r"#;
+        let src = r"\\\;\,\N\n\r";
         let expected = [
             Escape(r"\\"),
             Escape(r"\;"),

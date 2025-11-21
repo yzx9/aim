@@ -13,6 +13,11 @@ use chumsky::prelude::*;
 use crate::keyword::{KW_BEGIN, KW_END};
 use crate::lexer::{SpannedToken, SpannedTokens, Token};
 
+/// Parse raw iCalendar components from token stream
+///
+/// ## Errors
+/// If there are parsing errors, a vector of rich errors will be returned.
+#[must_use]
 pub fn syntax_analysis<'tokens, 'src: 'tokens, I, Err>()
 -> impl Parser<'tokens, I, Vec<RawComponent<'src>>, extra::Err<Err>>
 where
@@ -289,7 +294,10 @@ END:VEVENT\r\n\
         let errs = mismatched.unwrap_err();
         assert_eq!(errs.len(), 1);
         let expected_msg = "found 'Word(VEVENT)' expected 'Word(VCALENDAR)'";
-        assert_eq!(&errs[0].to_string(), expected_msg);
+        assert_eq!(
+            &errs.first().map(ToString::to_string).unwrap_or_default(),
+            expected_msg
+        );
     }
 
     #[test]
@@ -325,7 +333,7 @@ END:VEVENT\r\n\
         let errs = mismatched.unwrap_err();
         assert_eq!(errs.len(), 1);
         let expected_msg = "found 'Word(VEVENT)' expected 'Word(VCALENDAR)'";
-        assert_eq!(&errs[0].to_string(), expected_msg);
+        assert_eq!(&errs.first().unwrap().to_string(), expected_msg);
     }
 
     #[test]
@@ -351,7 +359,10 @@ END:VEVENT\r\n\
         let prop = result.unwrap();
         assert_eq!(prop.name.to_string(), "SUMMARY");
         assert_eq!(
-            prop.value.iter().map(|a| a.to_string()).collect::<Vec<_>>(),
+            prop.value
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
             ["Hello World!"]
         );
 
@@ -361,9 +372,11 @@ END:VEVENT\r\n\
         let prop = result.unwrap();
         assert_eq!(prop.name.to_string(), "DTSTART");
         assert_eq!(prop.params.len(), 1);
-        assert_eq!(prop.params[0].name.to_string(), "TZID");
+        assert_eq!(prop.params.first().unwrap().name.to_string(), "TZID");
         assert_eq!(
-            prop.params[0]
+            prop.params
+                .first()
+                .unwrap()
                 .values
                 .iter()
                 .map(|a| a.value.to_string())
@@ -371,14 +384,17 @@ END:VEVENT\r\n\
             ["America/New_York"]
         );
         assert_eq!(
-            prop.value.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+            prop.value
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
             ["20251113T100000"]
         );
     }
 
     #[test]
     fn test_param() {
-        fn parse<'src>(src: &'src str) -> Result<RawParameter<'src>, Vec<Rich<'src, Token<'src>>>> {
+        fn parse(src: &str) -> Result<RawParameter<'_>, Vec<Rich<'_, Token<'_>>>> {
             let lexer = lex(src).spanned().map(|(token, span)| match token {
                 Ok(tok) => (tok, span.into()),
                 Err(()) => panic!("lex error"),
