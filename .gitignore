@@ -10,7 +10,7 @@ logs
 *.log
 
 # cargo
-/target
+target/
 
 # nix
 /result
