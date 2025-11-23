@@ -16,4 +16,5 @@ readme.workspace = true
 ariadne = "0.6.0"
 chumsky = "0.11.2"
 jiff = "0.2.16"
+lexical = "7.0.5"
 logos = "0.15.1"

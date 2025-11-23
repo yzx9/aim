@@ -9,10 +9,13 @@ use std::sync::LazyLock;
 
 use chumsky::error::Error;
 use chumsky::input::Stream;
+use chumsky::label::LabelError;
 
 use crate::lexer::{SpannedTokens, SpannedTokensChars};
 use crate::property_spec::{PROPERTY_SPECS, PropertySpec};
-use crate::property_value::{PropertyValue, PropertyValueKind, PropertyValueParser};
+use crate::property_value::{
+    PropertyValue, PropertyValueExpected, PropertyValueKind, PropertyValueParser,
+};
 use crate::syntax::{RawComponent, RawProperty};
 
 static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
@@ -30,7 +33,9 @@ pub fn typed_analysis<'src, Err>(
     components: Vec<RawComponent<'src>>,
 ) -> Result<Vec<TypedComponent<'src>>, Vec<Err>>
 where
-    Err: Error<'src, Stream<SpannedTokensChars<'src>>> + 'src,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>>
+        + LabelError<'src, Stream<SpannedTokensChars<'src>>, PropertyValueExpected>
+        + 'src,
 {
     let prop_parser = PropertyValueParser::<'src, Err>::new();
 
@@ -62,7 +67,9 @@ fn typed_component<'src, 'b, Err>(
     comp: RawComponent<'src>,
 ) -> Result<TypedComponent<'src>, Vec<Err>>
 where
-    Err: Error<'src, Stream<SpannedTokensChars<'src>>> + 'src,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>>
+        + LabelError<'src, Stream<SpannedTokensChars<'src>>, PropertyValueExpected>
+        + 'src,
 {
     let mut errors = Vec::new();
     let mut properties = Vec::new();
@@ -116,7 +123,9 @@ fn type_property<'b, 'src: 'b, Err>(
     prop: RawProperty<'src>,
 ) -> Result<TypedProperty<'src>, Vec<Err>>
 where
-    Err: Error<'src, Stream<SpannedTokensChars<'src>>> + 'src,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>>
+        + LabelError<'src, Stream<SpannedTokensChars<'src>>, PropertyValueExpected>
+        + 'src,
 {
     let prop_name = prop.name.to_string().to_ascii_uppercase();
     let kind = kind_of(&prop_name, &prop);

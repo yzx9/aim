@@ -4,10 +4,11 @@
 
 //! Parsers for property values as defined in RFC 5545 Section 3.3.
 
+use std::borrow::Cow;
 use std::fmt::Display;
 use std::str::FromStr;
 
-use chumsky::error::Error;
+use chumsky::error::{Error, RichPattern};
 use chumsky::extra::ParserExtra;
 use chumsky::input::ValueInput;
 use chumsky::label::LabelError;
@@ -164,6 +165,22 @@ impl Display for PropertyValueKind {
     }
 }
 
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PropertyValueExpected {
+    Float,
+    Integer,
+}
+
+impl From<PropertyValueExpected> for RichPattern<'_, char> {
+    fn from(expected: PropertyValueExpected) -> Self {
+        match expected {
+            PropertyValueExpected::Float => Self::Label(Cow::Borrowed("float out of range")),
+            PropertyValueExpected::Integer => Self::Label(Cow::Borrowed("integer out of range")),
+        }
+    }
+}
+
 type BoxedParser<'src, Err> =
     Boxed<'src, 'src, Stream<SpannedTokensChars<'src>>, PropertyValue<'src>, extra::Err<Err>>;
 
@@ -171,7 +188,8 @@ type BoxedParser<'src, Err> =
 #[derive(Clone)]
 pub struct PropertyValueParser<'src, Err>
 where
-    Err: Error<'src, Stream<SpannedTokensChars<'src>>> + 'src,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>> 
+        + LabelError<'src, Stream<SpannedTokensChars<'src>>, PropertyValueExpected> + 'src
 {
     boolean:    BoxedParser<'src, Err>,
     date:       BoxedParser<'src, Err>,
@@ -184,7 +202,8 @@ where
 
 impl<'src, Err> PropertyValueParser<'src, Err>
 where
-    Err: Error<'src, Stream<SpannedTokensChars<'src>>>,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>>
+        + LabelError<'src, Stream<SpannedTokensChars<'src>>, PropertyValueExpected>,
 {
     #[rustfmt::skip]
     pub fn new() -> Self {
@@ -297,7 +316,6 @@ pub enum PropertyValueDuration {
     },
 }
 
-#[allow(clippy::doc_link_with_quotes)]
 /// Format Definition:  This value type is defined by the following notation:
 ///
 /// ```txt
@@ -311,6 +329,7 @@ pub enum PropertyValueDuration {
 /// dur-second = 1*DIGIT "S"
 /// dur-day    = 1*DIGIT "D"
 /// ```
+#[allow(clippy::doc_link_with_quotes)]
 fn property_value_duration<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
@@ -404,6 +423,7 @@ fn property_value_float<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, PropertyValueExpected>,
 {
     let sign = one_of("+-").or_not();
     let integer_part = one_of("0123456789")
@@ -415,22 +435,39 @@ where
 
     sign.then(integer_part)
         .then(fractional_part.or_not())
-        .map(|((sign, int_part), frac_part)| {
+        .try_map_with(|((sign, int_part), frac_part), e| {
             let capacity = sign.map_or(0, |_| 1)
                 + int_part.len()
                 + frac_part.as_ref().map_or(0, |f| 1 + f.len());
 
-            let mut float_str = String::with_capacity(capacity);
-            if let Some(s) = sign {
-                float_str.push(s);
+            let mut s = String::with_capacity(capacity);
+            if let Some(sign) = sign {
+                s.push(sign);
             }
-            float_str.push_str(&int_part);
+            s.push_str(&int_part);
             if let Some(frac) = frac_part {
-                float_str.push('.');
-                float_str.push_str(&frac);
+                s.push('.');
+                s.push_str(&frac);
             }
-            let f = float_str.parse::<f64>().unwrap(); // TODO: handle parse error
-            PropertyValue::Float(f)
+
+            let n = match lexical::parse_partial::<f64, _>(&s) {
+                Ok((f, n)) => {
+                    if n < s.len() {
+                        n
+                    } else if f.is_infinite() || f.is_nan() {
+                        0
+                    } else {
+                        return Ok(PropertyValue::Float(f));
+                    }
+                }
+                Err(_) => 0,
+            };
+
+            Err(E::Error::expected_found(
+                [PropertyValueExpected::Float],
+                Some(s.chars().nth(n).unwrap().into()), // safe unwrap since n < len
+                e.span(),
+            ))
         })
 }
 
@@ -443,35 +480,38 @@ fn property_value_integer<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'s
 where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, PropertyValueExpected>,
 {
-    let sign = one_of("+-").or_not();
-    let positive = sign
+    one_of("+-")
+        .or_not()
         .then(
             one_of("0123456789")
                 .repeated()
                 .at_least(1)
-                .at_most(10) // i32 max is 10 digits: 2_147_483_647
                 .collect::<String>(),
         )
         .try_map_with(|(sign, digits), e| {
-            let negative = matches!(sign, Some('-'));
-            if negative && digits == "2147483648" {
-                Ok(PropertyValue::Integer(i32::MIN)) // parsing will overflow
-            } else {
-                let v = digits.parse::<i32>().unwrap(); // TODO: handle parse error
-                if negative {
-                    PropertyValue::Integer(-v)
-                } else {
-                    PropertyValue::Integer(v)
-                }
+            let capacity = sign.map_or(0, |_| 1) + digits.len();
+            let mut int_str = String::with_capacity(capacity);
+            if let Some(s) = sign {
+                int_str.push(s);
             }
-        });
+            int_str.push_str(&digits);
 
-    let zero = sign
-        .ignore_then(just('0').repeated().at_least(1))
-        .map(|()| PropertyValue::Integer(0));
-
-    zero.or(positive)
+            match lexical::parse_partial::<i32, _>(&int_str) {
+                Ok((v, n)) if n == int_str.len() => Ok(PropertyValue::Integer(v)),
+                Ok((_, n)) => Err(E::Error::expected_found(
+                    [PropertyValueExpected::Integer],
+                    Some(int_str.chars().nth(n).unwrap().into()), // safe unwrap since n < len
+                    e.span(),
+                )),
+                Err(_) => Err(E::Error::expected_found(
+                    [PropertyValueExpected::Integer],
+                    Some(int_str.chars().next().unwrap().into()), // safe unwrap since at least 1 digit
+                    e.span(),
+                )),
+            }
+        })
 }
 
 /// Format Definition:  This value type is defined by the following notation:
@@ -712,6 +752,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn test_float() {
         fn parse<'tokens, 'src: 'tokens>(
             src: &'src str,
@@ -722,10 +763,9 @@ mod tests {
                 .into_result()
         }
 
-        #[rustfmt::skip]
         let success_cases = [
             // Examples from RFC 5545 Section 3.3.7
-            ("1000000.0000001", 1000000.0000001),
+            ("1000000.0000001", 1_000_000.000_000_1),
             ("1.333", 1.333),
             ("-3.14", -3.14),
             // extra tests
@@ -737,16 +777,18 @@ mod tests {
             ("-0.0", -0.0),
             ("0", 0.0),
             ("+0", 0.0),
-            ("-1234567890.0987654321", -1234567890.0987654321),
+            ("-1234567890.0987654321", -1_234_567_890.098_765_4),
         ];
         for (src, expected) in success_cases {
             match parse(src) {
-                Ok(PropertyValue::Float(f)) => assert_eq!(f, expected),
+                Ok(PropertyValue::Float(f)) => assert!((f - expected).abs() < 1e-5),
                 e => panic!("Expected Ok(PropertyValue::Float({expected})), got {e:?}"),
             }
         }
 
+        let infinity = (0..=f64::MAX_10_EXP).map(|_| '9').collect::<String>();
         let fail_cases = [
+            &infinity,  // infinity
             "nan",      // RFC5545 does not allow non-numeric values
             "infinity", // RFC5545 does not allow non-numeric values
             "+.",       // missing digits
@@ -764,7 +806,7 @@ mod tests {
     fn test_integer() {
         fn parse<'tokens, 'src: 'tokens>(
             src: &'src str,
-        ) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
+        ) -> Result<PropertyValue<'src>, Vec<Cheap>> {
             let stream = Stream::from_iter(src.chars());
             property_value_integer::<'_, _, extra::Err<_>>()
                 .parse(stream)
@@ -782,7 +824,7 @@ mod tests {
             ( "0", 0),
             ("+0", 0),
             ("-0", 0),
-            ("+0000000000000000000000", 0),
+            ("+0000000000000000000000", 0), // long zero
             ("12345", 12345),
             ("-6789", -6789),
             ("+2147483647",  2_147_483_647), // i32 max
@@ -791,15 +833,17 @@ mod tests {
         for (src, expected) in success_cases {
             match parse(src) {
                 Ok(PropertyValue::Integer(i)) => assert_eq!(i, expected),
-                e => panic!("Expected Ok(PropertyValue::Integer{expected}), got {e:?}"),
+                e => panic!("Expected Ok(PropertyValue::Integer({expected})), got {e:?}"),
             }
         }
 
         let fail_cases = [
-            // "+2147483648",           // i32 max + 1
-            // "-2147483649",           // i32 min - 1
-            "12345678901234567890",  // overflow
-            "-12345678901234567890", // underflow
+            "nan",                   // RFC5545 does not allow non-numeric values
+            "infinity",              // RFC5545 does not allow non-numeric values
+            "+2147483648",           // i32 max + 1
+            "-2147483649",           // i32 min - 1
+            "12345678901234567890",  // overflow, too long
+            "-12345678901234567890", // underflow, too long
             "+",                     // missing digits
             "-",                     // missing digits
             "",                      // empty string
@@ -887,13 +931,6 @@ mod tests {
             assert!(parse(src).is_err(), "Parse {src} should fail");
         }
     }
-    // Example:  The following UTC offsets are given for standard time for
-    //    New York (five hours behind UTC) and Geneva (one hour ahead of
-    //    UTC):
-    //
-    //     -0500
-    //
-    //     +0100
 
     #[test]
     fn test_utc_offset() {
@@ -917,7 +954,7 @@ mod tests {
         for (src, expected) in success_cases {
             match parse(src) {
                 Ok(PropertyValue::UtcOffset(v)) => assert_eq!(v, expected),
-                e => panic!("Expected Ok({expected:?}), got {e:?}"),
+                e => panic!("Expected Ok(PropertyValue::UtcOffset({expected:?})), got {e:?}"),
             }
         }
 
