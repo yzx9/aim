@@ -7,10 +7,10 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use chumsky::error::{Error, Rich};
+use chumsky::error::Error;
 use chumsky::input::Stream;
 
-use crate::lexer::{SpannedTokens, SpannedTokensCharsIntoIter};
+use crate::lexer::{SpannedTokens, SpannedTokensChars};
 use crate::property_spec::{PROPERTY_SPECS, PropertySpec};
 use crate::property_value::{PropertyValue, PropertyValueKind, PropertyValueParser};
 use crate::syntax::{RawComponent, RawProperty};
@@ -26,10 +26,13 @@ static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = Lazy
 ///
 /// ## Errors
 /// If there are typing errors, a vector of rich errors will be returned.
-pub fn typed_analysis(
-    components: Vec<RawComponent<'_>>,
-) -> Result<Vec<TypedComponent<'_>>, Vec<Rich<'_, char>>> {
-    let prop_parser = PropertyValueParser::<Rich<'_, _>>::new();
+pub fn typed_analysis<'src, Err>(
+    components: Vec<RawComponent<'src>>,
+) -> Result<Vec<TypedComponent<'src>>, Vec<Err>>
+where
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>> + 'src,
+{
+    let prop_parser = PropertyValueParser::<'src, Err>::new();
 
     let mut errors = Vec::new();
     let mut typed_components = Vec::new();
@@ -59,7 +62,7 @@ fn typed_component<'src, 'b, Err>(
     comp: RawComponent<'src>,
 ) -> Result<TypedComponent<'src>, Vec<Err>>
 where
-    Err: Error<'src, Stream<SpannedTokensCharsIntoIter<'src>>> + 'src,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>> + 'src,
 {
     let mut errors = Vec::new();
     let mut properties = Vec::new();
@@ -113,7 +116,7 @@ fn type_property<'b, 'src: 'b, Err>(
     prop: RawProperty<'src>,
 ) -> Result<TypedProperty<'src>, Vec<Err>>
 where
-    Err: Error<'src, Stream<SpannedTokensCharsIntoIter<'src>>> + 'src,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>> + 'src,
 {
     let prop_name = prop.name.to_string().to_ascii_uppercase();
     let kind = kind_of(&prop_name, &prop);

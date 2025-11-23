@@ -127,7 +127,7 @@ pub fn parse<'src>(src: &'src str) -> Result<Vec<TypedComponent<'src>>, Vec<Repo
 
     typed_analysis(raw_components).map_err(|errs| {
         errs.iter()
-            .map(|err| {
+            .map(|err: &Rich<_>| {
                 Report::build(ReportKind::Error, err.span().into_range())
                     .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
                     .with_code(4)

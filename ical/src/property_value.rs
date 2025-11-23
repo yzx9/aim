@@ -10,6 +10,7 @@ use std::str::FromStr;
 use chumsky::error::Error;
 use chumsky::extra::ParserExtra;
 use chumsky::input::ValueInput;
+use chumsky::label::LabelError;
 use chumsky::prelude::*;
 use chumsky::{Parser, input::Stream};
 use jiff::civil::{Date, Time, date, time};
@@ -18,7 +19,7 @@ use crate::keyword::{
     KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_DATE, KW_DATETIME, KW_DURATION, KW_FLOAT, KW_INTEGER,
     KW_PERIOD, KW_RRULE, KW_TEXT, KW_TIME, KW_URI, KW_UTC_OFFSET,
 };
-use crate::lexer::{SpannedToken, SpannedTokens, SpannedTokensCharsIntoIter, Token};
+use crate::lexer::{SpannedToken, SpannedTokens, SpannedTokensChars, Token};
 
 /// The properties in an iCalendar object are strongly typed.  The definition
 /// of each property restricts the value to be one of the value data types, or
@@ -113,44 +114,46 @@ pub enum PropertyValueKind {
 impl FromStr for PropertyValueKind {
     type Err = ();
 
+    #[rustfmt::skip]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            KW_BINARY => Ok(PropertyValueKind::Binary),
-            KW_BOOLEAN => Ok(PropertyValueKind::Boolean),
+            KW_BINARY      => Ok(PropertyValueKind::Binary),
+            KW_BOOLEAN     => Ok(PropertyValueKind::Boolean),
             KW_CAL_ADDRESS => Ok(PropertyValueKind::CalendarUserAddress),
-            KW_DATE => Ok(PropertyValueKind::Date),
-            KW_DATETIME => Ok(PropertyValueKind::DateTime),
-            KW_DURATION => Ok(PropertyValueKind::Duration),
-            KW_FLOAT => Ok(PropertyValueKind::Float),
-            KW_INTEGER => Ok(PropertyValueKind::Integer),
-            KW_PERIOD => Ok(PropertyValueKind::Period),
-            KW_RRULE => Ok(PropertyValueKind::RecurrenceRule),
-            KW_TEXT => Ok(PropertyValueKind::Text),
-            KW_URI => Ok(PropertyValueKind::Uri),
-            KW_TIME => Ok(PropertyValueKind::Time),
-            KW_UTC_OFFSET => Ok(PropertyValueKind::UtcOffset),
+            KW_DATE        => Ok(PropertyValueKind::Date),
+            KW_DATETIME    => Ok(PropertyValueKind::DateTime),
+            KW_DURATION    => Ok(PropertyValueKind::Duration),
+            KW_FLOAT       => Ok(PropertyValueKind::Float),
+            KW_INTEGER     => Ok(PropertyValueKind::Integer),
+            KW_PERIOD      => Ok(PropertyValueKind::Period),
+            KW_RRULE       => Ok(PropertyValueKind::RecurrenceRule),
+            KW_TEXT        => Ok(PropertyValueKind::Text),
+            KW_URI         => Ok(PropertyValueKind::Uri),
+            KW_TIME        => Ok(PropertyValueKind::Time),
+            KW_UTC_OFFSET  => Ok(PropertyValueKind::UtcOffset),
             _ => Err(()),
         }
     }
 }
 
 impl AsRef<str> for PropertyValueKind {
+    #[rustfmt::skip]
     fn as_ref(&self) -> &str {
         match self {
-            PropertyValueKind::Binary => KW_BINARY,
-            PropertyValueKind::Boolean => KW_BOOLEAN,
+            PropertyValueKind::Binary              => KW_BINARY,
+            PropertyValueKind::Boolean             => KW_BOOLEAN,
             PropertyValueKind::CalendarUserAddress => KW_CAL_ADDRESS,
-            PropertyValueKind::Date => KW_DATE,
-            PropertyValueKind::DateTime => KW_DATETIME,
-            PropertyValueKind::Duration => KW_DURATION,
-            PropertyValueKind::Float => KW_FLOAT,
-            PropertyValueKind::Integer => KW_INTEGER,
-            PropertyValueKind::Period => KW_PERIOD,
-            PropertyValueKind::RecurrenceRule => KW_RRULE,
-            PropertyValueKind::Text => KW_TEXT,
-            PropertyValueKind::Time => KW_TIME,
-            PropertyValueKind::Uri => KW_URI,
-            PropertyValueKind::UtcOffset => KW_UTC_OFFSET,
+            PropertyValueKind::Date                => KW_DATE,
+            PropertyValueKind::DateTime            => KW_DATETIME,
+            PropertyValueKind::Duration            => KW_DURATION,
+            PropertyValueKind::Float               => KW_FLOAT,
+            PropertyValueKind::Integer             => KW_INTEGER,
+            PropertyValueKind::Period              => KW_PERIOD,
+            PropertyValueKind::RecurrenceRule      => KW_RRULE,
+            PropertyValueKind::Text                => KW_TEXT,
+            PropertyValueKind::Time                => KW_TIME,
+            PropertyValueKind::Uri                 => KW_URI,
+            PropertyValueKind::UtcOffset           => KW_UTC_OFFSET,
         }
     }
 }
@@ -161,19 +164,14 @@ impl Display for PropertyValueKind {
     }
 }
 
-type BoxedParser<'src, Err> = Boxed<
-    'src,
-    'src,
-    Stream<SpannedTokensCharsIntoIter<'src>>,
-    PropertyValue<'src>,
-    extra::Err<Err>,
->;
+type BoxedParser<'src, Err> =
+    Boxed<'src, 'src, Stream<SpannedTokensChars<'src>>, PropertyValue<'src>, extra::Err<Err>>;
 
 #[rustfmt::skip]
 #[derive(Clone)]
 pub struct PropertyValueParser<'src, Err>
 where
-    Err: Error<'src, Stream<SpannedTokensCharsIntoIter<'src>>> + 'src,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>> + 'src,
 {
     boolean:    BoxedParser<'src, Err>,
     date:       BoxedParser<'src, Err>,
@@ -186,16 +184,17 @@ where
 
 impl<'src, Err> PropertyValueParser<'src, Err>
 where
-    Err: Error<'src, Stream<SpannedTokensCharsIntoIter<'src>>>,
+    Err: Error<'src, Stream<SpannedTokensChars<'src>>>,
 {
+    #[rustfmt::skip]
     pub fn new() -> Self {
         Self {
-            boolean: property_value_boolean().boxed(),
-            date: property_value_date().boxed(),
-            duration: property_value_duration().boxed(),
-            float: property_value_float().boxed(),
-            integer: property_value_integer().boxed(),
-            time: property_value_time().boxed(),
+            boolean:    property_value_boolean().boxed(),
+            date:       property_value_date().boxed(),
+            duration:   property_value_duration().boxed(),
+            float:      property_value_float().boxed(),
+            integer:    property_value_integer().boxed(),
+            time:       property_value_time().boxed(),
             utc_offset: property_value_utc_offset().boxed(),
         }
     }
@@ -233,7 +232,7 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// binary     = *(4b-char) [b-end]
 /// ; A "BASE64" encoded character string, as defined by [RFC4648].
 ///
@@ -242,13 +241,15 @@ where
 /// b-char = ALPHA / DIGIT / "+" / "/"
 /// ```
 fn property_value_binary(tokens: SpannedTokens<'_>) -> PropertyValue<'_> {
-    // TODO: check is it a valid BASE64
+    // TODO: check is it a valid BASE64, this is easy to implement but currently
+    // we will have to collect the chars as fragmented tokens, which may cause bad
+    // performance.
     PropertyValue::Binary(tokens)
 }
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// boolean    = "TRUE" / "FALSE"
 /// ```
 fn property_value_boolean<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
@@ -299,7 +300,7 @@ pub enum PropertyValueDuration {
 #[allow(clippy::doc_link_with_quotes)]
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// dur-value  = (["+"] / "-") "P" (dur-date / dur-time / dur-week)
 ///
 /// dur-date   = dur-day [dur-time]
@@ -365,7 +366,7 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// date               = date-value
 ///
 /// date-value         = date-fullyear date-month date-mday
@@ -379,14 +380,14 @@ where
     I: ValueInput<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    let i16 = one_of("0123456789").map(|c: char| i16_or_default(to_digit10(c)));
+    let i16 = one_of("0123456789").map(|c: char| into_digit10::<i16>(c));
     let year = i16
         .then(i16)
         .then(i16)
         .then(i16)
         .map(|(((a, b), c), d)| 1000 * a + 100 * b + 10 * c + d);
 
-    let i8 = one_of("0123456789").map(|c: char| i8_or_default(to_digit10(c)));
+    let i8 = one_of("0123456789").map(|c: char| into_digit10::<i8>(c));
     let month = i8.then(i8).map(|(a, b)| 10 * a + b);
     let day = i8.then(i8).map(|(a, b)| 10 * a + b);
     year.then(month)
@@ -396,7 +397,7 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// float      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
 /// ```
 fn property_value_float<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
@@ -435,7 +436,7 @@ where
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// integer    = (["+"] / "-") 1*DIGIT
 /// ```
 fn property_value_integer<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
@@ -452,10 +453,10 @@ where
                 .at_most(10) // i32 max is 10 digits: 2_147_483_647
                 .collect::<String>(),
         )
-        .map(|(sign, digits)| {
+        .try_map_with(|(sign, digits), e| {
             let negative = matches!(sign, Some('-'));
             if negative && digits == "2147483648" {
-                PropertyValue::Integer(i32::MIN) // parsing will overflow
+                Ok(PropertyValue::Integer(i32::MIN)) // parsing will overflow
             } else {
                 let v = digits.parse::<i32>().unwrap(); // TODO: handle parse error
                 if negative {
@@ -473,13 +474,9 @@ where
     zero.or(positive)
 }
 
-// TODO: 3.3.9. Period of Time
-
-// TODO: 3.3.10. Recurrence Rule
-
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
 /// ; Folded according to description above
 ///
@@ -519,9 +516,11 @@ pub struct PropertyValueTime {
     pub utc: bool,
 }
 
+// TODO: 3.3.10. Recurrence Rule
+
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// time         = time-hour time-minute time-second [time-utc]
 ///
 /// time-hour    = 2DIGIT        ;00-23
@@ -539,20 +538,20 @@ where
     let time_hour = choice((
         one_of("01")
             .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b))),
+            .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
         one_of("2")
             .ignore_then(one_of("0123"))
-            .map(|b: char| i8_or_default(20 + to_digit10(b))),
+            .map(|b: char| 20 + into_digit10::<i8>(b)),
     ));
 
     let time_minute = one_of("012345")
         .then(one_of("0123456789"))
-        .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b)));
+        .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b));
 
     let time_second = choice((
         one_of("012345")
             .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b))),
+            .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
         just('6').ignore_then(just("0").ignored().map(|()| 59)), // We contract leap second 60 to 59 for simplicity
     ));
 
@@ -572,22 +571,22 @@ where
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PropertyValueUtcOffset {
-    /// true if positive offset, false if negative
+    /// Whether the offset is positive
     pub positive: bool,
 
-    /// 0-23
+    /// Hour, 0-23
     pub hour: i8,
 
-    /// 0-59
+    /// Minute, 0-59
     pub minute: i8,
 
-    /// 0-60, optional
+    /// Second, 0-60, optional
     pub second: i8,
 }
 
 /// Format Definition:  This value type is defined by the following notation:
 ///
-/// ```text
+/// ```txt
 /// utc-offset = time-numzone
 ///
 /// time-numzone = ("+" / "-") time-hour time-minute [time-second]
@@ -600,20 +599,20 @@ where
     let time_hour = choice((
         one_of("01")
             .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b))),
+            .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
         one_of("2")
             .ignore_then(one_of("0123"))
-            .map(|b: char| i8_or_default(20 + to_digit10(b))),
+            .map(|b: char| 20 + into_digit10::<i8>(b)),
     ));
 
     let time_minute = one_of("012345")
         .then(one_of("0123456789"))
-        .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b)));
+        .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b));
 
     let time_second = choice((
         one_of("012345")
             .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| i8_or_default(10 * to_digit10(a) + to_digit10(b))), // safe unwrap and convert
+            .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)), // safe unwrap and convert
         just('6').ignore_then(just("0").ignored().map(|()| 59)), // We contract leap second 60 to 59 for simplicity
     ));
 
@@ -631,16 +630,10 @@ where
         })
 }
 
-fn i16_or_default(i: u32) -> i16 {
-    i16::try_from(i).unwrap_or_default()
-}
-
-fn i8_or_default(i: u32) -> i8 {
-    i8::try_from(i).unwrap_or_default()
-}
-
-fn to_digit10(c: char) -> u32 {
-    c.to_digit(10).unwrap_or_default()
+#[inline]
+fn into_digit10<I: TryFrom<u32> + Default>(c: char) -> I {
+    let i = c.to_digit(10).unwrap_or_default();
+    I::try_from(i).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -712,6 +705,55 @@ mod tests {
             "P3DT4H5M6",   // missing 'S' designator
             "3W",          // missing 'P' designator
             "P10H11M12S3", // missing 'T' designator
+        ];
+        for src in fail_cases {
+            assert!(parse(src).is_err(), "Parse {src} should fail");
+        }
+    }
+
+    #[test]
+    fn test_float() {
+        fn parse<'tokens, 'src: 'tokens>(
+            src: &'src str,
+        ) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
+            let stream = Stream::from_iter(src.chars());
+            property_value_float::<'_, _, extra::Err<_>>()
+                .parse(stream)
+                .into_result()
+        }
+
+        #[rustfmt::skip]
+        let success_cases = [
+            // Examples from RFC 5545 Section 3.3.7
+            ("1000000.0000001", 1000000.0000001),
+            ("1.333", 1.333),
+            ("-3.14", -3.14),
+            // extra tests
+            ("123.456", 123.456),
+            ("-987.654", -987.654),
+            ("+0.001", 0.001),
+            ("42", 42.0),
+            ("+3.14", 3.14),
+            ("-0.0", -0.0),
+            ("0", 0.0),
+            ("+0", 0.0),
+            ("-1234567890.0987654321", -1234567890.0987654321),
+        ];
+        for (src, expected) in success_cases {
+            match parse(src) {
+                Ok(PropertyValue::Float(f)) => assert_eq!(f, expected),
+                e => panic!("Expected Ok(PropertyValue::Float({expected})), got {e:?}"),
+            }
+        }
+
+        let fail_cases = [
+            "nan",      // RFC5545 does not allow non-numeric values
+            "infinity", // RFC5545 does not allow non-numeric values
+            "+.",       // missing digits
+            "-.",       // missing digits
+            ".",        // missing digits
+            "",         // empty string
+            "12a34",    // invalid character
         ];
         for src in fail_cases {
             assert!(parse(src).is_err(), "Parse {src} should fail");

@@ -11,13 +11,13 @@ use std::str::Chars;
 use chumsky::input::{Input, MapExtra};
 use chumsky::span::SimpleSpan;
 use chumsky::{container::Container, extra::ParserExtra};
-use logos::Logos;
+use logos::{Lexer, Logos};
 
-pub fn lex(src: &'_ str) -> logos::Lexer<'_, Token<'_>> {
+pub fn lex(src: &'_ str) -> Lexer<'_, Token<'_>> {
     Token::lexer(src)
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, logos::Logos)]
+#[derive(PartialEq, Eq, Clone, Copy, Logos)]
 #[logos(skip r#"\r\n[ \t]"#)] // skip folding
 pub enum Token<'a> {
     /// Double Quote ("), decimal codepoint 22
@@ -127,8 +127,8 @@ impl<'src> SpannedTokens<'src> {
         self.0.into_iter()
     }
 
-    pub(crate) fn into_iter_chars<'segs: 'src>(self) -> SpannedTokensCharsIntoIter<'src> {
-        SpannedTokensCharsIntoIter {
+    pub(crate) fn into_iter_chars<'segs: 'src>(self) -> SpannedTokensChars<'src> {
+        SpannedTokensChars {
             segments: self.0,
             seg_idx: 0,
             chars: None,
@@ -178,13 +178,14 @@ impl Display for SpannedTokens<'_> {
     }
 }
 
-pub struct SpannedTokensCharsIntoIter<'src> {
+#[derive(Debug, Clone)]
+pub struct SpannedTokensChars<'src> {
     segments: Vec<SpannedToken<'src>>,
     seg_idx: usize,
     chars: Option<Chars<'src>>,
 }
 
-impl Iterator for SpannedTokensCharsIntoIter<'_> {
+impl Iterator for SpannedTokensChars<'_> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -198,15 +199,15 @@ impl Iterator for SpannedTokensCharsIntoIter<'_> {
                     }
                 },
                 None => {
-                    let seg = self.segments.get(self.seg_idx).unwrap();
-                    match &seg.0 {
+                    let token = self.segments.get(self.seg_idx).unwrap().0; // safe due to while condition
+                    match &token {
                         Token::DQuote
                         | Token::Comma
                         | Token::Colon
                         | Token::Semicolon
                         | Token::Equal => {
                             self.seg_idx += 1;
-                            return Some(match &seg.0 {
+                            return Some(match &token {
                                 Token::DQuote => '"',
                                 Token::Comma => ',',
                                 Token::Colon => ':',
