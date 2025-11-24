@@ -7,6 +7,7 @@
 use chumsky::DefaultExpected;
 use chumsky::error::Error;
 use chumsky::extra::ParserExtra;
+use chumsky::input::ValueInput;
 use chumsky::inspector::Inspector;
 use chumsky::prelude::*;
 
@@ -16,15 +17,16 @@ use crate::lexer::{SpannedToken, SpannedTokens, Token};
 /// Parse raw iCalendar components from token stream
 ///
 /// ## Errors
-/// If there are parsing errors, a vector of rich errors will be returned.
-#[must_use]
-pub fn syntax_analysis<'tokens, 'src: 'tokens, I, Err>()
--> impl Parser<'tokens, I, Vec<RawComponent<'src>>, extra::Err<Err>>
+/// If there are parsing errors, a vector of errors will be returned.
+pub fn syntax_analysis<'tokens, 'src: 'tokens, I, Err>(
+    token_stream: I,
+) -> Result<Vec<RawComponent<'src>>, Vec<Err>>
 where
-    I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
+    I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
     Err: Error<'tokens, I> + 'tokens,
 {
-    component().repeated().at_least(1).collect()
+    let parser = component().repeated().at_least(1).collect();
+    parser.parse(token_stream).into_result()
 }
 
 #[derive(Debug, Clone)]
@@ -174,8 +176,8 @@ where
             .collect(),
         )
         .then_ignore(just(Token::DQuote))
-        .map(|s| RawParameterValue {
-            value: s,
+        .map(|value| RawParameterValue {
+            value,
             quoted: true,
         });
 
@@ -191,8 +193,8 @@ where
     .map_with(SpannedToken::from_map_extra)
     .repeated()
     .collect()
-    .map(|s| RawParameterValue {
-        value: s,
+    .map(|value| RawParameterValue {
+        value,
         quoted: false,
     });
 
@@ -255,25 +257,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use chumsky::input::Stream;
-
-    use crate::lexer::lex;
+    use crate::lexer::lex_analysis;
 
     use super::*;
 
     #[test]
     fn test_component() {
         fn parse(src: &str) -> Result<&str, Vec<Rich<'_, Token<'_>>>> {
-            let lexer = lex(src).spanned().map(|(token, span)| match token {
-                Ok(tok) => (tok, span.into()),
-                Err(()) => panic!("lex error"),
-            });
-
-            let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
-
             begin::<'_, '_, _, extra::Err<_>>()
                 .ignore_with_ctx(end())
-                .parse(token_stream)
+                .parse(lex_analysis(src))
                 .into_result()
         }
 
@@ -303,16 +296,9 @@ END:VEVENT\r\n\
     #[test]
     fn test_begin_end_match() {
         fn parse(src: &str) -> Result<&str, Vec<Rich<'_, Token<'_>>>> {
-            let lexer = lex(src).spanned().map(|(token, span)| match token {
-                Ok(tok) => (tok, span.into()),
-                Err(()) => panic!("lex error"),
-            });
-
-            let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
-
             begin::<'_, '_, _, extra::Err<_>>()
                 .ignore_with_ctx(end())
-                .parse(token_stream)
+                .parse(lex_analysis(src))
                 .into_result()
         }
 
@@ -341,15 +327,8 @@ END:VEVENT\r\n\
         fn parse<'tokens, 'src: 'tokens>(
             src: &'src str,
         ) -> Result<RawProperty<'src>, Vec<Rich<'src, Token<'tokens>>>> {
-            let lexer = lex(src).spanned().map(|(token, span)| match token {
-                Ok(tok) => (tok, span.into()),
-                Err(()) => panic!("lex error"),
-            });
-
-            let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
-
             property::<'_, '_, _, extra::Err<_>>()
-                .parse(token_stream)
+                .parse(lex_analysis(src))
                 .into_result()
         }
 
@@ -395,15 +374,8 @@ END:VEVENT\r\n\
     #[test]
     fn test_param() {
         fn parse(src: &str) -> Result<RawParameter<'_>, Vec<Rich<'_, Token<'_>>>> {
-            let lexer = lex(src).spanned().map(|(token, span)| match token {
-                Ok(tok) => (tok, span.into()),
-                Err(()) => panic!("lex error"),
-            });
-
-            let token_stream = Stream::from_iter(lexer).map((0..src.len()).into(), |(t, s)| (t, s));
-
             parameter::<'_, '_, _, extra::Err<_>>()
-                .parse(token_stream)
+                .parse(lex_analysis(src))
                 .into_result()
         }
 

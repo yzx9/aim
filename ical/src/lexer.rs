@@ -8,13 +8,29 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Range;
 use std::str::Chars;
 
-use chumsky::input::{Input, MapExtra};
-use chumsky::span::SimpleSpan;
-use chumsky::{container::Container, extra::ParserExtra};
-use logos::{Lexer, Logos};
+use chumsky::input::{Input, MapExtra, Stream, ValueInput};
+use chumsky::{container::Container, extra::ParserExtra, span::SimpleSpan};
+use logos::Logos;
 
-pub fn lex(src: &'_ str) -> Lexer<'_, Token<'_>> {
-    Token::lexer(src)
+/// Create a lexer for iCalendar source code
+pub fn lex_analysis(src: &'_ str) -> impl ValueInput<'_, Token = Token<'_>, Span = SimpleSpan> {
+    // Create a logos lexer over the source code
+    let token_iter = Token::lexer(src)
+        .spanned()
+        // Convert logos errors into tokens. We want parsing to be recoverable and not fail at the lexing stage, so
+        // we have a dedicated `Token::Error` variant that represents a token error that was previously encountered
+        .map(|(tok, span)| match tok {
+            // Turn the `Range<usize>` spans logos gives us into chumsky's `SimpleSpan` via `Into`, because it's easier
+            // to work with
+            Ok(tok) => (tok, span.into()),
+            Err(()) => (Token::Error, span.into()),
+        });
+
+    // Turn the token iterator into a stream that chumsky can use for things like backtracking
+    Stream::from_iter(token_iter)
+        // Tell chumsky to split the (Token, SimpleSpan) stream into its parts so that it can handle the spans for us
+        // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
+        .map((0..src.len()).into(), |(t, s): (_, _)| (t, s))
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Logos)]
@@ -69,6 +85,9 @@ pub enum Token<'a> {
     ///    ; UTF8-2, UTF8-3, and UTF8-4 are defined in [RFC3629]
     #[regex(r#"[^\x00-\x7F]+"#)]
     UnicodeText(&'a str),
+
+    /// Error token for lexing errors
+    Error,
 }
 
 impl Display for Token<'_> {
@@ -88,6 +107,7 @@ impl Display for Token<'_> {
             Self::Escape(s) => write!(f, "Escape({s})"),
             Self::Word(s) => write!(f, "Word({s})"),
             Self::UnicodeText(s) => write!(f, "UnicodeText({s})"),
+            Self::Error => write!(f, "Error"),
         }
     }
 }
@@ -100,7 +120,7 @@ impl Debug for Token<'_> {
 
 pub type Span = Range<usize>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpannedToken<'src>(pub Token<'src>, pub Span);
 
 impl<'src> SpannedToken<'src> {
@@ -119,10 +139,20 @@ impl<'src> SpannedToken<'src> {
     }
 }
 
+impl Display for SpannedToken<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}@{:?}", self.0, self.1)
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct SpannedTokens<'src>(Vec<SpannedToken<'src>>);
 
 impl<'src> SpannedTokens<'src> {
+    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, SpannedToken<'src>> {
+        self.0.iter()
+    }
+
     pub fn into_iter(self) -> std::vec::IntoIter<SpannedToken<'src>> {
         self.0.into_iter()
     }
@@ -169,9 +199,8 @@ impl Display for SpannedTokens<'_> {
                 | Token::Symbol(s)
                 | Token::Escape(s)
                 | Token::Word(s)
-                | Token::UnicodeText(s) => {
-                    write!(f, "{s}")?;
-                }
+                | Token::UnicodeText(s) => write!(f, "{s}")?,
+                Token::Error => write!(f, "<ERROR>")?,
             }
         }
         Ok(())
@@ -226,6 +255,9 @@ impl Iterator for SpannedTokensChars<'_> {
                         | Token::UnicodeText(s) => {
                             self.chars = Some(s.chars());
                         }
+                        Token::Error => {
+                            self.seg_idx += 1; // 
+                        }
                     }
                 }
             }
@@ -240,20 +272,6 @@ mod tests {
     use super::Token::*;
     use super::*;
 
-    #[test]
-    fn test_folding() {
-        let src = "\r\n \r\n\t\r \n \r\n";
-        let expected = [
-            Control("\r"),
-            Symbol(" "),
-            Control("\n"),
-            Symbol(" "),
-            Newline,
-        ];
-        let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
-        assert_eq!(tokens, expected);
-    }
-
     macro_rules! test_ascii_range {
         ($name:ident, $range:expr, $token:ident, $single_char:expr) => {
             #[test]
@@ -261,12 +279,12 @@ mod tests {
                 for i in $range {
                     let c = u8::try_from(i).unwrap_or_default() as char;
                     let src = c.to_string();
-                    let mut lexer = lex(&src);
+                    let mut lexer = Token::lexer(&src);
                     assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:02X}",);
                     assert_eq!(lexer.next(), None, "U+{i:02X}");
 
                     let src2 = format!("{c}{c}");
-                    let mut lexer = lex(&src2);
+                    let mut lexer = Token::lexer(&src2);
                     if $single_char {
                         // Ensure it does not match as part of a longer token
                         assert_eq!(lexer.next(), Some(Ok(Token::$token(&src))), "U+{i:02X}");
@@ -304,6 +322,11 @@ mod tests {
     test_ascii_range!(test_ascii_chars_7b_7e, 0x7B..=0x7E, Symbol, true);
     test_ascii_range!(test_ascii_chars_7f_7f, 0x7F..=0x7F, Control, true);
 
+    fn test_tokenize(src: &str, expected: &[Token]) {
+        let tokens: Vec<_> = Token::lexer(src).map(|t| t.unwrap()).collect();
+        assert_eq!(tokens, expected);
+    }
+
     #[test]
     fn test_ascii_chars_special() {
         let src = r#";:=,"\_"#;
@@ -316,8 +339,20 @@ mod tests {
             Symbol(r"\"),
             Word("_"),
         ];
-        let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
-        assert_eq!(tokens, expected);
+        test_tokenize(src, &expected);
+    }
+
+    #[test]
+    fn test_folding() {
+        let src = "\r\n \r\n\t\r \n \r\n";
+        let expected = [
+            Control("\r"),
+            Symbol(" "),
+            Control("\n"),
+            Symbol(" "),
+            Newline,
+        ];
+        test_tokenize(src, &expected);
     }
 
     #[test]
@@ -332,8 +367,7 @@ mod tests {
             Symbol(r"\"),
             Word("r"),
         ];
-        let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
-        assert_eq!(tokens, expected);
+        test_tokenize(src, &expected);
     }
 
     #[test]
@@ -348,8 +382,7 @@ mod tests {
             Word("Hello"),
             UnicodeText("世界"),
         ];
-        let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
-        assert_eq!(tokens, expected);
+        test_tokenize(src, &expected);
     }
 
     #[test]
@@ -367,7 +400,6 @@ mod tests {
             Symbol(" "),
             Word("folding"),
         ];
-        let tokens: Vec<_> = lex(src).map(|t| t.unwrap()).collect();
-        assert_eq!(tokens, expected);
+        test_tokenize(src, &expected);
     }
 }
