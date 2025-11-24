@@ -28,7 +28,7 @@ static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = Lazy
 /// Perform typed analysis on raw components, returning typed components or errors.
 ///
 /// ## Errors
-/// If there are typing errors, a vector of rich errors will be returned.
+/// If there are typing errors, a vector of errors will be returned.
 pub fn typed_analysis<'src, Err>(
     components: Vec<RawComponent<'src>>,
 ) -> Result<Vec<TypedComponent<'src>>, Vec<Err>>

@@ -729,8 +729,6 @@ fn into_digit10<I: TryFrom<u32> + Default>(c: char) -> I {
 mod tests {
     use chumsky::input::Stream;
 
-    use crate::lexer::lex;
-
     use super::*;
 
     #[test]
@@ -826,7 +824,7 @@ mod tests {
             ("-0.0", -0.0),
             ("0", 0.0),
             ("+0", 0.0),
-            ("-1234567890.0987654321", -1_234_567_890.098_765_4),
+            ("-1234567890.0987654321", -1_234_567_890.098_765_4), // precision limit, last digit rounded
         ];
         for (src, expected) in success_cases {
             match parse(src) {
@@ -905,12 +903,14 @@ mod tests {
 
     #[test]
     fn test_text() {
+        use logos::Logos;
+
         fn parse(src: &'_ str) -> PropertyValue<'_> {
-            let tokens = lex(src)
+            let tokens = Token::lexer(src)
                 .spanned()
-                .map(|(token, span)| match token {
+                .map(|(tok, span)| match tok {
                     Ok(tok) => SpannedToken(tok, span),
-                    Err(()) => panic!("lex error"),
+                    Err(()) => panic!("Lexing error in text: {}", &src[span.start..span.end]),
                 })
                 .collect();
 
