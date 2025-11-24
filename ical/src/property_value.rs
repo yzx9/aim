@@ -10,7 +10,6 @@ use std::str::FromStr;
 
 use chumsky::error::{Error, RichPattern};
 use chumsky::extra::ParserExtra;
-use chumsky::input::ValueInput;
 use chumsky::label::LabelError;
 use chumsky::prelude::*;
 use chumsky::{Parser, input::Stream};
@@ -273,7 +272,7 @@ fn property_value_binary(tokens: SpannedTokens<'_>) -> PropertyValue<'_> {
 /// ```
 fn property_value_boolean<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
-    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
     // case-sensitive
@@ -282,7 +281,7 @@ where
         .ignore_then(just('U'))
         .ignore_then(just('E'))
         .ignored()
-        .map(|()| PropertyValue::Boolean(true));
+        .to(PropertyValue::Boolean(true));
 
     let f = just('F')
         .ignore_then(just('A'))
@@ -290,7 +289,7 @@ where
         .ignore_then(just('S'))
         .ignore_then(just('E'))
         .ignored()
-        .map(|()| PropertyValue::Boolean(false));
+        .to(PropertyValue::Boolean(false));
 
     choice((t, f))
 }
@@ -332,11 +331,11 @@ pub enum PropertyValueDuration {
 #[allow(clippy::doc_link_with_quotes)]
 fn property_value_duration<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
-    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
     // case-sensitive
-    let int = one_of("0123456789")
+    let int = select! { c @ '0'..='9' => c }
         .repeated()
         .at_least(1)
         .at_most(10) // u32 max is 10 digits: 4_294_967_295
@@ -353,8 +352,8 @@ where
     let day = int.then_ignore(just('D'));
     let date = day.then(time.or_not());
 
-    let sign = one_of("+-").or_not().map(|sign| !matches!(sign, Some('-')));
-    let prefix = sign.then_ignore(just("P"));
+    let sign = sign().or_not().map(|sign| !matches!(sign, Some('-')));
+    let prefix = sign.then_ignore(just('P'));
     choice((
         prefix.then(date).map(|(positive, (day, time))| {
             let hour = time.map_or(0, |t| t.0);
@@ -396,17 +395,17 @@ where
 /// ```
 fn property_value_date<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
-    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    let i16 = one_of("0123456789").map(|c: char| into_digit10::<i16>(c));
+    let i16 = select! { c @ '0'..='9' => c }.map(into_digit10::<i16>);
     let year = i16
         .then(i16)
         .then(i16)
         .then(i16)
         .map(|(((a, b), c), d)| 1000 * a + 100 * b + 10 * c + d);
 
-    let i8 = one_of("0123456789").map(|c: char| into_digit10::<i8>(c));
+    let i8 = select! { c @ '0'..='9' => c }.map(into_digit10::<i8>);
     let month = i8.then(i8).map(|(a, b)| 10 * a + b);
     let day = i8.then(i8).map(|(a, b)| 10 * a + b);
     year.then(month)
@@ -421,12 +420,12 @@ where
 /// ```
 fn property_value_float<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
-    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
     E::Error: LabelError<'src, I, PropertyValueExpected>,
 {
-    let sign = one_of("+-").or_not();
-    let integer_part = one_of("0123456789")
+    let sign = sign().or_not();
+    let integer_part = select! { c @ '0'..='9' => c }
         .repeated()
         .at_least(1)
         .collect::<String>();
@@ -478,14 +477,14 @@ where
 /// ```
 fn property_value_integer<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
-    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
     E::Error: LabelError<'src, I, PropertyValueExpected>,
 {
-    one_of("+-")
+    sign()
         .or_not()
         .then(
-            one_of("0123456789")
+            select! { c @ '0'..='9' => c }
                 .repeated()
                 .at_least(1)
                 .collect::<String>(),
@@ -572,32 +571,12 @@ pub struct PropertyValueTime {
 /// ```
 fn property_value_time<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
-    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    let time_hour = choice((
-        one_of("01")
-            .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
-        one_of("2")
-            .ignore_then(one_of("0123"))
-            .map(|b: char| 20 + into_digit10::<i8>(b)),
-    ));
-
-    let time_minute = one_of("012345")
-        .then(one_of("0123456789"))
-        .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b));
-
-    let time_second = choice((
-        one_of("012345")
-            .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
-        just('6').ignore_then(just("0").ignored().map(|()| 59)), // We contract leap second 60 to 59 for simplicity
-    ));
-
-    time_hour
-        .then(time_minute)
-        .then(time_second)
+    time_hour()
+        .then(time_minute())
+        .then(time_second())
         .then(just('Z').or_not())
         .map(|(((hour, minute), second), utc)| {
             PropertyValue::Time(PropertyValueTime {
@@ -633,33 +612,13 @@ pub struct PropertyValueUtcOffset {
 /// ```
 fn property_value_utc_offset<'src, I, E>() -> impl Parser<'src, I, PropertyValue<'src>, E>
 where
-    I: ValueInput<'src, Token = char, Span = SimpleSpan>,
+    I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    let time_hour = choice((
-        one_of("01")
-            .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
-        one_of("2")
-            .ignore_then(one_of("0123"))
-            .map(|b: char| 20 + into_digit10::<i8>(b)),
-    ));
-
-    let time_minute = one_of("012345")
-        .then(one_of("0123456789"))
-        .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b));
-
-    let time_second = choice((
-        one_of("012345")
-            .then(one_of("0123456789"))
-            .map(|(a, b): (char, char)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)), // safe unwrap and convert
-        just('6').ignore_then(just("0").ignored().map(|()| 59)), // We contract leap second 60 to 59 for simplicity
-    ));
-
-    one_of("+-")
-        .then(time_hour)
-        .then(time_minute)
-        .then(time_second.or_not())
+    sign()
+        .then(time_hour())
+        .then(time_minute())
+        .then(time_second().or_not())
         .map(|(((sign, hour), minute), second)| {
             PropertyValue::UtcOffset(PropertyValueUtcOffset {
                 positive: !matches!(sign, '-'),
@@ -670,7 +629,53 @@ where
         })
 }
 
-#[inline]
+const fn sign<'src, I, E>() -> impl Parser<'src, I, char, E> + Copy
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    select! { '+' => '+', '-' => '-' }
+}
+
+fn time_hour<'src, I, E>() -> impl Parser<'src, I, i8, E> + Copy
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    choice((
+        select! { c @ '0'..='1' => c }
+            .then(select! { c @ '0'..='9' => c })
+            .map(|(a, b)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
+        just('2')
+            .ignore_then(select! { c @ '0'..='3' => c })
+            .map(|b| 20 + into_digit10::<i8>(b)),
+    ))
+}
+
+fn time_minute<'src, I, E>() -> impl Parser<'src, I, i8, E> + Copy
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    select! { c @ '0'..='5' => c }
+        .then(select! { c @ '0'..='9' => c })
+        .map(|(a, b)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b))
+}
+
+fn time_second<'src, I, E>() -> impl Parser<'src, I, i8, E> + Copy
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    choice((
+        select! { c @ '0'..='5' => c }
+            .then(select! { c @ '0'..='9' => c })
+            .map(|(a, b)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
+        // NOTE: We contract leap second 60 to 59 for simplicity
+        just('6').ignore_then(just('0').ignored().to(59)),
+    ))
+}
+
 fn into_digit10<I: TryFrom<u32> + Default>(c: char) -> I {
     let i = c.to_digit(10).unwrap_or_default();
     I::try_from(i).unwrap_or_default()
