@@ -272,10 +272,10 @@ mod tests {
     use super::Token::*;
     use super::*;
 
-    macro_rules! test_ascii_range {
-        ($name:ident, $range:expr, $token:ident, $single_char:expr) => {
-            #[test]
-            fn $name() {
+    #[test]
+    fn test_ascii() {
+        macro_rules! test_ascii_range {
+            ($name:ident, $range:expr, $token:ident, $single_char:expr) => {
                 for i in $range {
                     let c = u8::try_from(i).unwrap_or_default() as char;
                     let src = c.to_string();
@@ -294,33 +294,33 @@ mod tests {
                     }
                     assert_eq!(lexer.next(), None, "U+{i:02X}");
                 }
-            }
-        };
-    }
+            };
+        }
 
-    test_ascii_range!(test_ascii_chars_00_08, 0x00..=0x08, Control, true);
-    test_ascii_range!(test_ascii_chars_09_09, 0x09..=0x09, Symbol, true);
-    test_ascii_range!(test_ascii_chars_0a_1f, 0x0A..=0x1F, Control, true);
-    test_ascii_range!(test_ascii_chars_20_21, 0x20..=0x21, Symbol, true);
-    // 0x22 is Quote
-    test_ascii_range!(test_ascii_chars_23_2b, 0x23..=0x2B, Symbol, true);
-    // 0x2C is Comma
-    test_ascii_range!(test_ascii_chars_2e_2f, 0x2E..=0x2F, Symbol, true);
-    test_ascii_range!(test_ascii_chars_30_39, 0x30..=0x39, Word, false);
-    // 0x3A is Colon
-    // 0x3B is Semi
-    test_ascii_range!(test_ascii_chars_3c_3c, 0x3C..=0x3C, Symbol, true);
-    // 0x3D is Eq
-    test_ascii_range!(test_ascii_chars_3e_40, 0x3E..=0x40, Symbol, true);
-    test_ascii_range!(test_ascii_chars_41_5a, 0x41..=0x5A, Word, false);
-    test_ascii_range!(test_ascii_chars_5b_5b, 0x5B..=0x5B, Symbol, true);
-    // 0x5C is Backslash, double backslash is Escape
-    test_ascii_range!(test_ascii_chars_5d_5e, 0x5D..=0x5E, Symbol, true);
-    // 0x5F is Underscore, part of word
-    test_ascii_range!(test_ascii_chars_60_60, 0x60..=0x60, Symbol, true);
-    test_ascii_range!(test_ascii_chars_61_7a, 0x61..=0x7A, Word, false);
-    test_ascii_range!(test_ascii_chars_7b_7e, 0x7B..=0x7E, Symbol, true);
-    test_ascii_range!(test_ascii_chars_7f_7f, 0x7F..=0x7F, Control, true);
+        test_ascii_range!(test_ascii_chars_00_08, 0x00..=0x08, Control, true);
+        test_ascii_range!(test_ascii_chars_09_09, 0x09..=0x09, Symbol, true);
+        test_ascii_range!(test_ascii_chars_0a_1f, 0x0A..=0x1F, Control, true);
+        test_ascii_range!(test_ascii_chars_20_21, 0x20..=0x21, Symbol, true);
+        // 0x22 is Quote
+        test_ascii_range!(test_ascii_chars_23_2b, 0x23..=0x2B, Symbol, true);
+        // 0x2C is Comma
+        test_ascii_range!(test_ascii_chars_2e_2f, 0x2E..=0x2F, Symbol, true);
+        test_ascii_range!(test_ascii_chars_30_39, 0x30..=0x39, Word, false);
+        // 0x3A is Colon
+        // 0x3B is Semi
+        test_ascii_range!(test_ascii_chars_3c_3c, 0x3C..=0x3C, Symbol, true);
+        // 0x3D is Eq
+        test_ascii_range!(test_ascii_chars_3e_40, 0x3E..=0x40, Symbol, true);
+        test_ascii_range!(test_ascii_chars_41_5a, 0x41..=0x5A, Word, false);
+        test_ascii_range!(test_ascii_chars_5b_5b, 0x5B..=0x5B, Symbol, true);
+        // 0x5C is Backslash, double backslash is Escape
+        test_ascii_range!(test_ascii_chars_5d_5e, 0x5D..=0x5E, Symbol, true);
+        // 0x5F is Underscore, part of word
+        test_ascii_range!(test_ascii_chars_60_60, 0x60..=0x60, Symbol, true);
+        test_ascii_range!(test_ascii_chars_61_7a, 0x61..=0x7A, Word, false);
+        test_ascii_range!(test_ascii_chars_7b_7e, 0x7B..=0x7E, Symbol, true);
+        test_ascii_range!(test_ascii_chars_7f_7f, 0x7F..=0x7F, Control, true);
+    }
 
     fn test_tokenize(src: &str, expected: &[Token]) {
         let tokens: Vec<_> = Token::lexer(src).map(|t| t.unwrap()).collect();
@@ -328,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ascii_chars_special() {
+    fn test_ascii_special() {
         let src = r#";:=,"\_"#;
         let expected = [
             Semicolon,
