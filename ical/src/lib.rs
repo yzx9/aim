@@ -34,4 +34,4 @@ mod property_value;
 mod syntax;
 mod typed;
 
-pub use crate::parser::parse;
+pub use crate::parser::{ParseError, parse};
