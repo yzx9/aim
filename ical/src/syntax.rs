@@ -4,7 +4,11 @@
 
 //! Parser for iCalendar syntax as defined in RFC 5545, built on top of the lexer, no type.
 
+use std::borrow::Cow;
+use std::str::Chars;
+
 use chumsky::DefaultExpected;
+use chumsky::container::Container;
 use chumsky::error::Error;
 use chumsky::extra::ParserExtra;
 use chumsky::input::ValueInput;
@@ -12,28 +16,65 @@ use chumsky::inspector::Inspector;
 use chumsky::prelude::*;
 
 use crate::keyword::{KW_BEGIN, KW_END};
-use crate::lexer::{SpannedToken, SpannedTokens, Token};
+use crate::lexer::{Span, SpannedToken, Token};
 
 /// Parse raw iCalendar components from token stream
 ///
 /// ## Errors
 /// If there are parsing errors, a vector of errors will be returned.
 pub fn syntax_analysis<'tokens, 'src: 'tokens, I, Err>(
+    src: &'src str,
     token_stream: I,
-) -> Result<Vec<RawComponent<'src>>, Vec<Err>>
+) -> Result<Vec<SyntaxComponent<'src>>, Vec<Err>>
 where
     I: ValueInput<'tokens, Token = Token<'src>, Span = SimpleSpan>,
     Err: Error<'tokens, I> + 'tokens,
 {
-    let parser = component().repeated().at_least(1).collect();
-    parser.parse(token_stream).into_result()
+    let parser = component().repeated().at_least(1).collect::<Vec<_>>();
+    let components = parser.parse(token_stream).into_result()?;
+    Ok(components.into_iter().map(|comp| comp.build(src)).collect())
 }
 
 #[derive(Debug, Clone)]
-pub struct RawComponent<'src> {
+pub struct SyntaxComponent<'src> {
     pub name: &'src str, // "VCALENDAR" / "VEVENT" / "VTIMEZONE" / "VALARM" / ...
-    pub properties: Vec<RawProperty<'src>>, // Keep the original order
+    pub properties: Vec<SyntaxProperty<'src>>, // Keep the original order
+    pub children: Vec<SyntaxComponent<'src>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SyntaxProperty<'src> {
+    pub name: SpannedSegments<'src>, // Case insensitive, keep original for writing back
+    pub params: Vec<SyntaxParameter<'src>>, // Allow duplicates & multi-values
+    pub value: SpannedSegments<'src>, // Raw value, may need further parsing
+}
+
+#[derive(Debug, Clone)]
+pub struct SyntaxParameter<'src> {
+    pub name: SpannedSegments<'src>, // e.g. "TZID", "VALUE", "CN", "ROLE", "PARTSTAT"
+    pub values: Vec<SyntaxParameterValue<'src>>, // Split by commas
+}
+
+#[derive(Debug, Clone)]
+pub struct SyntaxParameterValue<'src> {
+    pub value: SpannedSegments<'src>,
+    pub quoted: bool,
+}
+
+struct RawComponent<'src> {
+    pub name: &'src str,
+    pub properties: Vec<RawProperty>,
     pub children: Vec<RawComponent<'src>>,
+}
+
+impl<'src> RawComponent<'src> {
+    fn build(self, src: &'src str) -> SyntaxComponent<'src> {
+        SyntaxComponent {
+            name: self.name,
+            properties: self.properties.into_iter().map(|p| p.build(src)).collect(),
+            children: self.children.into_iter().map(|c| c.build(src)).collect(),
+        }
+    }
 }
 
 fn component<'tokens, 'src: 'tokens, I, Err>()
@@ -94,14 +135,23 @@ where
         .then_ignore(just(Token::Newline).or_not())
 }
 
-#[derive(Debug, Clone)]
-pub struct RawProperty<'src> {
-    pub name: SpannedTokens<'src>, // Case insensitive, keep original for writing back
-    pub params: Vec<RawParameter<'src>>, // Allow duplicates & multi-values
-    pub value: Vec<SpannedTokens<'src>>, // Textual value (untyped)
+struct RawProperty {
+    name: SpanCollector,
+    params: Vec<RawParameter>,
+    value: SpanCollector,
 }
 
-fn property<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, RawProperty<'src>, E> + Clone
+impl RawProperty {
+    fn build(self, src: &'_ str) -> SyntaxProperty<'_> {
+        SyntaxProperty {
+            name: self.name.build(src),
+            params: self.params.into_iter().map(|p| p.build(src)).collect(),
+            value: self.value.build(src),
+        }
+    }
+}
+
+fn property<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, RawProperty, E> + Clone
 where
     I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
     E: ParserExtra<'tokens, I>,
@@ -119,11 +169,9 @@ where
         .repeated()
         .collect();
 
-    let values = value().separated_by(just(Token::Comma)).collect();
-
     name.then(params)
         .then_ignore(just(Token::Colon))
-        .then(values)
+        .then(value())
         .then_ignore(just(Token::Newline))
         .map(|((name, params), value)| RawProperty {
             name,
@@ -132,20 +180,35 @@ where
         })
 }
 
-#[derive(Debug, Clone)]
-pub struct RawParameter<'src> {
-    pub name: SpannedTokens<'src>, // e.g. "TZID", "VALUE", "CN", "ROLE", "PARTSTAT"
-    pub values: Vec<RawParameterValue<'src>>, // Split by commas
+struct RawParameter {
+    pub name: SpanCollector,
+    pub values: Vec<RawParameterValue>,
 }
 
-#[derive(Debug, Clone)]
-pub struct RawParameterValue<'src> {
-    pub value: SpannedTokens<'src>,
+impl RawParameter {
+    fn build(self, src: &'_ str) -> SyntaxParameter<'_> {
+        SyntaxParameter {
+            name: self.name.build(src),
+            values: self.values.into_iter().map(|v| v.build(src)).collect(),
+        }
+    }
+}
+
+struct RawParameterValue {
+    pub value: SpanCollector,
     pub quoted: bool,
 }
 
-fn parameter<'tokens, 'src: 'tokens, I, E>()
--> impl Parser<'tokens, I, RawParameter<'src>, E> + Clone
+impl RawParameterValue {
+    fn build(self, src: &'_ str) -> SyntaxParameterValue<'_> {
+        SyntaxParameterValue {
+            value: self.value.build(src),
+            quoted: self.quoted,
+        }
+    }
+}
+
+fn parameter<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, RawParameter, E> + Clone
 where
     I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
     E: ParserExtra<'tokens, I>,
@@ -198,16 +261,16 @@ where
         quoted: false,
     });
 
-    let value = choice((paramtext, quoted_string))
+    let values = choice((paramtext, quoted_string))
         .separated_by(just(Token::Comma))
         .collect::<Vec<_>>();
 
     name.then_ignore(just(Token::Equal))
-        .then(value)
+        .then(values)
         .map(|(name, values)| RawParameter { name, values })
 }
 
-fn value<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, SpannedTokens<'src>, E> + Clone
+fn value<'tokens, 'src: 'tokens, I, E>() -> impl Parser<'tokens, I, SpanCollector, E> + Clone
 where
     I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
     E: ParserExtra<'tokens, I>,
@@ -224,7 +287,96 @@ where
     .map_with(SpannedToken::from_map_extra)
     .repeated()
     .at_least(1)
-    .collect()
+    .collect::<SpanCollector>()
+}
+
+pub type SpannedSegment<'src> = (&'src str, Span);
+
+#[derive(Default, Clone, Debug)]
+pub struct SpannedSegments<'src>(Vec<SpannedSegment<'src>>);
+
+impl<'src> SpannedSegments<'src> {
+    pub fn resolve(&'src self) -> Cow<'src, str> {
+        if self.0.len() == 1 {
+            let s = self.0.first().unwrap().0; // SAFETY: due to len() == 1
+            Cow::Borrowed(s)
+        } else {
+            let len = self.0.iter().map(|(seg, _)| seg.len()).sum();
+            let mut s = String::with_capacity(len);
+            for (seg, _) in &self.0 {
+                s.push_str(seg);
+            }
+            Cow::Owned(s)
+        }
+    }
+
+    pub fn into_chars(self) -> SegmentedChars<'src> {
+        SegmentedChars {
+            segments: self.0,
+            seg_idx: 0,
+            chars: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SegmentedChars<'src> {
+    segments: Vec<SpannedSegment<'src>>,
+    seg_idx: usize,
+    chars: Option<Chars<'src>>,
+}
+
+impl Iterator for SegmentedChars<'_> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.seg_idx < self.segments.len() {
+            match self.chars {
+                Some(ref mut chars) => match chars.next() {
+                    Some(c) => return Some(c),
+                    None => {
+                        self.seg_idx += 1;
+                        self.chars = None;
+                    }
+                },
+                None => {
+                    let (s, _) = self.segments.get(self.seg_idx).unwrap(); // safe due to while condition
+                    self.chars = Some(s.chars());
+                }
+            }
+        }
+
+        None
+    }
+}
+
+#[derive(Default)]
+struct SpanCollector(Vec<Span>);
+
+impl SpanCollector {
+    fn build(self, src: &'_ str) -> SpannedSegments<'_> {
+        let segments = self
+            .0
+            .into_iter()
+            .map(|s| (&src[s.clone()], s))
+            .collect::<Vec<_>>();
+        SpannedSegments(segments)
+    }
+}
+
+impl<'src> Container<SpannedToken<'src>> for SpanCollector {
+    fn with_capacity(n: usize) -> Self {
+        Self(Vec::with_capacity(n))
+    }
+
+    fn push(&mut self, spanned_token: SpannedToken<'src>) {
+        match self.0.last_mut() {
+            Some(last) if last.end == spanned_token.1.start => {
+                last.end = spanned_token.1.end;
+            }
+            _ => self.0.push(spanned_token.1),
+        }
+    }
 }
 
 enum Either<L, R> {
@@ -326,69 +478,59 @@ END:VEVENT\r\n\
     fn test_property() {
         fn parse<'tokens, 'src: 'tokens>(
             src: &'src str,
-        ) -> Result<RawProperty<'src>, Vec<Rich<'src, Token<'tokens>>>> {
+        ) -> Result<SyntaxProperty<'src>, Vec<Rich<'src, Token<'tokens>>>> {
             property::<'_, '_, _, extra::Err<_>>()
                 .parse(lex_analysis(src))
                 .into_result()
+                .map(|p| p.build(src))
         }
 
         let src = "SUMMARY:Hello World!\r\n";
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name.to_string(), "SUMMARY");
-        assert_eq!(
-            prop.value
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>(),
-            ["Hello World!"]
-        );
+        assert_eq!(prop.name.resolve(), "SUMMARY");
+        assert_eq!(prop.value.resolve(), "Hello World!");
 
         let src = "DTSTART;TZID=America/New_York:20251113\r\n T100000\r\n";
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name.to_string(), "DTSTART");
+        assert_eq!(prop.name.resolve(), "DTSTART");
         assert_eq!(prop.params.len(), 1);
-        assert_eq!(prop.params.first().unwrap().name.to_string(), "TZID");
+        assert_eq!(prop.params.first().unwrap().name.resolve(), "TZID");
         assert_eq!(
             prop.params
                 .first()
                 .unwrap()
                 .values
                 .iter()
-                .map(|a| a.value.to_string())
+                .map(|a| a.value.resolve())
                 .collect::<Vec<_>>(),
             ["America/New_York"]
         );
-        assert_eq!(
-            prop.value
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>(),
-            ["20251113T100000"]
-        );
+        assert_eq!(prop.value.resolve(), "20251113T100000");
     }
 
     #[test]
     fn test_param() {
-        fn parse(src: &str) -> Result<RawParameter<'_>, Vec<Rich<'_, Token<'_>>>> {
+        fn parse(src: &str) -> Result<SyntaxParameter<'_>, Vec<Rich<'_, Token<'_>>>> {
             parameter::<'_, '_, _, extra::Err<_>>()
                 .parse(lex_analysis(src))
                 .into_result()
+                .map(|p| p.build(src))
         }
 
         let src = "TZID=America/New_York";
         let result = parse(src);
         assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
         let param = result.unwrap();
-        assert_eq!(param.name.to_string(), "TZID");
+        assert_eq!(param.name.resolve(), "TZID");
         assert_eq!(
             param
                 .values
                 .iter()
-                .map(|a| a.value.to_string())
+                .map(|a| a.value.resolve())
                 .collect::<Vec<_>>(),
             ["America/New_York"]
         );

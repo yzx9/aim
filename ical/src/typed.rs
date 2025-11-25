@@ -11,12 +11,11 @@ use chumsky::error::Error;
 use chumsky::input::Stream;
 use chumsky::label::LabelError;
 
-use crate::lexer::{SpannedTokens, SpannedTokensChars};
 use crate::property_spec::{PROPERTY_SPECS, PropertySpec};
 use crate::property_value::{
     PropertyValue, PropertyValueExpected, PropertyValueKind, PropertyValueParser,
 };
-use crate::syntax::{RawComponent, RawProperty};
+use crate::syntax::{SegmentedChars, SpannedSegments, SyntaxComponent, SyntaxProperty};
 
 static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
     PROPERTY_SPECS
@@ -30,11 +29,11 @@ static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = Lazy
 /// ## Errors
 /// If there are typing errors, a vector of errors will be returned.
 pub fn typed_analysis<'src, Err>(
-    components: Vec<RawComponent<'src>>,
+    components: Vec<SyntaxComponent<'src>>,
 ) -> Result<Vec<TypedComponent<'src>>, Vec<Err>>
 where
-    Err: Error<'src, Stream<SpannedTokensChars<'src>>>
-        + LabelError<'src, Stream<SpannedTokensChars<'src>>, PropertyValueExpected>
+    Err: Error<'src, Stream<SegmentedChars<'src>>>
+        + LabelError<'src, Stream<SegmentedChars<'src>>, PropertyValueExpected>
         + 'src,
 {
     let prop_parser = PropertyValueParser::<'src, Err>::new();
@@ -64,11 +63,11 @@ pub struct TypedComponent<'src> {
 
 fn typed_component<'src, 'b, Err>(
     parser: &'b PropertyValueParser<'src, Err>,
-    comp: RawComponent<'src>,
+    comp: SyntaxComponent<'src>,
 ) -> Result<TypedComponent<'src>, Vec<Err>>
 where
-    Err: Error<'src, Stream<SpannedTokensChars<'src>>>
-        + LabelError<'src, Stream<SpannedTokensChars<'src>>, PropertyValueExpected>
+    Err: Error<'src, Stream<SegmentedChars<'src>>>
+        + LabelError<'src, Stream<SegmentedChars<'src>>, PropertyValueExpected>
         + 'src,
 {
     let mut errors = Vec::new();
@@ -101,42 +100,42 @@ where
 
 #[derive(Debug, Clone)]
 pub struct TypedProperty<'src> {
-    pub name: SpannedTokens<'src>, // Case insensitive, keep original for writing back
+    pub name: SpannedSegments<'src>, // Case insensitive, keep original for writing back
     pub params: Vec<TypedParameter<'src>>, // Allow duplicates & multi-values
     pub values: Vec<PropertyValue<'src>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TypedParameter<'src> {
-    pub name: SpannedTokens<'src>,
+    pub name: SpannedSegments<'src>,
     pub values: Vec<TypedParameterValue<'src>>, // Split by commas
 }
 
 #[derive(Debug, Clone)]
 pub struct TypedParameterValue<'src> {
-    pub value: SpannedTokens<'src>,
+    pub value: SpannedSegments<'src>,
     pub quoted: bool,
 }
 
 fn type_property<'b, 'src: 'b, Err>(
     parser: &'b PropertyValueParser<'src, Err>,
-    prop: RawProperty<'src>,
+    prop: SyntaxProperty<'src>,
 ) -> Result<TypedProperty<'src>, Vec<Err>>
 where
-    Err: Error<'src, Stream<SpannedTokensChars<'src>>>
-        + LabelError<'src, Stream<SpannedTokensChars<'src>>, PropertyValueExpected>
+    Err: Error<'src, Stream<SegmentedChars<'src>>>
+        + LabelError<'src, Stream<SegmentedChars<'src>>, PropertyValueExpected>
         + 'src,
 {
-    let prop_name = prop.name.to_string().to_ascii_uppercase();
+    let prop_name = prop.name.resolve().to_ascii_uppercase();
     let kind = kind_of(&prop_name, &prop);
 
     let mut errors = Vec::new();
     let mut values = Vec::new();
-    for v in prop.value {
-        match parser.parse(kind, v) {
-            Ok(v) => values.push(v),
-            Err(errs) => errors.extend(errs),
-        }
+
+    // TODO: parse as multiple values
+    match parser.parse(kind, prop.value) {
+        Ok(v) => values.push(v),
+        Err(errs) => errors.extend(errs),
     }
 
     if !errors.is_empty() {
@@ -159,21 +158,21 @@ where
         })
         .collect();
 
-    Ok(TypedProperty::<'src> {
+    Ok(TypedProperty {
         name: prop.name,
         params,
         values,
     })
 }
 
-fn kind_of(prop_name: &str, prop: &RawProperty) -> PropertyValueKind {
+fn kind_of(prop_name: &str, prop: &SyntaxProperty) -> PropertyValueKind {
     // find VALUE= param
     let value_param = prop
         .params
         .iter()
-        .find(|p| p.name.to_string().to_uppercase() == "VALUE")
+        .find(|p| p.name.resolve().to_uppercase() == "VALUE")
         .and_then(|p| p.values.first())
-        .map(|s| s.value.to_string().to_uppercase());
+        .map(|s| s.value.resolve().to_uppercase());
 
     if let Some(spec) = PROP_TABLE.get(prop_name) {
         if let Some(v) = value_param {

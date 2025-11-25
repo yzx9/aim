@@ -80,7 +80,7 @@ pub fn parse(src: &'_ str) -> Result<Vec<TypedComponent<'_>>, Vec<ParseError<'_>
     let token_stream = lex_analysis(src);
 
     let raw_components =
-        syntax_analysis::<'_, '_, _, Rich<'_, _>>(token_stream).map_err(|errs| {
+        syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).map_err(|errs| {
             errs.into_iter()
                 .map(ParseError::SyntaxError)
                 .collect::<Vec<_>>()
