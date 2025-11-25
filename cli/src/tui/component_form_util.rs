@@ -6,45 +6,39 @@ use std::{cell::RefCell, str::FromStr};
 
 use ratatui::{buffer::Buffer, crossterm::event::KeyEvent, layout::Rect};
 
-use crate::tui::{
-    component::{Component, Message},
-    component_form::{Access, FormItem, FormItemState},
-    dispatcher::Dispatcher,
-};
-
-pub trait VisiblePredicate<S> {
-    fn is_visible(store: &RefCell<S>) -> bool;
-}
+use crate::tui::component::{Component, Message};
+use crate::tui::component_form::{Access, FormItem, FormItemState};
+use crate::tui::dispatcher::Dispatcher;
 
 /// A form item that is only visible if the predicate function returns true.
-pub struct VisibleIf<S, T, P>
+pub struct VisibleIf<S, T, F>
 where
     T: FormItem<S>,
-    P: VisiblePredicate<S>,
+    F: Fn(&RefCell<S>) -> bool,
 {
     item: T,
-    s: std::marker::PhantomData<S>,
-    p: std::marker::PhantomData<P>,
+    is_visible: F,
+    _s: std::marker::PhantomData<S>,
 }
 
-impl<S, T, P> VisibleIf<S, T, P>
+impl<S, T, F> VisibleIf<S, T, F>
 where
     T: FormItem<S>,
-    P: VisiblePredicate<S>,
+    F: Fn(&RefCell<S>) -> bool,
 {
-    pub fn new(item: T) -> Self {
+    pub fn new(item: T, is_visible: F) -> Self {
         Self {
             item,
-            s: std::marker::PhantomData,
-            p: std::marker::PhantomData,
+            is_visible,
+            _s: std::marker::PhantomData,
         }
     }
 }
 
-impl<S, T, P> Component<S> for VisibleIf<S, T, P>
+impl<S, T, F> Component<S> for VisibleIf<S, T, F>
 where
     T: FormItem<S>,
-    P: VisiblePredicate<S>,
+    F: Fn(&RefCell<S>) -> bool,
 {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
         self.item.render(store, area, buf);
@@ -73,70 +67,66 @@ where
     }
 }
 
-impl<S, T, P> FormItem<S> for VisibleIf<S, T, P>
+impl<S, T, F> FormItem<S> for VisibleIf<S, T, F>
 where
     T: FormItem<S>,
-    P: VisiblePredicate<S>,
+    F: Fn(&RefCell<S>) -> bool,
 {
     fn item_title(&self, store: &RefCell<S>) -> &str {
         self.item.item_title(store)
     }
 
     fn item_state(&self, store: &RefCell<S>) -> FormItemState {
-        match P::is_visible(store) {
+        match (self.is_visible)(store) {
             true => self.item.item_state(store), // Visible if percent_complete is set or status is InProcess
             false => FormItemState::Invisible,
         }
     }
 }
 
-pub trait SwitchPredicate<S> {
-    fn is(store: &RefCell<S>) -> bool;
-}
-
-pub struct FormItemSwitch<S, T, K, P>
+pub struct FormItemSwitch<S, T, K, F>
 where
     T: FormItem<S>,
     K: FormItem<S>,
-    P: SwitchPredicate<S>,
+    F: Fn(&RefCell<S>) -> bool,
 {
     on: T,
     off: K,
-    s: std::marker::PhantomData<S>,
-    p: std::marker::PhantomData<P>,
+    on_or_off: F,
+    _s: std::marker::PhantomData<S>,
 }
 
-impl<S, T, K, P> FormItemSwitch<S, T, K, P>
+impl<S, T, K, F> FormItemSwitch<S, T, K, F>
 where
     T: FormItem<S>,
     K: FormItem<S>,
-    P: SwitchPredicate<S>,
+    F: Fn(&RefCell<S>) -> bool,
 {
-    pub fn new(on: T, off: K) -> Self {
+    pub fn new(on: T, off: K, on_or_off: F) -> Self {
         Self {
             on,
             off,
-            s: std::marker::PhantomData,
-            p: std::marker::PhantomData,
+            on_or_off,
+            _s: std::marker::PhantomData,
         }
     }
 }
 
-impl<S, T, K, P> Component<S> for FormItemSwitch<S, T, K, P>
+impl<S, T, K, F> Component<S> for FormItemSwitch<S, T, K, F>
 where
     T: FormItem<S>,
     K: FormItem<S>,
-    P: SwitchPredicate<S>,
+    F: Fn(&RefCell<S>) -> bool,
 {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
-        match P::is(store) {
+        match (self.on_or_off)(store) {
             true => self.on.render(store, area, buf),
             false => self.off.render(store, area, buf),
         }
     }
 
     fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
-        match P::is(store) {
+        match (self.on_or_off)(store) {
             true => self.on.get_cursor_position(store, area),
             false => self.off.get_cursor_position(store, area),
         }
@@ -149,7 +139,7 @@ where
         area: Rect,
         event: KeyEvent,
     ) -> Option<Message> {
-        match P::is(store) {
+        match (self.on_or_off)(store) {
             true => self.on.on_key(dispatcher, store, area, event),
             false => self.off.on_key(dispatcher, store, area, event),
         }
@@ -166,21 +156,21 @@ where
     }
 }
 
-impl<S, T, K, P> FormItem<S> for FormItemSwitch<S, T, K, P>
+impl<S, T, K, F> FormItem<S> for FormItemSwitch<S, T, K, F>
 where
     T: FormItem<S>,
     K: FormItem<S>,
-    P: SwitchPredicate<S>,
+    F: Fn(&RefCell<S>) -> bool,
 {
     fn item_title(&self, store: &RefCell<S>) -> &str {
-        match P::is(store) {
+        match (self.on_or_off)(store) {
             true => self.on.item_title(store),
             false => self.off.item_title(store),
         }
     }
 
     fn item_state(&self, store: &RefCell<S>) -> FormItemState {
-        match P::is(store) {
+        match (self.on_or_off)(store) {
             true => self.on.item_state(store),
             false => self.off.item_state(store),
         }

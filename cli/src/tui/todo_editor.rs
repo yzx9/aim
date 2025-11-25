@@ -7,9 +7,7 @@ use std::cell::RefCell;
 use aimcal_core::{Priority, TodoStatus};
 
 use crate::tui::component_form::{Access, Form, FormItem, Input, RadioGroup};
-use crate::tui::component_form_util::{
-    FormItemSwitch, PositiveIntegerAccess, SwitchPredicate, VisibleIf, VisiblePredicate,
-};
+use crate::tui::component_form_util::{FormItemSwitch, PositiveIntegerAccess, VisibleIf};
 use crate::tui::component_page::SinglePage;
 use crate::tui::dispatcher::{Action, Dispatcher};
 use crate::tui::todo_store::TodoStoreLike;
@@ -80,26 +78,15 @@ impl<S: TodoStoreLike> Access<S, Option<u8>> for PercentCompleteAccess {
     }
 }
 
-struct PercentCompleteVisiblePredicate<S> {
-    _marker: std::marker::PhantomData<S>,
-}
+type PercentCompleteInput<S> = Input<S, PositiveIntegerAccess<S, u8, PercentCompleteAccess>>;
 
-impl<S: TodoStoreLike> VisiblePredicate<S> for PercentCompleteVisiblePredicate<S> {
-    fn is_visible(store: &RefCell<S>) -> bool {
+fn new_percent_complete<S: TodoStoreLike>()
+-> VisibleIf<S, PercentCompleteInput<S>, impl Fn(&RefCell<S>) -> bool> {
+    VisibleIf::new(Input::new(&"Percent complete"), |store| {
         let s = store.borrow();
         let data = &s.todo().data;
         data.percent_complete.is_some() || matches!(data.status, TodoStatus::InProcess)
-    }
-}
-
-type ComponentPercentComplete<S> = VisibleIf<
-    S,
-    Input<S, PositiveIntegerAccess<S, u8, PercentCompleteAccess>>,
-    PercentCompleteVisiblePredicate<S>,
->;
-
-fn new_percent_complete<S: TodoStoreLike>() -> ComponentPercentComplete<S> {
-    VisibleIf::new(Input::new(&"Percent complete"))
+    })
 }
 
 fn new_status<S: TodoStoreLike>() -> RadioGroup<S, TodoStatus, StatusAccess> {
@@ -122,24 +109,10 @@ impl<S: TodoStoreLike> Access<S, TodoStatus> for StatusAccess {
     }
 }
 
-struct PriorityVerbosePredicate<S> {
-    _marker: std::marker::PhantomData<S>,
-}
+type RadioGroupPriority<S> = RadioGroup<S, Priority, PriorityAccess>;
 
-impl<S: TodoStoreLike> SwitchPredicate<S> for PriorityVerbosePredicate<S> {
-    fn is(store: &RefCell<S>) -> bool {
-        store.borrow().todo().verbose_priority
-    }
-}
-
-type ComponentPriority<S> = FormItemSwitch<
-    S,
-    RadioGroup<S, Priority, PriorityAccess>,
-    RadioGroup<S, Priority, PriorityAccess>,
-    PriorityVerbosePredicate<S>,
->;
-
-fn new_priority<S: TodoStoreLike>() -> ComponentPriority<S> {
+fn new_priority<S: TodoStoreLike>()
+-> FormItemSwitch<S, RadioGroupPriority<S>, RadioGroupPriority<S>, impl Fn(&RefCell<S>) -> bool> {
     use Priority::{None, P1, P2, P3, P4, P5, P6, P7, P8, P9};
 
     const TITLE: &str = "Priority";
@@ -159,7 +132,9 @@ fn new_priority<S: TodoStoreLike>() -> ComponentPriority<S> {
 
     let verbose = RadioGroup::new(TITLE, values_verb, options_verb);
     let concise = RadioGroup::new(TITLE, values, options);
-    FormItemSwitch::new(verbose, concise)
+    FormItemSwitch::new(verbose, concise, |store| {
+        store.borrow().todo().verbose_priority
+    })
 }
 
 const fn fmt_priority(priority: Priority, verbose: bool) -> &'static str {
