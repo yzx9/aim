@@ -4,17 +4,15 @@
 
 //! Parsers for property values as defined in RFC 5545 Section 3.3.
 
-use std::borrow::Cow;
-use std::fmt::Display;
-use std::str::FromStr;
+use std::{borrow::Cow, fmt::Display, str::FromStr};
 
+use chumsky::Parser;
 use chumsky::container::Container;
 use chumsky::error::RichPattern;
 use chumsky::extra::ParserExtra;
+use chumsky::input::Stream;
 use chumsky::label::LabelError;
 use chumsky::prelude::*;
-use chumsky::{Parser, input::Stream};
-use jiff::civil::{Date, Time, date, time};
 
 use crate::keyword::{
     KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_DATE, KW_DATETIME, KW_DURATION, KW_FLOAT, KW_INTEGER,
@@ -51,7 +49,7 @@ pub enum PropertyValue<'src> {
     /// This value type is used to identify values that contain a calendar date.
     ///
     /// See RFC 5545 Section 3.3.4 for more details.
-    Date(Date),
+    Date(PropertyValueDate),
 
     // TODO: 3.3.5. Date-Time
     //
@@ -305,12 +303,6 @@ where
     choice((t, f))
 }
 
-// TODO: 3.3.3. Calendar User Address
-
-// TODO: 3.3.4. Date
-
-// TODO: 3.3.5. Date-Time
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PropertyValueDuration {
     DateTime {
@@ -393,6 +385,20 @@ where
     ))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PropertyValueDate {
+    pub year: i16,
+    pub month: i8,
+    pub day: i8,
+}
+
+#[cfg(feature = "jiff")]
+impl From<PropertyValueDate> for jiff::civil::Date {
+    fn from(value: PropertyValueDate) -> Self {
+        jiff::civil::date(value.year, value.month, value.day)
+    }
+}
+
 /// Format Definition:  This value type is defined by the following notation:
 ///
 /// ```txt
@@ -409,19 +415,32 @@ where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
+    let i8 = select! { c @ '1'..='9' => c }.map(into_digit10::<i8>);
     let i16 = select! { c @ '0'..='9' => c }.map(into_digit10::<i16>);
+    let digit012 = select! { '0' => 0, '1' => 1, '2' => 2 };
+
     let year = i16
         .then(i16)
         .then(i16)
         .then(i16)
         .map(|(((a, b), c), d)| 1000 * a + 100 * b + 10 * c + d);
 
-    let i8 = select! { c @ '0'..='9' => c }.map(into_digit10::<i8>);
-    let month = i8.then(i8).map(|(a, b)| 10 * a + b);
-    let day = i8.then(i8).map(|(a, b)| 10 * a + b);
+    let month = choice((
+        just('0').ignore_then(i8),
+        just('1').ignore_then(digit012).map(|b| 10 + b),
+    ));
+
+    // TODO: validate day based on month/year
+    let day = choice((
+        digit012.then(i8).map(|(a, b)| 10 * a + b),
+        just('3')
+            .ignore_then(select! { '0' => 0, '1' => 1 })
+            .map(|b| 30 + b),
+    ));
+
     year.then(month)
         .then(day)
-        .map(|((y, m), d)| PropertyValue::Date(date(y, m, d)))
+        .map(|((year, month), day)| PropertyValue::Date(PropertyValueDate { year, month, day }))
 }
 
 /// Format Definition:  This value type is defined by the following notation:
@@ -605,8 +624,19 @@ where
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PropertyValueTime {
-    pub time: Time,
+    pub hour: i8,
+    pub minute: i8,
+    pub second: i8,
     pub utc: bool,
+}
+
+#[cfg(feature = "jiff")]
+impl From<PropertyValueTime> for jiff::civil::Time {
+    fn from(value: PropertyValueTime) -> Self {
+        // NOTE: We contract leap second 60 to 59 for simplicity
+        let second = if value.second == 60 { 59 } else { value.second };
+        jiff::civil::time(value.hour, value.minute, second, 0)
+    }
 }
 
 // TODO: 3.3.10. Recurrence Rule
@@ -634,7 +664,9 @@ where
         .then(just('Z').or_not())
         .map(|(((hour, minute), second), utc)| {
             PropertyValue::Time(PropertyValueTime {
-                time: time(hour, minute, second, 0),
+                hour,
+                minute,
+                second,
                 utc: utc.is_some(),
             })
         })
@@ -725,8 +757,7 @@ where
         select! { c @ '0'..='5' => c }
             .then(select! { c @ '0'..='9' => c })
             .map(|(a, b)| 10 * into_digit10::<i8>(a) + into_digit10::<i8>(b)),
-        // NOTE: We contract leap second 60 to 59 for simplicity
-        just('6').ignore_then(just('0').ignored().to(59)),
+        just('6').ignore_then(just('0').ignored().to(60)),
     ))
 }
 
@@ -825,9 +856,20 @@ mod tests {
                 .into_result()
         }
         let success_cases = [
-            // examples from RFC 5545 Section 3.3.1
+            // examples from RFC 5545 Section 3.1.3
             // Original text include a typo (ignore the padding): https://www.rfc-editor.org/errata/eid5602
             "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZy4=",
+            // examples from RFC 5545 Section 3.3.1
+            "\
+AAABAAEAEBAQAAEABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAA\
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAgIAAAICAgADAwMAA////AAAA\
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+AAAAAAAAAAAAAAAAAAAAAAMwAAAAAAABNEMQAAAAAAAkQgAAAAAAJEREQgAA\
+ACECQ0QgEgAAQxQzM0E0AABERCRCREQAADRDJEJEQwAAAhA0QwEQAAAAAERE\
+AAAAAAAAREQAAAAAAAAkQgAAAAAAAAMgAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+AAAAAAAAAAAA\
+",
             // extra tests
             "TWFu",     // "Man"
             "QUJDREVG", // "ABCDEF"
@@ -874,6 +916,46 @@ mod tests {
         }
 
         let fail_cases = ["True", "False", "true", "false", "1", "0", "YES", "NO", ""];
+        for src in fail_cases {
+            assert!(parse(src).is_err(), "Parse {src} should fail");
+        }
+    }
+
+    #[test]
+    fn test_date() {
+        fn parse<'tokens, 'src: 'tokens>(
+            src: &'src str,
+        ) -> Result<PropertyValue<'src>, Vec<Rich<'src, char>>> {
+            let stream = Stream::from_iter(src.chars());
+            property_value_date::<'_, _, extra::Err<_>>()
+                .parse(stream)
+                .into_result()
+        }
+
+        #[rustfmt::skip]
+        let success_cases = [
+            // examples from RFC 5545 Section 3.3.4
+            ("19970714", PropertyValueDate { year: 1997, month: 7, day: 14 }),
+            // extra tests
+            ("20240101", PropertyValueDate { year: 2024, month: 1, day: 1 }),
+            ("20000229", PropertyValueDate { year: 2000, month: 2, day: 29 }), // leap year
+            ("19000101", PropertyValueDate { year: 1900, month: 1, day: 1 }),
+        ];
+        for (src, expected) in success_cases {
+            match parse(src) {
+                Ok(PropertyValue::Date(d)) => assert_eq!(d, expected),
+                e => panic!("Expected Ok(PropertyValue::Date({expected:?})), got {e:?}"),
+            }
+        }
+        let fail_cases = [
+            // "19970230",  // invalid date
+            // "20240230",  // invalid date
+            "20241301",  // invalid month
+            "20240001",  // invalid month
+            "abcd1234",  // invalid characters
+            "2024011",   // invalid length
+            "202401011", // invalid length
+        ];
         for src in fail_cases {
             assert!(parse(src).is_err(), "Parse {src} should fail");
         }
@@ -1097,13 +1179,13 @@ mod tests {
         #[rustfmt::skip]
         let success_cases = [
             // examples from RFC 5545 Section 3.3.12
-            ("135501",  PropertyValueTime { time: time(13, 55,  1, 0), utc: false }),
-            ("135501Z", PropertyValueTime { time: time(13, 55,  1, 0), utc:  true }),
+            ("135501",  PropertyValueTime { hour: 13, minute: 55, second:  1, utc: false }),
+            ("135501Z", PropertyValueTime { hour: 13, minute: 55, second:  1, utc:  true }),
             // extra tests
-            ("000000",  PropertyValueTime { time: time( 0,  0,  0, 0), utc: false }),
-            ("235959",  PropertyValueTime { time: time(23, 59, 59, 0), utc: false }),
-            ("120000Z", PropertyValueTime { time: time(12,  0,  0, 0), utc:  true }),
-            ("000060",  PropertyValueTime { time: time( 0,  0, 59, 0), utc: false }), // leap second
+            ("000000",  PropertyValueTime { hour:  0, minute:  0, second:  0, utc: false }),
+            ("235959",  PropertyValueTime { hour: 23, minute: 59, second: 59, utc: false }),
+            ("120000Z", PropertyValueTime { hour: 12, minute:  0, second:  0, utc:  true }),
+            ("000060",  PropertyValueTime { hour:  0, minute:  0, second: 60, utc: false }), // leap second
         ];
         for (src, expected) in success_cases {
             match parse(src) {

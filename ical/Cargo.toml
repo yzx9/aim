@@ -14,9 +14,13 @@ readme.workspace = true
 
 [dependencies]
 chumsky = "0.11.2"
-jiff = "0.2.16"
+jiff = { version = "0.2.16", optional = true }
 lexical = "7.0.5"
 logos = "0.15.1"
 
 [dev-dependencies]
 ariadne = "0.6.0"
+
+[features]
+default = []
+jiff = ["dep:jiff"]

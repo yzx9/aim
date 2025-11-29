@@ -4,8 +4,7 @@
 
 //! Typed representation of iCalendar components and properties.
 
-use std::collections::HashMap;
-use std::sync::LazyLock;
+use std::{collections::HashMap, sync::LazyLock};
 
 use chumsky::error::Rich;
 
@@ -27,8 +26,8 @@ static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = Lazy
 pub fn typed_analysis(
     components: Vec<SyntaxComponent<'_>>,
 ) -> Result<Vec<TypedComponent<'_>>, Vec<Rich<'_, char>>> {
-    let mut errors = Vec::new();
     let mut typed_components = Vec::new();
+    let mut errors = Vec::new();
     for comp in components {
         match typed_component(comp) {
             Ok(typed_comp) => typed_components.push(typed_comp),
@@ -51,8 +50,8 @@ pub struct TypedComponent<'src> {
 }
 
 fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<Rich<'_, char>>> {
-    let mut errors = Vec::new();
     let mut properties = Vec::new();
+    let mut errors = Vec::new();
     for prop in comp.properties {
         match typed_property(prop) {
             Ok(prop) => properties.push(prop),
