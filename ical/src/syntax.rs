@@ -294,17 +294,19 @@ where
 pub type SpannedSegment<'src> = (&'src str, Span);
 
 #[derive(Default, Clone, Debug)]
-pub struct SpannedSegments<'src>(pub(crate) Vec<SpannedSegment<'src>>);
+pub struct SpannedSegments<'src> {
+    pub(crate) segments: Vec<SpannedSegment<'src>>,
+}
 
 impl<'src> SpannedSegments<'src> {
     pub fn resolve(&'src self) -> Cow<'src, str> {
-        if self.0.len() == 1 {
-            let s = self.0.first().unwrap().0; // SAFETY: due to len() == 1
+        if self.segments.len() == 1 {
+            let s = self.segments.first().unwrap().0; // SAFETY: due to len() == 1
             Cow::Borrowed(s)
         } else {
-            let len = self.0.iter().map(|(seg, _)| seg.len()).sum();
+            let len = self.segments.iter().map(|(seg, _)| seg.len()).sum();
             let mut s = String::with_capacity(len);
-            for (seg, _) in &self.0 {
+            for (seg, _) in &self.segments {
                 s.push_str(seg);
             }
             Cow::Owned(s)
@@ -313,7 +315,7 @@ impl<'src> SpannedSegments<'src> {
 
     pub fn into_spanned_chars(self) -> SegmentedSpannedChars<'src> {
         SegmentedSpannedChars {
-            segments: self.0,
+            segments: self.segments,
             seg_idx: 0,
             chars: None,
         }
@@ -367,7 +369,7 @@ impl SpanCollector {
             .into_iter()
             .map(|s| (&src[s.clone()], s))
             .collect::<Vec<_>>();
-        SpannedSegments(segments)
+        SpannedSegments { segments }
     }
 }
 

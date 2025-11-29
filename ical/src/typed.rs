@@ -9,8 +9,8 @@ use std::{collections::HashMap, sync::LazyLock};
 use chumsky::error::Rich;
 
 use crate::property_spec::{PROPERTY_SPECS, PropertySpec};
-use crate::property_value::{PropertyValue, PropertyValueKind, property_value};
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxProperty};
+use crate::value::{Value, ValueKind, value};
 
 static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
     PROPERTY_SPECS
@@ -82,7 +82,7 @@ fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<
 pub struct TypedProperty<'src> {
     pub name: SpannedSegments<'src>, // Case insensitive, keep original for writing back
     pub params: Vec<TypedParameter<'src>>, // Allow duplicates & multi-values
-    pub values: Vec<PropertyValue<'src>>,
+    pub values: Vec<Value<'src>>,
 }
 
 #[derive(Debug, Clone)]
@@ -102,7 +102,7 @@ fn typed_property(prop: SyntaxProperty<'_>) -> Result<TypedProperty<'_>, Vec<Ric
     let kind = kind_of(&prop_name, &prop);
 
     // TODO: cache parser
-    let value = property_value(kind, prop.value)?;
+    let value = value(kind, prop.value)?;
 
     let params = prop
         .params
@@ -127,7 +127,7 @@ fn typed_property(prop: SyntaxProperty<'_>) -> Result<TypedProperty<'_>, Vec<Ric
     })
 }
 
-fn kind_of(prop_name: &str, prop: &SyntaxProperty) -> PropertyValueKind {
+fn kind_of(prop_name: &str, prop: &SyntaxProperty) -> ValueKind {
     // find VALUE= param
     let value_param = prop
         .params
@@ -140,13 +140,13 @@ fn kind_of(prop_name: &str, prop: &SyntaxProperty) -> PropertyValueKind {
         if let Some(v) = value_param {
             let kind = v.parse();
             // TODO: check if allowed
-            kind.unwrap_or(PropertyValueKind::Text) // TODO: should throw error
+            kind.unwrap_or(ValueKind::Text) // TODO: should throw error
         } else {
             spec.default_kind
         }
     } else if let Some(v) = value_param {
-        v.parse().unwrap_or(PropertyValueKind::Text) // TODO: should throw error
+        v.parse().unwrap_or(ValueKind::Text) // TODO: should throw error
     } else {
-        PropertyValueKind::Text // TODO: should throw error
+        ValueKind::Text // TODO: should throw error
     }
 }
