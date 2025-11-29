@@ -7,15 +7,11 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use chumsky::error::Error;
-use chumsky::input::Stream;
-use chumsky::label::LabelError;
+use chumsky::error::Rich;
 
 use crate::property_spec::{PROPERTY_SPECS, PropertySpec};
-use crate::property_value::{
-    PropertyValue, PropertyValueExpected, PropertyValueKind, PropertyValueParser,
-};
-use crate::syntax::{SegmentedChars, SpannedSegments, SyntaxComponent, SyntaxProperty};
+use crate::property_value::{PropertyValue, PropertyValueKind, property_value};
+use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxProperty};
 
 static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
     PROPERTY_SPECS
@@ -28,20 +24,13 @@ static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = Lazy
 ///
 /// ## Errors
 /// If there are typing errors, a vector of errors will be returned.
-pub fn typed_analysis<'src, Err>(
-    components: Vec<SyntaxComponent<'src>>,
-) -> Result<Vec<TypedComponent<'src>>, Vec<Err>>
-where
-    Err: Error<'src, Stream<SegmentedChars<'src>>>
-        + LabelError<'src, Stream<SegmentedChars<'src>>, PropertyValueExpected>
-        + 'src,
-{
-    let prop_parser = PropertyValueParser::<'src, Err>::new();
-
+pub fn typed_analysis(
+    components: Vec<SyntaxComponent<'_>>,
+) -> Result<Vec<TypedComponent<'_>>, Vec<Rich<'_, char>>> {
     let mut errors = Vec::new();
     let mut typed_components = Vec::new();
     for comp in components {
-        match typed_component(&prop_parser, comp) {
+        match typed_component(comp) {
             Ok(typed_comp) => typed_components.push(typed_comp),
             Err(errs) => errors.extend(errs),
         }
@@ -61,19 +50,11 @@ pub struct TypedComponent<'src> {
     pub children: Vec<TypedComponent<'src>>,
 }
 
-fn typed_component<'src, 'b, Err>(
-    parser: &'b PropertyValueParser<'src, Err>,
-    comp: SyntaxComponent<'src>,
-) -> Result<TypedComponent<'src>, Vec<Err>>
-where
-    Err: Error<'src, Stream<SegmentedChars<'src>>>
-        + LabelError<'src, Stream<SegmentedChars<'src>>, PropertyValueExpected>
-        + 'src,
-{
+fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<Rich<'_, char>>> {
     let mut errors = Vec::new();
     let mut properties = Vec::new();
     for prop in comp.properties {
-        match type_property(parser, prop) {
+        match typed_property(prop) {
             Ok(prop) => properties.push(prop),
             Err(errs) => errors.extend(errs),
         }
@@ -81,7 +62,7 @@ where
 
     let mut children = Vec::new();
     for comp in comp.children {
-        match typed_component(parser, comp) {
+        match typed_component(comp) {
             Ok(child) => children.push(child),
             Err(errs) => errors.extend(errs),
         }
@@ -117,30 +98,12 @@ pub struct TypedParameterValue<'src> {
     pub quoted: bool,
 }
 
-fn type_property<'b, 'src: 'b, Err>(
-    parser: &'b PropertyValueParser<'src, Err>,
-    prop: SyntaxProperty<'src>,
-) -> Result<TypedProperty<'src>, Vec<Err>>
-where
-    Err: Error<'src, Stream<SegmentedChars<'src>>>
-        + LabelError<'src, Stream<SegmentedChars<'src>>, PropertyValueExpected>
-        + 'src,
-{
+fn typed_property(prop: SyntaxProperty<'_>) -> Result<TypedProperty<'_>, Vec<Rich<'_, char>>> {
     let prop_name = prop.name.resolve().to_ascii_uppercase();
     let kind = kind_of(&prop_name, &prop);
 
-    let mut errors = Vec::new();
-    let mut values = Vec::new();
-
-    // TODO: parse as multiple values
-    match parser.parse(kind, prop.value) {
-        Ok(v) => values.push(v),
-        Err(errs) => errors.extend(errs),
-    }
-
-    if !errors.is_empty() {
-        return Err(errors);
-    }
+    // TODO: cache parser
+    let value = property_value(kind, prop.value)?;
 
     let params = prop
         .params
@@ -161,7 +124,7 @@ where
     Ok(TypedProperty {
         name: prop.name,
         params,
-        values,
+        values: vec![value],
     })
 }
 

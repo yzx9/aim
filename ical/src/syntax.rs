@@ -5,7 +5,8 @@
 //! Parser for iCalendar syntax as defined in RFC 5545, built on top of the lexer, no type.
 
 use std::borrow::Cow;
-use std::str::Chars;
+use std::iter::Peekable;
+use std::str::CharIndices;
 
 use chumsky::DefaultExpected;
 use chumsky::container::Container;
@@ -293,7 +294,7 @@ where
 pub type SpannedSegment<'src> = (&'src str, Span);
 
 #[derive(Default, Clone, Debug)]
-pub struct SpannedSegments<'src>(Vec<SpannedSegment<'src>>);
+pub struct SpannedSegments<'src>(pub(crate) Vec<SpannedSegment<'src>>);
 
 impl<'src> SpannedSegments<'src> {
     pub fn resolve(&'src self) -> Cow<'src, str> {
@@ -310,8 +311,8 @@ impl<'src> SpannedSegments<'src> {
         }
     }
 
-    pub fn into_chars(self) -> SegmentedChars<'src> {
-        SegmentedChars {
+    pub fn into_spanned_chars(self) -> SegmentedSpannedChars<'src> {
+        SegmentedSpannedChars {
             segments: self.0,
             seg_idx: 0,
             chars: None,
@@ -320,28 +321,34 @@ impl<'src> SpannedSegments<'src> {
 }
 
 #[derive(Debug, Clone)]
-pub struct SegmentedChars<'src> {
+pub struct SegmentedSpannedChars<'src> {
     segments: Vec<SpannedSegment<'src>>,
     seg_idx: usize,
-    chars: Option<Chars<'src>>,
+    chars: Option<(Span, Peekable<CharIndices<'src>>)>,
 }
 
-impl Iterator for SegmentedChars<'_> {
-    type Item = char;
+impl Iterator for SegmentedSpannedChars<'_> {
+    type Item = (char, Span);
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.seg_idx < self.segments.len() {
             match self.chars {
-                Some(ref mut chars) => match chars.next() {
-                    Some(c) => return Some(c),
+                Some((ref span, ref mut chars)) => match chars.next() {
+                    Some((start, c)) => {
+                        let char_span = match chars.peek() {
+                            Some((end, _)) => (span.start + start)..(span.start + end),
+                            None => span.start + start..span.end,
+                        };
+                        return Some((c, char_span));
+                    }
                     None => {
                         self.seg_idx += 1;
                         self.chars = None;
                     }
                 },
                 None => {
-                    let (s, _) = self.segments.get(self.seg_idx).unwrap(); // safe due to while condition
-                    self.chars = Some(s.chars());
+                    let (s, span) = self.segments.get(self.seg_idx).unwrap(); // SAFETY: due to while condition
+                    self.chars = Some((span.clone(), s.char_indices().peekable()));
                 }
             }
         }
@@ -354,7 +361,7 @@ impl Iterator for SegmentedChars<'_> {
 struct SpanCollector(Vec<Span>);
 
 impl SpanCollector {
-    fn build(self, src: &'_ str) -> SpannedSegments<'_> {
+    pub fn build(self, src: &'_ str) -> SpannedSegments<'_> {
         let segments = self
             .0
             .into_iter()
@@ -371,9 +378,7 @@ impl<'src> Container<SpannedToken<'src>> for SpanCollector {
 
     fn push(&mut self, spanned_token: SpannedToken<'src>) {
         match self.0.last_mut() {
-            Some(last) if last.end == spanned_token.1.start => {
-                last.end = spanned_token.1.end;
-            }
+            Some(last) if last.end == spanned_token.1.start => last.end = spanned_token.1.end,
             _ => self.0.push(spanned_token.1),
         }
     }

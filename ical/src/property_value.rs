@@ -8,7 +8,8 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::str::FromStr;
 
-use chumsky::error::{Error, RichPattern};
+use chumsky::container::Container;
+use chumsky::error::RichPattern;
 use chumsky::extra::ParserExtra;
 use chumsky::label::LabelError;
 use chumsky::prelude::*;
@@ -19,7 +20,7 @@ use crate::keyword::{
     KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_DATE, KW_DATETIME, KW_DURATION, KW_FLOAT, KW_INTEGER,
     KW_PERIOD, KW_RRULE, KW_TEXT, KW_TIME, KW_URI, KW_UTC_OFFSET,
 };
-use crate::syntax::{SegmentedChars, SpannedSegments};
+use crate::syntax::SpannedSegments;
 
 /// The properties in an iCalendar object are strongly typed.  The definition
 /// of each property restricts the value to be one of the value data types, or
@@ -79,11 +80,11 @@ pub enum PropertyValue<'src> {
     /// text.
     ///
     /// See RFC 5545 Section 3.3.11 for more details.
-    Text(SpannedSegments<'src>),
+    Text(PropertyValueText<'src>),
 
     /// This value type is used to identify values that contain a time of day.
     Time(PropertyValueTime),
-    //
+
     // TODO: 3.3.13. URI
     //
     /// This value type is used to identify properties that contain an offset
@@ -164,9 +165,50 @@ impl Display for PropertyValueKind {
     }
 }
 
+// TODO: parse as multiple values
+pub fn property_value(
+    kind: PropertyValueKind,
+    value: SpannedSegments<'_>,
+) -> Result<PropertyValue<'_>, Vec<Rich<'_, char>>> {
+    use PropertyValueKind::{
+        Binary, Boolean, Date, Duration, Float, Integer, Text, Time, UtcOffset,
+    };
+
+    match kind {
+        Binary => {
+            let stream = make_input(value.clone()); // PERF: avoid clone
+            property_value_binary::<'_, _, extra::Err<_>>()
+                .check(stream)
+                .into_result()?;
+            Ok(PropertyValue::Binary(value))
+        }
+        Text => {
+            let stream = make_input(value.clone()); // PERF: avoid clone
+            property_value_text::<'_, _, extra::Err<_>>()
+                .parse(stream)
+                .into_result()
+                .map(|raw_text| PropertyValue::Text(raw_text.build(&value)))
+        }
+        _ => {
+            let stream = make_input(value);
+            match kind {
+                Boolean => property_value_boolean::<'_, _, extra::Err<_>>().parse(stream),
+                Date => property_value_date::<'_, _, extra::Err<_>>().parse(stream),
+                Duration => property_value_duration::<'_, _, extra::Err<_>>().parse(stream),
+                Float => property_value_float::<'_, _, extra::Err<_>>().parse(stream),
+                Integer => property_value_integer::<'_, _, extra::Err<_>>().parse(stream),
+                Time => property_value_time::<'_, _, extra::Err<_>>().parse(stream),
+                UtcOffset => property_value_utc_offset::<'_, _, extra::Err<_>>().parse(stream),
+                _ => unimplemented!("Parser for {kind} is not implemented"),
+            }
+            .into_result()
+        }
+    }
+}
+
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PropertyValueExpected {
+enum PropertyValueExpected {
     Float,
     Integer,
 }
@@ -180,75 +222,6 @@ impl From<PropertyValueExpected> for RichPattern<'_, char> {
     }
 }
 
-type BoxedParser<'src, Err> =
-    Boxed<'src, 'src, Stream<SegmentedChars<'src>>, PropertyValue<'src>, extra::Err<Err>>;
-
-#[rustfmt::skip]
-#[derive(Clone)]
-pub struct PropertyValueParser<'src, Err>
-where
-    Err: Error<'src, Stream<SegmentedChars<'src>>> 
-        + LabelError<'src, Stream<SegmentedChars<'src>>, PropertyValueExpected> + 'src
-{
-    boolean:    BoxedParser<'src, Err>,
-    date:       BoxedParser<'src, Err>,
-    duration:   BoxedParser<'src, Err>,
-    float:      BoxedParser<'src, Err>,
-    integer:    BoxedParser<'src, Err>,
-    time:       BoxedParser<'src, Err>,
-    utc_offset: BoxedParser<'src, Err>,
-}
-
-impl<'src, Err> PropertyValueParser<'src, Err>
-where
-    Err: Error<'src, Stream<SegmentedChars<'src>>>
-        + LabelError<'src, Stream<SegmentedChars<'src>>, PropertyValueExpected>,
-{
-    #[rustfmt::skip]
-    pub fn new() -> Self {
-        Self {
-            boolean:    property_value_boolean().boxed(),
-            date:       property_value_date().boxed(),
-            duration:   property_value_duration().boxed(),
-            float:      property_value_float().boxed(),
-            integer:    property_value_integer().boxed(),
-            time:       property_value_time().boxed(),
-            utc_offset: property_value_utc_offset().boxed(),
-        }
-    }
-
-    pub fn parse(
-        &self,
-        kind: PropertyValueKind,
-        strs: SpannedSegments<'src>,
-    ) -> Result<PropertyValue<'src>, Vec<Err>> {
-        use PropertyValueKind::{
-            Binary, Boolean, Date, Duration, Float, Integer, Text, Time, UtcOffset,
-        };
-
-        match kind {
-            Binary => return Ok(property_value_binary(strs)),
-            Text => return Ok(property_value_text(strs)),
-            _ => {}
-        }
-
-        // TODO: map span
-        let stream = Stream::from_iter(strs.into_chars());
-
-        match kind {
-            Boolean => self.boolean.parse(stream),
-            Date => self.date.parse(stream),
-            Duration => self.duration.parse(stream),
-            Float => self.float.parse(stream),
-            Integer => self.integer.parse(stream),
-            Time => self.time.parse(stream),
-            UtcOffset => self.utc_offset.parse(stream),
-            _ => unimplemented!("Parser for {kind} is not implemented"),
-        }
-        .into_result()
-    }
-}
-
 /// Format Definition:  This value type is defined by the following notation:
 ///
 /// ```txt
@@ -259,11 +232,48 @@ where
 ///
 /// b-char = ALPHA / DIGIT / "+" / "/"
 /// ```
-fn property_value_binary(strs: SpannedSegments<'_>) -> PropertyValue<'_> {
-    // TODO: check is it a valid BASE64, this is easy to implement but currently
-    // we will have to collect the chars as fragmented tokens, which may cause bad
-    // performance.
-    PropertyValue::Binary(strs)
+fn property_value_binary<'src, I, E>() -> impl Parser<'src, I, (), E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    // b-char = ALPHA / DIGIT / "+" / "/"
+    let b_char = select! {
+        'A'..='Z' => (),
+        'a'..='z' => (),
+        '0'..='9' => (),
+        '+' => (),
+        '/' => (),
+    };
+
+    // 4b-char
+    let quartet = b_char.clone().repeated().exactly(4).ignored();
+
+    // b-end
+    let two_eq = just('=').then_ignore(just('='));
+    let one_eq = just('=');
+
+    // b-end = (2b-char "==") / (3b-char "=")
+    let b_end = b_char
+        .clone()
+        .repeated()
+        .exactly(2)
+        .ignored()
+        .then_ignore(two_eq.clone())
+        .or(b_char
+            .clone()
+            .repeated()
+            .exactly(3)
+            .ignored()
+            .then_ignore(one_eq.clone()))
+        .ignored();
+
+    // *(4b-char) [b-end]
+    quartet
+        .repeated() // allow zero quartets
+        .ignore_then(b_end.or_not())
+        .ignored()
+        .then_ignore(end())
 }
 
 /// Format Definition:  This value type is defined by the following notation:
@@ -465,7 +475,7 @@ where
 
             Err(E::Error::expected_found(
                 [PropertyValueExpected::Float],
-                Some(s.chars().nth(n).unwrap().into()), // safe unwrap since n < len
+                Some(s.chars().nth(n).unwrap().into()), // SAFETY: since n < len
                 e.span(),
             ))
         })
@@ -502,16 +512,52 @@ where
                 Ok((v, n)) if n == int_str.len() => Ok(PropertyValue::Integer(v)),
                 Ok((_, n)) => Err(E::Error::expected_found(
                     [PropertyValueExpected::Integer],
-                    Some(int_str.chars().nth(n).unwrap().into()), // safe unwrap since n < len
+                    Some(int_str.chars().nth(n).unwrap().into()), // SAFETY: since n < len
                     e.span(),
                 )),
                 Err(_) => Err(E::Error::expected_found(
                     [PropertyValueExpected::Integer],
-                    Some(int_str.chars().next().unwrap().into()), // safe unwrap since at least 1 digit
+                    Some(int_str.chars().next().unwrap().into()), // SAFETY: since at least 1 digit
                     e.span(),
                 )),
             }
         })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PropertyValueTextEscape {
+    Backslash,
+    Semicolon,
+    Comma,
+    Newline,
+}
+
+#[derive(Debug, Clone)]
+#[allow(unused)]
+pub enum PropertyValueTextToken<'src> {
+    Str(Vec<&'src str>),
+    Escape(PropertyValueTextEscape),
+}
+
+#[derive(Debug, Clone)]
+#[allow(unused)]
+pub struct PropertyValueText<'src>(Vec<PropertyValueTextToken<'src>>);
+
+#[derive(Debug)]
+pub struct RawPropertyValueText(Vec<Either<SpanCollector, PropertyValueTextEscape>>);
+
+impl RawPropertyValueText {
+    fn build<'src>(self, src: &SpannedSegments<'src>) -> PropertyValueText<'src> {
+        let tokens = self
+            .0
+            .into_iter()
+            .map(|t| match t {
+                Either::Left(collector) => PropertyValueTextToken::Str(collector.build(src)),
+                Either::Right(escape) => PropertyValueTextToken::Escape(escape),
+            })
+            .collect();
+        PropertyValueText(tokens)
+    }
 }
 
 /// Format Definition:  This value type is defined by the following notation:
@@ -529,27 +575,32 @@ where
 /// ; Any character except CONTROLs not needed by the current
 /// ; character set, DQUOTE, ";", ":", "\", ","
 /// ```
-fn property_value_text(strs: SpannedSegments<'_>) -> PropertyValue<'_> {
-    // TODO: handle escape sequences
-    PropertyValue::Text(strs)
-    // let strs = strs
-    //     .into_iter()
-    //     .map(|t| match t {
-    //         SpannedToken(Token::Escape(c), span) => {
-    //             let s = match c {
-    //                 r"\n" | r"\N" => "\n",
-    //                 r"\;" => ";",
-    //                 r"\," => ",",
-    //                 r"\\" => "\\",
-    //                 _ => unreachable!("Invalid escape sequence: {c}"),
-    //             };
-    //             SpannedToken(Token::Word(s), span)
-    //         }
-    //         other => other,
-    //     })
-    //     .collect();
-    //
-    // PropertyValue::Text(strs)
+fn property_value_text<'src, I, E>() -> impl Parser<'src, I, RawPropertyValueText, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    let s = select! { c if c != '\\' => c }
+        .ignored()
+        .repeated()
+        .at_least(1)
+        .map_with(|(), e| e.span())
+        .collect::<SpanCollector>()
+        .map(Either::Left);
+
+    let escape = just('\\')
+        .ignore_then(select! {
+            ';' => PropertyValueTextEscape::Semicolon,
+            ',' => PropertyValueTextEscape::Comma,
+            'N' | 'n' => PropertyValueTextEscape::Newline,
+            '\\' => PropertyValueTextEscape::Backslash,
+        })
+        .map(Either::Right);
+
+    choice((s, escape))
+        .repeated()
+        .collect()
+        .map(RawPropertyValueText)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -684,11 +735,125 @@ fn into_digit10<I: TryFrom<u32> + Default>(c: char) -> I {
     I::try_from(i).unwrap_or_default()
 }
 
+fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
+    let eoi = match (segs.0.first(), segs.0.last()) {
+        (Some(first), Some(last)) => first.1.start..last.1.end, // is it ..?
+        _ => 0..0,
+    };
+    Stream::from_iter(segs.into_spanned_chars()).map(eoi.into(), |(t, s)| (t, s.into()))
+}
+
+#[derive(Debug, Default)]
+struct SpanCollector(Vec<SimpleSpan>);
+
+impl SpanCollector {
+    fn build<'src>(self, src: &SpannedSegments<'src>) -> Vec<&'src str> {
+        // assume src segments are non-overlapping and sorted
+        let mut iter = src.0.iter();
+        let Some(mut item) = iter.next() else {
+            return Vec::new(); // no segments
+        };
+
+        let mut vec = Vec::with_capacity(self.0.len());
+        for span in self.0 {
+            let mut flag = true;
+            while flag {
+                if span.start > item.1.end {
+                    // need next segment, and skip this one
+                    match iter.next() {
+                        Some(a) => item = a,
+                        None => flag = false, // no more segments
+                    }
+                } else if span.end > item.1.end {
+                    // need next segment
+                    let i = span.start - item.1.start;
+                    let s = item.0.get(i..).unwrap(); // SAFETY: since in range
+                    match iter.next() {
+                        Some(a) => item = a,
+                        None => flag = false, // no more segments
+                    }
+                    vec.push(s);
+                } else {
+                    // within this segment
+                    flag = false;
+                    let i = span.start - item.1.start;
+                    let j = span.end - item.1.start;
+                    vec.push(item.0.get(i..j).unwrap()); // SAFETY: since i,j are in range
+                }
+            }
+        }
+        vec
+    }
+}
+
+impl Container<SimpleSpan> for SpanCollector {
+    fn with_capacity(n: usize) -> Self {
+        Self(Vec::with_capacity(n))
+    }
+
+    fn push(&mut self, span: SimpleSpan) {
+        match self.0.last_mut() {
+            Some(last) if last.end == span.start => {
+                last.end = span.end;
+            }
+            _ => self.0.push(span),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum Either<L, R> {
+    Left(L),
+    Right(R),
+}
+
 #[cfg(test)]
 mod tests {
     use chumsky::input::Stream;
 
+    use crate::lexer::lex_analysis;
+    use crate::syntax::syntax_analysis;
+
     use super::*;
+
+    #[test]
+    fn test_binary() {
+        fn check<'tokens, 'src: 'tokens>(src: &'src str) -> Result<(), Vec<Rich<'src, char>>> {
+            let stream = Stream::from_iter(src.chars());
+            property_value_binary::<'_, _, extra::Err<_>>()
+                .parse(stream)
+                .into_result()
+        }
+        let success_cases = [
+            // examples from RFC 5545 Section 3.3.1
+            // Original text include a typo (ignore the padding): https://www.rfc-editor.org/errata/eid5602
+            "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZy4=",
+            // extra tests
+            "TWFu",     // "Man"
+            "QUJDREVG", // "ABCDEF"
+            "AAAA",     // all zero bytes
+            "+/9a",     // bytes with high bits set
+            "ZgZg",     // "ff"
+            "TQ==",     // "M"
+            "TWE=",     // "Ma"
+            "SGVsbG8=", // "Hello"
+        ];
+        for src in success_cases {
+            assert!(check(src).is_ok(), "Parse {src} should succeed");
+        }
+
+        let fail_cases = [
+            "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZy4",
+            "TQ===",   // invalid length
+            "TWFu=",   // invalid length
+            "TWFuA",   // invalid length
+            "TWFu===", // invalid length
+            "T@Fu",    // invalid character
+        ];
+        for src in fail_cases {
+            assert!(check(src).is_err(), "Parse {src} should fail");
+        }
+    }
 
     #[test]
     fn test_boolean() {
@@ -727,7 +892,7 @@ mod tests {
 
         #[rustfmt::skip]
         let success_cases = [
-            // in RFC 5545 Section 3.3.6 examples
+            // examples from RFC 5545 Section 3.3.6
             ("P15DT5H0M20S", DateTime { positive: true, day: 15, hour: 5, minute: 0, second: 20 }),
             ("P2W", Week { positive: true, week: 2 }),
             // extra tests
@@ -770,7 +935,7 @@ mod tests {
         }
 
         let success_cases = [
-            // Examples from RFC 5545 Section 3.3.7
+            // examples from RFC 5545 Section 3.3.7
             ("1000000.0000001", 1_000_000.000_000_1),
             ("1.333", 1.333),
             ("-3.14", -3.14),
@@ -821,7 +986,7 @@ mod tests {
 
         #[rustfmt::skip]
         let success_cases = [
-            // Examples from RFC 5545 Section 3.3.8
+            // examples from RFC 5545 Section 3.3.8
             ("1234567890", 1_234_567_890),
             ("-1234567890", -1_234_567_890),
             ("+1234567890", 1_234_567_890),
@@ -860,36 +1025,63 @@ mod tests {
         }
     }
 
-    // TODO: enable this test after implementing escape sequence handling
-    //
-    // #[test]
-    // fn test_text() {
-    //     use logos::Logos;
-    //
-    //     fn parse(src: &'_ str) -> PropertyValue<'_> {
-    //         let strs = SpannedStrs::from_tokens(
-    //         );
-    //         property_value_text(tokens)
-    //     }
-    //
-    //     #[rustfmt::skip]
-    //     let success_cases = [
-    //         // Examples from RFC 5545 Section 3.3.11
-    //         (r"Project XYZ Final Review\nConference Room - 3B\nCome Prepared.",
-    //           "Project XYZ Final Review\nConference Room - 3B\nCome Prepared."),
-    //         // extra tests
-    //         (r"Hello\, World\; \N", "Hello, World; \n"),
-    //         ( r#""Quoted Text" and more text"#, r#""Quoted Text" and more text"#,),
-    //         ("Unicode 字符串 🎉", "Unicode 字符串 🎉"),
-    //         ("123\r\n 456\r\n\t789", "123456789"),
-    //     ];
-    //     for (src, expected) in success_cases {
-    //         match parse(src) {
-    //             PropertyValue::Text(ref segments) => assert_eq!(segments.to_string(), expected),
-    //             _ => panic!("Expected PropertyValue::Text"),
-    //         }
-    //     }
-    // }
+    #[test]
+    fn test_text() {
+        fn parse(src: &'_ str) -> PropertyValue<'_> {
+            let token_stream = lex_analysis(src);
+            let comps = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
+            assert_eq!(comps.len(), 1);
+            let syntax_component = comps.first().unwrap();
+            assert_eq!(syntax_component.properties.len(), 1);
+
+            let segs = syntax_component.properties.first().unwrap().value.clone();
+            let stream = make_input(segs.clone());
+            property_value_text::<'_, _, extra::Err<Rich<_>>>()
+                .parse(stream)
+                .into_result()
+                .map(|raw_text| PropertyValue::Text(raw_text.build(&segs)))
+                .unwrap()
+        }
+
+        fn to_string(text: &PropertyValueText<'_>) -> String {
+            let mut s = String::new();
+            for token in &text.0 {
+                match token {
+                    PropertyValueTextToken::Str(parts) => {
+                        for part in parts {
+                            s.push_str(part);
+                        }
+                    }
+                    PropertyValueTextToken::Escape(escape) => match escape {
+                        PropertyValueTextEscape::Backslash => s.push('\\'),
+                        PropertyValueTextEscape::Semicolon => s.push(';'),
+                        PropertyValueTextEscape::Comma => s.push(','),
+                        PropertyValueTextEscape::Newline => s.push('\n'),
+                    },
+                }
+            }
+            s
+        }
+
+        #[rustfmt::skip]
+        let success_cases = [
+            // examples from RFC 5545 Section 3.3.11
+            (r"Project XYZ Final Review\nConference Room - 3B\nCome Prepared.",
+              "Project XYZ Final Review\nConference Room - 3B\nCome Prepared."),
+            // extra tests
+            (r"Hello\, World\; \N", "Hello, World; \n"),
+            ( r#""Quoted Text" and more text"#, r#""Quoted Text" and more text"#,),
+            ("Unicode 字符串 🎉", "Unicode 字符串 🎉"),
+            ("123\r\n 456\r\n\t789", "123456789"),
+        ];
+        for (src, expected) in success_cases {
+            let src = format!("BEGIN:VEVENT\r\nTEST_PROP:{src}\r\nEND:VEVENT");
+            match parse(&src) {
+                PropertyValue::Text(ref segments) => assert_eq!(to_string(segments), expected),
+                _ => panic!("Expected PropertyValue::Text"),
+            }
+        }
+    }
 
     #[test]
     fn test_time() {
@@ -904,7 +1096,7 @@ mod tests {
 
         #[rustfmt::skip]
         let success_cases = [
-            // Examples from RFC 5545 Section 3.3.12
+            // examples from RFC 5545 Section 3.3.12
             ("135501",  PropertyValueTime { time: time(13, 55,  1, 0), utc: false }),
             ("135501Z", PropertyValueTime { time: time(13, 55,  1, 0), utc:  true }),
             // extra tests
@@ -948,7 +1140,7 @@ mod tests {
         }
         #[rustfmt::skip]
         let success_cases = [
-            // Examples from RFC 5545 Section 3.3.14
+            // examples from RFC 5545 Section 3.3.14
             (  "-0500", PropertyValueUtcOffset{positive: false, hour: 5, minute:  0, second:  0}),
             (  "+0100", PropertyValueUtcOffset{positive:  true, hour: 1, minute:  0, second:  0}),
             // extra tests
