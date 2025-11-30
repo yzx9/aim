@@ -16,7 +16,7 @@ use super::types::ValueExpected;
 /// ```txt
 /// float      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
 /// ```
-pub fn value_float<'src, I, E>() -> impl Parser<'src, I, f64, E>
+fn value_float<'src, I, E>() -> impl Parser<'src, I, f64, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -68,12 +68,25 @@ where
         })
 }
 
+/// Float multiple values parser.
+///
+/// If the property permits, multiple "float" values are specified by a
+/// COMMA-separated list of values.
+pub fn values_float<'src, I, E>() -> impl Parser<'src, I, Vec<f64>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
+{
+    value_float().separated_by(just(',')).collect()
+}
+
 /// Format Definition:  This value type is defined by the following notation:
 ///
 /// ```txt
 /// integer    = (["+"] / "-") 1*DIGIT
 /// ```
-pub fn value_integer<'src, I, E>() -> impl Parser<'src, I, i32, E>
+fn value_integer<'src, I, E>() -> impl Parser<'src, I, i32, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -111,12 +124,25 @@ where
         })
 }
 
+/// Integer multiple values parser.
+///
+/// If the property permits, multiple "integer" values are specified by a
+/// COMMA-separated list of values.
+pub fn values_integer<'src, I, E>() -> impl Parser<'src, I, Vec<i32>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
+{
+    value_integer().separated_by(just(',')).collect()
+}
+
 const fn sign<'src, I, E>() -> impl Parser<'src, I, char, E> + Copy
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    select! { '+' => '+', '-' => '-' }
+    select! { c @ ('+' | '-') => c }
 }
 
 #[cfg(test)]

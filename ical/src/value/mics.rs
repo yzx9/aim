@@ -130,7 +130,7 @@ pub enum ValueDuration {
 /// dur-day    = 1*DIGIT "D"
 /// ```
 #[allow(clippy::doc_link_with_quotes)]
-pub fn value_duration<'src, I, E>() -> impl Parser<'src, I, ValueDuration, E>
+fn value_duration<'src, I, E>() -> impl Parser<'src, I, ValueDuration, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -183,6 +183,18 @@ where
             .then(week)
             .map(|(positive, week)| ValueDuration::Week { positive, week }),
     ))
+}
+
+/// Duration multiple values parser.
+///
+/// If the property permits, multiple "duration" values are specified by a
+/// COMMA-separated list of values.
+pub fn values_duration<'src, I, E>() -> impl Parser<'src, I, Vec<ValueDuration>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    value_duration().separated_by(just(',')).collect()
 }
 
 #[cfg(test)]

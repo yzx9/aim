@@ -6,7 +6,7 @@ use chumsky::error::Rich;
 
 use crate::lexer::{Token, lex_analysis};
 use crate::syntax::syntax_analysis;
-use crate::typed::{TypedComponent, typed_analysis};
+use crate::typed::{TypedAnalysisError, TypedComponent, typed_analysis};
 
 /// Parse an iCalendar component from source code
 ///
@@ -58,13 +58,13 @@ use crate::typed::{TypedComponent, typed_analysis};
 ///         .finish()
 ///     }
 ///     ParseError::TypedError(e) => {
-///       Report::build(ReportKind::Error, e.span().into_range())
+///       Report::build(ReportKind::Error, e.span())
 ///          .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
 ///          .with_code(3)
 ///          .with_message(e.to_string())
 ///          .with_label(
-///            Label::new(e.span().into_range())
-///              .with_message(e.reason().to_string())
+///            Label::new(e.span())
+///              .with_message(e.to_string())
 ///              .with_color(Color::Red),
 ///          )
 ///          .finish()
@@ -103,5 +103,5 @@ pub enum ParseError<'src> {
     SyntaxError(Rich<'src, Token<'src>>),
 
     /// Errors from typed analysis
-    TypedError(Rich<'src, char>),
+    TypedError(TypedAnalysisError<'src>),
 }

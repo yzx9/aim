@@ -296,16 +296,31 @@ pub type SpannedSegment<'src> = (&'src str, Span);
 #[derive(Default, Clone, Debug)]
 pub struct SpannedSegments<'src> {
     pub(crate) segments: Vec<SpannedSegment<'src>>,
+    len: usize,
 }
 
 impl<'src> SpannedSegments<'src> {
-    pub fn resolve(&'src self) -> Cow<'src, str> {
+    pub fn span(&self) -> Span {
+        if let Some((_, first_span)) = self.segments.first() {
+            if let Some((_, last_span)) = self.segments.last() {
+                Span {
+                    start: first_span.start,
+                    end: last_span.end,
+                }
+            } else {
+                first_span.clone()
+            }
+        } else {
+            Span { start: 0, end: 0 }
+        }
+    }
+
+    pub fn resolve(&self) -> Cow<'src, str> {
         if self.segments.len() == 1 {
             let s = self.segments.first().unwrap().0; // SAFETY: due to len() == 1
             Cow::Borrowed(s)
         } else {
-            let len = self.segments.iter().map(|(seg, _)| seg.len()).sum();
-            let mut s = String::with_capacity(len);
+            let mut s = String::with_capacity(self.len);
             for (seg, _) in &self.segments {
                 s.push_str(seg);
             }
@@ -319,6 +334,24 @@ impl<'src> SpannedSegments<'src> {
             seg_idx: 0,
             chars: None,
         }
+    }
+
+    pub fn eq_ignore_ascii_case(&self, mut other: &str) -> bool {
+        if other.len() != self.len {
+            return false;
+        }
+
+        for (seg, _) in &self.segments {
+            let Some((head, tail)) = other.split_at_checked(seg.len()) else {
+                return false;
+            };
+            if !head.eq_ignore_ascii_case(seg) {
+                return false;
+            }
+            other = tail;
+        }
+
+        true
     }
 }
 
@@ -364,12 +397,14 @@ struct SpanCollector(Vec<Span>);
 
 impl SpanCollector {
     pub fn build(self, src: &'_ str) -> SpannedSegments<'_> {
-        let segments = self
-            .0
-            .into_iter()
-            .map(|s| (&src[s.clone()], s))
-            .collect::<Vec<_>>();
-        SpannedSegments { segments }
+        let mut segments = Vec::with_capacity(self.0.len());
+        let mut len = 0;
+        for s in &self.0 {
+            let segment_str = &src[s.clone()];
+            segments.push((segment_str, s.clone()));
+            len += segment_str.len();
+        }
+        SpannedSegments { segments, len }
     }
 }
 

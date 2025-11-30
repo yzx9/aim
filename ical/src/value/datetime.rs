@@ -39,7 +39,7 @@ impl From<ValueDate> for jiff::civil::Date {
 /// date-mday          = 2DIGIT        ;01-28, 01-29, 01-30, 01-31
 ///                                    ;based on month/year
 /// ```
-pub fn value_date<'src, I, E>() -> impl Parser<'src, I, ValueDate, E>
+fn value_date<'src, I, E>() -> impl Parser<'src, I, ValueDate, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -67,10 +67,25 @@ where
         .map(|((year, month), day)| ValueDate { year, month, day })
 }
 
+/// Date multiple values parser.
+///
+/// If the property permits, multiple "date" values are specified as a
+/// COMMA-separated list of values.
+pub fn values_date<'src, I, E>() -> impl Parser<'src, I, Vec<ValueDate>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    value_date().separated_by(just(',')).collect()
+}
+
 /// Date-Time value defined in the RFC 5545 Section 3.3.5.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValueDateTime {
+    /// Date component.
     pub date: ValueDate,
+
+    /// Time component.
     pub time: ValueTime,
 }
 
@@ -79,7 +94,7 @@ pub struct ValueDateTime {
 /// ```txt
 /// date-time  = date "T" time ;As specified in the DATE and TIME
 /// ```
-pub fn value_date_time<'src, I, E>() -> impl Parser<'src, I, ValueDateTime, E>
+fn value_date_time<'src, I, E>() -> impl Parser<'src, I, ValueDateTime, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -88,6 +103,18 @@ where
         .then_ignore(just('T'))
         .then(value_time())
         .map(|(date, time)| ValueDateTime { date, time })
+}
+
+/// Date-Time multiple values parser.
+///
+/// If the property permits, multiple "DATE-TIME" values are specified as a
+/// COMMA-separated list of values.
+pub fn values_date_time<'src, I, E>() -> impl Parser<'src, I, Vec<ValueDateTime>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    value_date_time().separated_by(just(',')).collect()
 }
 
 /// Time value defined in the RFC 5545 Section 3.3.12.
@@ -127,14 +154,14 @@ impl From<ValueTime> for jiff::civil::Time {
 ///
 /// time-utc     = "Z"
 /// ```
-pub fn value_time<'src, I, E>() -> impl Parser<'src, I, ValueTime, E>
+fn value_time<'src, I, E>() -> impl Parser<'src, I, ValueTime, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
     time_hour()
         .then(time_minute())
-        .then(time_second())
+        .then(time_second_with_leap())
         .then(just('Z').or_not())
         .map(|(((hour, minute), second), utc)| ValueTime {
             hour,
@@ -142,6 +169,18 @@ where
             second,
             utc: utc.is_some(),
         })
+}
+
+/// Time multiple values parser.
+///
+/// If the property permits, multiple "time" values are specified by a
+/// COMMA-separated list of values.
+pub fn values_time<'src, I, E>() -> impl Parser<'src, I, Vec<ValueTime>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    value_time().separated_by(just(',')).collect()
 }
 
 /// UTC Offset Value defined in RFC 5545 Section 3.3.14
@@ -175,7 +214,7 @@ where
     select! { c @ ('+' | '-') => c }
         .then(time_hour())
         .then(time_minute())
-        .then(time_second().or_not())
+        .then(time_second_with_leap().or_not())
         .map(|(((sign, hour), minute), second)| ValueUtcOffset {
             positive: !matches!(sign, '-'),
             hour,
@@ -208,8 +247,16 @@ where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
+    i8_0_5().then(i8_0_9()).map(|(a, b)| 10 * a + b)
+}
+
+fn time_second_with_leap<'src, I, E>() -> impl Parser<'src, I, i8, E> + Copy
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
     choice((
-        i8_0_5().then(i8_0_9()).map(|(a, b)| 10 * a + b),
+        time_second(),
         just('6').ignore_then(just('0').ignored().to(60)),
     ))
 }

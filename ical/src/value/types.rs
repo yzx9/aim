@@ -16,13 +16,11 @@ use crate::keyword::{
     KW_PERIOD, KW_RRULE, KW_TEXT, KW_TIME, KW_URI, KW_UTC_OFFSET,
 };
 use crate::syntax::SpannedSegments;
-use crate::value::datetime::{
-    ValueDateTime, value_date, value_date_time, value_time, value_utc_offset,
-};
-use crate::value::mics::{value_binary, value_boolean, value_duration};
-use crate::value::numeric::{value_float, value_integer};
-use crate::value::text::value_text;
-use crate::{ValueDate, ValueDuration, ValueText, ValueTime, ValueUtcOffset};
+use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
+use crate::value::mics::{value_binary, value_boolean, values_duration};
+use crate::value::numeric::{values_float, values_integer};
+use crate::value::text::values_text;
+use crate::{ValueDate, ValueDateTime, ValueDuration, ValueText, ValueTime, ValueUtcOffset};
 
 /// The properties in an iCalendar object are strongly typed.  The definition
 /// of each property restricts the value to be one of the value data types, or
@@ -117,6 +115,16 @@ pub enum ValueKind {
     UtcOffset,
 }
 
+impl TryFrom<&SpannedSegments<'_>> for ValueKind {
+    type Error = ();
+
+    fn try_from(segs: &SpannedSegments<'_>) -> Result<Self, Self::Error> {
+        // TODO: check quote: Property parameter values that are not in quoted-strings are case-insensitive.
+        // TODO: avoid allocation
+        segs.resolve().parse()
+    }
+}
+
 impl FromStr for ValueKind {
     type Err = ();
 
@@ -170,11 +178,10 @@ impl Display for ValueKind {
     }
 }
 
-// TODO: parse as multiple values
-pub fn value(
+pub fn values(
     kind: ValueKind,
     value: SpannedSegments<'_>,
-) -> Result<Value<'_>, Vec<Rich<'_, char>>> {
+) -> Result<Vec<Value<'_>>, Vec<Rich<'_, char>>> {
     use ValueKind::{
         Binary, Boolean, Date, DateTime, Duration, Float, Integer, Text, Time, UtcOffset,
     };
@@ -185,48 +192,53 @@ pub fn value(
             value_binary::<'_, _, extra::Err<_>>()
                 .check(stream)
                 .into_result()?;
-            Ok(Value::Binary(value))
+            Ok(vec![Value::Binary(value)])
         }
         Text => {
             let stream = make_input(value.clone()); // PERF: avoid clone
-            value_text::<'_, _, extra::Err<_>>()
+            values_text::<'_, _, extra::Err<_>>()
                 .parse(stream)
                 .into_result()
-                .map(|raw_text| Value::Text(raw_text.build(&value)))
+                .map(|texts| {
+                    texts
+                        .into_iter()
+                        .map(|a| Value::Text(a.build(&value)))
+                        .collect()
+                })
         }
         _ => {
             let stream = make_input(value);
             match kind {
                 Boolean => value_boolean::<'_, _, extra::Err<_>>()
-                    .map(Value::Boolean)
+                    .map(|a| vec![Value::Boolean(a)])
                     .parse(stream),
 
-                Date => value_date::<'_, _, extra::Err<_>>()
-                    .map(Value::Date)
+                Date => values_date::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Date).collect())
                     .parse(stream),
 
-                DateTime => value_date_time::<'_, _, extra::Err<_>>()
-                    .map(Value::DateTime)
+                DateTime => values_date_time::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::DateTime).collect())
                     .parse(stream),
 
-                Duration => value_duration::<'_, _, extra::Err<_>>()
-                    .map(Value::Duration)
+                Duration => values_duration::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Duration).collect())
                     .parse(stream),
 
-                Float => value_float::<'_, _, extra::Err<_>>()
-                    .map(Value::Float)
+                Float => values_float::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Float).collect())
                     .parse(stream),
 
-                Integer => value_integer::<'_, _, extra::Err<_>>()
-                    .map(Value::Integer)
+                Integer => values_integer::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Integer).collect())
                     .parse(stream),
 
-                Time => value_time::<'_, _, extra::Err<_>>()
-                    .map(Value::Time)
+                Time => values_time::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Time).collect())
                     .parse(stream),
 
                 UtcOffset => value_utc_offset::<'_, _, extra::Err<_>>()
-                    .map(Value::UtcOffset)
+                    .map(|a| vec![Value::UtcOffset(a)])
                     .parse(stream),
 
                 _ => unimplemented!("Parser for {kind} is not implemented"),

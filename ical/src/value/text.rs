@@ -97,7 +97,7 @@ impl RawValueText {
 /// ; Any character except CONTROLs not needed by the current
 /// ; character set, DQUOTE, ";", ":", "\", ","
 /// ```
-pub fn value_text<'src, I, E>() -> impl Parser<'src, I, RawValueText, E>
+fn value_text<'src, I, E>() -> impl Parser<'src, I, RawValueText, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -120,6 +120,18 @@ where
         .map(Either::Right);
 
     choice((s, escape)).repeated().collect().map(RawValueText)
+}
+
+/// Text multiple values parser.
+///
+/// If the property permits, multiple TEXT values are specified by a
+/// COMMA-separated list of values.
+pub fn values_text<'src, I, E>() -> impl Parser<'src, I, Vec<RawValueText>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    value_text().separated_by(just(',')).collect()
 }
 
 #[derive(Debug, Default)]

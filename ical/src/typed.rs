@@ -4,13 +4,16 @@
 
 //! Typed representation of iCalendar components and properties.
 
+use std::collections::HashSet;
+use std::fmt::Display;
 use std::{collections::HashMap, sync::LazyLock};
 
 use chumsky::error::Rich;
 
+use crate::lexer::Span;
 use crate::property_spec::{PROPERTY_SPECS, PropertySpec};
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxProperty};
-use crate::value::{Value, ValueKind, value};
+use crate::value::{Value, ValueKind, values};
 
 static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
     PROPERTY_SPECS
@@ -25,7 +28,7 @@ static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = Lazy
 /// If there are typing errors, a vector of errors will be returned.
 pub fn typed_analysis(
     components: Vec<SyntaxComponent<'_>>,
-) -> Result<Vec<TypedComponent<'_>>, Vec<Rich<'_, char>>> {
+) -> Result<Vec<TypedComponent<'_>>, Vec<TypedAnalysisError<'_>>> {
     let mut typed_components = Vec::new();
     let mut errors = Vec::new();
     for comp in components {
@@ -43,17 +46,102 @@ pub fn typed_analysis(
 }
 
 #[derive(Debug, Clone)]
+pub enum TypedAnalysisError<'src> {
+    ParamNotAllowedMultiple {
+        property_name: String,
+        param_name: String,
+        span: Span,
+    },
+    ParamValueKindNotDefined {
+        property_name: String,
+        kind: String,
+        span: Span,
+    },
+    ParamValueKindNotAllowed {
+        property_name: String,
+        kind: ValueKind,
+        span: Span,
+    },
+    PropertyNotDefined((String, Span)),
+    PropertyNotAllowedMultiple((String, Span)),
+    ValueSyntax(Rich<'src, char>),
+}
+
+impl TypedAnalysisError<'_> {
+    pub fn span(&self) -> Span {
+        match self {
+            TypedAnalysisError::ParamNotAllowedMultiple { span, .. }
+            | TypedAnalysisError::ParamValueKindNotDefined { span, .. }
+            | TypedAnalysisError::ParamValueKindNotAllowed { span, .. }
+            | TypedAnalysisError::PropertyNotDefined((_, span))
+            | TypedAnalysisError::PropertyNotAllowedMultiple((_, span)) => span.clone(),
+            TypedAnalysisError::ValueSyntax(err) => err.span().into_range(),
+        }
+    }
+}
+
+impl Display for TypedAnalysisError<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypedAnalysisError::ParamNotAllowedMultiple {
+                property_name,
+                param_name,
+                ..
+            } => {
+                write!(
+                    f,
+                    "Parameter '{param_name}' for property '{property_name}' is not allowed to appear multiple times."
+                )
+            }
+            TypedAnalysisError::ParamValueKindNotDefined {
+                property_name,
+                kind: value,
+                ..
+            } => {
+                write!(
+                    f,
+                    "Parameter 'VALUE={value}' for property '{property_name}' is not defined."
+                )
+            }
+            TypedAnalysisError::ParamValueKindNotAllowed {
+                property_name,
+                kind,
+                ..
+            } => {
+                write!(
+                    f,
+                    "Parameter 'VALUE={kind}' for property '{property_name}' is not allowed here."
+                )
+            }
+            TypedAnalysisError::PropertyNotDefined((name, _)) => {
+                write!(f, "Property '{name}' is not defined in the specification.")
+            }
+            TypedAnalysisError::PropertyNotAllowedMultiple((name, _)) => {
+                write!(
+                    f,
+                    "Property '{name}' is not allowed to appear multiple times."
+                )
+            }
+            TypedAnalysisError::ValueSyntax(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct TypedComponent<'src> {
     pub name: &'src str, // "VCALENDAR" / "VEVENT" / "VTIMEZONE" / "VALARM" / ...
     pub properties: Vec<TypedProperty<'src>>, // Keep the original order
     pub children: Vec<TypedComponent<'src>>,
 }
 
-fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<Rich<'_, char>>> {
+fn typed_component(
+    comp: SyntaxComponent<'_>,
+) -> Result<TypedComponent<'_>, Vec<TypedAnalysisError<'_>>> {
+    let mut existing_props = HashSet::new();
     let mut properties = Vec::new();
     let mut errors = Vec::new();
     for prop in comp.properties {
-        match typed_property(prop) {
+        match typed_property(&mut existing_props, prop) {
             Ok(prop) => properties.push(prop),
             Err(errs) => errors.extend(errs),
         }
@@ -80,7 +168,7 @@ fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<
 
 #[derive(Debug, Clone)]
 pub struct TypedProperty<'src> {
-    pub name: SpannedSegments<'src>, // Case insensitive, keep original for writing back
+    pub name: String,                      // UPPERCASE
     pub params: Vec<TypedParameter<'src>>, // Allow duplicates & multi-values
     pub values: Vec<Value<'src>>,
 }
@@ -97,12 +185,44 @@ pub struct TypedParameterValue<'src> {
     pub quoted: bool,
 }
 
-fn typed_property(prop: SyntaxProperty<'_>) -> Result<TypedProperty<'_>, Vec<Rich<'_, char>>> {
-    let prop_name = prop.name.resolve().to_ascii_uppercase();
-    let kind = kind_of(&prop_name, &prop);
+fn typed_property<'src>(
+    existing: &mut HashSet<String>,
+    prop: SyntaxProperty<'src>,
+) -> Result<TypedProperty<'src>, Vec<TypedAnalysisError<'src>>> {
+    let name = prop.name.resolve().to_ascii_uppercase();
+    let Some(spec) = PROP_TABLE.get(&name.as_ref()) else {
+        return Err(vec![TypedAnalysisError::PropertyNotDefined((
+            name,
+            prop.name.span(),
+        ))]);
+    };
+
+    if !spec.multiple_valued {
+        if existing.contains(&name) {
+            return Err(vec![TypedAnalysisError::PropertyNotAllowedMultiple((
+                name,
+                prop.name.span(),
+            ))]);
+        }
+
+        existing.insert(name.clone()); // PERF: avoid clone
+    }
+
+    let kind = kind_of(&prop, spec).map_err(|a| vec![a])?;
 
     // TODO: cache parser
-    let value = value(kind, prop.value)?;
+    let values = values(kind, prop.value).map_err(|errs| {
+        errs.into_iter()
+            .map(TypedAnalysisError::ValueSyntax)
+            .collect::<Vec<_>>()
+    })?;
+
+    if !spec.multiple_valued && values.len() > 1 {
+        return Err(vec![TypedAnalysisError::PropertyNotAllowedMultiple((
+            name,
+            prop.name.span(),
+        ))]);
+    }
 
     let params = prop
         .params
@@ -121,32 +241,50 @@ fn typed_property(prop: SyntaxProperty<'_>) -> Result<TypedProperty<'_>, Vec<Ric
         .collect();
 
     Ok(TypedProperty {
-        name: prop.name,
+        name,
         params,
-        values: vec![value],
+        values,
     })
 }
 
-fn kind_of(prop_name: &str, prop: &SyntaxProperty) -> ValueKind {
+fn kind_of<'src>(
+    prop: &SyntaxProperty<'src>,
+    spec: &PropertySpec<'_>,
+) -> Result<ValueKind, TypedAnalysisError<'src>> {
     // find VALUE= param
-    let value_param = prop
+    let Some(value_params) = prop
         .params
         .iter()
-        .find(|p| p.name.resolve().to_uppercase() == "VALUE")
-        .and_then(|p| p.values.first())
-        .map(|s| s.value.resolve().to_uppercase());
+        .find(|p| p.name.eq_ignore_ascii_case("VALUE"))
+    else {
+        return Ok(spec.default_kind);
+    };
 
-    if let Some(spec) = PROP_TABLE.get(prop_name) {
-        if let Some(v) = value_param {
-            let kind = v.parse();
-            // TODO: check if allowed
-            kind.unwrap_or(ValueKind::Text) // TODO: should throw error
-        } else {
-            spec.default_kind
-        }
-    } else if let Some(v) = value_param {
-        v.parse().unwrap_or(ValueKind::Text) // TODO: should throw error
-    } else {
-        ValueKind::Text // TODO: should throw error
+    if value_params.values.len() > 1 {
+        // multiple VALUE= params
+        return Err(TypedAnalysisError::ParamNotAllowedMultiple {
+            property_name: prop.name.resolve().to_string(),
+            param_name: "VALUE".to_string(),
+            span: prop.name.span(),
+        });
     }
+    let value_param = value_params.values.first().unwrap();
+
+    let Ok(kind) = (&value_param.value).try_into() else {
+        return Err(TypedAnalysisError::ParamValueKindNotDefined {
+            property_name: prop.name.resolve().to_string(),
+            kind: value_param.value.resolve().to_string(),
+            span: prop.name.span(),
+        });
+    };
+
+    if !spec.allowed_kinds.contains(&kind) {
+        return Err(TypedAnalysisError::ParamValueKindNotAllowed {
+            property_name: prop.name.resolve().to_string(),
+            kind,
+            span: prop.name.span(),
+        });
+    }
+
+    Ok(kind)
 }

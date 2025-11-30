@@ -10,7 +10,7 @@ mod numeric;
 mod text;
 mod types;
 
-pub use datetime::{ValueDate, ValueTime, ValueUtcOffset};
+pub use datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
 pub use mics::ValueDuration;
 pub use text::ValueText;
-pub use types::{Value, ValueKind, value};
+pub use types::{Value, ValueKind, values};

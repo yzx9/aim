@@ -35,4 +35,6 @@ mod typed;
 mod value;
 
 pub use crate::parser::{ParseError, parse};
-pub use crate::value::{ValueDate, ValueDuration, ValueText, ValueTime, ValueUtcOffset};
+pub use crate::value::{
+    ValueDate, ValueDateTime, ValueDuration, ValueText, ValueTime, ValueUtcOffset,
+};
