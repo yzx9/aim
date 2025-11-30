@@ -16,7 +16,9 @@ use crate::keyword::{
     KW_PERIOD, KW_RRULE, KW_TEXT, KW_TIME, KW_URI, KW_UTC_OFFSET,
 };
 use crate::syntax::SpannedSegments;
-use crate::value::datetime::{value_date, value_time, value_utc_offset};
+use crate::value::datetime::{
+    ValueDateTime, value_date, value_date_time, value_time, value_utc_offset,
+};
 use crate::value::mics::{value_binary, value_boolean, value_duration};
 use crate::value::numeric::{value_float, value_integer};
 use crate::value::text::value_text;
@@ -53,8 +55,11 @@ pub enum Value<'src> {
     /// See RFC 5545 Section 3.3.4 for more details.
     Date(ValueDate),
 
-    // TODO: 3.3.5. Date-Time
-    //
+    /// This value type is used to identify properties that contain a date with
+    ///
+    /// See RFC 5545 Section 3.3.5 for more details.
+    DateTime(ValueDateTime),
+
     /// This value type is used to identify properties that contain a duration
     /// of time.
     ///
@@ -170,7 +175,9 @@ pub fn value(
     kind: ValueKind,
     value: SpannedSegments<'_>,
 ) -> Result<Value<'_>, Vec<Rich<'_, char>>> {
-    use ValueKind::{Binary, Boolean, Date, Duration, Float, Integer, Text, Time, UtcOffset};
+    use ValueKind::{
+        Binary, Boolean, Date, DateTime, Duration, Float, Integer, Text, Time, UtcOffset,
+    };
 
     match kind {
         Binary => {
@@ -193,24 +200,35 @@ pub fn value(
                 Boolean => value_boolean::<'_, _, extra::Err<_>>()
                     .map(Value::Boolean)
                     .parse(stream),
+
                 Date => value_date::<'_, _, extra::Err<_>>()
                     .map(Value::Date)
                     .parse(stream),
+
+                DateTime => value_date_time::<'_, _, extra::Err<_>>()
+                    .map(Value::DateTime)
+                    .parse(stream),
+
                 Duration => value_duration::<'_, _, extra::Err<_>>()
                     .map(Value::Duration)
                     .parse(stream),
+
                 Float => value_float::<'_, _, extra::Err<_>>()
                     .map(Value::Float)
                     .parse(stream),
+
                 Integer => value_integer::<'_, _, extra::Err<_>>()
                     .map(Value::Integer)
                     .parse(stream),
+
                 Time => value_time::<'_, _, extra::Err<_>>()
                     .map(Value::Time)
                     .parse(stream),
+
                 UtcOffset => value_utc_offset::<'_, _, extra::Err<_>>()
                     .map(Value::UtcOffset)
                     .parse(stream),
+
                 _ => unimplemented!("Parser for {kind} is not implemented"),
             }
             .into_result()

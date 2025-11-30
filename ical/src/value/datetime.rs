@@ -67,6 +67,29 @@ where
         .map(|((year, month), day)| ValueDate { year, month, day })
 }
 
+/// Date-Time value defined in the RFC 5545 Section 3.3.5.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValueDateTime {
+    pub date: ValueDate,
+    pub time: ValueTime,
+}
+
+/// Format Definition:  This value type is defined by the following notation:
+///
+/// ```txt
+/// date-time  = date "T" time ;As specified in the DATE and TIME
+/// ```
+pub fn value_date_time<'src, I, E>() -> impl Parser<'src, I, ValueDateTime, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+{
+    value_date()
+        .then_ignore(just('T'))
+        .then(value_time())
+        .map(|(date, time)| ValueDateTime { date, time })
+}
+
 /// Time value defined in the RFC 5545 Section 3.3.12.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValueTime {
@@ -253,6 +276,72 @@ mod tests {
             "abcd1234",  // invalid characters
             "2024011",   // invalid length
             "202401011", // invalid length
+        ];
+        for src in fail_cases {
+            assert!(parse(src).is_err(), "Parse {src} should fail");
+        }
+    }
+
+    #[test]
+    fn test_date_time() {
+        fn parse(src: &str) -> Result<ValueDateTime, Vec<Rich<'_, char>>> {
+            let stream = Stream::from_iter(src.chars());
+            value_date_time::<'_, _, extra::Err<_>>()
+                .parse(stream)
+                .into_result()
+        }
+
+        #[rustfmt::skip]
+        let success_cases = [
+            // examples from RFC 5545 Section 3.3.5
+            ("19980118T230000", ValueDateTime {
+                date: ValueDate { year: 1998, month: 1, day: 18 },
+                time: ValueTime { hour: 23, minute: 0, second: 0, utc: false },
+            }),
+            ("19980119T070000Z", ValueDateTime {
+                date: ValueDate { year: 1998, month: 1, day: 19 },
+                time: ValueTime { hour: 7, minute: 0, second: 0, utc: true },
+            }),
+            ("19980119T020000", ValueDateTime { // TODO: TZID=America/New_York:19980119T020000
+                date: ValueDate { year: 1998, month: 1, day: 19 },
+                time: ValueTime { hour: 2, minute: 0, second: 0, utc: false },
+            }),
+            ("19970630T235960Z", ValueDateTime {
+                date: ValueDate { year: 1997, month: 6, day: 30 },
+                time: ValueTime { hour: 23, minute: 59, second: 60, utc: true },
+            }),
+            ("19970714T133000", ValueDateTime { // Local time
+                date: ValueDate { year: 1997, month: 7, day: 14 },
+                time: ValueTime { hour: 13, minute: 30, second: 0, utc: false },
+            }),
+            ("19970714T173000Z", ValueDateTime { // UTC time
+                date: ValueDate { year: 1997, month: 7, day: 14 },
+                time: ValueTime { hour: 17, minute: 30, second: 0, utc: true },
+            }),
+            // TODO: TZID=America/New_York:19970714T133000
+            //
+            // extra tests
+            ("19970714T133000", ValueDateTime {
+                date: ValueDate { year: 1997, month: 7, day: 14 },
+                time: ValueTime { hour: 13, minute: 30, second: 0, utc: false },
+            }),
+            ("19970714T133000Z", ValueDateTime {
+                date: ValueDate { year: 1997, month: 7, day: 14 },
+                time: ValueTime { hour: 13, minute: 30, second: 0, utc: true },
+            }),
+        ];
+        for (src, expected) in success_cases {
+            assert_eq!(parse(src).unwrap(), expected);
+        }
+
+        let fail_cases = [
+            // examples from RFC 5545 Section 3.3.5
+            "19980119T230000-0800", // invalid time format
+            // extra tests
+            "19970714 133000", // missing 'T'
+            "19970714T250000", // invalid hour
+            "19970714T126000", // invalid minute
+            "19970714T123461", // invalid second
         ];
         for src in fail_cases {
             assert!(parse(src).is_err(), "Parse {src} should fail");
