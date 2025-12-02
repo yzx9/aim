@@ -251,6 +251,7 @@ pub fn values(
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueExpected {
+    Date,
     Float,
     Integer,
 }
@@ -258,6 +259,7 @@ pub enum ValueExpected {
 impl From<ValueExpected> for RichPattern<'_, char> {
     fn from(expected: ValueExpected) -> Self {
         match expected {
+            ValueExpected::Date => Self::Label(Cow::Borrowed("invalid date")),
             ValueExpected::Float => Self::Label(Cow::Borrowed("float out of range")),
             ValueExpected::Integer => Self::Label(Cow::Borrowed("integer out of range")),
         }

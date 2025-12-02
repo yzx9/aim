@@ -6,7 +6,10 @@
 
 use chumsky::Parser;
 use chumsky::extra::ParserExtra;
+use chumsky::label::LabelError;
 use chumsky::prelude::*;
+
+use crate::value::types::ValueExpected;
 
 /// Date value in the iCalendar format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,6 +22,15 @@ pub struct ValueDate {
 
     /// Day component, 1-31.
     pub day: i8,
+}
+
+impl ValueDate {
+    /// Convert to `jiff::civil::Date`.
+    #[cfg(feature = "jiff")]
+    #[must_use]
+    pub fn civil_date(self) -> jiff::civil::Date {
+        self.into()
+    }
 }
 
 #[cfg(feature = "jiff")]
@@ -43,6 +55,7 @@ fn value_date<'src, I, E>() -> impl Parser<'src, I, ValueDate, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
 {
     let year = i16_0_9()
         .then(i16_0_9())
@@ -58,13 +71,19 @@ where
     // TODO: validate day based on month/year
     let day = choice((
         just('0').ignore_then(i8_1_9()),
-        i8_1_2().then(i8_1_9()).map(|(a, b)| 10 * a + b),
+        i8_1_2().then(i8_0_9()).map(|(a, b)| 10 * a + b),
         just('3').ignore_then(i8_0_1()).map(|b| 30 + b),
     ));
 
     year.then(month)
         .then(day)
-        .map(|((year, month), day)| ValueDate { year, month, day })
+        .try_map(|((year, month), day), span| {
+            if cfg!(feature = "jiff") && jiff::civil::Date::new(year, month, day).is_err() {
+                Err(E::Error::expected_found([ValueExpected::Date], None, span))
+            } else {
+                Ok(ValueDate { year, month, day })
+            }
+        })
 }
 
 /// Date multiple values parser.
@@ -75,6 +94,7 @@ pub fn values_date<'src, I, E>() -> impl Parser<'src, I, Vec<ValueDate>, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
 {
     value_date().separated_by(just(',')).collect()
 }
@@ -89,6 +109,37 @@ pub struct ValueDateTime {
     pub time: ValueTime,
 }
 
+impl ValueDateTime {
+    /// Convert to `jiff::civil::DateTime`, contracting leap second 60 to 59.
+    #[cfg(feature = "jiff")]
+    #[must_use]
+    pub fn civil_date_time(self) -> jiff::civil::DateTime {
+        self.into()
+    }
+}
+
+#[cfg(feature = "jiff")]
+impl From<ValueDateTime> for jiff::civil::DateTime {
+    fn from(value: ValueDateTime) -> Self {
+        // NOTE: We contract leap second 60 to 59 for simplicity
+        let second = if value.time.second == 60 {
+            59
+        } else {
+            value.time.second
+        };
+
+        jiff::civil::datetime(
+            value.date.year,
+            value.date.month,
+            value.date.day,
+            value.time.hour,
+            value.time.minute,
+            second,
+            0,
+        )
+    }
+}
+
 /// Format Definition:  This value type is defined by the following notation:
 ///
 /// ```txt
@@ -98,6 +149,7 @@ fn value_date_time<'src, I, E>() -> impl Parser<'src, I, ValueDateTime, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
 {
     value_date()
         .then_ignore(just('T'))
@@ -113,6 +165,7 @@ pub fn values_date_time<'src, I, E>() -> impl Parser<'src, I, Vec<ValueDateTime>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
 {
     value_date_time().separated_by(just(',')).collect()
 }
@@ -131,6 +184,15 @@ pub struct ValueTime {
 
     /// Whether the time is in UTC (indicated by a trailing 'Z').
     pub utc: bool,
+}
+
+impl ValueTime {
+    /// Convert to `jiff::civil::Time`, contracting leap second 60 to 59.
+    #[cfg(feature = "jiff")]
+    #[must_use]
+    pub fn civil_time(self) -> jiff::civil::Time {
+        self.into()
+    }
 }
 
 #[cfg(feature = "jiff")]
@@ -303,7 +365,7 @@ mod tests {
         }
 
         #[rustfmt::skip]
-        let success_cases = [
+        let mut success_cases = vec![
             // examples from RFC 5545 Section 3.3.4
             ("19970714", ValueDate { year: 1997, month: 7, day: 14 }),
             // extra tests
@@ -311,19 +373,30 @@ mod tests {
             ("20000229", ValueDate { year: 2000, month: 2, day: 29 }), // leap year
             ("19000101", ValueDate { year: 1900, month: 1, day: 1 }),
         ];
-        for (src, expected) in success_cases {
-            assert_eq!(parse(src).unwrap(), expected);
-        }
 
-        let fail_cases = [
-            // "19970230",  // invalid date
-            // "20240230",  // invalid date
+        let mut fail_cases = vec![
             "20241301",  // invalid month
             "20240001",  // invalid month
             "abcd1234",  // invalid characters
             "2024011",   // invalid length
             "202401011", // invalid length
         ];
+
+        #[rustfmt::skip]
+        let need_validate = [
+            ("19970230", ValueDate { year: 1997, month: 2, day: 30 }), // invalid date
+            ("20240230", ValueDate { year: 2024, month: 2, day: 30 }), // invalid date
+        ];
+        if cfg!(feature = "jiff") {
+            fail_cases.extend(need_validate.into_iter().map(|(src, _)| src));
+        } else {
+            success_cases.extend(need_validate);
+        }
+
+        for (src, expected) in success_cases {
+            assert_eq!(parse(src).unwrap(), expected);
+        }
+
         for src in fail_cases {
             assert!(parse(src).is_err(), "Parse {src} should fail");
         }
