@@ -61,24 +61,28 @@ where
 /// ```txt
 /// boolean    = "TRUE" / "FALSE"
 /// ```
+///
+/// Description:  These values are case-insensitive text.  No additional
+///    content value encoding (i.e., BACKSLASH character encoding, see
+///    Section 3.3.11) is defined for this value type.
 pub fn value_boolean<'src, I, E>() -> impl Parser<'src, I, bool, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    // case-sensitive
-    let t = just('T')
-        .ignore_then(just('R'))
-        .ignore_then(just('U'))
-        .ignore_then(just('E'))
+    // case-insensitive
+    let t = choice((just('T'), just('t')))
+        .ignore_then(choice((just('R'), just('r'))))
+        .ignore_then(choice((just('U'), just('u'))))
+        .ignore_then(choice((just('E'), just('e'))))
         .ignored()
         .to(true);
 
-    let f = just('F')
-        .ignore_then(just('A'))
-        .ignore_then(just('L'))
-        .ignore_then(just('S'))
-        .ignore_then(just('E'))
+    let f = choice((just('F'), just('f')))
+        .ignore_then(choice((just('A'), just('a'))))
+        .ignore_then(choice((just('L'), just('l'))))
+        .ignore_then(choice((just('S'), just('s'))))
+        .ignore_then(choice((just('E'), just('e'))))
         .ignored()
         .to(false);
 
@@ -262,11 +266,20 @@ AAAAAAAAAAAA\
                 .into_result()
         }
 
-        for (src, expected) in [("TRUE", true), ("FALSE", false)] {
+        for (src, expected) in [
+            ("TRUE", true),
+            ("True", true),
+            ("true", true),
+            ("FALSE", false),
+            ("False", false),
+            ("false", false),
+        ] {
             assert_eq!(parse(src).unwrap(), expected);
         }
 
-        let fail_cases = ["True", "False", "true", "false", "1", "0", "YES", "NO", ""];
+        let fail_cases = [
+            "True ", " FALSE", "T RUE", "FA LSE", "1", "0", "YES", "NO", "",
+        ];
         for src in fail_cases {
             assert!(parse(src).is_err(), "Parse {src} should fail");
         }
