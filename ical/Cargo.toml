@@ -22,5 +22,5 @@ logos = "0.15.1"
 ariadne = "0.6.0"
 
 [features]
-default = []
+default = ["jiff"]
 jiff = ["dep:jiff"]
