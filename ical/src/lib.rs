@@ -29,12 +29,10 @@
 mod keyword;
 mod lexer;
 mod parser;
-mod property_spec;
 mod syntax;
 mod typed;
-mod value;
 
 pub use crate::parser::{ParseError, parse};
-pub use crate::value::{
+pub use crate::typed::{
     ValueDate, ValueDateTime, ValueDuration, ValueText, ValueTime, ValueUtcOffset,
 };

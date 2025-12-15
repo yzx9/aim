@@ -4,12 +4,14 @@
 
 //! Parsers for property values as defined in RFC 5545 Section 3.3.
 
+use std::cmp::min;
+
 use chumsky::Parser;
 use chumsky::extra::ParserExtra;
 use chumsky::label::LabelError;
 use chumsky::prelude::*;
 
-use crate::value::types::ValueExpected;
+use crate::typed::value::ValueExpected;
 
 /// Date value in the iCalendar format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,7 +70,6 @@ where
         just('1').ignore_then(i8_0_2()).map(|b| 10 + b),
     ));
 
-    // TODO: validate day based on month/year
     let day = choice((
         just('0').ignore_then(i8_1_9()),
         i8_1_2().then(i8_0_9()).map(|(a, b)| 10 * a + b),
@@ -121,20 +122,13 @@ impl ValueDateTime {
 #[cfg(feature = "jiff")]
 impl From<ValueDateTime> for jiff::civil::DateTime {
     fn from(value: ValueDateTime) -> Self {
-        // NOTE: We contract leap second 60 to 59 for simplicity
-        let second = if value.time.second == 60 {
-            59
-        } else {
-            value.time.second
-        };
-
         jiff::civil::datetime(
             value.date.year,
             value.date.month,
             value.date.day,
             value.time.hour,
             value.time.minute,
-            second,
+            min(value.time.second, 59), // NOTE: We contract leap second 60 to 59 for simplicity
             0,
         )
     }
@@ -199,8 +193,7 @@ impl ValueTime {
 impl From<ValueTime> for jiff::civil::Time {
     fn from(value: ValueTime) -> Self {
         // NOTE: We contract leap second 60 to 59 for simplicity
-        let second = if value.second == 60 { 59 } else { value.second };
-        jiff::civil::time(value.hour, value.minute, second, 0)
+        jiff::civil::time(value.hour, value.minute, min(value.second, 59), 0)
     }
 }
 

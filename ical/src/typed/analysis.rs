@@ -1,0 +1,278 @@
+// SPDX-FileCopyrightText: 2025 Zexin Yuan <aim@yzx9.xyz>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+//! Typed representation of iCalendar components and properties.
+
+use std::collections::HashSet;
+use std::fmt::Display;
+use std::{collections::HashMap, sync::LazyLock};
+
+use chumsky::error::Rich;
+
+use crate::keyword::KW_VALUE;
+use crate::lexer::Span;
+use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxProperty};
+use crate::typed::property_spec::{PROPERTY_SPECS, PropertySpec};
+use crate::typed::value::{Value, ValueKind, parse_values};
+
+static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
+    PROPERTY_SPECS
+        .iter()
+        .map(|spec| (spec.name, spec))
+        .collect()
+});
+
+/// Perform typed analysis on raw components, returning typed components or errors.
+///
+/// ## Errors
+/// If there are typing errors, a vector of errors will be returned.
+pub fn typed_analysis(
+    components: Vec<SyntaxComponent<'_>>,
+) -> Result<Vec<TypedComponent<'_>>, Vec<TypedAnalysisError<'_>>> {
+    let mut typed_components = Vec::new();
+    let mut errors = Vec::new();
+    for comp in components {
+        match typed_component(comp) {
+            Ok(typed_comp) => typed_components.push(typed_comp),
+            Err(errs) => errors.extend(errs),
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(typed_components)
+    } else {
+        Err(errors)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum TypedAnalysisError<'src> {
+    PropertyUnknown {
+        property: String,
+        span: Span,
+    },
+    PropertyDuplicate {
+        property: String,
+        span: Span,
+    },
+    ParamDuplicate {
+        property: String,
+        param: String,
+        span: Span,
+    },
+    ParamValueKindUnknown {
+        property: String,
+        kind: String,
+        span: Span,
+    },
+    ParamValueKindDisallowed {
+        property: String,
+        kind: ValueKind,
+        span: Span,
+    },
+    ValueSyntax(Rich<'src, char>),
+}
+
+impl TypedAnalysisError<'_> {
+    pub fn span(&self) -> Span {
+        match self {
+            TypedAnalysisError::ParamDuplicate { span, .. }
+            | TypedAnalysisError::ParamValueKindUnknown { span, .. }
+            | TypedAnalysisError::ParamValueKindDisallowed { span, .. }
+            | TypedAnalysisError::PropertyUnknown { span, .. }
+            | TypedAnalysisError::PropertyDuplicate { span, .. } => span.clone(),
+            TypedAnalysisError::ValueSyntax(err) => err.span().into_range(),
+        }
+    }
+}
+
+impl Display for TypedAnalysisError<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypedAnalysisError::PropertyUnknown { property, .. } => {
+                write!(f, "Unknown property '{property}'")
+            }
+            TypedAnalysisError::PropertyDuplicate { property, .. } => {
+                write!(f, "Property '{property}' occurs multiple times")
+            }
+            TypedAnalysisError::ParamDuplicate {
+                property, param, ..
+            } => write!(
+                f,
+                "Parameter '{param}' occurs multiple times on property '{property}'"
+            ),
+            TypedAnalysisError::ParamValueKindUnknown { property, kind, .. } => write!(
+                f,
+                "Unknown parameter '${KW_VALUE}={kind}' on property '{property}'"
+            ),
+            TypedAnalysisError::ParamValueKindDisallowed { property, kind, .. } => write!(
+                f,
+                "Parameter '{KW_VALUE}={kind}' is not allowed on property '{property}'"
+            ),
+            TypedAnalysisError::ValueSyntax(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TypedComponent<'src> {
+    pub name: &'src str, // "VCALENDAR" / "VEVENT" / "VTIMEZONE" / "VALARM" / ...
+    pub properties: Vec<TypedProperty<'src>>, // Keep the original order
+    pub children: Vec<TypedComponent<'src>>,
+}
+
+fn typed_component(
+    comp: SyntaxComponent<'_>,
+) -> Result<TypedComponent<'_>, Vec<TypedAnalysisError<'_>>> {
+    let mut existing_props = HashSet::new();
+    let mut properties = Vec::new();
+    let mut errors = Vec::new();
+    for prop in comp.properties {
+        match typed_property(&mut existing_props, prop) {
+            Ok(prop) => properties.push(prop),
+            Err(errs) => errors.extend(errs),
+        }
+    }
+
+    let mut children = Vec::new();
+    for comp in comp.children {
+        match typed_component(comp) {
+            Ok(child) => children.push(child),
+            Err(errs) => errors.extend(errs),
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(TypedComponent {
+            name: comp.name,
+            properties,
+            children,
+        })
+    } else {
+        Err(errors)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TypedProperty<'src> {
+    pub name: String,                      // UPPERCASE
+    pub params: Vec<TypedParameter<'src>>, // Allow duplicates & multi-values
+    pub values: Vec<Value<'src>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TypedParameter<'src> {
+    pub name: SpannedSegments<'src>,
+    pub values: Vec<TypedParameterValue<'src>>, // Split by commas
+}
+
+#[derive(Debug, Clone)]
+pub struct TypedParameterValue<'src> {
+    pub value: SpannedSegments<'src>,
+    pub quoted: bool,
+}
+
+fn typed_property<'src>(
+    existing: &mut HashSet<String>,
+    prop: SyntaxProperty<'src>,
+) -> Result<TypedProperty<'src>, Vec<TypedAnalysisError<'src>>> {
+    let name = prop.name.resolve().to_ascii_uppercase();
+    let Some(spec) = PROP_TABLE.get(&name.as_ref()) else {
+        return Err(vec![TypedAnalysisError::PropertyUnknown {
+            property: name,
+            span: prop.name.span(),
+        }]);
+    };
+
+    if !spec.multiple_valued {
+        if existing.contains(&name) {
+            return Err(vec![TypedAnalysisError::PropertyDuplicate {
+                property: name,
+                span: prop.name.span(),
+            }]);
+        }
+
+        existing.insert(name.clone()); // PERF: avoid clone
+    }
+
+    let kind = kind_of(&prop, spec).map_err(|a| vec![a])?;
+
+    let params = prop
+        .params
+        .into_iter()
+        .map(|p| TypedParameter {
+            name: p.name,
+            values: p
+                .values
+                .into_iter()
+                .map(|v| TypedParameterValue {
+                    value: v.value,
+                    quoted: v.quoted,
+                })
+                .collect(),
+        })
+        .collect();
+
+    // PERF: cache parser
+    let values = parse_values(kind, prop.value).map_err(|errs| {
+        errs.into_iter()
+            .map(TypedAnalysisError::ValueSyntax)
+            .collect::<Vec<_>>()
+    })?;
+
+    if !spec.multiple_valued && values.len() > 1 {
+        return Err(vec![TypedAnalysisError::PropertyDuplicate {
+            property: name,
+            span: prop.name.span(),
+        }]);
+    }
+
+    Ok(TypedProperty {
+        name,
+        params,
+        values,
+    })
+}
+
+fn kind_of<'src>(
+    prop: &SyntaxProperty<'src>,
+    spec: &PropertySpec<'_>,
+) -> Result<ValueKind, TypedAnalysisError<'src>> {
+    // find VALUE param
+    let Some(value_params) = prop
+        .params
+        .iter()
+        .find(|p| p.name.eq_ignore_ascii_case(KW_VALUE))
+    else {
+        return Ok(spec.default_kind);
+    };
+
+    if value_params.values.len() > 1 {
+        // multiple VALUE params
+        return Err(TypedAnalysisError::ParamDuplicate {
+            property: prop.name.resolve().to_string(),
+            param: KW_VALUE.to_string(),
+            span: prop.name.span(),
+        });
+    }
+    let value_param = value_params.values.first().unwrap();
+
+    let Ok(kind) = (&value_param.value).try_into() else {
+        return Err(TypedAnalysisError::ParamValueKindUnknown {
+            property: prop.name.resolve().to_string(),
+            kind: value_param.value.resolve().to_string(),
+            span: prop.name.span(),
+        });
+    };
+
+    if !spec.allowed_kinds.contains(&kind) {
+        return Err(TypedAnalysisError::ParamValueKindDisallowed {
+            property: prop.name.resolve().to_string(),
+            kind,
+            span: prop.name.span(),
+        });
+    }
+
+    Ok(kind)
+}

@@ -12,7 +12,7 @@ use crate::keyword::{
     KW_REQUEST_STATUS, KW_RESOURCES, KW_RRULE, KW_SEQUENCE, KW_STATUS, KW_SUMMARY, KW_TRANSP,
     KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZOFFSETFROM, KW_TZOFFSETTO, KW_TZURL, KW_UID, KW_URL,
 };
-use crate::value::ValueKind;
+use crate::typed::value::ValueKind;
 
 #[derive(Debug, Clone)]
 pub struct PropertySpec<'a> {

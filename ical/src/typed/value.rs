@@ -16,11 +16,11 @@ use crate::keyword::{
     KW_PERIOD, KW_RRULE, KW_TEXT, KW_TIME, KW_URI, KW_UTC_OFFSET,
 };
 use crate::syntax::SpannedSegments;
-use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
-use crate::value::mics::{value_binary, value_boolean, values_duration};
-use crate::value::numeric::{values_float, values_integer};
-use crate::value::text::values_text;
-use crate::{ValueDate, ValueDateTime, ValueDuration, ValueText, ValueTime, ValueUtcOffset};
+use crate::typed::value_datetime::{value_utc_offset, values_date, values_date_time, values_time};
+use crate::typed::value_mics::{value_binary, value_boolean, values_duration};
+use crate::typed::value_numeric::{values_float, values_integer};
+use crate::typed::value_text::values_text;
+use crate::typed::{ValueDate, ValueDateTime, ValueDuration, ValueText, ValueTime, ValueUtcOffset};
 
 /// The properties in an iCalendar object are strongly typed.  The definition
 /// of each property restricts the value to be one of the value data types, or
@@ -178,7 +178,7 @@ impl Display for ValueKind {
     }
 }
 
-pub fn values(
+pub fn parse_values(
     kind: ValueKind,
     value: SpannedSegments<'_>,
 ) -> Result<Vec<Value<'_>>, Vec<Rich<'_, char>>> {

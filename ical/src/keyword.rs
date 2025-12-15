@@ -15,6 +15,9 @@ pub const KW_END: &str = "END";
 // pub const KW_VTIMEZONE: &str = "VTIMEZONE";
 // pub const KW_VALARM: &str = "VALARM";
 
+// Section 3.2 - Property Parameters
+pub const KW_VALUE: &str = "VALUE";
+
 // Section 3.3 - Property Value Data Types
 pub const KW_BINARY: &str = "BINARY";
 pub const KW_BOOLEAN: &str = "BOOLEAN";
