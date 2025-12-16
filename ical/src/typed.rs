@@ -5,14 +5,15 @@
 //! Typed representation of iCalendar components and properties.
 
 mod analysis;
+mod parameter;
 mod property_spec;
+mod util;
 mod value;
 mod value_datetime;
-mod value_mics;
 mod value_numeric;
 mod value_text;
 
 pub use crate::typed::analysis::{TypedAnalysisError, TypedComponent, typed_analysis};
+pub use crate::typed::value::ValueDuration;
 pub use crate::typed::value_datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
-pub use crate::typed::value_mics::ValueDuration;
 pub use crate::typed::value_text::ValueText;

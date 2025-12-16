@@ -46,7 +46,7 @@ pub struct SyntaxComponent<'src> {
 #[derive(Debug, Clone)]
 pub struct SyntaxProperty<'src> {
     pub name: SpannedSegments<'src>, // Case insensitive, keep original for writing back
-    pub params: Vec<SyntaxParameter<'src>>, // Allow duplicates & multi-values
+    pub parameters: Vec<SyntaxParameter<'src>>, // Allow duplicates & multi-values
     pub value: SpannedSegments<'src>, // Raw value, may need further parsing
 }
 
@@ -138,7 +138,7 @@ where
 
 struct RawProperty {
     name: SpanCollector,
-    params: Vec<RawParameter>,
+    parameters: Vec<RawParameter>,
     value: SpanCollector,
 }
 
@@ -146,7 +146,7 @@ impl RawProperty {
     fn build(self, src: &'_ str) -> SyntaxProperty<'_> {
         SyntaxProperty {
             name: self.name.build(src),
-            params: self.params.into_iter().map(|p| p.build(src)).collect(),
+            parameters: self.parameters.into_iter().map(|p| p.build(src)).collect(),
             value: self.value.build(src),
         }
     }
@@ -176,7 +176,7 @@ where
         .then_ignore(just(Token::Newline))
         .map(|((name, params), value)| RawProperty {
             name,
-            params,
+            parameters: params,
             value,
         })
 }
@@ -328,14 +328,6 @@ impl<'src> SpannedSegments<'src> {
         }
     }
 
-    pub fn into_spanned_chars(self) -> SegmentedSpannedChars<'src> {
-        SegmentedSpannedChars {
-            segments: self.segments,
-            seg_idx: 0,
-            chars: None,
-        }
-    }
-
     pub fn eq_ignore_ascii_case(&self, mut other: &str) -> bool {
         if other.len() != self.len {
             return false;
@@ -352,6 +344,14 @@ impl<'src> SpannedSegments<'src> {
         }
 
         true
+    }
+
+    pub(crate) fn into_spanned_chars(self) -> SegmentedSpannedChars<'src> {
+        SegmentedSpannedChars {
+            segments: self.segments,
+            seg_idx: 0,
+            chars: None,
+        }
     }
 }
 
@@ -539,10 +539,10 @@ END:VEVENT\r\n\
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
         assert_eq!(prop.name.resolve(), "DTSTART");
-        assert_eq!(prop.params.len(), 1);
-        assert_eq!(prop.params.first().unwrap().name.resolve(), "TZID");
+        assert_eq!(prop.parameters.len(), 1);
+        assert_eq!(prop.parameters.first().unwrap().name.resolve(), "TZID");
         assert_eq!(
-            prop.params
+            prop.parameters
                 .first()
                 .unwrap()
                 .values

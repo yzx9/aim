@@ -16,6 +16,31 @@ pub const KW_END: &str = "END";
 // pub const KW_VALARM: &str = "VALARM";
 
 // Section 3.2 - Property Parameters
+pub const KW_ALTREP: &str = "ALTREP";
+pub const KW_CN: &str = "CN";
+pub const KW_CUTYPE: &str = "CUTYPE";
+pub const KW_DELEGATED_FROM: &str = "DELEGATED-FROM";
+pub const KW_DELEGATED_TO: &str = "DELEGATED-TO";
+pub const KW_DIR: &str = "DIR";
+pub const KW_ENCODING: &str = "ENCODING";
+pub const KW_ENCODING_8BIT: &str = "8bit";
+pub const KW_ENCODING_BASE64: &str = "base64";
+pub const KW_FBTYPE: &str = "FBTYPE";
+pub const KW_FBTYPE_FREE: &str = "FREE";
+pub const KW_FBTYPE_BUSY: &str = "BUSY";
+pub const KW_FBTYPE_BUSY_UNAVAILABLE: &str = "BUSY-UNAVAILABLE";
+pub const KW_FBTYPE_BUSY_TENTATIVE: &str = "BUSY-TENTATIVE";
+pub const KW_LANGUAGE: &str = "LANGUAGE";
+pub const KW_MEMBER: &str = "MEMBER";
+pub const KW_PARTSTAT: &str = "PARTSTAT";
+pub const KW_RANGE: &str = "RANGE";
+pub const KW_FMTTYPE: &str = "FMTTYPE";
+pub const KW_RELATED: &str = "RELATED";
+pub const KW_RELTYPE: &str = "RELTYPE";
+pub const KW_ROLE: &str = "ROLE";
+pub const KW_RSVP: &str = "RSVP";
+pub const KW_SENT_BY: &str = "SENT-BY";
+pub const KW_TZID: &str = "TZID";
 pub const KW_VALUE: &str = "VALUE";
 
 // Section 3.3 - Property Value Data Types
@@ -56,7 +81,6 @@ pub const KW_FREEBUSY: &str = "FREEBUSY";
 pub const KW_TRANSP: &str = "TRANSP";
 
 // Section 3.8.3 - Time Zone Component Properties
-pub const KW_TZID: &str = "TZID";
 pub const KW_TZNAME: &str = "TZNAME";
 pub const KW_TZOFFSETFROM: &str = "TZOFFSETFROM";
 pub const KW_TZOFFSETTO: &str = "TZOFFSETTO";
