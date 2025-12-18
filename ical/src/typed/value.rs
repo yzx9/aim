@@ -9,11 +9,13 @@ use std::borrow::Cow;
 use chumsky::Parser;
 use chumsky::error::RichPattern;
 use chumsky::extra::ParserExtra;
+use chumsky::input::{Input, Stream};
+use chumsky::label::LabelError;
 use chumsky::prelude::*;
+use chumsky::span::SimpleSpan;
 
 use crate::syntax::SpannedSegments;
-use crate::typed::parameter::ParamValueType;
-use crate::typed::util::make_input;
+use crate::typed::parameter::ValueType;
 use crate::typed::value_datetime::{value_utc_offset, values_date, values_date_time, values_time};
 use crate::typed::value_numeric::{values_float, values_integer};
 use crate::typed::value_text::values_text;
@@ -95,10 +97,10 @@ pub enum Value<'src> {
 }
 
 pub fn parse_values(
-    kind: ParamValueType,
+    kind: ValueType,
     value: SpannedSegments<'_>,
 ) -> Result<Vec<Value<'_>>, Vec<Rich<'_, char>>> {
-    use ParamValueType::{
+    use ValueType::{
         Binary, Boolean, Date, DateTime, Duration, Float, Integer, Text, Time, UtcOffset,
     };
 
@@ -168,16 +170,18 @@ pub fn parse_values(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueExpected {
     Date,
-    Float,
-    Integer,
+    F64,
+    I32,
+    U32,
 }
 
 impl From<ValueExpected> for RichPattern<'_, char> {
     fn from(expected: ValueExpected) -> Self {
         match expected {
             ValueExpected::Date => Self::Label(Cow::Borrowed("invalid date")),
-            ValueExpected::Float => Self::Label(Cow::Borrowed("float out of range")),
-            ValueExpected::Integer => Self::Label(Cow::Borrowed("integer out of range")),
+            ValueExpected::F64 => Self::Label(Cow::Borrowed("f64 out of range")),
+            ValueExpected::I32 => Self::Label(Cow::Borrowed("i32 out of range")),
+            ValueExpected::U32 => Self::Label(Cow::Borrowed("u32 out of range")),
         }
     }
 }
@@ -312,6 +316,7 @@ fn value_duration<'src, I, E>() -> impl Parser<'src, I, ValueDuration, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
 {
     // case-sensitive
     let int = select! { c @ '0'..='9' => c }
@@ -319,7 +324,19 @@ where
         .at_least(1)
         .at_most(10) // u32 max is 10 digits: 4_294_967_295
         .collect::<String>()
-        .map(|str| str.parse::<u32>().unwrap()); // TODO: handle parse error
+        .try_map_with(|str, e| match lexical::parse_partial::<u32, _>(&str) {
+            Ok((v, n)) if n == str.len() => Ok(v),
+            Ok((_, n)) => Err(E::Error::expected_found(
+                [ValueExpected::U32],
+                Some(str.chars().nth(n).unwrap().into()), // SAFETY: since n < len
+                e.span(),
+            )),
+            Err(_) => Err(E::Error::expected_found(
+                [ValueExpected::U32],
+                Some(str.chars().next().unwrap().into()), // SAFETY: since at least 1 digit
+                e.span(),
+            )),
+        });
 
     let week = int.then_ignore(just('W'));
 
@@ -371,8 +388,17 @@ pub fn values_duration<'src, I, E>() -> impl Parser<'src, I, Vec<ValueDuration>,
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
 {
     value_duration().separated_by(just(',')).collect()
+}
+
+fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
+    let eoi = match (segs.segments.first(), segs.segments.last()) {
+        (Some(first), Some(last)) => first.1.start..last.1.end,
+        _ => 0..0,
+    };
+    Stream::from_iter(segs.into_spanned_chars()).map(eoi.into(), |(t, s)| (t, s.into()))
 }
 
 #[cfg(test)]

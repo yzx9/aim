@@ -5,6 +5,7 @@
 //! Parser for iCalendar syntax as defined in RFC 5545, built on top of the lexer, no type.
 
 use std::borrow::Cow;
+use std::fmt::Display;
 use std::iter::Peekable;
 use std::str::CharIndices;
 
@@ -54,6 +55,18 @@ pub struct SyntaxProperty<'src> {
 pub struct SyntaxParameter<'src> {
     pub name: SpannedSegments<'src>, // e.g. "TZID", "VALUE", "CN", "ROLE", "PARTSTAT"
     pub values: Vec<SyntaxParameterValue<'src>>, // Split by commas
+}
+
+impl SyntaxParameter<'_> {
+    pub fn span(&self) -> Span {
+        match self.values.last() {
+            Some(v) => Span {
+                start: self.name.span().start,
+                end: v.value.span().end,
+            },
+            None => self.name.span(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -301,17 +314,12 @@ pub struct SpannedSegments<'src> {
 
 impl<'src> SpannedSegments<'src> {
     pub fn span(&self) -> Span {
-        if let Some((_, first_span)) = self.segments.first() {
-            if let Some((_, last_span)) = self.segments.last() {
-                Span {
-                    start: first_span.start,
-                    end: last_span.end,
-                }
-            } else {
-                first_span.clone()
-            }
-        } else {
-            Span { start: 0, end: 0 }
+        match (self.segments.first(), self.segments.last()) {
+            (Some((_, first_span)), Some((_, last_span))) => Span {
+                start: first_span.start,
+                end: last_span.end,
+            },
+            _ => Span { start: 0, end: 0 },
         }
     }
 
@@ -352,6 +360,15 @@ impl<'src> SpannedSegments<'src> {
             seg_idx: 0,
             chars: None,
         }
+    }
+}
+
+impl Display for SpannedSegments<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (seg, _) in &self.segments {
+            write!(f, "{seg}")?;
+        }
+        Ok(())
     }
 }
 

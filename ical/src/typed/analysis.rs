@@ -4,17 +4,14 @@
 
 //! Typed representation of iCalendar components and properties.
 
-use std::collections::HashSet;
-use std::convert::TryFrom;
-use std::fmt::Display;
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::HashMap, collections::HashSet, sync::LazyLock};
 
 use chumsky::error::Rich;
+use thiserror::Error;
 
-use crate::keyword::KW_VALUE;
 use crate::lexer::Span;
-use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
-use crate::typed::parameter::{FreeBusyType, ParamEncoding, ParamValueType, TypedParameter};
+use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxProperty};
+use crate::typed::parameter::{TypedParameters, ValueType};
 use crate::typed::property_spec::{PROPERTY_SPECS, PropertySpec};
 use crate::typed::value::{Value, parse_values};
 
@@ -81,47 +78,76 @@ fn typed_component(
 }
 
 fn typed_property<'src>(
-    existing: &mut HashSet<String>,
+    existing: &mut HashSet<&str>,
     prop: SyntaxProperty<'src>,
 ) -> Result<TypedProperty<'src>, Vec<TypedAnalysisError<'src>>> {
-    let name = prop.name.resolve().to_ascii_uppercase();
-    let Some(spec) = PROP_TABLE.get(&name.as_ref()) else {
+    let prop_name_upper = prop.name.resolve().to_ascii_uppercase();
+    let Some(spec) = PROP_TABLE.get::<str>(prop_name_upper.as_ref()) else {
         return Err(vec![TypedAnalysisError::PropertyUnknown {
-            property: name,
             span: prop.name.span(),
+            property: prop.name,
         }]);
     };
 
     if !spec.multiple_valued {
-        if existing.contains(&name) {
+        if existing.contains(spec.name) {
             return Err(vec![TypedAnalysisError::PropertyDuplicated {
-                property: name,
+                property: spec.name,
                 span: prop.name.span(),
             }]);
         }
 
-        existing.insert(name.clone()); // PERF: avoid clone
+        existing.insert(spec.name);
     }
 
     let parameters: TypedParameters = prop.parameters.try_into()?;
-    let kind = parameters.value_type.unwrap_or(spec.default_kind);
+    let (value_type, _value_type_span) = match (&parameters.value_type, &parameters.value_type_span)
+    {
+        (Some(value_type), Some(span)) => {
+            if !spec.allowed_kinds.contains(value_type) {
+                return Err(vec![TypedAnalysisError::ValueTypeDisallowed {
+                    property: spec.name,
+                    value_type: *value_type,
+                    expected_types: spec.allowed_kinds,
+                    span: span.clone(),
+                }]);
+            }
+            (*value_type, span.clone())
+        }
+        (Some(value_type), None) => {
+            // This shouldn't happen if parsing is correct, but handle gracefully
+            if !spec.allowed_kinds.contains(value_type) {
+                return Err(vec![TypedAnalysisError::ValueTypeDisallowed {
+                    property: spec.name,
+                    value_type: *value_type,
+                    expected_types: spec.allowed_kinds,
+                    span: prop.name.span(),
+                }]);
+            }
+            (*value_type, prop.name.span())
+        }
+        (None, _) => (spec.default_kind, prop.name.span()),
+    };
 
-    // PERF: cache parser
-    let values = parse_values(kind, prop.value).map_err(|errs| {
+    // PERF: cache parser, avoid cloning the value
+    let values = parse_values(value_type, prop.value.clone()).map_err(|errs| {
         errs.into_iter()
-            .map(TypedAnalysisError::ValueSyntax)
+            .map(|err| TypedAnalysisError::ValueSyntax {
+                value: prop.value.clone(),
+                err,
+            })
             .collect::<Vec<_>>()
     })?;
 
     if !spec.multiple_valued && values.len() > 1 {
-        return Err(vec![TypedAnalysisError::PropertyDuplicated {
-            property: name,
+        return Err(vec![TypedAnalysisError::PropertyMultipleValuesDisallowed {
+            property: spec.name,
             span: prop.name.span(),
         }]);
     }
 
     Ok(TypedProperty {
-        name,
+        name: spec.name,
         parameters,
         values,
     })
@@ -136,242 +162,78 @@ pub struct TypedComponent<'src> {
 
 #[derive(Debug, Clone)]
 pub struct TypedProperty<'src> {
-    pub name: String, // UPPERCASE
+    pub name: &'src str, // Standardized property name in UPPERCASE
     pub parameters: TypedParameters<'src>,
     pub values: Vec<Value<'src>>,
 }
-
-#[derive(Default, Debug, Clone)]
-pub struct TypedParameters<'src> {
-    alternate_text: Option<SpannedSegments<'src>>,
-    common_name: Option<SpannedSegments<'src>>,
-    calendar_user_type: Option<SpannedSegments<'src>>,
-    delegators: Option<Vec<SpannedSegments<'src>>>,
-    delegatees: Option<Vec<SpannedSegments<'src>>>,
-    directory: Option<SpannedSegments<'src>>,
-    encoding: Option<ParamEncoding>,
-    format_type: Option<SpannedSegments<'src>>,
-    free_busy_type: Option<FreeBusyType>,
-    language: Option<SpannedSegments<'src>>,
-    group_or_list_membership: Option<Vec<SpannedSegments<'src>>>,
-    participation_status: Option<SpannedSegments<'src>>,
-    recurrence_id_range: Option<SpannedSegments<'src>>,
-    alarm_trigger_relationship: Option<SpannedSegments<'src>>,
-    relationship_type: Option<SpannedSegments<'src>>,
-    participation_role: Option<SpannedSegments<'src>>,
-    send_by: Option<SpannedSegments<'src>>,
-    rsvp_expectation: Option<bool>,
-    time_zone_identifier: Option<SpannedSegments<'src>>,
-    value_type: Option<ParamValueType>,
-}
-
-impl<'src> TryFrom<Vec<SyntaxParameter<'src>>> for TypedParameters<'src> {
-    type Error = Vec<TypedAnalysisError<'src>>;
-
-    fn try_from(params: Vec<SyntaxParameter<'src>>) -> Result<Self, Self::Error> {
-        fn assign_or_error<T>(
-            slot: &mut Option<T>,
-            errors: &mut Vec<TypedAnalysisError>,
-            value: T,
-            property: &str,
-            param: &SyntaxParameter,
-        ) {
-            match slot {
-                Some(_) => errors.push(TypedAnalysisError::ParameterDuplicated {
-                    property: property.to_string(),
-                    parameter: param.name.resolve().to_string(),
-                    span: param.name.span(),
-                }),
-                None => *slot = Some(value),
-            }
-        }
-
-        let mut result = Self::default();
-        let mut errors = Vec::new();
-        for param in params {
-            match TypedParameter::try_from(param.clone()) {
-                Ok(TypedParameter::AlternateText(p)) => {
-                    assign_or_error(&mut result.alternate_text, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::CommonName(p)) => {
-                    assign_or_error(&mut result.common_name, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::CalendarUserType(p)) => {
-                    assign_or_error(&mut result.calendar_user_type, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::Delegators(p)) => {
-                    // NOTE: should we allow multiple parameters to merge values?
-                    assign_or_error(&mut result.delegators, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::Delegatees(p)) => {
-                    // NOTE: should we allow multiple parameters to merge values?
-                    assign_or_error(&mut result.delegatees, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::Directory(p)) => {
-                    assign_or_error(&mut result.directory, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::Encoding(p)) => {
-                    assign_or_error(&mut result.encoding, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::FormatType(p)) => {
-                    assign_or_error(&mut result.format_type, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::FreeBusyType(p)) => {
-                    assign_or_error(&mut result.free_busy_type, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::Language(p)) => {
-                    assign_or_error(&mut result.language, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::GroupOrListMembership(p)) => {
-                    // NOTE: should we allow multiple parameters to merge values?
-                    assign_or_error(
-                        &mut result.group_or_list_membership,
-                        &mut errors,
-                        p,
-                        "",
-                        &param,
-                    );
-                }
-                Ok(TypedParameter::ParticipationStatus(p)) => {
-                    assign_or_error(&mut result.participation_status, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::RecurrenceIdRange(p)) => {
-                    assign_or_error(&mut result.recurrence_id_range, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::AlarmTriggerRelationship(p)) => {
-                    assign_or_error(
-                        &mut result.alarm_trigger_relationship,
-                        &mut errors,
-                        p,
-                        "",
-                        &param,
-                    );
-                }
-                Ok(TypedParameter::RelationshipType(p)) => {
-                    assign_or_error(&mut result.relationship_type, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::ParticipationRole(p)) => {
-                    assign_or_error(&mut result.participation_role, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::RsvpExpectation(p)) => {
-                    assign_or_error(&mut result.rsvp_expectation, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::SendBy(p)) => {
-                    assign_or_error(&mut result.send_by, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::TimeZoneIdentifier(p)) => {
-                    assign_or_error(&mut result.time_zone_identifier, &mut errors, p, "", &param);
-                }
-                Ok(TypedParameter::ValueType(p)) => {
-                    assign_or_error(&mut result.value_type, &mut errors, p, "", &param);
-                }
-                Err(e) => errors.extend(e),
-            }
-        }
-
-        if errors.is_empty() {
-            Ok(result)
-        } else {
-            Err(errors)
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum TypedAnalysisError<'src> {
+    #[error("Unknown property '{property}'")]
     PropertyUnknown {
-        property: String,
+        property: SpannedSegments<'src>,
         span: Span,
     },
-    PropertyDuplicated {
-        property: String,
+
+    #[error("Property '{property}' occurs multiple times")]
+    PropertyDuplicated { property: &'src str, span: Span },
+
+    #[error("Property '{property}' does not allow multiple values")]
+    PropertyMultipleValuesDisallowed { property: &'src str, span: Span },
+
+    #[error("Parameter '{parameter}' is unknown")]
+    ParameterUnknown {
+        parameter: SpannedSegments<'src>,
         span: Span,
     },
-    ParameterDuplicated {
-        property: String,
-        parameter: String,
+
+    #[error("Parameter '{parameter}' occurs multiple times")]
+    ParameterDuplicated { parameter: &'src str, span: Span },
+
+    #[error("Parameter '{parameter}' does not allow multiple values")]
+    ParameterMultipleValuesDisallowed { parameter: &'src str, span: Span },
+
+    #[error("Invalid value for parameter '{parameter}={value}'")]
+    ParameterInvalidValue {
+        parameter: &'src str,
+        value: SpannedSegments<'src>,
         span: Span,
     },
-    ParameterMultipleValuesDisallowed {
-        property: String,
-        parameter: String,
-        span: Span,
-    },
-    ParameterValueKindUnknown {
-        property: String,
-        kind: String,
-        span: Span,
-    },
-    ParameterValueKindDisallowed {
-        property: String,
-        kind: ParamValueType,
-        span: Span,
-    },
+
+    #[error("Syntax error in value of parameter '{parameter}': {err}")]
     ParameterValueSyntax {
-        property: String,
-        parameter: String,
+        parameter: &'src str,
         err: Rich<'src, char>,
     },
-    ValueSyntax(Rich<'src, char>),
+
+    #[error("Invalid value type '{value_type}' for property '{property}'")]
+    ValueTypeDisallowed {
+        property: &'src str,
+        value_type: ValueType,
+        expected_types: &'src [ValueType],
+        span: Span,
+    },
+
+    #[error("Syntax error in value '{value}': {err}")]
+    ValueSyntax {
+        value: SpannedSegments<'src>,
+        err: Rich<'src, char>,
+    },
 }
 
 impl TypedAnalysisError<'_> {
     pub fn span(&self) -> Span {
         match self {
-            TypedAnalysisError::ParameterDuplicated { span, .. }
+            TypedAnalysisError::PropertyUnknown { span, .. }
+            | TypedAnalysisError::PropertyDuplicated { span, .. }
+            | TypedAnalysisError::PropertyMultipleValuesDisallowed { span, .. }
+            | TypedAnalysisError::ParameterUnknown { span, .. }
+            | TypedAnalysisError::ParameterDuplicated { span, .. }
             | TypedAnalysisError::ParameterMultipleValuesDisallowed { span, .. }
-            | TypedAnalysisError::ParameterValueKindUnknown { span, .. }
-            | TypedAnalysisError::ParameterValueKindDisallowed { span, .. }
-            | TypedAnalysisError::PropertyUnknown { span, .. }
-            | TypedAnalysisError::PropertyDuplicated { span, .. } => span.clone(),
-            TypedAnalysisError::ParameterValueSyntax { err, .. }
-            | TypedAnalysisError::ValueSyntax(err) => err.span().into_range(),
-        }
-    }
-}
+            | TypedAnalysisError::ParameterInvalidValue { span, .. }
+            | TypedAnalysisError::ValueTypeDisallowed { span, .. } => span.clone(),
 
-impl Display for TypedAnalysisError<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TypedAnalysisError::PropertyUnknown { property, .. } => {
-                write!(f, "Unknown property '{property}'")
-            }
-            TypedAnalysisError::PropertyDuplicated { property, .. } => {
-                write!(f, "Property '{property}' occurs multiple times")
-            }
-            TypedAnalysisError::ParameterDuplicated {
-                property,
-                parameter: param,
-                ..
-            } => write!(
-                f,
-                "Parameter '{param}' occurs multiple times on property '{property}'"
-            ),
-            TypedAnalysisError::ParameterMultipleValuesDisallowed {
-                property,
-                parameter: param,
-                ..
-            } => write!(
-                f,
-                "Parameter '{param}' on property '{property}' does not allow multiple values"
-            ),
-            TypedAnalysisError::ParameterValueKindUnknown { property, kind, .. } => write!(
-                f,
-                "Unknown parameter '${KW_VALUE}={kind}' on property '{property}'"
-            ),
-            TypedAnalysisError::ParameterValueKindDisallowed { property, kind, .. } => write!(
-                f,
-                "Parameter '{KW_VALUE}={kind}' is not allowed on property '{property}'"
-            ),
-            TypedAnalysisError::ParameterValueSyntax {
-                property,
-                parameter,
-                err,
-            } => write!(
-                f,
-                "Syntax error in value of parameter '{parameter}' on property '{property}': {err}"
-            ),
-            TypedAnalysisError::ValueSyntax(err) => write!(f, "{err}"),
+            TypedAnalysisError::ParameterValueSyntax { err, .. }
+            | TypedAnalysisError::ValueSyntax { err, .. } => err.span().into_range(),
         }
     }
 }

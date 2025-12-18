@@ -198,11 +198,20 @@ enum Either<L, R> {
 
 #[cfg(test)]
 mod tests {
+    use chumsky::input::Stream;
+
     use crate::lexer::lex_analysis;
     use crate::syntax::syntax_analysis;
-    use crate::typed::util::make_input;
 
     use super::*;
+
+    fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
+        let eoi = match (segs.segments.first(), segs.segments.last()) {
+            (Some(first), Some(last)) => first.1.start..last.1.end,
+            _ => 0..0,
+        };
+        Stream::from_iter(segs.into_spanned_chars()).map(eoi.into(), |(t, s)| (t, s.into()))
+    }
 
     #[test]
     fn test_text() {

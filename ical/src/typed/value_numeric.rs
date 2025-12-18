@@ -61,7 +61,7 @@ where
             };
 
             Err(E::Error::expected_found(
-                [ValueExpected::Float],
+                [ValueExpected::F64],
                 Some(s.chars().nth(n).unwrap().into()), // SAFETY: since n < len
                 e.span(),
             ))
@@ -111,12 +111,12 @@ where
             match lexical::parse_partial::<i32, _>(&int_str) {
                 Ok((v, n)) if n == int_str.len() => Ok(v),
                 Ok((_, n)) => Err(E::Error::expected_found(
-                    [ValueExpected::Integer],
+                    [ValueExpected::I32],
                     Some(int_str.chars().nth(n).unwrap().into()), // SAFETY: since n < len
                     e.span(),
                 )),
                 Err(_) => Err(E::Error::expected_found(
-                    [ValueExpected::Integer],
+                    [ValueExpected::I32],
                     Some(int_str.chars().next().unwrap().into()), // SAFETY: since at least 1 digit
                     e.span(),
                 )),
