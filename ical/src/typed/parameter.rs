@@ -269,6 +269,9 @@ pub enum TypedParameter<'src> {
     TimeZoneIdentifier {
         value: SpannedSegments<'src>,
         span: Span,
+
+        #[cfg(feature = "jiff")]
+        tz: jiff::tz::TimeZone,
     },
 
     /// This parameter specifies the value type and format of the property
@@ -342,148 +345,98 @@ impl TypedParameter<'_> {
 impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
     type Error = Vec<TypedAnalysisError<'src>>;
 
-    #[allow(clippy::too_many_lines)]
-    fn try_from(param: SyntaxParameter<'src>) -> Result<Self, Self::Error> {
-        let span = param.span();
-        let single =
-            |mut param: SyntaxParameter<'src>, parameter: &'src str| match param.values.len() {
-                1 => Ok(param.values.pop().unwrap()),
-                _ => Err(vec![
-                    TypedAnalysisError::ParameterMultipleValuesDisallowed {
-                        parameter,
-                        span: param.span(),
-                    },
-                ]),
-            };
-
-        let multiple =
-            |param: SyntaxParameter<'src>| Ok(param.values.into_iter().map(|v| v.value).collect());
-
+    fn try_from(mut param: SyntaxParameter<'src>) -> Result<Self, Self::Error> {
         match param.name.resolve().as_ref() {
-            // Single value parameters
-            KW_ALTREP => single(param, KW_ALTREP).map(|v| TypedParameter::AlternateText {
+            KW_ALTREP => parse_single_quoted(&mut param, KW_ALTREP).map(|value| {
+                TypedParameter::AlternateText {
+                    value,
+                    span: param.span(),
+                }
+            }),
+            KW_CN => parse_single(&mut param, KW_CN).map(|v| TypedParameter::CommonName {
                 value: v.value,
-                span,
+                span: param.span(),
             }),
-            KW_CN => single(param, KW_CN).map(|v| TypedParameter::CommonName {
-                value: v.value,
-                span,
-            }),
-            KW_CUTYPE => single(param, KW_CUTYPE).map(|v| TypedParameter::CalendarUserType {
-                value: v.value,
-                span,
-            }),
-            KW_DIR => single(param, KW_DIR).map(|v| TypedParameter::Directory {
-                value: v.value,
-                span,
-            }),
-            KW_ENCODING => single(param, KW_ENCODING).and_then(|v| {
-                v.value
-                    .resolve()
-                    .parse()
-                    .map(|encoding| TypedParameter::Encoding {
-                        value: encoding,
-                        span,
-                    })
-                    .map_err(|()| {
-                        vec![TypedAnalysisError::ParameterInvalidValue {
-                            span: v.value.span(),
-                            parameter: KW_ENCODING,
-                            value: v.value,
-                        }]
-                    })
-            }),
-            KW_FMTTYPE => single(param, KW_FMTTYPE).map(|v| TypedParameter::FormatType {
-                value: v.value,
-                span,
-            }),
-            KW_FBTYPE => single(param, KW_FBTYPE).and_then(|v| {
-                v.value
-                    .resolve()
-                    .parse()
-                    .map(|fbtype| TypedParameter::FreeBusyType {
-                        value: fbtype,
-                        span,
-                    })
-                    .map_err(|()| {
-                        vec![TypedAnalysisError::ParameterInvalidValue {
-                            span: v.value.span(),
-                            parameter: KW_FBTYPE,
-                            value: v.value,
-                        }]
-                    })
-            }),
-            KW_LANGUAGE => single(param, KW_LANGUAGE).map(|v| TypedParameter::Language {
-                value: v.value,
-                span,
-            }),
-            KW_PARTSTAT => {
-                single(param, KW_PARTSTAT).map(|v| TypedParameter::ParticipationStatus {
+            KW_CUTYPE => {
+                parse_single(&mut param, KW_CUTYPE).map(|v| TypedParameter::CalendarUserType {
                     value: v.value,
-                    span,
+                    span: param.span(),
                 })
             }
-            KW_RANGE => single(param, KW_RANGE).map(|v| TypedParameter::RecurrenceIdRange {
-                value: v.value,
-                span,
-            }),
-            KW_RELATED => {
-                single(param, KW_RELATED).map(|v| TypedParameter::AlarmTriggerRelationship {
-                    value: v.value,
-                    span,
-                })
-            }
-            KW_RELTYPE => single(param, KW_RELTYPE).map(|v| TypedParameter::RelationshipType {
-                value: v.value,
-                span,
-            }),
-            KW_ROLE => single(param, KW_ROLE).map(|v| TypedParameter::ParticipationRole {
-                value: v.value,
-                span,
-            }),
-            KW_RSVP => single(param, KW_RSVP).and_then(|v| match parse_rsvp_value(&v) {
-                Ok(value) => Ok(TypedParameter::RsvpExpectation { value, span }),
-                Err(()) => Err(vec![TypedAnalysisError::ParameterInvalidValue {
-                    parameter: KW_RSVP,
-                    value: v.value,
-                    span,
-                }]),
-            }),
-            KW_SENT_BY => single(param, KW_SENT_BY).map(|v| TypedParameter::SendBy {
-                value: v.value,
-                span,
-            }),
-            KW_TZID => single(param, KW_TZID).map(|v| TypedParameter::TimeZoneIdentifier {
-                value: v.value,
-                span,
-            }), // TODO: validate
-            KW_VALUE => single(param, KW_VALUE).and_then(|v| {
-                v.value
-                    .resolve()
-                    .parse()
-                    .map(|value_type| TypedParameter::ValueType {
-                        value: value_type,
-                        span,
-                    })
-                    .map_err(|()| {
-                        vec![TypedAnalysisError::ParameterInvalidValue {
-                            span: v.value.span(),
-                            parameter: KW_VALUE,
-                            value: v.value,
-                        }]
-                    })
-            }),
-
-            // Multiple value parameters
             KW_DELEGATED_FROM => {
-                multiple(param).map(|values| TypedParameter::Delegators { values, span })
+                let span = param.span();
+                parse_multiple_quoted(param, KW_DELEGATED_FROM)
+                    .map(|values| TypedParameter::Delegators { values, span })
             }
             KW_DELEGATED_TO => {
-                multiple(param).map(|values| TypedParameter::Delegatees { values, span })
+                let span = param.span();
+                parse_multiple_quoted(param, KW_DELEGATED_TO)
+                    .map(|values| TypedParameter::Delegatees { values, span })
+            }
+            KW_DIR => {
+                parse_single_quoted(&mut param, KW_DIR).map(|value| TypedParameter::Directory {
+                    value,
+                    span: param.span(),
+                })
+            }
+            KW_ENCODING => parse_encoding(param),
+            KW_FMTTYPE => {
+                parse_single(&mut param, KW_FMTTYPE).map(|v| TypedParameter::FormatType {
+                    value: v.value,
+                    span: param.span(),
+                })
+            }
+            KW_FBTYPE => parse_fbtype(param),
+            KW_LANGUAGE => {
+                parse_single(&mut param, KW_LANGUAGE).map(|v| TypedParameter::Language {
+                    value: v.value,
+                    span: param.span(),
+                })
             }
             KW_MEMBER => {
-                multiple(param).map(|values| TypedParameter::GroupOrListMembership { values, span })
+                let span = param.span();
+                parse_multiple_quoted(param, KW_MEMBER)
+                    .map(|values| TypedParameter::GroupOrListMembership { values, span })
             }
+            KW_PARTSTAT => {
+                parse_single(&mut param, KW_PARTSTAT).map(|v| TypedParameter::ParticipationStatus {
+                    value: v.value,
+                    span: param.span(),
+                })
+            }
+            KW_RANGE => {
+                parse_single(&mut param, KW_RANGE).map(|v| TypedParameter::RecurrenceIdRange {
+                    value: v.value,
+                    span: param.span(),
+                })
+            }
+            KW_RELATED => parse_single(&mut param, KW_RELATED).map(|v| {
+                TypedParameter::AlarmTriggerRelationship {
+                    value: v.value,
+                    span: param.span(),
+                }
+            }),
+            KW_RELTYPE => {
+                parse_single(&mut param, KW_RELTYPE).map(|v| TypedParameter::RelationshipType {
+                    value: v.value,
+                    span: param.span(),
+                })
+            }
+            KW_ROLE => {
+                parse_single(&mut param, KW_ROLE).map(|v| TypedParameter::ParticipationRole {
+                    value: v.value,
+                    span: param.span(),
+                })
+            }
+            KW_RSVP => parse_rsvp(param),
+            KW_SENT_BY => {
+                parse_single_quoted(&mut param, KW_SENT_BY).map(|value| TypedParameter::SendBy {
+                    value,
+                    span: param.span(),
+                })
+            }
+            KW_TZID => parse_tzid(param),
+            KW_VALUE => parse_value_type(param),
 
             // Unknown parameter - treat as unknown x-name or iana-token
             // According to RFC 5545, applications MUST treat x-name and iana-token values
@@ -538,6 +491,25 @@ impl AsRef<str> for ParamEncoding {
     }
 }
 
+fn parse_encoding(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
+    parse_single(&mut param, KW_ENCODING).and_then(|v| {
+        v.value
+            .resolve()
+            .parse()
+            .map(|encoding| TypedParameter::Encoding {
+                value: encoding,
+                span: param.span(),
+            })
+            .map_err(|()| {
+                vec![TypedAnalysisError::ParameterInvalidValue {
+                    span: v.value.span(),
+                    parameter: KW_ENCODING,
+                    value: v.value,
+                }]
+            })
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FreeBusyType {
     Free,
@@ -579,14 +551,72 @@ impl AsRef<str> for FreeBusyType {
     }
 }
 
-fn parse_rsvp_value(v: &SyntaxParameterValue) -> Result<bool, ()> {
-    if v.value.eq_ignore_ascii_case(KW_TRUE) {
-        Ok(true)
-    } else if v.value.eq_ignore_ascii_case(KW_FALSE) {
-        Ok(false)
-    } else {
-        Err(())
-    }
+fn parse_fbtype(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
+    parse_single(&mut param, KW_FBTYPE).and_then(|v| {
+        v.value
+            .resolve()
+            .parse()
+            .map(|fbtype| TypedParameter::FreeBusyType {
+                value: fbtype,
+                span: param.span(),
+            })
+            .map_err(|()| {
+                vec![TypedAnalysisError::ParameterInvalidValue {
+                    span: v.value.span(),
+                    parameter: KW_FBTYPE,
+                    value: v.value,
+                }]
+            })
+    })
+}
+
+fn parse_rsvp(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
+    let span = param.span();
+    parse_single(&mut param, KW_RSVP).and_then(|v| {
+        if v.value.eq_ignore_ascii_case(KW_TRUE) {
+            Ok(TypedParameter::RsvpExpectation { value: true, span })
+        } else if v.value.eq_ignore_ascii_case(KW_FALSE) {
+            Ok(TypedParameter::RsvpExpectation { value: false, span })
+        } else {
+            Err(vec![TypedAnalysisError::ParameterInvalidValue {
+                parameter: KW_RSVP,
+                value: v.value,
+                span,
+            }])
+        }
+    })
+}
+
+fn parse_tzid<'src>(mut param: SyntaxParameter<'src>) -> ParseResult<'src> {
+    let span = param.span();
+
+    #[cfg(feature = "jiff")]
+    let op = |v: SyntaxParameterValue<'src>| {
+        // Use jiff to validate time zone identifier
+        let tzid_str = v.value.resolve();
+        match jiff::tz::TimeZone::get(tzid_str.as_ref()) {
+            Ok(tz) => Ok(TypedParameter::TimeZoneIdentifier {
+                value: v.value,
+                span,
+                tz,
+            }),
+            Err(_) => Err(vec![TypedAnalysisError::ParameterInvalidValue {
+                parameter: KW_TZID,
+                value: v.value,
+                span,
+            }]),
+        }
+    };
+
+    #[cfg(not(feature = "jiff"))]
+    let op = |v: SyntaxParameterValue<'src>| {
+        Ok(TypedParameter::TimeZoneIdentifier {
+            value: v.value,
+            span,
+        })
+    };
+
+    parse_single(&mut param, KW_TZID).and_then(op)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -667,5 +697,83 @@ impl AsRef<str> for ValueType {
 impl Display for ValueType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_ref())
+    }
+}
+
+fn parse_value_type(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
+    parse_single(&mut param, KW_VALUE).and_then(|v| {
+        v.value
+            .resolve()
+            .parse()
+            .map(|value| TypedParameter::ValueType {
+                value,
+                span: param.span(),
+            })
+            .map_err(|()| {
+                vec![TypedAnalysisError::ParameterInvalidValue {
+                    span: v.value.span(),
+                    parameter: KW_VALUE,
+                    value: v.value,
+                }]
+            })
+    })
+}
+
+type ParseResult<'src> = Result<TypedParameter<'src>, Vec<TypedAnalysisError<'src>>>;
+
+fn parse_single<'src>(
+    param: &mut SyntaxParameter<'src>,
+    parameter: &'src str,
+) -> Result<SyntaxParameterValue<'src>, Vec<TypedAnalysisError<'src>>> {
+    match param.values.len() {
+        1 => Ok(param.values.pop().unwrap()),
+        _ => Err(vec![
+            TypedAnalysisError::ParameterMultipleValuesDisallowed {
+                parameter,
+                span: param.span(),
+            },
+        ]),
+    }
+}
+
+fn parse_single_quoted<'src>(
+    param: &mut SyntaxParameter<'src>,
+    parameter: &'src str,
+) -> Result<SpannedSegments<'src>, Vec<TypedAnalysisError<'src>>> {
+    parse_single(param, parameter).and_then(|v| {
+        if v.quoted {
+            Ok(v.value)
+        } else {
+            Err(vec![TypedAnalysisError::ParameterMustQuoted {
+                parameter,
+                span: v.value.span(),
+                value: v.value,
+            }])
+        }
+    })
+}
+
+fn parse_multiple_quoted<'src>(
+    param: SyntaxParameter<'src>,
+    parameter: &'src str,
+) -> Result<Vec<SpannedSegments<'src>>, Vec<TypedAnalysisError<'src>>> {
+    let mut values = Vec::with_capacity(param.values.len());
+    let mut errors = Vec::new();
+    for v in param.values {
+        if v.quoted {
+            values.push(v.value);
+        } else {
+            errors.push(TypedAnalysisError::ParameterMustQuoted {
+                parameter,
+                span: v.value.span(),
+                value: v.value,
+            });
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(values)
+    } else {
+        Err(errors)
     }
 }

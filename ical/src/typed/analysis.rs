@@ -167,6 +167,13 @@ pub enum TypedAnalysisError<'src> {
     #[error("Parameter '{parameter}' does not allow multiple values")]
     ParameterMultipleValuesDisallowed { parameter: &'src str, span: Span },
 
+    #[error("Parameter '{parameter}={value}' value must be quoted")]
+    ParameterMustQuoted {
+        parameter: &'src str,
+        value: SpannedSegments<'src>,
+        span: Span,
+    },
+
     #[error("Invalid value for parameter '{parameter}={value}'")]
     ParameterInvalidValue {
         parameter: &'src str,
@@ -204,6 +211,7 @@ impl TypedAnalysisError<'_> {
             | TypedAnalysisError::ParameterUnknown { span, .. }
             | TypedAnalysisError::ParameterDuplicated { span, .. }
             | TypedAnalysisError::ParameterMultipleValuesDisallowed { span, .. }
+            | TypedAnalysisError::ParameterMustQuoted { span, .. }
             | TypedAnalysisError::ParameterInvalidValue { span, .. }
             | TypedAnalysisError::ValueTypeDisallowed { span, .. } => span.clone(),
 
