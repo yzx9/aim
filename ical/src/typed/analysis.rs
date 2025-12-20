@@ -10,8 +10,8 @@ use chumsky::error::Rich;
 use thiserror::Error;
 
 use crate::lexer::Span;
-use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxProperty};
-use crate::typed::parameter::{TypedParameters, ValueType};
+use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
+use crate::typed::parameter::{TypedParameter, ValueType};
 use crate::typed::property_spec::{PROPERTY_SPECS, PropertySpec};
 use crate::typed::value::{Value, parse_values};
 
@@ -100,34 +100,8 @@ fn typed_property<'src>(
         existing.insert(spec.name);
     }
 
-    let parameters: TypedParameters = prop.parameters.try_into()?;
-    let (value_type, _value_type_span) = match (&parameters.value_type, &parameters.value_type_span)
-    {
-        (Some(value_type), Some(span)) => {
-            if !spec.allowed_kinds.contains(value_type) {
-                return Err(vec![TypedAnalysisError::ValueTypeDisallowed {
-                    property: spec.name,
-                    value_type: *value_type,
-                    expected_types: spec.allowed_kinds,
-                    span: span.clone(),
-                }]);
-            }
-            (*value_type, span.clone())
-        }
-        (Some(value_type), None) => {
-            // This shouldn't happen if parsing is correct, but handle gracefully
-            if !spec.allowed_kinds.contains(value_type) {
-                return Err(vec![TypedAnalysisError::ValueTypeDisallowed {
-                    property: spec.name,
-                    value_type: *value_type,
-                    expected_types: spec.allowed_kinds,
-                    span: prop.name.span(),
-                }]);
-            }
-            (*value_type, prop.name.span())
-        }
-        (None, _) => (spec.default_kind, prop.name.span()),
-    };
+    let parameters = parameters(prop.parameters)?;
+    let value_type = value_type(spec, &parameters)?;
 
     // PERF: cache parser, avoid cloning the value
     let values = parse_values(value_type, prop.value.clone()).map_err(|errs| {
@@ -163,9 +137,10 @@ pub struct TypedComponent<'src> {
 #[derive(Debug, Clone)]
 pub struct TypedProperty<'src> {
     pub name: &'src str, // Standardized property name in UPPERCASE
-    pub parameters: TypedParameters<'src>,
+    pub parameters: Vec<TypedParameter<'src>>,
     pub values: Vec<Value<'src>>,
 }
+
 #[derive(Error, Debug, Clone)]
 pub enum TypedAnalysisError<'src> {
     #[error("Unknown property '{property}'")]
@@ -235,5 +210,59 @@ impl TypedAnalysisError<'_> {
             TypedAnalysisError::ParameterValueSyntax { err, .. }
             | TypedAnalysisError::ValueSyntax { err, .. } => err.span().into_range(),
         }
+    }
+}
+
+fn parameters(
+    params: Vec<SyntaxParameter<'_>>,
+) -> Result<Vec<TypedParameter<'_>>, Vec<TypedAnalysisError<'_>>> {
+    let mut existing = HashSet::with_capacity(params.len());
+    let mut typed_params = Vec::with_capacity(params.len());
+    let mut errors = Vec::new();
+    for param in params {
+        match TypedParameter::try_from(param) {
+            Ok(typed) => {
+                let param_name = typed.name();
+                if existing.contains(param_name) {
+                    errors.push(TypedAnalysisError::ParameterDuplicated {
+                        parameter: param_name,
+                        span: typed.span(),
+                    });
+                } else {
+                    typed_params.push(typed);
+                    existing.insert(param_name);
+                }
+            }
+            Err(errs) => errors.extend(errs),
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(typed_params)
+    } else {
+        Err(errors)
+    }
+}
+
+fn value_type<'src>(
+    spec: &'src PropertySpec,
+    params: &Vec<TypedParameter<'src>>,
+) -> Result<ValueType, Vec<TypedAnalysisError<'src>>> {
+    let Some(TypedParameter::ValueType { value, span }) = params
+        .iter()
+        .find(|param| matches!(param, TypedParameter::ValueType { .. }))
+    else {
+        return Ok(spec.default_kind);
+    };
+
+    if spec.allowed_kinds.contains(value) {
+        Ok(*value)
+    } else {
+        Err(vec![TypedAnalysisError::ValueTypeDisallowed {
+            property: spec.name,
+            value_type: *value,
+            expected_types: spec.allowed_kinds,
+            span: span.clone(),
+        }])
     }
 }

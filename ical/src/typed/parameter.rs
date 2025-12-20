@@ -26,8 +26,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.1. Alternate Text Representation
     AlternateText {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -40,8 +38,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.2. Common Name
     CommonName {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -55,8 +51,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.3. Calendar User Type
     CalendarUserType {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -68,8 +62,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.4. Delegators
     Delegators {
         values: Vec<SpannedSegments<'src>>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -81,8 +73,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.5. Delegatees
     Delegatees {
         values: Vec<SpannedSegments<'src>>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -94,8 +84,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.6. Directory Entry Reference
     Directory {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -106,12 +94,7 @@ pub enum TypedParameter<'src> {
     /// defined in [RFC2045].
     ///
     /// See also: RFC 5545 Section 3.2.7. Inline Encoding
-    Encoding {
-        value: ParamEncoding,
-
-        #[allow(dead_code)]
-        span: Span,
-    },
+    Encoding { value: ParamEncoding, span: Span },
 
     /// This parameter can be specified on properties that are used to
     /// reference an object. The parameter specifies the media type [RFC4288]
@@ -124,8 +107,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.8. Format Type
     FormatType {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -142,12 +123,7 @@ pub enum TypedParameter<'src> {
     /// BUSY value.
     ///
     /// See also: RFC 5545 Section 3.2.9. Free/Busy Time Type
-    FreeBusyType {
-        value: FreeBusyType,
-
-        #[allow(dead_code)]
-        span: Span,
-    },
+    FreeBusyType { value: FreeBusyType, span: Span },
 
     /// This parameter identifies the language of the text in the property
     /// value and of all property parameter values of the property. The value
@@ -160,8 +136,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.10. Language
     Language {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -175,8 +149,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.11. Group or List Membership
     GroupOrListMembership {
         values: Vec<SpannedSegments<'src>>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -193,8 +165,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.12. Participation Status
     ParticipationStatus {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -213,8 +183,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.13. Recurrence Identifier Range
     RecurrenceIdRange {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -230,8 +198,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.14. Alarm Trigger Relationship
     AlarmTriggerRelationship {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -250,8 +216,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.15. Relationship Type
     RelationshipType {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -265,8 +229,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.16. Participation Role
     ParticipationRole {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -279,8 +241,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.18. Sent By
     SendBy {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -290,12 +250,7 @@ pub enum TypedParameter<'src> {
     /// by the "Organizer" to request a participation status reply from an
     /// "Attendee" of a group-scheduled event or to-do. If not specified on a
     /// property that allows this parameter, the default value is FALSE.
-    RsvpExpectation {
-        value: bool,
-
-        #[allow(dead_code)]
-        span: Span,
-    },
+    RsvpExpectation { value: bool, span: Span },
 
     /// This parameter MUST be specified on the "DTSTART", "DTEND", "DUE",
     /// "EXDATE", and "RDATE" properties when either a DATE-TIME or TIME value
@@ -313,8 +268,6 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.19. Time Zone Identifier
     TimeZoneIdentifier {
         value: SpannedSegments<'src>,
-
-        #[allow(dead_code)]
         span: Span,
     },
 
@@ -329,12 +282,61 @@ pub enum TypedParameter<'src> {
     /// MUST be specified.
     ///
     /// See also: RFC 5545 Section 3.2.20. Value Data Types
-    ValueType {
-        value: ValueType,
+    ValueType { value: ValueType, span: Span },
+}
 
-        #[allow(dead_code)]
-        span: Span,
-    },
+impl TypedParameter<'_> {
+    /// Name of the parameter
+    pub fn name(&self) -> &'static str {
+        match self {
+            TypedParameter::AlternateText { .. } => KW_ALTREP,
+            TypedParameter::CommonName { .. } => KW_CN,
+            TypedParameter::CalendarUserType { .. } => KW_CUTYPE,
+            TypedParameter::Delegators { .. } => KW_DELEGATED_FROM,
+            TypedParameter::Delegatees { .. } => KW_DELEGATED_TO,
+            TypedParameter::Directory { .. } => KW_DIR,
+            TypedParameter::Encoding { .. } => KW_ENCODING,
+            TypedParameter::FormatType { .. } => KW_FMTTYPE,
+            TypedParameter::FreeBusyType { .. } => KW_FBTYPE,
+            TypedParameter::Language { .. } => KW_LANGUAGE,
+            TypedParameter::GroupOrListMembership { .. } => KW_MEMBER,
+            TypedParameter::ParticipationStatus { .. } => KW_PARTSTAT,
+            TypedParameter::RecurrenceIdRange { .. } => KW_RANGE,
+            TypedParameter::AlarmTriggerRelationship { .. } => KW_RELATED,
+            TypedParameter::RelationshipType { .. } => KW_RELTYPE,
+            TypedParameter::ParticipationRole { .. } => KW_ROLE,
+            TypedParameter::SendBy { .. } => KW_SENT_BY,
+            TypedParameter::RsvpExpectation { .. } => KW_RSVP,
+            TypedParameter::TimeZoneIdentifier { .. } => KW_TZID,
+            TypedParameter::ValueType { .. } => KW_VALUE,
+        }
+    }
+
+    /// Span of the parameter
+    pub fn span(&self) -> Span {
+        match self {
+            TypedParameter::AlternateText { span, .. }
+            | TypedParameter::CommonName { span, .. }
+            | TypedParameter::CalendarUserType { span, .. }
+            | TypedParameter::Delegators { span, .. }
+            | TypedParameter::Delegatees { span, .. }
+            | TypedParameter::Directory { span, .. }
+            | TypedParameter::Encoding { span, .. }
+            | TypedParameter::FormatType { span, .. }
+            | TypedParameter::FreeBusyType { span, .. }
+            | TypedParameter::Language { span, .. }
+            | TypedParameter::GroupOrListMembership { span, .. }
+            | TypedParameter::ParticipationStatus { span, .. }
+            | TypedParameter::RecurrenceIdRange { span, .. }
+            | TypedParameter::AlarmTriggerRelationship { span, .. }
+            | TypedParameter::RelationshipType { span, .. }
+            | TypedParameter::ParticipationRole { span, .. }
+            | TypedParameter::SendBy { span, .. }
+            | TypedParameter::RsvpExpectation { span, .. }
+            | TypedParameter::TimeZoneIdentifier { span, .. }
+            | TypedParameter::ValueType { span, .. } => span.clone(),
+        }
+    }
 }
 
 impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
@@ -490,293 +492,6 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
                 span: param.name.span(),
                 parameter: param.name,
             }]),
-        }
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-pub struct TypedParameters<'src> {
-    pub alternate_text: Option<SpannedSegments<'src>>,
-    pub alternate_text_span: Option<Span>,
-    pub common_name: Option<SpannedSegments<'src>>,
-    pub common_name_span: Option<Span>,
-    pub calendar_user_type: Option<SpannedSegments<'src>>,
-    pub calendar_user_type_span: Option<Span>,
-    pub delegators: Option<Vec<SpannedSegments<'src>>>,
-    pub delegators_span: Option<Span>,
-    pub delegatees: Option<Vec<SpannedSegments<'src>>>,
-    pub delegatees_span: Option<Span>,
-    pub directory: Option<SpannedSegments<'src>>,
-    pub directory_span: Option<Span>,
-    pub encoding: Option<ParamEncoding>,
-    pub encoding_span: Option<Span>,
-    pub format_type: Option<SpannedSegments<'src>>,
-    pub format_type_span: Option<Span>,
-    pub free_busy_type: Option<FreeBusyType>,
-    pub free_busy_type_span: Option<Span>,
-    pub language: Option<SpannedSegments<'src>>,
-    pub language_span: Option<Span>,
-    pub group_or_list_membership: Option<Vec<SpannedSegments<'src>>>,
-    pub group_or_list_membership_span: Option<Span>,
-    pub participation_status: Option<SpannedSegments<'src>>,
-    pub participation_status_span: Option<Span>,
-    pub recurrence_id_range: Option<SpannedSegments<'src>>,
-    pub recurrence_id_range_span: Option<Span>,
-    pub alarm_trigger_relationship: Option<SpannedSegments<'src>>,
-    pub alarm_trigger_relationship_span: Option<Span>,
-    pub relationship_type: Option<SpannedSegments<'src>>,
-    pub relationship_type_span: Option<Span>,
-    pub participation_role: Option<SpannedSegments<'src>>,
-    pub participation_role_span: Option<Span>,
-    pub send_by: Option<SpannedSegments<'src>>,
-    pub send_by_span: Option<Span>,
-    pub rsvp_expectation: Option<bool>,
-    pub rsvp_expectation_span: Option<Span>,
-    pub time_zone_identifier: Option<SpannedSegments<'src>>,
-    pub time_zone_identifier_span: Option<Span>,
-    pub value_type: Option<ValueType>,
-    pub value_type_span: Option<Span>,
-}
-
-impl<'src> TryFrom<Vec<SyntaxParameter<'src>>> for TypedParameters<'src> {
-    type Error = Vec<TypedAnalysisError<'src>>;
-
-    #[allow(clippy::too_many_lines)]
-    fn try_from(params: Vec<SyntaxParameter<'src>>) -> Result<Self, Self::Error> {
-        fn set_or_err<'src, T>(
-            slot: &mut Option<T>,
-            span_slot: &mut Option<Span>,
-            errors: &mut Vec<TypedAnalysisError<'src>>,
-            parameter: &'src str,
-            param: &SyntaxParameter<'src>,
-            value: T,
-        ) {
-            match slot {
-                Some(_) => errors.push(TypedAnalysisError::ParameterDuplicated {
-                    parameter,
-                    span: param.name.span(),
-                }),
-                None if !errors.is_empty() => {} // Skip further errors if already have errors
-                None => {
-                    *slot = Some(value);
-                    *span_slot = Some(param.span());
-                }
-            }
-        }
-
-        let mut result = Self::default();
-        let mut errors = Vec::new();
-        for param in params {
-            // NOTE: should we allow multiple parameters to merge values?
-            match TypedParameter::try_from(param.clone()) {
-                Ok(TypedParameter::AlternateText { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.alternate_text,
-                        &mut result.alternate_text_span,
-                        &mut errors,
-                        KW_ALTREP,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::CommonName { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.common_name,
-                        &mut result.common_name_span,
-                        &mut errors,
-                        KW_CN,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::CalendarUserType { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.calendar_user_type,
-                        &mut result.calendar_user_type_span,
-                        &mut errors,
-                        KW_CUTYPE,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::Delegators { values: v, .. }) => {
-                    set_or_err(
-                        &mut result.delegators,
-                        &mut result.delegators_span,
-                        &mut errors,
-                        KW_DELEGATED_FROM,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::Delegatees { values: v, .. }) => {
-                    set_or_err(
-                        &mut result.delegatees,
-                        &mut result.delegatees_span,
-                        &mut errors,
-                        KW_DELEGATED_TO,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::Directory { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.directory,
-                        &mut result.directory_span,
-                        &mut errors,
-                        KW_DIR,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::Encoding { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.encoding,
-                        &mut result.encoding_span,
-                        &mut errors,
-                        KW_ENCODING,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::FormatType { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.format_type,
-                        &mut result.format_type_span,
-                        &mut errors,
-                        KW_FMTTYPE,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::FreeBusyType { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.free_busy_type,
-                        &mut result.free_busy_type_span,
-                        &mut errors,
-                        KW_FBTYPE,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::Language { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.language,
-                        &mut result.language_span,
-                        &mut errors,
-                        KW_LANGUAGE,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::GroupOrListMembership { values: v, .. }) => {
-                    set_or_err(
-                        &mut result.group_or_list_membership,
-                        &mut result.group_or_list_membership_span,
-                        &mut errors,
-                        KW_MEMBER,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::ParticipationStatus { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.participation_status,
-                        &mut result.participation_status_span,
-                        &mut errors,
-                        KW_PARTSTAT,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::RecurrenceIdRange { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.recurrence_id_range,
-                        &mut result.recurrence_id_range_span,
-                        &mut errors,
-                        KW_RANGE,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::AlarmTriggerRelationship { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.alarm_trigger_relationship,
-                        &mut result.alarm_trigger_relationship_span,
-                        &mut errors,
-                        KW_RELATED,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::RelationshipType { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.relationship_type,
-                        &mut result.relationship_type_span,
-                        &mut errors,
-                        KW_RELTYPE,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::ParticipationRole { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.participation_role,
-                        &mut result.participation_role_span,
-                        &mut errors,
-                        KW_ROLE,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::RsvpExpectation { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.rsvp_expectation,
-                        &mut result.rsvp_expectation_span,
-                        &mut errors,
-                        KW_RSVP,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::SendBy { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.send_by,
-                        &mut result.send_by_span,
-                        &mut errors,
-                        KW_SENT_BY,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::TimeZoneIdentifier { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.time_zone_identifier,
-                        &mut result.time_zone_identifier_span,
-                        &mut errors,
-                        KW_TZID,
-                        &param,
-                        v,
-                    );
-                }
-                Ok(TypedParameter::ValueType { value: v, .. }) => {
-                    set_or_err(
-                        &mut result.value_type,
-                        &mut result.value_type_span,
-                        &mut errors,
-                        KW_VALUE,
-                        &param,
-                        v,
-                    );
-                }
-                Err(e) => errors.extend(e),
-            }
-        }
-
-        if errors.is_empty() {
-            Ok(result)
-        } else {
-            Err(errors)
         }
     }
 }
