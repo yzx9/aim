@@ -29,7 +29,7 @@ static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = Lazy
 pub fn typed_analysis(
     components: Vec<SyntaxComponent<'_>>,
 ) -> Result<Vec<TypedComponent<'_>>, Vec<TypedAnalysisError<'_>>> {
-    let mut typed_components = Vec::new();
+    let mut typed_components = Vec::with_capacity(components.len());
     let mut errors = Vec::new();
     for comp in components {
         match typed_component(comp) {
@@ -48,8 +48,8 @@ pub fn typed_analysis(
 fn typed_component(
     comp: SyntaxComponent<'_>,
 ) -> Result<TypedComponent<'_>, Vec<TypedAnalysisError<'_>>> {
-    let mut existing_props = HashSet::new();
-    let mut properties = Vec::new();
+    let mut existing_props = HashSet::with_capacity(comp.properties.len());
+    let mut properties = Vec::with_capacity(comp.properties.len());
     let mut errors = Vec::new();
     for prop in comp.properties {
         match typed_property(&mut existing_props, prop) {
@@ -58,7 +58,7 @@ fn typed_component(
         }
     }
 
-    let mut children = Vec::new();
+    let mut children = Vec::with_capacity(comp.children.len());
     for comp in comp.children {
         match typed_component(comp) {
             Ok(child) => children.push(child),
