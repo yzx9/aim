@@ -2,15 +2,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt::Display, str::FromStr};
-
 use crate::keyword::{
-    KW_ALTREP, KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_CN, KW_CUTYPE, KW_DATE, KW_DATETIME,
-    KW_DELEGATED_FROM, KW_DELEGATED_TO, KW_DIR, KW_DURATION, KW_ENCODING, KW_ENCODING_8BIT,
-    KW_ENCODING_BASE64, KW_FALSE, KW_FBTYPE, KW_FBTYPE_BUSY, KW_FBTYPE_BUSY_TENTATIVE,
-    KW_FBTYPE_BUSY_UNAVAILABLE, KW_FBTYPE_FREE, KW_FLOAT, KW_FMTTYPE, KW_INTEGER, KW_LANGUAGE,
-    KW_MEMBER, KW_PARTSTAT, KW_PERIOD, KW_RANGE, KW_RELATED, KW_RELTYPE, KW_ROLE, KW_RRULE,
-    KW_RSVP, KW_SENT_BY, KW_TEXT, KW_TIME, KW_TRUE, KW_TZID, KW_URI, KW_UTC_OFFSET, KW_VALUE,
+    KW_ALTREP, KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_CN, KW_CUTYPE, KW_CUTYPE_GROUP,
+    KW_CUTYPE_INDIVIDUAL, KW_CUTYPE_RESOURCE, KW_CUTYPE_ROOM, KW_CUTYPE_UNKNOWN, KW_DATE,
+    KW_DATETIME, KW_DELEGATED_FROM, KW_DELEGATED_TO, KW_DIR, KW_DURATION, KW_ENCODING,
+    KW_ENCODING_8BIT, KW_ENCODING_BASE64, KW_FALSE, KW_FBTYPE, KW_FBTYPE_BUSY,
+    KW_FBTYPE_BUSY_TENTATIVE, KW_FBTYPE_BUSY_UNAVAILABLE, KW_FBTYPE_FREE, KW_FLOAT, KW_FMTTYPE,
+    KW_INTEGER, KW_LANGUAGE, KW_MEMBER, KW_PARTSTAT, KW_PARTSTAT_ACCEPTED, KW_PARTSTAT_COMPLETED,
+    KW_PARTSTAT_DECLINED, KW_PARTSTAT_DELEGATED, KW_PARTSTAT_IN_PROCESS, KW_PARTSTAT_NEEDS_ACTION,
+    KW_PARTSTAT_TENTATIVE, KW_PERIOD, KW_RANGE, KW_RANGE_THISANDFUTURE, KW_RELATED, KW_RELATED_END,
+    KW_RELATED_START, KW_RELTYPE, KW_RELTYPE_CHILD, KW_RELTYPE_PARENT, KW_RELTYPE_SIBLING, KW_ROLE,
+    KW_ROLE_CHAIR, KW_ROLE_NON_PARTICIPANT, KW_ROLE_OPT_PARTICIPANT, KW_ROLE_REQ_PARTICIPANT,
+    KW_RRULE, KW_RSVP, KW_SENT_BY, KW_TEXT, KW_TIME, KW_TRUE, KW_TZID, KW_URI, KW_UTC_OFFSET,
+    KW_VALUE,
 };
 use crate::lexer::Span;
 use crate::syntax::{SpannedSegments, SyntaxParameter, SyntaxParameterValue};
@@ -49,10 +53,7 @@ pub enum TypedParameter<'src> {
     /// UNKNOWN value.
     ///
     /// See also: RFC 5545 Section 3.2.3. Calendar User Type
-    CalendarUserType {
-        value: SpannedSegments<'src>,
-        span: Span,
-    },
+    CalendarUserType { value: CalendarUserType, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. This parameter specifies those calendar users that have delegated
@@ -94,7 +95,7 @@ pub enum TypedParameter<'src> {
     /// defined in [RFC2045].
     ///
     /// See also: RFC 5545 Section 3.2.7. Inline Encoding
-    Encoding { value: ParamEncoding, span: Span },
+    Encoding { value: Encoding, span: Span },
 
     /// This parameter can be specified on properties that are used to
     /// reference an object. The parameter specifies the media type [RFC4288]
@@ -164,7 +165,7 @@ pub enum TypedParameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.12. Participation Status
     ParticipationStatus {
-        value: SpannedSegments<'src>,
+        value: ParticipationStatus,
         span: Span,
     },
 
@@ -182,7 +183,7 @@ pub enum TypedParameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.13. Recurrence Identifier Range
     RecurrenceIdRange {
-        value: SpannedSegments<'src>,
+        value: RecurrenceIdRange,
         span: Span,
     },
 
@@ -197,7 +198,7 @@ pub enum TypedParameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.14. Alarm Trigger Relationship
     AlarmTriggerRelationship {
-        value: SpannedSegments<'src>,
+        value: AlarmTriggerRelationship,
         span: Span,
     },
 
@@ -214,10 +215,7 @@ pub enum TypedParameter<'src> {
     /// recognize the same way as they would the PARENT value.
     ///
     /// See also: RFC 5545 Section 3.2.15. Relationship Type
-    RelationshipType {
-        value: SpannedSegments<'src>,
-        span: Span,
-    },
+    RelationshipType { value: RelationshipType, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter specifies the participation role for the calendar
@@ -228,7 +226,7 @@ pub enum TypedParameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.16. Participation Role
     ParticipationRole {
-        value: SpannedSegments<'src>,
+        value: ParticipationRole,
         span: Span,
     },
 
@@ -357,12 +355,7 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
                 value: v.value,
                 span: param.span(),
             }),
-            KW_CUTYPE => {
-                parse_single(&mut param, KW_CUTYPE).map(|v| TypedParameter::CalendarUserType {
-                    value: v.value,
-                    span: param.span(),
-                })
-            }
+            KW_CUTYPE => parse_cutype(param),
             KW_DELEGATED_FROM => {
                 let span = param.span();
                 parse_multiple_quoted(param, KW_DELEGATED_FROM)
@@ -398,36 +391,11 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
                 parse_multiple_quoted(param, KW_MEMBER)
                     .map(|values| TypedParameter::GroupOrListMembership { values, span })
             }
-            KW_PARTSTAT => {
-                parse_single(&mut param, KW_PARTSTAT).map(|v| TypedParameter::ParticipationStatus {
-                    value: v.value,
-                    span: param.span(),
-                })
-            }
-            KW_RANGE => {
-                parse_single(&mut param, KW_RANGE).map(|v| TypedParameter::RecurrenceIdRange {
-                    value: v.value,
-                    span: param.span(),
-                })
-            }
-            KW_RELATED => parse_single(&mut param, KW_RELATED).map(|v| {
-                TypedParameter::AlarmTriggerRelationship {
-                    value: v.value,
-                    span: param.span(),
-                }
-            }),
-            KW_RELTYPE => {
-                parse_single(&mut param, KW_RELTYPE).map(|v| TypedParameter::RelationshipType {
-                    value: v.value,
-                    span: param.span(),
-                })
-            }
-            KW_ROLE => {
-                parse_single(&mut param, KW_ROLE).map(|v| TypedParameter::ParticipationRole {
-                    value: v.value,
-                    span: param.span(),
-                })
-            }
+            KW_PARTSTAT => parse_partstat(param),
+            KW_RANGE => parse_range(param),
+            KW_RELATED => parse_alarm_trigger_relationship(param),
+            KW_RELTYPE => parse_reltype(param),
+            KW_ROLE => parse_role(param),
             KW_RSVP => parse_rsvp(param),
             KW_SENT_BY => {
                 parse_single_quoted(&mut param, KW_SENT_BY).map(|value| TypedParameter::SendBy {
@@ -449,127 +417,6 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
     }
 }
 
-/// This parameter identifies the inline encoding used in a property value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParamEncoding {
-    /// The default encoding is "8BIT", corresponding to a property value
-    /// consisting of text.
-    Bit8,
-
-    /// The "BASE64" encoding type corresponds to a property value encoded
-    /// using the "BASE64" encoding defined in [RFC2045].
-    Base64,
-}
-
-impl TryFrom<&SpannedSegments<'_>> for ParamEncoding {
-    type Error = ();
-
-    fn try_from(segs: &SpannedSegments<'_>) -> Result<Self, Self::Error> {
-        segs.resolve().parse() // PERF: avoid allocation
-    }
-}
-
-impl FromStr for ParamEncoding {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // TODO: check quote: Property parameter values that are not in quoted-strings are case-insensitive.
-        match s {
-            KW_ENCODING_8BIT => Ok(ParamEncoding::Bit8),
-            KW_ENCODING_BASE64 => Ok(ParamEncoding::Base64),
-            _ => Err(()),
-        }
-    }
-}
-
-impl AsRef<str> for ParamEncoding {
-    fn as_ref(&self) -> &str {
-        match self {
-            ParamEncoding::Bit8 => KW_ENCODING_8BIT,
-            ParamEncoding::Base64 => KW_ENCODING_BASE64,
-        }
-    }
-}
-
-fn parse_encoding(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
-    parse_single(&mut param, KW_ENCODING).and_then(|v| {
-        v.value
-            .resolve()
-            .parse()
-            .map(|encoding| TypedParameter::Encoding {
-                value: encoding,
-                span: param.span(),
-            })
-            .map_err(|()| {
-                vec![TypedAnalysisError::ParameterInvalidValue {
-                    span: v.value.span(),
-                    parameter: KW_ENCODING,
-                    value: v.value,
-                }]
-            })
-    })
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FreeBusyType {
-    Free,
-    Busy,
-    BusyUnavailable,
-    BusyTentative,
-}
-
-impl TryFrom<&SpannedSegments<'_>> for FreeBusyType {
-    type Error = ();
-
-    fn try_from(segs: &SpannedSegments<'_>) -> Result<Self, Self::Error> {
-        segs.resolve().parse() // PERF: avoid allocation
-    }
-}
-
-impl FromStr for FreeBusyType {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            KW_FBTYPE_FREE => Ok(FreeBusyType::Free),
-            KW_FBTYPE_BUSY => Ok(FreeBusyType::Busy),
-            KW_FBTYPE_BUSY_UNAVAILABLE => Ok(FreeBusyType::BusyUnavailable),
-            KW_FBTYPE_BUSY_TENTATIVE => Ok(FreeBusyType::BusyTentative),
-            _ => Err(()),
-        }
-    }
-}
-
-impl AsRef<str> for FreeBusyType {
-    fn as_ref(&self) -> &str {
-        match self {
-            FreeBusyType::Free => KW_FBTYPE_FREE,
-            FreeBusyType::Busy => KW_FBTYPE_BUSY,
-            FreeBusyType::BusyUnavailable => KW_FBTYPE_BUSY_UNAVAILABLE,
-            FreeBusyType::BusyTentative => KW_FBTYPE_BUSY_TENTATIVE,
-        }
-    }
-}
-
-fn parse_fbtype(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
-    parse_single(&mut param, KW_FBTYPE).and_then(|v| {
-        v.value
-            .resolve()
-            .parse()
-            .map(|fbtype| TypedParameter::FreeBusyType {
-                value: fbtype,
-                span: param.span(),
-            })
-            .map_err(|()| {
-                vec![TypedAnalysisError::ParameterInvalidValue {
-                    span: v.value.span(),
-                    parameter: KW_FBTYPE,
-                    value: v.value,
-                }]
-            })
-    })
-}
-
 fn parse_rsvp(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
     let span = param.span();
     parse_single(&mut param, KW_RSVP).and_then(|v| {
@@ -578,7 +425,7 @@ fn parse_rsvp(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
         } else if v.value.eq_ignore_ascii_case(KW_FALSE) {
             Ok(TypedParameter::RsvpExpectation { value: false, span })
         } else {
-            Err(vec![TypedAnalysisError::ParameterInvalidValue {
+            Err(vec![TypedAnalysisError::ParameterValueInvalid {
                 parameter: KW_RSVP,
                 value: v.value,
                 span,
@@ -600,7 +447,7 @@ fn parse_tzid<'src>(mut param: SyntaxParameter<'src>) -> ParseResult<'src> {
                 span,
                 tz,
             }),
-            Err(_) => Err(vec![TypedAnalysisError::ParameterInvalidValue {
+            Err(_) => Err(vec![TypedAnalysisError::ParameterValueInvalid {
                 parameter: KW_TZID,
                 value: v.value,
                 span,
@@ -619,104 +466,234 @@ fn parse_tzid<'src>(mut param: SyntaxParameter<'src>) -> ParseResult<'src> {
     parse_single(&mut param, KW_TZID).and_then(op)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ValueType {
-    Binary,
-    Boolean,
-    CalendarUserAddress,
-    Date,
-    DateTime,
-    Duration,
-    Float,
-    Integer,
-    Period,
-    RecurrenceRule,
-    Text,
-    Time,
-    Uri,
-    UtcOffset,
-    // TODO: add x-name and iana-token support
-}
-
-impl TryFrom<&SpannedSegments<'_>> for ValueType {
-    type Error = ();
-
-    fn try_from(segs: &SpannedSegments<'_>) -> Result<Self, Self::Error> {
-        segs.resolve().parse() // PERF: avoid allocation
-    }
-}
-
-impl FromStr for ValueType {
-    type Err = ();
-
-    #[rustfmt::skip]
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // TODO: check quote: Property parameter values that are not in quoted-strings are case-insensitive.
-        match s {
-            KW_BINARY      => Ok(ValueType::Binary),
-            KW_BOOLEAN     => Ok(ValueType::Boolean),
-            KW_CAL_ADDRESS => Ok(ValueType::CalendarUserAddress),
-            KW_DATE        => Ok(ValueType::Date),
-            KW_DATETIME    => Ok(ValueType::DateTime),
-            KW_DURATION    => Ok(ValueType::Duration),
-            KW_FLOAT       => Ok(ValueType::Float),
-            KW_INTEGER     => Ok(ValueType::Integer),
-            KW_PERIOD      => Ok(ValueType::Period),
-            KW_RRULE       => Ok(ValueType::RecurrenceRule),
-            KW_TEXT        => Ok(ValueType::Text),
-            KW_URI         => Ok(ValueType::Uri),
-            KW_TIME        => Ok(ValueType::Time),
-            KW_UTC_OFFSET  => Ok(ValueType::UtcOffset),
-            _ => Err(()),
+// TODO: add x-name and iana-token support
+macro_rules! define_param_enum {
+    (
+        $(#[$meta:meta])*
+        $vis:vis enum $Name:ident {
+            $(
+                $(#[$vmeta:meta])*
+                $Variant:ident => $kw:ident
+            ),+ $(,)?
         }
-    }
-}
 
-impl AsRef<str> for ValueType {
-    #[rustfmt::skip]
-    fn as_ref(&self) -> &str {
-        match self {
-            ValueType::Binary              => KW_BINARY,
-            ValueType::Boolean             => KW_BOOLEAN,
-            ValueType::CalendarUserAddress => KW_CAL_ADDRESS,
-            ValueType::Date                => KW_DATE,
-            ValueType::DateTime            => KW_DATETIME,
-            ValueType::Duration            => KW_DURATION,
-            ValueType::Float               => KW_FLOAT,
-            ValueType::Integer             => KW_INTEGER,
-            ValueType::Period              => KW_PERIOD,
-            ValueType::RecurrenceRule      => KW_RRULE,
-            ValueType::Text                => KW_TEXT,
-            ValueType::Time                => KW_TIME,
-            ValueType::Uri                 => KW_URI,
-            ValueType::UtcOffset           => KW_UTC_OFFSET,
+        parser {
+            fn $parse_fn:ident;
+            keyword = $param_kw:ident;
         }
+    ) => {
+        /* ---------- enum ---------- */
+
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        $vis enum $Name {
+            $(
+                $(#[$vmeta])*
+                $Variant,
+            )+
+        }
+
+        /* ---------- TryFrom ---------- */
+
+        impl TryFrom<&SpannedSegments<'_>> for $Name {
+            type Error = ();
+
+            fn try_from(segs: &SpannedSegments<'_>) -> Result<Self, Self::Error> {
+                $(
+                    if segs.eq_ignore_ascii_case($kw) {
+                        return Ok(Self::$Variant);
+                    }
+                )+
+                Err(())
+            }
+        }
+
+        /* ---------- AsRef / Display ---------- */
+
+        impl AsRef<str> for $Name {
+            #[rustfmt::skip]
+            fn as_ref(&self) -> &str {
+                match self {
+                    $(
+                        Self::$Variant => $kw,
+                    )+
+                }
+            }
+        }
+
+        impl std::fmt::Display for $Name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.as_ref())
+            }
+        }
+
+        /* ---------- parser ---------- */
+
+        fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
+            parse_single_not_quoted(&mut param, $param_kw).and_then(|value| {
+                $Name::try_from(&value)
+                    .map(|value| TypedParameter::$Name {
+                        value,
+                        span: param.span(),
+                    })
+                    .map_err(|()| {
+                        vec![TypedAnalysisError::ParameterValueInvalid {
+                            span: value.span(),
+                            parameter: $param_kw,
+                            value,
+                        }]
+                    })
+            })
+        }
+    };
+}
+
+define_param_enum! {
+    pub enum CalendarUserType {
+        /// An individual
+        Individual => KW_CUTYPE_INDIVIDUAL,
+
+        /// A group of individuals
+        Group      => KW_CUTYPE_GROUP,
+
+        /// A physical resource
+        Resource   => KW_CUTYPE_RESOURCE,
+
+        /// A room resource
+        Room       => KW_CUTYPE_ROOM,
+
+        /// Otherwise not known
+        Unknown    => KW_CUTYPE_UNKNOWN,
+    }
+
+    parser {
+        fn parse_cutype;
+        keyword = KW_CUTYPE;
     }
 }
 
-impl Display for ValueType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_ref())
+define_param_enum! {
+    /// This parameter identifies the inline encoding used in a property value.
+    pub enum Encoding {
+        /// The default encoding is "8BIT", corresponding to a property value
+        /// consisting of text.
+        Bit8   => KW_ENCODING_8BIT,
+
+        /// The "BASE64" encoding type corresponds to a property value encoded
+        /// using the "BASE64" encoding defined in [RFC2045].
+        Base64 => KW_ENCODING_BASE64,
+    }
+
+    parser {
+        fn parse_encoding;
+        keyword = KW_ENCODING;
     }
 }
 
-fn parse_value_type(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
-    parse_single(&mut param, KW_VALUE).and_then(|v| {
-        v.value
-            .resolve()
-            .parse()
-            .map(|value| TypedParameter::ValueType {
-                value,
-                span: param.span(),
-            })
-            .map_err(|()| {
-                vec![TypedAnalysisError::ParameterInvalidValue {
-                    span: v.value.span(),
-                    parameter: KW_VALUE,
-                    value: v.value,
-                }]
-            })
-    })
+define_param_enum! {
+    pub enum FreeBusyType {
+        Free             => KW_FBTYPE_FREE,
+        Busy             => KW_FBTYPE_BUSY,
+        BusyUnavailable  => KW_FBTYPE_BUSY_UNAVAILABLE,
+        BusyTentative    => KW_FBTYPE_BUSY_TENTATIVE,
+    }
+
+    parser {
+        fn parse_fbtype;
+        keyword = KW_FBTYPE;
+    }
+}
+
+define_param_enum! {
+    pub enum ParticipationStatus {
+        NeedsAction  => KW_PARTSTAT_NEEDS_ACTION,
+        Accepted     => KW_PARTSTAT_ACCEPTED,
+        Declined     => KW_PARTSTAT_DECLINED,
+        Tentative    => KW_PARTSTAT_TENTATIVE,
+        Delegated    => KW_PARTSTAT_DELEGATED,
+        Completed    => KW_PARTSTAT_COMPLETED,
+        InProcess    => KW_PARTSTAT_IN_PROCESS,
+    }
+
+    parser {
+        fn parse_partstat;
+        keyword = KW_PARTSTAT;
+    }
+}
+
+define_param_enum! {
+    pub enum RecurrenceIdRange {
+        ThisAndFuture => KW_RANGE_THISANDFUTURE,
+        // THISANDPRIOR is deprecated and MUST NOT be generated by applications
+    }
+
+    parser {
+        fn parse_range;
+        keyword = KW_RANGE;
+    }
+}
+
+define_param_enum! {
+    pub enum AlarmTriggerRelationship {
+        Start => KW_RELATED_START,
+        End   => KW_RELATED_END,
+    }
+
+    parser {
+        fn parse_alarm_trigger_relationship;
+        keyword = KW_RELATED;
+    }
+}
+
+define_param_enum! {
+    pub enum RelationshipType {
+        Parent  => KW_RELTYPE_PARENT,
+        Child   => KW_RELTYPE_CHILD,
+        Sibling => KW_RELTYPE_SIBLING,
+    }
+
+    parser {
+        fn parse_reltype;
+        keyword = KW_RELTYPE;
+    }
+}
+
+define_param_enum! {
+    pub enum ParticipationRole {
+        Chair             => KW_ROLE_CHAIR,
+        ReqParticipant    => KW_ROLE_REQ_PARTICIPANT,
+        OptParticipant    => KW_ROLE_OPT_PARTICIPANT,
+        NonParticipant    => KW_ROLE_NON_PARTICIPANT,
+    }
+
+    parser {
+        fn parse_role;
+        keyword = KW_ROLE;
+    }
+}
+
+define_param_enum! {
+    pub enum ValueType {
+        Binary              => KW_BINARY,
+        Boolean             => KW_BOOLEAN,
+        CalendarUserAddress => KW_CAL_ADDRESS,
+        Date                => KW_DATE,
+        DateTime            => KW_DATETIME,
+        Duration            => KW_DURATION,
+        Float               => KW_FLOAT,
+        Integer             => KW_INTEGER,
+        Period              => KW_PERIOD,
+        RecurrenceRule      => KW_RRULE,
+        Text                => KW_TEXT,
+        Time                => KW_TIME,
+        Uri                 => KW_URI,
+        UtcOffset           => KW_UTC_OFFSET,
+    }
+
+    parser {
+        fn parse_value_type;
+        keyword = KW_VALUE;
+    }
 }
 
 type ParseResult<'src> = Result<TypedParameter<'src>, Vec<TypedAnalysisError<'src>>>;
@@ -744,11 +721,28 @@ fn parse_single_quoted<'src>(
         if v.quoted {
             Ok(v.value)
         } else {
-            Err(vec![TypedAnalysisError::ParameterMustQuoted {
+            Err(vec![TypedAnalysisError::ParameterValueMustBeQuoted {
                 parameter,
                 span: v.value.span(),
                 value: v.value,
             }])
+        }
+    })
+}
+
+fn parse_single_not_quoted<'src>(
+    param: &mut SyntaxParameter<'src>,
+    parameter: &'src str,
+) -> Result<SpannedSegments<'src>, Vec<TypedAnalysisError<'src>>> {
+    parse_single(param, parameter).and_then(|v| {
+        if v.quoted {
+            Err(vec![TypedAnalysisError::ParameterValueMustNotBeQuoted {
+                parameter,
+                span: v.value.span(),
+                value: v.value,
+            }])
+        } else {
+            Ok(v.value)
         }
     })
 }
@@ -763,7 +757,7 @@ fn parse_multiple_quoted<'src>(
         if v.quoted {
             values.push(v.value);
         } else {
-            errors.push(TypedAnalysisError::ParameterMustQuoted {
+            errors.push(TypedAnalysisError::ParameterValueMustBeQuoted {
                 parameter,
                 span: v.value.span(),
                 value: v.value,

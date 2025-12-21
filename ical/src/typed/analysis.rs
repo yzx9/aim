@@ -168,14 +168,21 @@ pub enum TypedAnalysisError<'src> {
     ParameterMultipleValuesDisallowed { parameter: &'src str, span: Span },
 
     #[error("Parameter '{parameter}={value}' value must be quoted")]
-    ParameterMustQuoted {
+    ParameterValueMustBeQuoted {
+        parameter: &'src str,
+        value: SpannedSegments<'src>,
+        span: Span,
+    },
+
+    #[error("Parameter '{parameter}=\"{value}\"' value must not be quoted")]
+    ParameterValueMustNotBeQuoted {
         parameter: &'src str,
         value: SpannedSegments<'src>,
         span: Span,
     },
 
     #[error("Invalid value for parameter '{parameter}={value}'")]
-    ParameterInvalidValue {
+    ParameterValueInvalid {
         parameter: &'src str,
         value: SpannedSegments<'src>,
         span: Span,
@@ -211,8 +218,9 @@ impl TypedAnalysisError<'_> {
             | TypedAnalysisError::ParameterUnknown { span, .. }
             | TypedAnalysisError::ParameterDuplicated { span, .. }
             | TypedAnalysisError::ParameterMultipleValuesDisallowed { span, .. }
-            | TypedAnalysisError::ParameterMustQuoted { span, .. }
-            | TypedAnalysisError::ParameterInvalidValue { span, .. }
+            | TypedAnalysisError::ParameterValueMustBeQuoted { span, .. }
+            | TypedAnalysisError::ParameterValueMustNotBeQuoted { span, .. }
+            | TypedAnalysisError::ParameterValueInvalid { span, .. }
             | TypedAnalysisError::ValueTypeDisallowed { span, .. } => span.clone(),
 
             TypedAnalysisError::ParameterValueSyntax { err, .. }
