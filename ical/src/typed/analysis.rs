@@ -11,7 +11,8 @@ use thiserror::Error;
 
 use crate::lexer::Span;
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
-use crate::typed::parameter::{TypedParameter, ValueType};
+use crate::typed::parameter::TypedParameter;
+use crate::typed::parameter_types::ValueType;
 use crate::typed::property_spec::{PROPERTY_SPECS, PropertySpec};
 use crate::typed::value::{Value, parse_values};
 
@@ -89,7 +90,7 @@ fn typed_property<'src>(
         }]);
     };
 
-    if !spec.multiple_valued {
+    if !spec.multiple_values {
         if existing.contains(spec.name) {
             return Err(vec![TypedAnalysisError::PropertyDuplicated {
                 property: spec.name,
@@ -113,7 +114,7 @@ fn typed_property<'src>(
             .collect::<Vec<_>>()
     })?;
 
-    if !spec.multiple_valued && values.len() > 1 {
+    if !spec.multiple_values && values.len() > 1 {
         return Err(vec![TypedAnalysisError::PropertyMultipleValuesDisallowed {
             property: spec.name,
             span: prop.name.span(),
@@ -268,16 +269,16 @@ fn value_type<'src>(
         .iter()
         .find(|param| matches!(param, TypedParameter::ValueType { .. }))
     else {
-        return Ok(spec.default_kind);
+        return Ok(spec.default_value_type);
     };
 
-    if spec.allowed_kinds.contains(value) {
+    if spec.value_types.contains(value) {
         Ok(*value)
     } else {
         Err(vec![TypedAnalysisError::ValueTypeDisallowed {
             property: spec.name,
             value_type: *value,
-            expected_types: spec.allowed_kinds,
+            expected_types: spec.value_types,
             span: span.clone(),
         }])
     }

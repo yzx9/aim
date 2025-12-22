@@ -15,7 +15,7 @@ use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 
 use crate::syntax::SpannedSegments;
-use crate::typed::parameter::ValueType;
+use crate::typed::parameter_types::ValueType;
 use crate::typed::value_datetime::{value_utc_offset, values_date, values_date_time, values_time};
 use crate::typed::value_numeric::{values_float, values_integer};
 use crate::typed::value_text::values_text;

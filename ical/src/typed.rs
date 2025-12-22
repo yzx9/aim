@@ -6,6 +6,7 @@
 
 mod analysis;
 mod parameter;
+mod parameter_types;
 mod property_spec;
 mod value;
 mod value_datetime;
