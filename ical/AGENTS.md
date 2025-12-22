@@ -1,126 +1,75 @@
-# iCal Module
+# iCal Module Architecture
 
-The iCal module provides parsing and serialization capabilities for the iCalendar format (RFC 5545). This crate handles the low-level parsing of iCalendar data using efficient lexical analysis and parsing techniques.
+The iCal module provides a comprehensive parser for the iCalendar format (RFC 5545) using a multi-phase analysis approach. The architecture separates concerns through distinct layers for lexical analysis, syntax parsing, and type validation.
 
-## Folder Structure
+## Architecture Overview
+
+The parser follows a **three-phase pipeline**:
+
+1. **Lexical Analysis** - Tokenizes raw iCalendar text into structured tokens
+2. **Syntax Analysis** - Assembles tokens into component structure
+3. **Typed Analysis** - Validates and converts components to strongly-typed representations
+
+## Module Structure
 
 ```
-ical/src/
-├── lib.rs            # Public API exports
-├── keyword.rs        # Keywords defined in RFC 5545
-├── lexer.rs          # Lexical analysis
-├── property_spec.rs  # Property specification
-├── property_value.rs # Parsing property value
-├── syntax.rs         # Parsing syntax for components
-└── typed.rs          # Parsing types
+ical
+├── Cargo.toml
+├── RFC5545.txt     # If you have questions, check the RFC first and use search—it’s very long
+└── src/
+    ├── lib.rs      # Public API exports
+    ├── keyword.rs  # RFC 5545 keyword constants
+    ├── lexer.rs    # Lexical analysis phase
+    ├── syntax.rs   # Syntax analysis phase
+    ├── parser.rs   # Unified parser orchestration
+    └── typed/      # Typed analysis phase
+        ├── mod.rs  # Public API and re-exports
+        ├── analysis.rs   # Main typed analysis coordinator
+        ├── property_spec.rs   # RFC 5545 property specifications
+        ├── parameter_types.rs # Parameter type definitions
+        ├── value.rs      # Value type implementations
+        ├── value_datetime.rs  # Date/time value handling
+        ├── value_numeric.rs   # Numeric value handling
+        └── value_text.rs      # Text value handling
 ```
 
-## Main Components
+## Core Components
 
-### Lexer (src/lexer.rs)
+### Lexer Phase
 
-Handles tokenization of iCalendar data:
+Transforms raw iCalendar text into tokens while preserving source position information for error reporting.
 
-- Uses the `logos` crate for efficient lexical analysis
-- Defines `Token` enum for all iCalendar syntax elements
-- Recognizes words, delimiters, control characters, symbols, and escape sequences
-- Handles iCalendar folding (CRLF whitespace sequences)
+### Syntax Phase
 
-#### Token Types
+Builds a tree of components with properties and parameters, validates component nesting (BEGIN/END matching), and processes escape sequences.
 
-- `DQuote`: Double quote (") character
-- `Comma`: Comma (,) for parameter value lists
-- `Colon`: Colon (:) separator between property names and values
-- `Semicolon`: Semicolon (;) used to separate properties
-- `Equal`: Equal sign (=) for parameter values
-- `Control`: All control characters except HTAB (ASCII 0x00-0x18, 0x0A-1F and 0x7F)
-- `Symbol`: ASCII symbols and special characters
-- `Newline`: Carriage Return followed by Line Feed
-- `Escape`: Escape sequences (backslash followed by specific characters)
-- `Word`: Alphanumeric characters, underscores, hyphens, and other ASCII word characters (0-9, A-Z, a-z, \_, -)
-- `UnicodeText`: Non-ASCII Unicode text
+### Typed Analysis Phase
 
-### Syntax Parser (src/syntax.rs)
+Validates all components against RFC 5545 specifications, converts string values to appropriate Rust types, and enforces property multiplicity and parameter constraints.
 
-Handles parsing of iCalendar components without type using the `chumsky` parsing framework:
+### Unified Parser
 
-- Provides `syntax()` function for parsing iCalendar strings into `RawComponent`
-- Defines `RawComponent` struct for representing iCalendar components with name, properties, and nested children
-- Defines `RawProperty` struct for representing component properties with name, parameters, and values
-- Defines `RawParameter` struct for representing property parameters with name and multiple values
-- Defines `RawParameterValue` struct for representing property parameter values (quoted or unquoted)
-- Defines `StrSegments` struct for representing unescaped property values with span tracking
-- Implements error reporting with `ariadne` for detailed diagnostics
+Coordinates all phases, aggregates errors from each phase, and provides a single entry point for parsing operations.
 
-#### Component Structure
+## Design Principles
 
-- `RawComponent`: Contains component name, ordered properties vector, and nested children vector
-- `RawProperty`: Contains name as `SpannedTokens`, parameters vector, and multi-value vector
-- `RawParameter`: Contains name as `SpannedTokens` and vector of `RawParameterValue`
-- `RawParameterValue`: Contains value as `SpannedTokens` and quoted flag
-- `SpannedTokens`: Efficient string representation that preserves original spans and supports iteration
+- **Phase Separation**: Each parsing phase has clear responsibilities and well-defined interfaces
+- **RFC 5545 Compliance**: Comprehensive validation against the iCalendar specification
+- **Error Aggregation**: Collects and reports errors from all phases
+- **Type Safety**: Strongly typed representation of iCalendar data
+- **Performance**: Zero-copy parsing where possible, minimal allocations
+- **Extensibility**: Modular design allows for easy addition of new features
 
-#### Parser Features
+## Error Handling
 
-- **Recursive parsing**: Handles nested components using chumsky's recursive parser
-- **BEGIN/END validation**: Ensures matching BEGIN and END tags with proper component names
-- **Property parsing**: Supports property names with groups, parameters, and multi-values
-- **Parameter parsing**: Handles both quoted and unquoted parameter values
-- **Value parsing**: Processes escaped characters and various token types
-- **Error recovery**: Provides detailed error reports with source context and span information
-- **Zero-copy design**: Uses string slices and spans for efficient parsing
+The architecture provides comprehensive error reporting with:
 
-#### Key Constants
+- Source location information for all errors
+- Detailed error messages explaining RFC 5545 violations
+- Phase-specific error categorization (syntax vs. validation)
 
-- `KW_BEGIN`: "BEGIN" token for component start
-- `KW_END`: "END" token for component end
+## Feature Support
 
-#### Helper Types
-
-- `Either<L, R>`: Utility enum for partitioning properties vs components
-- `EitherIterExt`: Trait extension for partitioning either iterators
-- `StrSegmentsCharsIter`: Iterator for traversing characters across string segments
-
-## Dependencies
-
-- **logos**: Fast lexical analysis for tokenizing
-- **chumsky**: Parser combinator library for building the parser
-- **ariadne**: Error reporting library for detailed parse error diagnostics
-
-## Code Standards
-
-- Full compliance with iCalendar specification (RFC 5545)
-  - Support for iCalendar folding and unfolding
-  - Proper handling of escaped characters in values
-- Efficient parsing with minimal allocations
-- Comprehensive error reporting with source context
-- Zero-copy parsing where possible for performance
-- Extensive test coverage for parser functionality
-- Always write code and comments in English
-
-## Usage Examples
-
-```rust
-use aimcal_ical::parse;
-
-let ical_src = "\
-BEGIN:VCALENDAR\r\n\
-BEGIN:VEVENT\r\n\
-SUMMARY:Test Event\r\n\
-END:VEVENT\r\n\
-END:VCALENDAR\r\n\
-";
-
-match parse(ical_src) {
-    Ok(component) => {
-        // Process parsed component
-        println!("Parsed component: {}", component.name);
-    }
-    Err(reports) => {
-        // Handle parse errors
-        for report in reports {
-            report.print(ariadne::Source::from(ical_src));
-        }
-    }
-}
-```
+- **Timezone Validation**: Optional integration with `jiff` for timezone database validation
+- **Extensible Property Support**: Registry-based property specifications
+- **RFC 5545 Compliance**: Complete support for all required value types and parameters
