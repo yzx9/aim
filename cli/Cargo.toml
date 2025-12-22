@@ -32,7 +32,7 @@ futures = "0.3.31"
 ratatui = "0.29.0"
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread"] }
-toml = "0.9.8"
+toml = "0.9.10"
 tracing = "0.1.43"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
 unicode-segmentation = "1.12.0"
