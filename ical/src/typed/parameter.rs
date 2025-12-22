@@ -17,6 +17,7 @@ use crate::typed::parameter_types::{
     parse_multiple_quoted, parse_partstat, parse_range, parse_reltype, parse_role, parse_rsvp,
     parse_single, parse_single_quoted, parse_tzid, parse_value_type,
 };
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub enum TypedParameter<'src> {
@@ -264,10 +265,11 @@ pub enum TypedParameter<'src> {
     /// See also: RFC 5545 Section 3.2.19. Time Zone Identifier
     TimeZoneIdentifier {
         value: SpannedSegments<'src>,
-        span: Span,
 
         #[cfg(feature = "jiff")]
         tz: jiff::tz::TimeZone,
+
+        span: Span,
     },
 
     /// This parameter specifies the value type and format of the property
@@ -285,30 +287,39 @@ pub enum TypedParameter<'src> {
 }
 
 impl TypedParameter<'_> {
-    /// Name of the parameter
-    pub fn name(&self) -> &'static str {
+    /// Returns the type of the parameter
+    pub fn kind(&self) -> TypedParameterKind {
         match self {
-            TypedParameter::AlternateText { .. } => KW_ALTREP,
-            TypedParameter::CommonName { .. } => KW_CN,
-            TypedParameter::CalendarUserType { .. } => KW_CUTYPE,
-            TypedParameter::Delegators { .. } => KW_DELEGATED_FROM,
-            TypedParameter::Delegatees { .. } => KW_DELEGATED_TO,
-            TypedParameter::Directory { .. } => KW_DIR,
-            TypedParameter::Encoding { .. } => KW_ENCODING,
-            TypedParameter::FormatType { .. } => KW_FMTTYPE,
-            TypedParameter::FreeBusyType { .. } => KW_FBTYPE,
-            TypedParameter::Language { .. } => KW_LANGUAGE,
-            TypedParameter::GroupOrListMembership { .. } => KW_MEMBER,
-            TypedParameter::ParticipationStatus { .. } => KW_PARTSTAT,
-            TypedParameter::RecurrenceIdRange { .. } => KW_RANGE,
-            TypedParameter::AlarmTriggerRelationship { .. } => KW_RELATED,
-            TypedParameter::RelationshipType { .. } => KW_RELTYPE,
-            TypedParameter::ParticipationRole { .. } => KW_ROLE,
-            TypedParameter::SendBy { .. } => KW_SENT_BY,
-            TypedParameter::RsvpExpectation { .. } => KW_RSVP,
-            TypedParameter::TimeZoneIdentifier { .. } => KW_TZID,
-            TypedParameter::ValueType { .. } => KW_VALUE,
+            TypedParameter::AlternateText { .. } => TypedParameterKind::AlternateText,
+            TypedParameter::CommonName { .. } => TypedParameterKind::CommonName,
+            TypedParameter::CalendarUserType { .. } => TypedParameterKind::CalendarUserType,
+            TypedParameter::Delegators { .. } => TypedParameterKind::Delegators,
+            TypedParameter::Delegatees { .. } => TypedParameterKind::Delegatees,
+            TypedParameter::Directory { .. } => TypedParameterKind::Directory,
+            TypedParameter::Encoding { .. } => TypedParameterKind::Encoding,
+            TypedParameter::FormatType { .. } => TypedParameterKind::FormatType,
+            TypedParameter::FreeBusyType { .. } => TypedParameterKind::FreeBusyType,
+            TypedParameter::Language { .. } => TypedParameterKind::Language,
+            TypedParameter::GroupOrListMembership { .. } => {
+                TypedParameterKind::GroupOrListMembership
+            }
+            TypedParameter::ParticipationStatus { .. } => TypedParameterKind::ParticipationStatus,
+            TypedParameter::RecurrenceIdRange { .. } => TypedParameterKind::RecurrenceIdRange,
+            TypedParameter::AlarmTriggerRelationship { .. } => {
+                TypedParameterKind::AlarmTriggerRelationship
+            }
+            TypedParameter::RelationshipType { .. } => TypedParameterKind::RelationshipType,
+            TypedParameter::ParticipationRole { .. } => TypedParameterKind::ParticipationRole,
+            TypedParameter::SendBy { .. } => TypedParameterKind::SendBy,
+            TypedParameter::RsvpExpectation { .. } => TypedParameterKind::RsvpExpectation,
+            TypedParameter::TimeZoneIdentifier { .. } => TypedParameterKind::TimeZoneIdentifier,
+            TypedParameter::ValueType { .. } => TypedParameterKind::ValueType,
         }
+    }
+
+    /// Name of the parameter (keyword)
+    pub fn name(&self) -> &'static str {
+        self.kind().name()
     }
 
     /// Span of the parameter
@@ -342,75 +353,164 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
     type Error = Vec<TypedAnalysisError<'src>>;
 
     fn try_from(mut param: SyntaxParameter<'src>) -> Result<Self, Self::Error> {
-        match param.name.resolve().as_ref() {
-            KW_ALTREP => parse_single_quoted(&mut param, KW_ALTREP).map(|value| {
-                TypedParameter::AlternateText {
-                    value,
-                    span: param.span(),
-                }
-            }),
-            KW_CN => parse_single(&mut param, KW_CN).map(|v| TypedParameter::CommonName {
-                value: v.value,
-                span: param.span(),
-            }),
-            KW_CUTYPE => parse_cutype(param),
-            KW_DELEGATED_FROM => {
-                let span = param.span();
-                parse_multiple_quoted(param, KW_DELEGATED_FROM)
-                    .map(|values| TypedParameter::Delegators { values, span })
-            }
-            KW_DELEGATED_TO => {
-                let span = param.span();
-                parse_multiple_quoted(param, KW_DELEGATED_TO)
-                    .map(|values| TypedParameter::Delegatees { values, span })
-            }
-            KW_DIR => {
-                parse_single_quoted(&mut param, KW_DIR).map(|value| TypedParameter::Directory {
-                    value,
-                    span: param.span(),
-                })
-            }
-            KW_ENCODING => parse_encoding(param),
-            KW_FMTTYPE => {
-                parse_single(&mut param, KW_FMTTYPE).map(|v| TypedParameter::FormatType {
-                    value: v.value,
-                    span: param.span(),
-                })
-            }
-            KW_FBTYPE => parse_fbtype(param),
-            KW_LANGUAGE => {
-                parse_single(&mut param, KW_LANGUAGE).map(|v| TypedParameter::Language {
-                    value: v.value,
-                    span: param.span(),
-                })
-            }
-            KW_MEMBER => {
-                let span = param.span();
-                parse_multiple_quoted(param, KW_MEMBER)
-                    .map(|values| TypedParameter::GroupOrListMembership { values, span })
-            }
-            KW_PARTSTAT => parse_partstat(param),
-            KW_RANGE => parse_range(param),
-            KW_RELATED => parse_alarm_trigger_relationship(param),
-            KW_RELTYPE => parse_reltype(param),
-            KW_ROLE => parse_role(param),
-            KW_RSVP => parse_rsvp(param),
-            KW_SENT_BY => {
-                parse_single_quoted(&mut param, KW_SENT_BY).map(|value| TypedParameter::SendBy {
-                    value,
-                    span: param.span(),
-                })
-            }
-            KW_TZID => parse_tzid(param),
-            KW_VALUE => parse_value_type(param),
-
-            // Unknown parameter - treat as unknown x-name or iana-token
-            // According to RFC 5545, applications MUST treat x-name and iana-token values
-            // they don't recognize the same way as they would the UNKNOWN value
-            _ => Err(vec![TypedAnalysisError::ParameterUnknown {
+        // Parse the parameter kind
+        let Ok(kind) = TypedParameterKind::from_str(param.name.resolve().as_ref()) else {
+            return Err(vec![TypedAnalysisError::ParameterUnknown {
                 span: param.name.span(),
                 parameter: param.name,
-            }]),
+            }]);
+        };
+
+        // Handle parsing based on the kind
+        match kind {
+            TypedParameterKind::AlternateText => {
+                parse_single_quoted(&mut param, kind).map(|value| {
+                    TypedParameter::AlternateText {
+                        value,
+                        span: param.span(),
+                    }
+                })
+            }
+            TypedParameterKind::CommonName => {
+                parse_single(&mut param, kind).map(|v| TypedParameter::CommonName {
+                    value: v.value,
+                    span: param.span(),
+                })
+            }
+            TypedParameterKind::CalendarUserType => parse_cutype(param),
+            TypedParameterKind::Delegators => {
+                let span = param.span();
+                parse_multiple_quoted(param, kind)
+                    .map(|values| TypedParameter::Delegators { values, span })
+            }
+            TypedParameterKind::Delegatees => {
+                let span = param.span();
+                parse_multiple_quoted(param, kind)
+                    .map(|values| TypedParameter::Delegatees { values, span })
+            }
+            TypedParameterKind::Directory => {
+                parse_single_quoted(&mut param, kind).map(|value| TypedParameter::Directory {
+                    value,
+                    span: param.span(),
+                })
+            }
+            TypedParameterKind::Encoding => parse_encoding(param),
+            TypedParameterKind::FormatType => {
+                parse_single(&mut param, kind).map(|v| TypedParameter::FormatType {
+                    value: v.value,
+                    span: param.span(),
+                })
+            }
+            TypedParameterKind::FreeBusyType => parse_fbtype(param),
+            TypedParameterKind::Language => {
+                parse_single(&mut param, kind).map(|v| TypedParameter::Language {
+                    value: v.value,
+                    span: param.span(),
+                })
+            }
+            TypedParameterKind::GroupOrListMembership => {
+                let span = param.span();
+                parse_multiple_quoted(param, kind)
+                    .map(|values| TypedParameter::GroupOrListMembership { values, span })
+            }
+            TypedParameterKind::ParticipationStatus => parse_partstat(param),
+            TypedParameterKind::RecurrenceIdRange => parse_range(param),
+            TypedParameterKind::AlarmTriggerRelationship => parse_alarm_trigger_relationship(param),
+            TypedParameterKind::RelationshipType => parse_reltype(param),
+            TypedParameterKind::ParticipationRole => parse_role(param),
+            TypedParameterKind::SendBy => {
+                parse_single_quoted(&mut param, kind).map(|value| TypedParameter::SendBy {
+                    value,
+                    span: param.span(),
+                })
+            }
+            TypedParameterKind::RsvpExpectation => parse_rsvp(param),
+            TypedParameterKind::TimeZoneIdentifier => parse_tzid(param),
+            TypedParameterKind::ValueType => parse_value_type(param),
         }
+    }
+}
+
+/// Simple enum for `TypedParameter` types that maps parameter type to keyword
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TypedParameterKind {
+    AlternateText,
+    CommonName,
+    CalendarUserType,
+    Delegators,
+    Delegatees,
+    Directory,
+    Encoding,
+    FormatType,
+    FreeBusyType,
+    Language,
+    GroupOrListMembership,
+    ParticipationStatus,
+    RecurrenceIdRange,
+    AlarmTriggerRelationship,
+    RelationshipType,
+    ParticipationRole,
+    SendBy,
+    RsvpExpectation,
+    TimeZoneIdentifier,
+    ValueType,
+}
+
+macro_rules! impl_typed_parameter_kind_mapping {
+    (
+        impl $ty:ident {
+            $(
+                $variant:ident => $kw:ident
+            ),+ $(,)?
+        }
+    ) => {
+        impl $ty {
+            /// Returns the name keyword for the parameter type
+            pub const fn name(self) -> &'static str {
+                match self {
+                    $(
+                        Self::$variant => $kw,
+                    )+
+                }
+            }
+        }
+
+        impl FromStr for $ty {
+            type Err = ();
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s {
+                    $(
+                        $kw => Ok(Self::$variant),
+                    )+
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
+impl_typed_parameter_kind_mapping! {
+    impl TypedParameterKind {
+        AlternateText       => KW_ALTREP,
+        CommonName          => KW_CN,
+        CalendarUserType    => KW_CUTYPE,
+        Delegators          => KW_DELEGATED_FROM,
+        Delegatees          => KW_DELEGATED_TO,
+        Directory           => KW_DIR,
+        Encoding            => KW_ENCODING,
+        FormatType          => KW_FMTTYPE,
+        FreeBusyType        => KW_FBTYPE,
+        Language            => KW_LANGUAGE,
+        GroupOrListMembership => KW_MEMBER,
+        ParticipationStatus => KW_PARTSTAT,
+        RecurrenceIdRange   => KW_RANGE,
+        AlarmTriggerRelationship => KW_RELATED,
+        RelationshipType    => KW_RELTYPE,
+        ParticipationRole   => KW_ROLE,
+        SendBy              => KW_SENT_BY,
+        RsvpExpectation     => KW_RSVP,
+        TimeZoneIdentifier  => KW_TZID,
+        ValueType           => KW_VALUE,
     }
 }

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::str::FromStr;
+
 use crate::keyword::{
     KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_CUTYPE, KW_CUTYPE_GROUP, KW_CUTYPE_INDIVIDUAL,
     KW_CUTYPE_RESOURCE, KW_CUTYPE_ROOM, KW_CUTYPE_UNKNOWN, KW_DATE, KW_DATETIME, KW_DURATION,
@@ -11,23 +13,23 @@ use crate::keyword::{
     KW_PARTSTAT_DELEGATED, KW_PARTSTAT_IN_PROCESS, KW_PARTSTAT_NEEDS_ACTION, KW_PARTSTAT_TENTATIVE,
     KW_PERIOD, KW_RANGE, KW_RANGE_THISANDFUTURE, KW_RELATED, KW_RELATED_END, KW_RELATED_START,
     KW_RELTYPE, KW_RELTYPE_CHILD, KW_RELTYPE_PARENT, KW_RELTYPE_SIBLING, KW_ROLE, KW_ROLE_CHAIR,
-    KW_ROLE_NON_PARTICIPANT, KW_ROLE_OPT_PARTICIPANT, KW_ROLE_REQ_PARTICIPANT, KW_RRULE, KW_RSVP,
-    KW_TEXT, KW_TIME, KW_TRUE, KW_TZID, KW_URI, KW_UTC_OFFSET, KW_VALUE,
+    KW_ROLE_NON_PARTICIPANT, KW_ROLE_OPT_PARTICIPANT, KW_ROLE_REQ_PARTICIPANT, KW_RRULE, KW_TEXT,
+    KW_TIME, KW_TRUE, KW_URI, KW_UTC_OFFSET, KW_VALUE,
 };
 use crate::syntax::{SpannedSegments, SyntaxParameter, SyntaxParameterValue};
 use crate::typed::TypedAnalysisError;
-use crate::typed::parameter::TypedParameter;
+use crate::typed::parameter::{TypedParameter, TypedParameterKind};
 
 pub fn parse_rsvp(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
     let span = param.span();
-    parse_single(&mut param, KW_RSVP).and_then(|v| {
+    parse_single(&mut param, TypedParameterKind::RsvpExpectation).and_then(|v| {
         if v.value.eq_ignore_ascii_case(KW_TRUE) {
             Ok(TypedParameter::RsvpExpectation { value: true, span })
         } else if v.value.eq_ignore_ascii_case(KW_FALSE) {
             Ok(TypedParameter::RsvpExpectation { value: false, span })
         } else {
             Err(vec![TypedAnalysisError::ParameterValueInvalid {
-                parameter: KW_RSVP,
+                parameter: TypedParameterKind::RsvpExpectation.name(),
                 value: v.value,
                 span,
             }])
@@ -49,7 +51,7 @@ pub fn parse_tzid<'src>(mut param: SyntaxParameter<'src>) -> ParseResult<'src> {
                 tz,
             }),
             Err(_) => Err(vec![TypedAnalysisError::ParameterValueInvalid {
-                parameter: KW_TZID,
+                parameter: TypedParameterKind::TimeZoneIdentifier.name(),
                 value: v.value,
                 span,
             }]),
@@ -64,7 +66,7 @@ pub fn parse_tzid<'src>(mut param: SyntaxParameter<'src>) -> ParseResult<'src> {
         })
     };
 
-    parse_single(&mut param, KW_TZID).and_then(op)
+    parse_single(&mut param, TypedParameterKind::TimeZoneIdentifier).and_then(op)
 }
 
 // TODO: add x-name and iana-token support
@@ -83,8 +85,6 @@ macro_rules! define_param_enum {
             keyword = $param_kw:ident;
         }
     ) => {
-        /* ---------- enum ---------- */
-
         $(#[$meta])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum $Name {
@@ -93,8 +93,6 @@ macro_rules! define_param_enum {
                 $Variant,
             )+
         }
-
-        /* ---------- TryFrom ---------- */
 
         impl TryFrom<&SpannedSegments<'_>> for $Name {
             type Error = ();
@@ -108,8 +106,6 @@ macro_rules! define_param_enum {
                 Err(())
             }
         }
-
-        /* ---------- AsRef / Display ---------- */
 
         impl AsRef<str> for $Name {
             #[rustfmt::skip]
@@ -128,10 +124,9 @@ macro_rules! define_param_enum {
             }
         }
 
-        /* ---------- parser ---------- */
-
         pub fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
-            parse_single_not_quoted(&mut param, $param_kw).and_then(|value| {
+            let kind = TypedParameterKind::from_str($param_kw).unwrap();
+            parse_single_not_quoted(&mut param, kind).and_then(|value| {
                 $Name::try_from(&value)
                     .map(|value| TypedParameter::$Name {
                         value,
@@ -140,7 +135,7 @@ macro_rules! define_param_enum {
                     .map_err(|()| {
                         vec![TypedAnalysisError::ParameterValueInvalid {
                             span: value.span(),
-                            parameter: $param_kw,
+                            parameter: kind.name(),
                             value,
                         }]
                     })
@@ -301,13 +296,13 @@ type ParseResult<'src> = Result<TypedParameter<'src>, Vec<TypedAnalysisError<'sr
 
 pub fn parse_single<'src>(
     param: &mut SyntaxParameter<'src>,
-    parameter: &'src str,
+    kind: TypedParameterKind,
 ) -> Result<SyntaxParameterValue<'src>, Vec<TypedAnalysisError<'src>>> {
     match param.values.len() {
         1 => Ok(param.values.pop().unwrap()),
         _ => Err(vec![
             TypedAnalysisError::ParameterMultipleValuesDisallowed {
-                parameter,
+                parameter: kind.name(),
                 span: param.span(),
             },
         ]),
@@ -316,14 +311,14 @@ pub fn parse_single<'src>(
 
 pub fn parse_single_quoted<'src>(
     param: &mut SyntaxParameter<'src>,
-    parameter: &'src str,
+    kind: TypedParameterKind,
 ) -> Result<SpannedSegments<'src>, Vec<TypedAnalysisError<'src>>> {
-    parse_single(param, parameter).and_then(|v| {
+    parse_single(param, kind).and_then(|v| {
         if v.quoted {
             Ok(v.value)
         } else {
             Err(vec![TypedAnalysisError::ParameterValueMustBeQuoted {
-                parameter,
+                parameter: kind.name(),
                 span: v.value.span(),
                 value: v.value,
             }])
@@ -333,12 +328,12 @@ pub fn parse_single_quoted<'src>(
 
 pub fn parse_single_not_quoted<'src>(
     param: &mut SyntaxParameter<'src>,
-    parameter: &'src str,
+    kind: TypedParameterKind,
 ) -> Result<SpannedSegments<'src>, Vec<TypedAnalysisError<'src>>> {
-    parse_single(param, parameter).and_then(|v| {
+    parse_single(param, kind).and_then(|v| {
         if v.quoted {
             Err(vec![TypedAnalysisError::ParameterValueMustNotBeQuoted {
-                parameter,
+                parameter: kind.name(),
                 span: v.value.span(),
                 value: v.value,
             }])
@@ -348,10 +343,10 @@ pub fn parse_single_not_quoted<'src>(
     })
 }
 
-pub fn parse_multiple_quoted<'src>(
-    param: SyntaxParameter<'src>,
-    parameter: &'src str,
-) -> Result<Vec<SpannedSegments<'src>>, Vec<TypedAnalysisError<'src>>> {
+pub fn parse_multiple_quoted(
+    param: SyntaxParameter<'_>,
+    kind: TypedParameterKind,
+) -> Result<Vec<SpannedSegments<'_>>, Vec<TypedAnalysisError<'_>>> {
     let mut values = Vec::with_capacity(param.values.len());
     let mut errors = Vec::new();
     for v in param.values {
@@ -359,7 +354,7 @@ pub fn parse_multiple_quoted<'src>(
             values.push(v.value);
         } else {
             errors.push(TypedAnalysisError::ParameterValueMustBeQuoted {
-                parameter,
+                parameter: kind.name(),
                 span: v.value.span(),
                 value: v.value,
             });

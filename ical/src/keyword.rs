@@ -83,6 +83,12 @@ pub const KW_END: &str = "END";
 // pub const KW_VTIMEZONE: &str = "VTIMEZONE";
 // pub const KW_VALARM: &str = "VALARM";
 
+// 3.7.  Calendar Properties
+pub const KW_CALSCALE: &str = "CALSCALE";
+pub const KW_METHOD: &str = "METHOD";
+pub const KW_PRODID: &str = "PRODID";
+pub const KW_VERSION: &str = "VERSION";
+
 // 3.8.1.  Descriptive Component Properties
 pub const KW_ATTACH: &str = "ATTACH";
 pub const KW_CATEGORIES: &str = "CATEGORIES";

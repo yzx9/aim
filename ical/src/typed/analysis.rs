@@ -101,7 +101,7 @@ fn typed_property<'src>(
         existing.insert(spec.name);
     }
 
-    let parameters = parameters(prop.parameters)?;
+    let parameters = parameters(spec, prop.parameters)?;
     let value_type = value_type(spec, &parameters)?;
 
     // PERF: cache parser, avoid cloning the value
@@ -168,6 +168,13 @@ pub enum TypedAnalysisError<'src> {
     #[error("Parameter '{parameter}' does not allow multiple values")]
     ParameterMultipleValuesDisallowed { parameter: &'src str, span: Span },
 
+    #[error("Parameter '{parameter}' is not allowed for property '{property}'")]
+    ParameterDisallowedForProperty {
+        parameter: &'src str,
+        property: &'src str,
+        span: Span,
+    },
+
     #[error("Parameter '{parameter}={value}' value must be quoted")]
     ParameterValueMustBeQuoted {
         parameter: &'src str,
@@ -219,6 +226,7 @@ impl TypedAnalysisError<'_> {
             | TypedAnalysisError::ParameterUnknown { span, .. }
             | TypedAnalysisError::ParameterDuplicated { span, .. }
             | TypedAnalysisError::ParameterMultipleValuesDisallowed { span, .. }
+            | TypedAnalysisError::ParameterDisallowedForProperty { span, .. }
             | TypedAnalysisError::ParameterValueMustBeQuoted { span, .. }
             | TypedAnalysisError::ParameterValueMustNotBeQuoted { span, .. }
             | TypedAnalysisError::ParameterValueInvalid { span, .. }
@@ -230,24 +238,33 @@ impl TypedAnalysisError<'_> {
     }
 }
 
-fn parameters(
-    params: Vec<SyntaxParameter<'_>>,
-) -> Result<Vec<TypedParameter<'_>>, Vec<TypedAnalysisError<'_>>> {
+fn parameters<'src>(
+    spec: &PropertySpec<'src>,
+    params: Vec<SyntaxParameter<'src>>,
+) -> Result<Vec<TypedParameter<'src>>, Vec<TypedAnalysisError<'src>>> {
     let mut existing = HashSet::with_capacity(params.len());
     let mut typed_params = Vec::with_capacity(params.len());
     let mut errors = Vec::new();
     for param in params {
         match TypedParameter::try_from(param) {
             Ok(typed) => {
+                let param_kind = typed.kind();
                 let param_name = typed.name();
-                if existing.contains(param_name) {
+                if !spec.parameters.contains(&param_kind) {
+                    // Check if parameter is allowed for this property
+                    errors.push(TypedAnalysisError::ParameterDisallowedForProperty {
+                        parameter: param_name,
+                        property: spec.name,
+                        span: typed.span(),
+                    });
+                } else if existing.contains(&param_kind) {
                     errors.push(TypedAnalysisError::ParameterDuplicated {
                         parameter: param_name,
                         span: typed.span(),
                     });
                 } else {
                     typed_params.push(typed);
-                    existing.insert(param_name);
+                    existing.insert(param_kind);
                 }
             }
             Err(errs) => errors.extend(errs),
