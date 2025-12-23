@@ -37,13 +37,15 @@ pub enum Value<'src> {
     /// document might be included in an iCalendar object.
     ///
     /// See RFC 5545 Section 3.3.1 for more details.
-    Binary(SpannedSegments<'src>),
+    #[allow(dead_code)]
+    Binary(SpannedSegments<'src>), // TODO: implement
 
     /// This value type is used to identify properties that contain either a
     /// "TRUE" or "FALSE" Boolean value.
     ///
     /// See RFC 5545 Section 3.3.2 for more details.
-    Boolean(bool),
+    #[allow(dead_code)]
+    Boolean(bool), // TODO: implement
 
     // TODO: 3.3.3. Calendar User Address
     //
@@ -85,7 +87,8 @@ pub enum Value<'src> {
     Text(ValueText<'src>),
 
     /// This value type is used to identify values that contain a time of day.
-    Time(ValueTime),
+    #[allow(dead_code)]
+    Time(ValueTime), // TODO: implement
 
     // TODO: 3.3.13. URI
     //
@@ -93,7 +96,8 @@ pub enum Value<'src> {
     /// from UTC to local time.
     ///
     /// See RFC 5545 Section 3.3.14 for more details.
-    UtcOffset(ValueUtcOffset),
+    #[allow(dead_code)]
+    UtcOffset(ValueUtcOffset), // TODO: implement
 }
 
 pub fn parse_values(

@@ -6,14 +6,21 @@
 
 mod analysis;
 mod parameter;
-mod parameter_types;
+pub mod parameter_types;
 mod property_spec;
+mod rrule;
 mod value;
 mod value_datetime;
 mod value_numeric;
 mod value_text;
 
-pub use crate::typed::analysis::{TypedAnalysisError, TypedComponent, typed_analysis};
+pub use crate::typed::analysis::{TypedAnalysisError, TypedComponent, TypedProperty, typed_analysis};
+pub use crate::typed::parameter::{TypedParameter, TypedParameterKind};
+pub use crate::typed::parameter_types::{
+    AlarmTriggerRelationship, CalendarUserType, Encoding, ParticipationRole, ParticipationStatus,
+};
+pub use crate::typed::rrule::{Day, RecurrenceFrequency, RecurrenceRule, WeekDay};
+pub use crate::typed::value::Value;
 pub use crate::typed::value::ValueDuration;
 pub use crate::typed::value_datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
 pub use crate::typed::value_text::ValueText;

@@ -75,13 +75,13 @@ pub const KW_BEGIN: &str = "BEGIN";
 pub const KW_END: &str = "END";
 
 // 3.6.  Calendar Components
-// pub const KW_VCALENDAR: &str = "VCALENDAR";
-// pub const KW_VEVENT: &str = "VEVENT";
-// pub const KW_VTODO: &str = "VTODO";
-// pub const KW_VJOURNAL: &str = "VJOURNAL";
-// pub const KW_VFREEBUSY: &str = "VFREEBUSY";
-// pub const KW_VTIMEZONE: &str = "VTIMEZONE";
-// pub const KW_VALARM: &str = "VALARM";
+pub const KW_VCALENDAR: &str = "VCALENDAR";
+pub const KW_VEVENT: &str = "VEVENT";
+pub const KW_VTODO: &str = "VTODO";
+pub const KW_VJOURNAL: &str = "VJOURNAL";
+pub const KW_VFREEBUSY: &str = "VFREEBUSY";
+pub const KW_VTIMEZONE: &str = "VTIMEZONE";
+pub const KW_VALARM: &str = "VALARM";
 
 // 3.7.  Calendar Properties
 pub const KW_CALSCALE: &str = "CALSCALE";

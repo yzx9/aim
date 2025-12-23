@@ -29,10 +29,18 @@
 mod keyword;
 mod lexer;
 mod parser;
+mod semantic;
 mod syntax;
 mod typed;
 
 pub use crate::parser::{ParseError, parse};
+pub use crate::semantic::{
+    Attachment, AttachmentValue, Attendee, Classification, DateTime, Duration, EventStatus, Geo,
+    ICalendar, MethodType, Organizer, Period, ProductId, SemanticError, Text, TimeTransparency,
+    TimeZoneOffset, Trigger, TriggerValue, Uri, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone,
+    VTodo,
+};
 pub use crate::typed::{
-    ValueDate, ValueDateTime, ValueDuration, ValueText, ValueTime, ValueUtcOffset,
+    Day, RecurrenceFrequency, RecurrenceRule, ValueDate, ValueDateTime, ValueDuration, ValueText,
+    ValueTime, ValueUtcOffset, WeekDay,
 };
