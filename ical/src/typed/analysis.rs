@@ -13,7 +13,9 @@ use crate::lexer::Span;
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
 use crate::typed::parameter::TypedParameter;
 use crate::typed::parameter_types::ValueType;
-use crate::typed::property_spec::{PROPERTY_SPECS, PropertySpec};
+use crate::typed::property_spec::{
+    PROPERTY_SPECS, PropertyCardinality, PropertySpec, ValueCardinality,
+};
 use crate::typed::value::{Value, parse_values};
 
 static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
@@ -90,7 +92,8 @@ fn typed_property<'src>(
         }]);
     };
 
-    if !spec.multiple_values {
+    // Check if property can appear multiple times in the component
+    if matches!(spec.property_cardinality, PropertyCardinality::AtMostOnce) {
         if existing.contains(spec.name) {
             return Err(vec![TypedAnalysisError::PropertyDuplicated {
                 property: spec.name,
@@ -114,11 +117,30 @@ fn typed_property<'src>(
             .collect::<Vec<_>>()
     })?;
 
-    if !spec.multiple_values && values.len() > 1 {
-        return Err(vec![TypedAnalysisError::PropertyMultipleValuesDisallowed {
-            property: spec.name,
-            span: prop.name.span(),
-        }]);
+    // Validate value count based on ValueCardinality specification
+    match &spec.value_cardinality {
+        ValueCardinality::Exactly(n) => {
+            let expected = n.get() as usize;
+            if values.len() != expected {
+                return Err(vec![TypedAnalysisError::PropertyInvalidValueCount {
+                    property: spec.name,
+                    expected: n.get(),
+                    found: values.len(),
+                    span: prop.name.span(),
+                }]);
+            }
+        }
+        ValueCardinality::AtLeast(n) => {
+            let min = n.get() as usize;
+            if values.len() < min {
+                return Err(vec![TypedAnalysisError::PropertyInsufficientValues {
+                    property: spec.name,
+                    min: n.get(),
+                    found: values.len(),
+                    span: prop.name.span(),
+                }]);
+            }
+        }
     }
 
     Ok(TypedProperty {
@@ -142,6 +164,7 @@ pub struct TypedProperty<'src> {
     pub values: Vec<Value<'src>>,
 }
 
+#[non_exhaustive]
 #[derive(Error, Debug, Clone)]
 pub enum TypedAnalysisError<'src> {
     #[error("Unknown property '{property}'")]
@@ -152,6 +175,22 @@ pub enum TypedAnalysisError<'src> {
 
     #[error("Property '{property}' occurs multiple times")]
     PropertyDuplicated { property: &'src str, span: Span },
+
+    #[error("Property '{property}' requires exactly {expected} value(s), but found {found}")]
+    PropertyInvalidValueCount {
+        property: &'src str,
+        expected: u8,
+        found: usize,
+        span: Span,
+    },
+
+    #[error("Property '{property}' requires at least {min} value(s), but found {found}")]
+    PropertyInsufficientValues {
+        property: &'src str,
+        min: u8,
+        found: usize,
+        span: Span,
+    },
 
     #[error("Property '{property}' does not allow multiple values")]
     PropertyMultipleValuesDisallowed { property: &'src str, span: Span },
@@ -222,6 +261,8 @@ impl TypedAnalysisError<'_> {
         match self {
             TypedAnalysisError::PropertyUnknown { span, .. }
             | TypedAnalysisError::PropertyDuplicated { span, .. }
+            | TypedAnalysisError::PropertyInvalidValueCount { span, .. }
+            | TypedAnalysisError::PropertyInsufficientValues { span, .. }
             | TypedAnalysisError::PropertyMultipleValuesDisallowed { span, .. }
             | TypedAnalysisError::ParameterUnknown { span, .. }
             | TypedAnalysisError::ParameterDuplicated { span, .. }

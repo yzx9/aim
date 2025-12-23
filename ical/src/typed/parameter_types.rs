@@ -150,16 +150,12 @@ define_param_enum! {
         /// An individual
         #[default]
         Individual => KW_CUTYPE_INDIVIDUAL,
-
         /// A group of individuals
         Group      => KW_CUTYPE_GROUP,
-
         /// A physical resource
         Resource   => KW_CUTYPE_RESOURCE,
-
         /// A room resource
         Room       => KW_CUTYPE_ROOM,
-
         /// Otherwise not known
         Unknown    => KW_CUTYPE_UNKNOWN,
     }
