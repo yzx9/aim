@@ -23,6 +23,7 @@ aimcal-core = { path = "core", version = "0.9.2", default-features = false, feat
   "clap",
 ] }
 aimcal-cli = { version = "0.9.2", path = "cli", default-features = false }
+tracing = "0.1.44"
 
 [profile.release]
 strip = true # Automatically strip symbols from the binary.
