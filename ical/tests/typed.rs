@@ -354,10 +354,9 @@ END:VEVENT\r
     ));
 }
 
-// PARSER LIMITATION: RRULE values contain equal signs and semicolons
-// which the syntax parser doesn't support in property values.
+// PARSER LIMITATION: RRULE parser is not implemented in the typed module.
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Equal/Semicolon tokens in RRULE values"]
+#[ignore = "parser limitation: RRULE parser not implemented in typed module"]
 fn test_rrule_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -370,10 +369,7 @@ END:VEVENT\r
     // (the specific value type depends on the typed module implementation)
 }
 
-// PARSER LIMITATION: EXDATE values contain commas
-// which the syntax parser doesn't support in property values.
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Comma token in EXDATE values"]
 fn test_exdate_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -385,10 +381,10 @@ END:VEVENT\r
     // EXDATE should parse as multiple date-time values
 }
 
-// PARSER LIMITATION: GEO values contain semicolons
-// which the syntax parser doesn't support in property values.
+// PARSER LIMITATION: GEO values use semicolon as separator (float;float format),
+// but the float parser uses comma as separator. A specialized GEO parser is needed.
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Semicolon token in GEO values"]
+#[ignore = "parser limitation: GEO value format (float;float) requires specialized parser"]
 fn test_geo_property() {
     let src = "\
 BEGIN:VEVENT\r

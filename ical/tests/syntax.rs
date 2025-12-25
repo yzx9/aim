@@ -96,10 +96,7 @@ END:VCALENDAR\r
     assert!(!param.values[0].quoted);
 }
 
-// PARSER LIMITATION: ATTENDEE value contains colons (mailto:) and @ symbols,
-// but the value parser doesn't include Token::Colon.
 #[test]
-#[ignore = "parser limitation: value parser doesn't allow Colon token (needed for ATTENDEE property)"]
 fn test_property_with_multiple_parameters() {
     let src = "\
 BEGIN:VEVENT\r
@@ -151,10 +148,7 @@ END:VCALENDAR\r
     assert!(prop.parameters[0].values[0].quoted);
 }
 
-// PARSER LIMITATION: CATEGORIES value contains commas to separate multiple categories,
-// but the value parser doesn't include Token::Comma.
 #[test]
-#[ignore = "parser limitation: value parser doesn't allow Comma token (needed for CATEGORIES value)"]
 fn test_multi_value_parameter() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -284,10 +278,7 @@ END:VCALENDAR\r
     );
 }
 
-// PARSER LIMITATION: RRULE values contain equal signs, semicolons, and commas
-// but the value parser doesn't include Token::Equal, Token::Semicolon, or Token::Comma.
 #[test]
-#[ignore = "parser limitation: value parser doesn't allow Equal/Semicolon/Comma tokens (needed for RRULE property)"]
 fn test_rrule_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -329,10 +320,7 @@ END:VCALENDAR\r
     assert_eq!(alarm.properties.len(), 3);
 }
 
-// PARSER LIMITATION: EXDATE values contain commas to separate multiple dates,
-// but the value parser doesn't include Token::Comma.
 #[test]
-#[ignore = "parser limitation: value parser doesn't allow Comma token (needed for multi-valued properties like EXDATE)"]
 fn test_exdate_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -345,10 +333,7 @@ END:VEVENT\r
     assert!(comp.properties[0].value.resolve().contains(','));
 }
 
-// PARSER LIMITATION: GEO values use semicolon to separate latitude and longitude,
-// but the value parser doesn't include Token::Semicolon.
 #[test]
-#[ignore = "parser limitation: value parser doesn't allow Semicolon token (needed for GEO property)"]
 fn test_geo_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -363,10 +348,7 @@ END:VEVENT\r
     );
 }
 
-// PARSER LIMITATION: URL values contain colons (e.g., http://),
-// but the value parser doesn't include Token::Colon.
 #[test]
-#[ignore = "parser limitation: value parser doesn't allow Colon token (needed for URL property)"]
 fn test_url_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -381,10 +363,7 @@ END:VEVENT\r
     );
 }
 
-// PARSER LIMITATION: ORGANIZER values contain colons (e.g., mailto:)
-// and @ symbols, but the value parser doesn't include Token::Colon.
 #[test]
-#[ignore = "parser limitation: value parser doesn't allow Colon token (needed for ORGANIZER property)"]
 fn test_organizer_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -665,10 +644,7 @@ END:VEVENT\r
     assert!(comp.properties[0].value.resolve().contains("\\,"));
 }
 
-// PARSER LIMITATION: ATTENDEE value contains colons (mailto:) and @ symbols,
-// but the value parser doesn't include Token::Colon.
 #[test]
-#[ignore = "parser limitation: value parser doesn't allow Colon token (needed for ATTENDEE property)"]
 fn test_attendee_property_with_full_params() {
     let src = "\
 BEGIN:VEVENT\r
@@ -690,10 +666,7 @@ END:VEVENT\r
     assert!(params.iter().any(|p| p.name.resolve().as_ref() == "ROLE"));
 }
 
-// PARSER LIMITATION: UID values contain @ symbols, which are treated as separate Symbol tokens
-// by the lexer. The value parser would need to handle this correctly.
 #[test]
-#[ignore = "parser limitation: value parser doesn't handle @ symbols correctly in UID values"]
 fn test_uid_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -708,10 +681,7 @@ END:VEVENT\r
     );
 }
 
-// PARSER LIMITATION: This test contains RRULE properties with equal signs/semicolons/commas,
-// and ORGANIZER/UID properties with colons/@ symbols which the value parser doesn't support.
 #[test]
-#[ignore = "parser limitation: multiple properties with unsupported tokens in values (RRULE, ORGANIZER, UID)"]
 fn test_complex_real_world_icalendar() {
     let src = "\
 BEGIN:VCALENDAR\r

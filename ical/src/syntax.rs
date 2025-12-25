@@ -309,6 +309,10 @@ where
     select! {
         t @ (
             Token::DQuote
+            | Token::Comma
+            | Token::Colon
+            | Token::Semicolon
+            | Token::Equal
             | Token::Symbol(_)
             | Token::Escape(_)
             | Token::Word(_)
