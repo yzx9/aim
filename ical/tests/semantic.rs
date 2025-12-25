@@ -29,7 +29,7 @@ fn parse_semantic(
 }
 
 #[test]
-fn test_empty_calendar_fails() {
+fn semantic_rejects_empty_calendar() {
     let src = "\
 BEGIN:VCALENDAR\r
 END:VCALENDAR\r
@@ -40,7 +40,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_minimal_calendar() {
+fn semantic_parses_minimal_calendar() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -58,7 +58,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_calendar_with_calscale() {
+fn semantic_recognizes_calscale_property() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -75,7 +75,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_simple_event() {
+fn semantic_parses_simple_event() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -102,7 +102,7 @@ END:VCALENDAR\r
 // SEMANTIC ANALYSIS NOT IMPLEMENTED: VTodo parsing is not yet implemented
 #[test]
 #[ignore = "semantic analysis not implemented: VTodo parsing"]
-fn test_simple_todo() {
+fn semantic_parses_simple_todo() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -132,7 +132,7 @@ END:VCALENDAR\r
 // SEMANTIC ANALYSIS NOT IMPLEMENTED: VJournal parsing is not yet implemented
 #[test]
 #[ignore = "semantic analysis not implemented: VJournal parsing"]
-fn test_simple_journal() {
+fn semantic_parses_simple_journal() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -162,7 +162,7 @@ END:VCALENDAR\r
 // SEMANTIC ANALYSIS NOT IMPLEMENTED: VFreeBusy parsing is not yet implemented
 #[test]
 #[ignore = "semantic analysis not implemented: VFreeBusy parsing"]
-fn test_simple_freebusy() {
+fn semantic_parses_simple_freebusy() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -191,7 +191,7 @@ END:VCALENDAR\r
 // PARSER LIMITATION: Duration parser doesn't handle certain duration formats
 #[test]
 #[ignore = "parser limitation: duration parser fails on PT15M format"]
-fn test_event_with_alarm() {
+fn semantic_parses_event_with_alarm() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -221,7 +221,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_multiple_events() {
+fn semantic_parses_multiple_events() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -245,7 +245,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_dtstart_dtend() {
+fn semantic_parses_event_with_dtstart_and_dtend() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -271,7 +271,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_duration() {
+fn semantic_parses_event_with_duration() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -297,7 +297,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_location() {
+fn semantic_parses_event_location() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -325,7 +325,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_description() {
+fn semantic_parses_event_description() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -353,7 +353,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_status() {
+fn semantic_parses_event_status() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -378,7 +378,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_classification() {
+fn semantic_parses_event_classification() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -403,7 +403,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_transparency() {
+fn semantic_parses_event_transparency() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -428,7 +428,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_priority() {
+fn semantic_parses_event_priority() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -453,7 +453,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_sequence() {
+fn semantic_parses_event_sequence() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -480,7 +480,7 @@ END:VCALENDAR\r
 // PARSER LIMITATION: Date-only values (without time component) need a special parser
 #[test]
 #[ignore = "parser limitation: datetime parser expects time component after date"]
-fn test_journal_with_date_only() {
+fn semantic_when_journal_has_date_only_start() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -500,7 +500,7 @@ END:VCALENDAR\r
 // PARSER LIMITATION: Duration parser doesn't handle negative durations
 #[test]
 #[ignore = "parser limitation: duration parser doesn't support negative durations (e.g., -PT15M)"]
-fn test_alarm_with_negative_trigger() {
+fn semantic_when_alarm_has_negative_trigger() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -522,7 +522,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_url() {
+fn semantic_parses_event_url() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -541,7 +541,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_organizer() {
+fn semantic_parses_event_organizer() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -560,7 +560,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_attendee() {
+fn semantic_parses_event_attendee() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -579,7 +579,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_last_modified() {
+fn semantic_parses_event_last_modified() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -606,7 +606,7 @@ END:VCALENDAR\r
 // SEMANTIC ANALYSIS NOT IMPLEMENTED: VTodo parsing is not yet implemented
 #[test]
 #[ignore = "semantic analysis not implemented: VTodo parsing"]
-fn test_todo_with_percent_complete() {
+fn semantic_parses_todo_percent_complete() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -634,7 +634,7 @@ END:VCALENDAR\r
 // SEMANTIC ANALYSIS NOT IMPLEMENTED: VTodo parsing is not yet implemented
 #[test]
 #[ignore = "semantic analysis not implemented: VTodo parsing in mixed components"]
-fn test_multiple_components_mixed() {
+fn semantic_parses_mixed_components() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -659,7 +659,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_tzid_parameter() {
+fn semantic_when_event_has_tzid_parameter() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -677,7 +677,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_event_with_unicode_summary() {
+fn semantic_handles_unicode_in_summary() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -702,7 +702,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_missing_prodid_fails() {
+fn semantic_rejects_missing_prodid() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -713,7 +713,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_missing_version_fails() {
+fn semantic_rejects_missing_version() {
     let src = "\
 BEGIN:VCALENDAR\r
 PRODID:-//Example Corp.//CalDAV Client//EN\r
@@ -724,7 +724,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_method_property() {
+fn semantic_parses_method_property() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -741,7 +741,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_complete_calendar() {
+fn semantic_parses_complete_calendar() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -771,7 +771,7 @@ END:VCALENDAR\r
 // SEMANTIC ANALYSIS NOT IMPLEMENTED: VTimeZone parsing is not yet implemented
 #[test]
 #[ignore = "semantic analysis not implemented: VTimeZone parsing"]
-fn test_nested_timezone_component() {
+fn semantic_parses_nested_timezone() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r

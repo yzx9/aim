@@ -416,7 +416,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_binary() {
+    fn parses_binary() {
         fn check(src: &str) -> Result<(), Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             value_binary::<'_, _, extra::Err<_>>()
@@ -466,7 +466,7 @@ AAAAAAAAAAAA\
     }
 
     #[test]
-    fn test_boolean() {
+    fn parses_boolean() {
         fn parse(src: &str) -> Result<bool, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             value_boolean::<'_, _, extra::Err<_>>()
@@ -494,7 +494,7 @@ AAAAAAAAAAAA\
     }
 
     #[test]
-    fn test_duration() {
+    fn parses_duration() {
         use ValueDuration::{DateTime, Week};
 
         fn parse(src: &str) -> Result<ValueDuration, Vec<Rich<'_, char>>> {

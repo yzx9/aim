@@ -520,7 +520,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_component() {
+    fn parses_component() {
         fn parse(src: &str) -> Result<&str, Vec<Rich<'_, Token<'_>>>> {
             begin::<'_, '_, _, extra::Err<_>>()
                 .ignore_with_ctx(end())
@@ -552,7 +552,7 @@ END:VEVENT\r\n\
     }
 
     #[test]
-    fn test_begin_end_match() {
+    fn matches_begin_end_tags() {
         fn parse(src: &str) -> Result<&str, Vec<Rich<'_, Token<'_>>>> {
             begin::<'_, '_, _, extra::Err<_>>()
                 .ignore_with_ctx(end())
@@ -581,7 +581,7 @@ END:VEVENT\r\n\
     }
 
     #[test]
-    fn test_property() {
+    fn parses_property() {
         fn parse<'tokens, 'src: 'tokens>(
             src: &'src str,
         ) -> Result<SyntaxProperty<'src>, Vec<Rich<'src, Token<'tokens>>>> {
@@ -619,7 +619,7 @@ END:VEVENT\r\n\
     }
 
     #[test]
-    fn test_param() {
+    fn parses_parameter() {
         fn parse(src: &str) -> Result<SyntaxParameter<'_>, Vec<Rich<'_, Token<'_>>>> {
             parameter::<'_, '_, _, extra::Err<_>>()
                 .parse(lex_analysis(src))

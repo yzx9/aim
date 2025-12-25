@@ -224,7 +224,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_compute_color() {
+    fn computes_color_based_on_due_date() {
         let due = LooseDateTime::Floating(
             NaiveDate::from_ymd_opt(2025, 8, 5)
                 .unwrap()

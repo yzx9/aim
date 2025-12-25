@@ -499,7 +499,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_new() {
+    fn parses_todo_new_command() {
         let args = [
             "new",
             "Another summary",
@@ -533,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_new_tui() {
+    fn parses_todo_new_command_with_tui_mode() {
         let args = ["new", "--output-format", "json", "--verbose"];
         let matches = CmdTodoNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoNew::from(&matches);
@@ -544,7 +544,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_edit() {
+    fn parses_todo_edit_command() {
         let args = [
             "edit",
             "test_id",
@@ -581,7 +581,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_edit_tui() {
+    fn parses_todo_edit_command_with_tui_mode() {
         let cmd = CmdTodoEdit::command();
         let matches = cmd
             .try_get_matches_from(["edit", "test_id", "--output-format", "json", "--verbose"])
@@ -595,7 +595,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_done() {
+    fn parses_todo_done_command() {
         let args = ["done", "abc", "--output-format", "json", "--verbose"];
         let matches = CmdTodoDone::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoDone::from(&matches);
@@ -606,7 +606,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_done_multi() {
+    fn parses_todo_done_command_with_multiple_ids() {
         let args = [
             "done",
             "a",
@@ -630,7 +630,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_undo() {
+    fn parses_todo_undo_command() {
         let args = ["undo", "a", "b", "c", "--output-format", "json"];
         let matches = CmdTodoUndo::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoUndo::from(&matches);
@@ -645,7 +645,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cancel() {
+    fn parses_todo_cancel_command() {
         let args = ["cancel", "a", "b", "c", "--output-format", "json"];
         let matches = CmdTodoCancel::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoCancel::from(&matches);
@@ -660,7 +660,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_delay() {
+    fn parses_todo_delay_command() {
         let args = [
             "delay",
             "a",
@@ -687,7 +687,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_reschedule() {
+    fn parses_todo_reschedule_command() {
         let args = [
             "reschedule",
             "a",
@@ -716,7 +716,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_list() {
+    fn parses_todo_list_command() {
         let args = ["list", "--output-format", "json", "--verbose"];
         let matches = CmdTodoList::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoList::from(&matches);

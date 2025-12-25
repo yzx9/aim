@@ -72,7 +72,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_generate_completion() {
+    fn parses_generate_completion_command() {
         let args = ["generate-completion", "bash"];
         let matches = CmdGenerateCompletion::command()
             .try_get_matches_from(args)
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_shell_variants() {
+    fn parses_all_shell_variants() {
         for (shell, expected) in [
             ("bash", Shell::Bash),
             ("elvish", Shell::Elvish),

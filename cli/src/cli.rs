@@ -338,7 +338,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_config() {
+    fn parses_config_command() {
         let args = ["test", "-c", "/tmp/config.toml"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert_eq!(cli.config, Some(PathBuf::from("/tmp/config.toml")));
@@ -346,49 +346,49 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_default_dashboard() {
+    fn parses_default_dashboard_command() {
         let args = ["test"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::Dashboard(_)));
     }
 
     #[test]
-    fn test_parse_dashboard() {
+    fn parses_dashboard_command() {
         let args = ["test", "dashboard"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::Dashboard(_)));
     }
 
     #[test]
-    fn test_parse_new() {
+    fn parses_new_command() {
         let args = ["test", "new"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::New(_)));
     }
 
     #[test]
-    fn test_parse_add() {
+    fn parses_add_command() {
         let args = ["test", "add"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::New(_)));
     }
 
     #[test]
-    fn test_parse_edit() {
+    fn parses_edit_command() {
         let args = ["test", "edit", "id1"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::Edit(_)));
     }
 
     #[test]
-    fn test_parse_flush() {
+    fn parses_flush_command() {
         let args = ["test", "flush"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::Flush(_)));
     }
 
     #[test]
-    fn test_parse_event_new() {
+    fn parses_event_new_command() {
         let cli = Cli::try_parse_from([
             "test",
             "event",
@@ -404,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_add() {
+    fn parses_event_add_command() {
         let args = [
             "test",
             "event",
@@ -420,7 +420,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_edit() {
+    fn parses_event_edit_command() {
         let args = ["test", "event", "edit", "some_id", "-s", "new summary"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -433,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_delay() {
+    fn parses_event_delay_command() {
         let args = ["test", "event", "delay", "id1", "id2"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -449,7 +449,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_reschedule() {
+    fn parses_event_reschedule_command() {
         let args = ["test", "event", "reschedule", "id1", "id2"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -465,7 +465,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_list() {
+    fn parses_event_list_command() {
         let args = ["test", "event", "list", "--output-format", "json"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -475,21 +475,21 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_new() {
+    fn parses_todo_new_command() {
         let args = ["test", "todo", "new", "a new todo"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::TodoNew(_)));
     }
 
     #[test]
-    fn test_parse_todo_add() {
+    fn parses_todo_add_command() {
         let args = ["test", "todo", "add", "a new todo"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert!(matches!(cli.command, Commands::TodoNew(_)));
     }
 
     #[test]
-    fn test_parse_todo_edit() {
+    fn parses_todo_edit_command() {
         let args = ["test", "todo", "edit", "some_id", "-s", "new summary"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -502,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_undo() {
+    fn parses_todo_undo_command() {
         let args = ["test", "todo", "undo", "id1", "id2"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_done() {
+    fn parses_todo_done_command() {
         let args = ["test", "todo", "done", "id1", "id2"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -534,7 +534,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_cancel() {
+    fn parses_todo_cancel_command() {
         let args = ["test", "todo", "cancel", "id1", "id2"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -550,7 +550,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_delay() {
+    fn parses_todo_delay_command() {
         let args = ["test", "todo", "delay", "id1", "id2", "id3"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -567,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_reschedule() {
+    fn parses_todo_reschedule_command() {
         let args = ["test", "todo", "reschedule", "id1", "id2"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -583,7 +583,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_todo_list() {
+    fn parses_todo_list_command() {
         let args = ["test", "todo", "list", "--output-format", "json"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -593,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_done() {
+    fn parses_done_command() {
         let args = ["test", "done", "id1", "id2"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {
@@ -609,7 +609,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_generate_completions() {
+    fn parses_generate_completion_command() {
         let args = ["test", "generate-completion", "zsh"];
         let cli = Cli::try_parse_from(args).unwrap();
         match cli.command {

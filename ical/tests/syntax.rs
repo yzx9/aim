@@ -24,7 +24,7 @@ fn parse_first_component(src: &str) -> SyntaxComponent<'_> {
 }
 
 #[test]
-fn test_empty_component() {
+fn syntax_empty_component() {
     let src = "\
 BEGIN:VCALENDAR\r
 END:VCALENDAR\r
@@ -37,7 +37,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_single_property() {
+fn syntax_single_property() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -51,7 +51,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_multiple_properties() {
+fn syntax_multiple_properties() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -76,7 +76,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_property_with_parameters() {
+fn syntax_property_with_parameters() {
     let src = "\
 BEGIN:VCALENDAR\r
 DTSTART;TZID=America/New_York:20250101T090000\r
@@ -97,7 +97,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_property_with_multiple_parameters() {
+fn syntax_property_with_multiple_parameters() {
     let src = "\
 BEGIN:VEVENT\r
 ATTENDEE;RSVP=TRUE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT:mailto:test@example.com\r
@@ -130,7 +130,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_quoted_parameter_value() {
+fn syntax_quoted_parameter_value() {
     let src = "\
 BEGIN:VCALENDAR\r
 X-CUSTOM;PARAM=\"value\":test\r
@@ -149,7 +149,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_multi_value_parameter() {
+fn syntax_multi_value_parameter() {
     let src = "\
 BEGIN:VCALENDAR\r
 CATEGORIES;LANGUAGE=en:MEETING,TEAM,STRATEGY\r
@@ -166,7 +166,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_nested_components() {
+fn syntax_nested_components() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -189,7 +189,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_multiple_nested_components() {
+fn syntax_multiple_nested_components() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -208,7 +208,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_deeply_nested_components() {
+fn syntax_deeply_nested_components() {
     let src = "\
 BEGIN:VCALENDAR\r
 BEGIN:VTIMEZONE\r
@@ -232,7 +232,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_property_with_escaped_chars() {
+fn syntax_property_with_escaped_chars() {
     let src = "\
 BEGIN:VCALENDAR\r
 DESCRIPTION:This is a test\\;And semicolon\\,And comma\r
@@ -248,7 +248,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_property_with_unicode() {
+fn syntax_property_with_unicode() {
     let src = "\
 BEGIN:VEVENT\r
 SUMMARY:Team会议📅 Discuss Q1 goals\r
@@ -263,7 +263,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_line_folding() {
+fn syntax_line_folding() {
     let src = "\
 BEGIN:VCALENDAR\r
 DESCRIPTION:This is a very long description that\r\n \
@@ -279,7 +279,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_rrule_property() {
+fn syntax_rrule_property() {
     let src = "\
 BEGIN:VEVENT\r
 RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20251231T235959Z\r
@@ -297,7 +297,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_alarm_component() {
+fn syntax_alarm_component() {
     let src = "\
 BEGIN:VCALENDAR\r
 BEGIN:VEVENT\r
@@ -321,7 +321,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_exdate_property() {
+fn syntax_exdate_property() {
     let src = "\
 BEGIN:VEVENT\r
 EXDATE:20250101T090000,20250108T090000,20250115T090000\r
@@ -334,7 +334,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_geo_property() {
+fn syntax_geo_property() {
     let src = "\
 BEGIN:VEVENT\r
 GEO:37.386013;-122.083932\r
@@ -349,7 +349,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_url_property() {
+fn syntax_url_property() {
     let src = "\
 BEGIN:VEVENT\r
 URL:http://example.com/event.html\r
@@ -364,7 +364,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_organizer_property() {
+fn syntax_organizer_property() {
     let src = "\
 BEGIN:VEVENT\r
 ORGANIZER;CN=John Doe:mailto:john.doe@example.com\r
@@ -391,7 +391,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_complete_minimal_icalendar() {
+fn syntax_complete_minimal_icalendar() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -419,7 +419,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_mismatched_begin_end() {
+fn syntax_mismatched_begin_end() {
     let src = "\
 BEGIN:VCALENDAR\r
 END:VEVENT\r
@@ -429,7 +429,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_missing_end() {
+fn syntax_missing_end() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -439,7 +439,7 @@ VERSION:2.0\r
 }
 
 #[test]
-fn test_property_without_colon() {
+fn syntax_property_without_colon() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION 2.0\r
@@ -451,7 +451,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_multiple_components_at_root() {
+fn syntax_multiple_components_at_root() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -467,7 +467,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_property_name_case_sensitivity() {
+fn syntax_property_name_case_sensitivity() {
     let src = "\
 BEGIN:VCALENDAR\r
 version:2.0\r
@@ -481,7 +481,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_vtimezone_component() {
+fn syntax_vtimezone_component() {
     let src = "\
 BEGIN:VCALENDAR\r
 BEGIN:VTIMEZONE\r
@@ -512,7 +512,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_vjournal_component() {
+fn syntax_vjournal_component() {
     let src = "\
 BEGIN:VCALENDAR\r
 BEGIN:VJOURNAL\r
@@ -529,7 +529,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_vfreebusy_component() {
+fn syntax_vfreebusy_component() {
     let src = "\
 BEGIN:VCALENDAR\r
 BEGIN:VFREEBUSY\r
@@ -545,7 +545,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_percent_complete_property() {
+fn syntax_percent_complete_property() {
     let src = "\
 BEGIN:VTODO\r
 PERCENT-COMPLETE:75\r
@@ -560,7 +560,7 @@ END:VTODO\r
 }
 
 #[test]
-fn test_priority_property() {
+fn syntax_priority_property() {
     let src = "\
 BEGIN:VTODO\r
 PRIORITY:5\r
@@ -572,7 +572,7 @@ END:VTODO\r
 }
 
 #[test]
-fn test_status_property() {
+fn syntax_status_property() {
     let src = "\
 BEGIN:VTODO\r
 STATUS:NEEDS-ACTION\r
@@ -584,7 +584,7 @@ END:VTODO\r
 }
 
 #[test]
-fn test_classification_property() {
+fn syntax_classification_property() {
     let src = "\
 BEGIN:VEVENT\r
 CLASS:PUBLIC\r
@@ -596,7 +596,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_transparency_property() {
+fn syntax_transparency_property() {
     let src = "\
 BEGIN:VEVENT\r
 TRANSP:OPAQUE\r
@@ -608,7 +608,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_created_last_modified_properties() {
+fn syntax_created_last_modified_properties() {
     let src = "\
 BEGIN:VEVENT\r
 CREATED:20250101T000000Z\r
@@ -621,7 +621,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_sequence_property() {
+fn syntax_sequence_property() {
     let src = "\
 BEGIN:VEVENT\r
 SEQUENCE:2\r
@@ -633,7 +633,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_location_property_with_escaped_comma() {
+fn syntax_location_property_with_escaped_comma() {
     let src = "\
 BEGIN:VEVENT\r
 LOCATION:Conference Room B\\, Building 1\r
@@ -645,7 +645,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_attendee_property_with_full_params() {
+fn syntax_attendee_property_with_full_params() {
     let src = "\
 BEGIN:VEVENT\r
 ATTENDEE;RSVP=TRUE;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;\r\n \
@@ -667,7 +667,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_uid_property() {
+fn syntax_uid_property() {
     let src = "\
 BEGIN:VEVENT\r
 UID:1234567890@example.com\r
@@ -682,7 +682,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_complex_real_world_icalendar() {
+fn syntax_complex_real_world_icalendar() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r

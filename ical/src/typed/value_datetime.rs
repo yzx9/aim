@@ -349,7 +349,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_date() {
+    fn parses_date() {
         fn parse(src: &str) -> Result<ValueDate, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             value_date::<'_, _, extra::Err<_>>()
@@ -396,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn test_date_time() {
+    fn parses_date_time() {
         fn parse(src: &str) -> Result<ValueDateTime, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             value_date_time::<'_, _, extra::Err<_>>()
@@ -462,7 +462,7 @@ mod tests {
     }
 
     #[test]
-    fn test_time() {
+    fn parses_time() {
         fn parse(src: &str) -> Result<ValueTime, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             value_time::<'_, _, extra::Err<_>>()
@@ -502,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn test_utc_offset() {
+    fn parses_utc_offset() {
         fn parse(src: &str) -> Result<ValueUtcOffset, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             value_utc_offset::<'_, _, extra::Err<_>>()

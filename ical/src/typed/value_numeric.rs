@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     #[allow(clippy::approx_constant)]
-    fn test_float() {
+    fn parses_float() {
         fn parse(src: &str) -> Result<f64, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             value_float::<'_, _, extra::Err<_>>()
@@ -199,7 +199,7 @@ mod tests {
     }
 
     #[test]
-    fn test_integer() {
+    fn parses_integer() {
         fn parse(src: &str) -> Result<i32, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());
             value_integer::<'_, _, extra::Err<_>>()

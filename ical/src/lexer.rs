@@ -154,7 +154,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ascii() {
+    fn tokenizes_ascii_range() {
         macro_rules! test_ascii_range {
             ($name:ident, $range:expr, $token:ident, $single_char:expr) => {
                 for i in $range {
@@ -203,13 +203,13 @@ mod tests {
         test_ascii_range!(test_ascii_chars_7f_7f, 0x7F..=0x7F, Control, true);
     }
 
-    fn test_tokenize(src: &str, expected: &[Token]) {
+    fn tokenize(src: &str, expected: &[Token]) {
         let tokens: Vec<_> = Token::lexer(src).map(|t| t.unwrap()).collect();
         assert_eq!(tokens, expected);
     }
 
     #[test]
-    fn test_ascii_special() {
+    fn tokenizes_special_ascii_chars() {
         let src = r#";:=,"\_"#;
         let expected = [
             Semicolon,
@@ -220,11 +220,11 @@ mod tests {
             Symbol(r"\"),
             Word("_"),
         ];
-        test_tokenize(src, &expected);
+        tokenize(src, &expected);
     }
 
     #[test]
-    fn test_folding() {
+    fn handles_line_folding() {
         let src = "\r\n \r\n\t\r \n \r\n";
         let expected = [
             Control("\r"),
@@ -233,11 +233,11 @@ mod tests {
             Symbol(" "),
             Newline,
         ];
-        test_tokenize(src, &expected);
+        tokenize(src, &expected);
     }
 
     #[test]
-    fn test_escape_characters() {
+    fn tokenizes_escape_sequences() {
         let src = r"\\\;\,\N\n\r";
         let expected = [
             Escape(r"\\"),
@@ -248,11 +248,11 @@ mod tests {
             Symbol(r"\"),
             Word("r"),
         ];
-        test_tokenize(src, &expected);
+        tokenize(src, &expected);
     }
 
     #[test]
-    fn test_word_parsing() {
+    fn tokenizes_words_and_unicode() {
         let src = "ABC_foo-123 456 你好🎉🎊Hello世界";
         let expected = [
             Word("ABC_foo-123"),
@@ -263,11 +263,11 @@ mod tests {
             Word("Hello"),
             UnicodeText("世界"),
         ];
-        test_tokenize(src, &expected);
+        tokenize(src, &expected);
     }
 
     #[test]
-    fn test_mixed_quotes_and_folding() {
+    fn handles_quotes_and_folding() {
         let src = "SUMMARY:\"Test\" description\r\n with folding";
         let expected = [
             Word("SUMMARY"),
@@ -281,6 +281,6 @@ mod tests {
             Symbol(" "),
             Word("folding"),
         ];
-        test_tokenize(src, &expected);
+        tokenize(src, &expected);
     }
 }

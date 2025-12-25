@@ -255,7 +255,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_id_maybe_short_id() {
+    fn extracts_short_id_from_id() {
         let id1 = Id::ShortIdOrUid("123".to_string());
         let id2 = Id::ShortIdOrUid("0".to_string());
         let id3 = Id::ShortIdOrUid("abc".to_string());
@@ -267,25 +267,25 @@ mod tests {
     }
 
     #[test]
-    fn test_kind_to_str_stable() {
+    fn converts_kind_to_stable_string() {
         assert_eq!(Kind::Event.to_str_stable(), "event");
         assert_eq!(Kind::Todo.to_str_stable(), "todo");
     }
 
     #[test]
-    fn test_kind_parse_stable() {
+    fn parses_kind_from_stable_string() {
         assert_eq!(Kind::parse_stable("event"), Some(Kind::Event));
         assert_eq!(Kind::parse_stable("todo"), Some(Kind::Todo));
     }
 
     #[test]
-    fn test_sort_order_sql_keyword() {
+    fn generates_sql_keyword_for_sort_order() {
         assert_eq!(SortOrder::Asc.sql_keyword(), "ASC");
         assert_eq!(SortOrder::Desc.sql_keyword(), "DESC");
     }
 
     #[test]
-    fn test_priority_deserialize_all_variants() {
+    fn deserializes_priority_from_all_formats() {
         for (input, expected) in [
             // integer number
             ("0", Priority::None),
@@ -320,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn test_priority_deserialize_invalid_values() {
+    fn rejects_invalid_priority_values() {
         for input in [
             r#""invalid""#,
             r#""urgent""#,

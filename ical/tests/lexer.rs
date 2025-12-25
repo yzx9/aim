@@ -27,13 +27,13 @@ fn tokenize_tokens(src: &str) -> Vec<Token<'_>> {
 }
 
 #[test]
-fn test_empty_input() {
+fn lexer_tokenizes_empty_input() {
     let tokens = tokenize_tokens("");
     assert!(tokens.is_empty());
 }
 
 #[test]
-fn test_simple_ical_property() {
+fn lexer_tokenizes_simple_icalendar() {
     let src = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -58,7 +58,7 @@ fn test_simple_ical_property() {
 }
 
 #[test]
-fn test_summary_with_quotes() {
+fn lexer_tokenizes_quoted_summary() {
     let src = r#"SUMMARY:"Meeting with Team""#;
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -78,7 +78,7 @@ fn test_summary_with_quotes() {
 }
 
 #[test]
-fn test_property_with_parameters() {
+fn lexer_tokenizes_property_with_parameters() {
     let src = "DTSTART;TZID=America/New_York:20250101T090000";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -98,7 +98,7 @@ fn test_property_with_parameters() {
 }
 
 #[test]
-fn test_text_property_with_escaped_chars() {
+fn lexer_tokenizes_escaped_chars_in_text() {
     let src = r#"DESCRIPTION:This is a test\nWith newline\;And semicolon\,And comma"#;
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -130,7 +130,7 @@ fn test_text_property_with_escaped_chars() {
 }
 
 #[test]
-fn test_line_folding() {
+fn lexer_handles_line_folding() {
     let src = "DESCRIPTION:This is a very long description that\r\n spans multiple lines";
     let tokens = tokenize_tokens(src);
     // The folding (CRLF + space/tab) should be skipped
@@ -162,7 +162,7 @@ fn test_line_folding() {
 }
 
 #[test]
-fn test_rrule_property() {
+fn lexer_tokenizes_rrule() {
     let src = "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -186,7 +186,7 @@ fn test_rrule_property() {
 }
 
 #[test]
-fn test_unicode_in_summary() {
+fn lexer_handles_unicode_in_summary() {
     let src = "SUMMARY:Team会议📅 Discuss Q1 goals";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -207,7 +207,7 @@ fn test_unicode_in_summary() {
 }
 
 #[test]
-fn test_organizer_property() {
+fn lexer_tokenizes_organizer_property() {
     let src = r#"ORGANIZER;CN=John Doe:mailto:john.doe@example.com"#;
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -235,7 +235,7 @@ fn test_organizer_property() {
 }
 
 #[test]
-fn test_multiple_escaped_sequences() {
+fn lexer_tokenizes_multiple_escape_sequences() {
     let src = r#"DESCRIPTION:\\ \; \, \N \n"#;
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -257,7 +257,7 @@ fn test_multiple_escaped_sequences() {
 }
 
 #[test]
-fn test_attendee_property() {
+fn lexer_tokenizes_attendee_property() {
     let src = "ATTENDEE;RSVP=TRUE;CUTYPE=INDIVIDUAL:mailto:test@example.com";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -285,7 +285,7 @@ fn test_attendee_property() {
 }
 
 #[test]
-fn test_date_time_value() {
+fn lexer_tokenizes_datetime_value() {
     let src = "DTSTART:20250615T133000";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -299,7 +299,7 @@ fn test_date_time_value() {
 }
 
 #[test]
-fn test_exdate_property() {
+fn lexer_tokenizes_exdate_with_commas() {
     let src = "EXDATE:20250101T090000,20250108T090000,20250115T090000";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -317,7 +317,7 @@ fn test_exdate_property() {
 }
 
 #[test]
-fn test_alarm_component() {
+fn lexer_tokenizes_alarm_component() {
     let src = "BEGIN:VALARM\r\nTRIGGER:-PT15M\r\nACTION:DISPLAY\r\nEND:VALARM\r\n";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -344,7 +344,7 @@ fn test_alarm_component() {
 }
 
 #[test]
-fn test_geographic_position() {
+fn lexer_tokenizes_geo_position() {
     let src = "GEO:37.386013;-122.083932";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -364,7 +364,7 @@ fn test_geographic_position() {
 }
 
 #[test]
-fn test_percent_complete() {
+fn lexer_tokenizes_percent_complete() {
     let src = "PERCENT-COMPLETE:75";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -378,7 +378,7 @@ fn test_percent_complete() {
 }
 
 #[test]
-fn test_priority() {
+fn lexer_tokenizes_priority() {
     let src = "PRIORITY:5";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -388,7 +388,7 @@ fn test_priority() {
 }
 
 #[test]
-fn test_url_property() {
+fn lexer_tokenizes_url_property() {
     let src = "URL:http://example.com/event.html";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -412,7 +412,7 @@ fn test_url_property() {
 }
 
 #[test]
-fn test_uid_property() {
+fn lexer_tokenizes_uid_property() {
     let src = "UID:1234567890@example.com";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -430,7 +430,7 @@ fn test_uid_property() {
 }
 
 #[test]
-fn test_classification() {
+fn lexer_tokenizes_classification() {
     let src = "CLASS:PUBLIC";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -440,7 +440,7 @@ fn test_classification() {
 }
 
 #[test]
-fn test_created_last_modified() {
+fn lexer_tokenizes_created_and_last_modified() {
     let src = "CREATED:20250101T000000Z\r\nLAST-MODIFIED:20250102T120000Z";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -458,7 +458,7 @@ fn test_created_last_modified() {
 }
 
 #[test]
-fn test_sequence() {
+fn lexer_tokenizes_sequence() {
     let src = "SEQUENCE:2";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -468,7 +468,7 @@ fn test_sequence() {
 }
 
 #[test]
-fn test_status_values() {
+fn lexer_tokenizes_multiple_status_values() {
     let src = "STATUS:TENTATIVE\r\nSTATUS:CONFIRMED\r\nSTATUS:CANCELLED";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -490,7 +490,7 @@ fn test_status_values() {
 }
 
 #[test]
-fn test_transp() {
+fn lexer_tokenizes_transparency() {
     let src = "TRANSP:OPAQUE";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -500,7 +500,7 @@ fn test_transp() {
 }
 
 #[test]
-fn test_location_property() {
+fn lexer_tokenizes_location_with_escaped_comma() {
     let src = "LOCATION:Conference Room B\\, Building 1";
     let tokens = tokenize_tokens(src);
     assert_eq!(
@@ -523,7 +523,7 @@ fn test_location_property() {
 }
 
 #[test]
-fn test_complete_icalendar_minimal() {
+fn lexer_tokenizes_complete_minimal_icalendar() {
     let src = "\
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -550,7 +550,7 @@ END:VCALENDAR
 }
 
 #[test]
-fn test_token_positions() {
+fn lexer_returns_token_positions() {
     let src = "BEGIN:VCALENDAR";
     let tokens = tokenize(src);
 
@@ -565,7 +565,7 @@ fn test_token_positions() {
 }
 
 #[test]
-fn test_multiline_unicode_description() {
+fn lexer_handles_multiline_unicode_description() {
     let src = "\
 DESCRIPTION:Important meeting with team members from 中国🇨🇳 and Japan 🇯🇵\
 \r\n to discuss Q1 2025 strategy and planning.\r\n Please prepare your reports.\
@@ -579,7 +579,7 @@ DESCRIPTION:Important meeting with team members from 中国🇨🇳 and Japan �
 }
 
 #[test]
-fn test_complex_categories() {
+fn lexer_tokenizes_categories_with_commas() {
     let src = "CATEGORIES:MEETING,TEAM,STRATEGY,IMPORTANT";
     let tokens = tokenize_tokens(src);
     assert_eq!(

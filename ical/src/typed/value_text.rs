@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn test_text() {
+    fn parses_text() {
         fn parse(src: &str) -> ValueText<'_> {
             let token_stream = lex_analysis(src);
             let comps = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();

@@ -485,7 +485,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_event_new() {
+    fn parses_event_new_command() {
         let args = [
             "new",
             "Another summary",
@@ -516,7 +516,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_new_tui() {
+    fn parses_event_new_command_with_tui_mode() {
         let args = ["new"];
         let matches = CmdEventNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventNew::from(&matches);
@@ -525,7 +525,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_edit() {
+    fn parses_event_edit_command() {
         let args = [
             "edit",
             "test_id",
@@ -559,7 +559,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_edit_tui() {
+    fn parses_event_edit_command_with_tui_mode() {
         let cmd = CmdEventEdit::command();
         let matches = cmd.try_get_matches_from(["edit", "test_id"]).unwrap();
         let parsed = CmdEventEdit::from(&matches);
@@ -569,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_delay() {
+    fn parses_event_delay_command() {
         let args = [
             "delay",
             "a",
@@ -596,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_reschedule() {
+    fn parses_event_reschedule_command() {
         let args = [
             "reschedule",
             "a",
@@ -625,7 +625,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_list() {
+    fn parses_event_list_command() {
         let args = ["list", "--output-format", "json", "--verbose"];
         let matches = CmdEventList::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventList::from(&matches);

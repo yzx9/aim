@@ -71,19 +71,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_start_of_day_naive() {
+    fn returns_start_of_day_constant() {
         let time = start_of_day_naive();
         assert!(time <= NaiveTime::from_hms_opt(0, 0, 0).unwrap());
     }
 
     #[test]
-    fn test_end_of_day_naive() {
+    fn returns_end_of_day_constant() {
         let time = end_of_day_naive();
         assert!(time >= NaiveTime::from_hms_opt(23, 59, 59).unwrap());
     }
 
     #[test]
-    fn test_start_of_day() {
+    fn returns_start_of_day_for_datetime() {
         let dt = Utc.with_ymd_and_hms(2025, 1, 15, 14, 30, 45).unwrap();
         let start = start_of_day(&dt);
         assert_eq!(start.date_naive(), dt.date_naive());
@@ -91,7 +91,7 @@ mod tests {
     }
 
     #[test]
-    fn test_end_of_day() {
+    fn returns_end_of_day_for_datetime() {
         let dt = Utc.with_ymd_and_hms(2025, 1, 15, 14, 30, 45).unwrap();
         let end = end_of_day(&dt);
         assert_eq!(end.date_naive(), dt.date_naive());
@@ -99,7 +99,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_local_datetime_single() {
+    fn converts_naive_to_datetime_in_timezone() {
         let tz = Utc;
         // Use the newer DateTime::from_timestamp instead of deprecated NaiveDateTime::from_timestamp_opt
         let dt = DateTime::from_timestamp(1_609_459_200, 0).unwrap(); // 2021-01-01 00:00:00 UTC
@@ -109,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn test_start_end_of_day_constants() {
+    fn validates_day_boundary_constants() {
         // Test that the constants are what we expect
         let start = start_of_day_naive();
         let end = end_of_day_naive();

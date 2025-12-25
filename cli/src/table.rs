@@ -394,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn test_table_style_basic_nocolor() {
+    fn renders_basic_table_without_colors() {
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -418,7 +418,7 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_table_style_basic_colorful() {
+    fn renders_basic_table_with_colors() {
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -443,7 +443,7 @@ Bob     25 \u{1b}[31mNo\u{1b}[0m
     }
 
     #[test]
-    fn test_table_style_basic_no_padding() {
+    fn renders_basic_table_without_padding() {
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -470,7 +470,7 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_table_style_basic_empty() {
+    fn renders_empty_basic_table() {
         let data: Vec<TestData> = vec![];
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -491,7 +491,7 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_table_style_json() {
+    fn renders_table_in_json_format() {
         let data = create_test_data();
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -512,7 +512,7 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_table_style_json_empty() {
+    fn renders_empty_json_table() {
         let data: Vec<TestData> = vec![];
         let columns: Vec<DynColumn> = vec![
             Box::new(NameColumn),
@@ -527,7 +527,7 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_single_row_table() {
+    fn renders_single_row_table() {
         let data = vec![TestData {
             name: "Single".to_string(),
             age: 42,
@@ -547,7 +547,7 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_unicode_width() {
+    fn handles_unicode_characters_in_table() {
         let data = vec![
             TestData {
                 name: "你好".to_string(),
@@ -571,7 +571,7 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_json_escaping() {
+    fn escapes_special_characters_in_json() {
         let data = vec![TestData {
             name: "Test\"Quote".to_string(),
             age: 25,
@@ -586,13 +586,13 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_get_column_max_width_empty() {
+    fn calculates_max_width_for_empty_table() {
         let widths = get_column_max_width(&[]);
         assert_eq!(widths.len(), 0);
     }
 
     #[test]
-    fn test_get_column_max_width_single_row() {
+    fn calculates_max_width_for_single_row() {
         let row = vec!["foo".into(), "long long long".into()];
         let table = vec![row];
 
@@ -602,7 +602,7 @@ Charlie 35 Yes\
     }
 
     #[test]
-    fn test_get_column_max_width_multi_rows() {
+    fn calculates_max_width_for_multiple_rows() {
         let table = vec![
             vec!["short".into(), "medium".into()],
             vec!["very long string".into(), "x".into()],

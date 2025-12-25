@@ -339,14 +339,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_dashboard() {
+    fn parses_dashboard_command() {
         let args = ["dashboard"];
         let matches = CmdDashboard::command().try_get_matches_from(args).unwrap();
         let _ = CmdDashboard::from(&matches);
     }
 
     #[test]
-    fn test_parse_delay() {
+    fn parses_delay_command() {
         let args = ["delay", "a", "b", "c", "--time", "1d", "--verbose"];
         let matches = CmdEventDelay::command().try_get_matches_from(args).unwrap();
         let parsed = CmdDelay::from(&matches);
@@ -362,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_reschedule() {
+    fn parses_reschedule_command() {
         let args = ["reschedule", "a", "b", "c", "--time", "1h", "--verbose"];
         let matches = CmdReschedule::command().try_get_matches_from(args).unwrap();
         let parsed = CmdReschedule::from(&matches);
@@ -378,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_flush() {
+    fn parses_flush_command() {
         let args = ["flush"];
         let matches = CmdFlush::command().try_get_matches_from(args).unwrap();
         let _ = CmdFlush::from(&matches);

@@ -610,7 +610,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_all_kinds_have_spec() {
+    fn all_kinds_have_spec() {
         // Verify that every PropertyKind variant has a corresponding spec
         for kind in PropertyKind::iter() {
             let spec = kind.spec();

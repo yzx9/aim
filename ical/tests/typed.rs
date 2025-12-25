@@ -29,7 +29,7 @@ fn parse_typed(
 }
 
 #[test]
-fn test_empty_calendar() {
+fn typed_empty_calendar() {
     let src = "\
 BEGIN:VCALENDAR\r
 END:VCALENDAR\r
@@ -40,7 +40,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_minimal_calendar() {
+fn typed_minimal_calendar() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -56,7 +56,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_version_property() {
+fn typed_version_property() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -71,7 +71,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_prodid_property() {
+fn typed_prodid_property() {
     let src = "\
 BEGIN:VCALENDAR\r
 PRODID:-//Example Corp.//CalDAV Client//EN\r
@@ -86,7 +86,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_calscale_property() {
+fn typed_calscale_property() {
     let src = "\
 BEGIN:VCALENDAR\r
 CALSCALE:GREGORIAN\r
@@ -101,7 +101,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_simple_event() {
+fn typed_simple_event() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -125,7 +125,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_dtstart_property() {
+fn typed_dtstart_property() {
     let src = "\
 BEGIN:VEVENT\r
 DTSTART:20250615T133000Z\r
@@ -140,7 +140,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_dtend_property() {
+fn typed_dtend_property() {
     let src = "\
 BEGIN:VEVENT\r
 DTEND:20250615T143000Z\r
@@ -155,7 +155,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_summary_property() {
+fn typed_summary_property() {
     let src = "\
 BEGIN:VEVENT\r
 SUMMARY:Team Meeting\r
@@ -170,7 +170,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_description_property() {
+fn typed_description_property() {
     let src = "\
 BEGIN:VEVENT\r
 DESCRIPTION:This is a detailed description\r
@@ -185,7 +185,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_location_property() {
+fn typed_location_property() {
     let src = "\
 BEGIN:VEVENT\r
 LOCATION:Conference Room B\r
@@ -200,7 +200,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_class_property() {
+fn typed_class_property() {
     let src = "\
 BEGIN:VEVENT\r
 CLASS:PUBLIC\r
@@ -215,7 +215,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_status_property() {
+fn typed_status_property() {
     let src = "\
 BEGIN:VEVENT\r
 STATUS:CONFIRMED\r
@@ -230,7 +230,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_transparency_property() {
+fn typed_transparency_property() {
     let src = "\
 BEGIN:VEVENT\r
 TRANSP:OPAQUE\r
@@ -245,7 +245,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_priority_property() {
+fn typed_priority_property() {
     let src = "\
 BEGIN:VEVENT\r
 PRIORITY:5\r
@@ -260,7 +260,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_sequence_property() {
+fn typed_sequence_property() {
     let src = "\
 BEGIN:VEVENT\r
 SEQUENCE:2\r
@@ -275,7 +275,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_created_property() {
+fn typed_created_property() {
     let src = "\
 BEGIN:VEVENT\r
 CREATED:20250101T000000Z\r
@@ -290,7 +290,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_last_modified_property() {
+fn typed_last_modified_property() {
     let src = "\
 BEGIN:VEVENT\r
 LAST-MODIFIED:20250102T120000Z\r
@@ -308,7 +308,7 @@ END:VEVENT\r
 // The current datetime parser expects a time after the date.
 #[test]
 #[ignore = "parser limitation: datetime parser expects time component after date"]
-fn test_date_only_dtstart() {
+fn typed_date_only_dtstart() {
     let src = "\
 BEGIN:VEVENT\r
 DTSTART:20250615\r
@@ -325,7 +325,7 @@ END:VEVENT\r
 // PARSER LIMITATION: Date-only values (without time component) need a special parser
 #[test]
 #[ignore = "parser limitation: datetime parser expects time component after date"]
-fn test_date_only_dtend() {
+fn typed_date_only_dtend() {
     let src = "\
 BEGIN:VEVENT\r
 DTEND:20250615\r
@@ -340,7 +340,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_duration_property() {
+fn typed_duration_property() {
     let src = "\
 BEGIN:VEVENT\r
 DURATION:PT1H30M\r
@@ -357,7 +357,7 @@ END:VEVENT\r
 // PARSER LIMITATION: RRULE parser is not implemented in the typed module.
 #[test]
 #[ignore = "parser limitation: RRULE parser not implemented in typed module"]
-fn test_rrule_property() {
+fn typed_rrule_property() {
     let src = "\
 BEGIN:VEVENT\r
 RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR\r
@@ -370,7 +370,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_exdate_property() {
+fn typed_exdate_property() {
     let src = "\
 BEGIN:VEVENT\r
 EXDATE:20250101T090000,20250108T090000\r
@@ -385,7 +385,7 @@ END:VEVENT\r
 // but the float parser uses comma as separator. A specialized GEO parser is needed.
 #[test]
 #[ignore = "parser limitation: GEO value format (float;float) requires specialized parser"]
-fn test_geo_property() {
+fn typed_geo_property() {
     let src = "\
 BEGIN:VEVENT\r
 GEO:37.386013;-122.083932\r
@@ -397,7 +397,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_percent_complete_property() {
+fn typed_percent_complete_property() {
     let src = "\
 BEGIN:VTODO\r
 PERCENT-COMPLETE:75\r
@@ -412,7 +412,7 @@ END:VTODO\r
 }
 
 #[test]
-fn test_todo_complete() {
+fn typed_todo_complete() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -438,7 +438,7 @@ END:VCALENDAR\r
 // PARSER LIMITATION: Date-only values (without time component) need a special parser
 #[test]
 #[ignore = "parser limitation: datetime parser expects time component after date"]
-fn test_journal_complete() {
+fn typed_journal_complete() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -459,7 +459,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_freebusy_complete() {
+fn typed_freebusy_complete() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -482,7 +482,7 @@ END:VCALENDAR\r
 // or has issues with certain duration formats.
 #[test]
 #[ignore = "parser limitation: duration parser issue with TRIGGER format or negative durations"]
-fn test_alarm_component() {
+fn typed_alarm_component() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -509,7 +509,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_unknown_property() {
+fn typed_unknown_property() {
     let src = "\
 BEGIN:VEVENT\r
 X-CUSTOM-PROPERTY:some value\r
@@ -526,7 +526,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_duplicate_property() {
+fn typed_duplicate_property() {
     let src = "\
 BEGIN:VEVENT\r
 UID:12345\r
@@ -544,7 +544,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_missing_required_property() {
+fn typed_missing_required_property() {
     // VEVENT requires UID and DTSTAMP
     let src = "\
 BEGIN:VEVENT\r
@@ -559,7 +559,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_property_with_unknown_parameter() {
+fn typed_property_with_unknown_parameter() {
     let src = "\
 BEGIN:VEVENT\r
 DTSTART;X-CUSTOM-PARAM=value:20250615T100000Z\r
@@ -571,7 +571,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_unicode_in_summary() {
+fn typed_unicode_in_summary() {
     let src = "\
 BEGIN:VEVENT\r
 SUMMARY:Team会议📅\r
@@ -586,7 +586,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_escaped_text_in_description() {
+fn typed_escaped_text_in_description() {
     let src = "\
 BEGIN:VEVENT\r
 DESCRIPTION:Line 1\\nLine 2\\;And semicolon\\,And comma\r
@@ -601,7 +601,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_nested_components() {
+fn typed_nested_components() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -634,7 +634,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_multiple_events() {
+fn typed_multiple_events() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -658,7 +658,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_property_case_insensitive() {
+fn typed_property_case_insensitive() {
     let src = "\
 BEGIN:VEVENT\r
 summary:test event\r
@@ -670,7 +670,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_tzid_parameter() {
+fn typed_tzid_parameter() {
     let src = "\
 BEGIN:VEVENT\r
 DTSTART;TZID=America/New_York:20250615T100000\r
@@ -689,7 +689,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_value_parameter() {
+fn typed_value_parameter() {
     let src = "\
 BEGIN:VEVENT\r
 DTSTART;VALUE=DATE:20250615\r
@@ -704,7 +704,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_date_with_value_date_parameter() {
+fn typed_date_with_value_date_parameter() {
     let src = "\
 BEGIN:VEVENT\r
 DTSTART;VALUE=DATE:20250615\r
@@ -720,7 +720,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_complete_real_world_calendar() {
+fn typed_complete_real_world_calendar() {
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -756,7 +756,7 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn test_url_property() {
+fn typed_url_property() {
     let src = "\
 BEGIN:VEVENT\r
 URL:http://example.com/event.html\r
@@ -771,7 +771,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_organizer_property() {
+fn typed_organizer_property() {
     let src = "\
 BEGIN:VEVENT\r
 ORGANIZER;CN=John Doe:mailto:john.doe@example.com\r
@@ -786,7 +786,7 @@ END:VEVENT\r
 }
 
 #[test]
-fn test_attendee_property() {
+fn typed_attendee_property() {
     let src = "\
 BEGIN:VEVENT\r
 ATTENDEE;RSVP=TRUE:mailto:test@example.com\r

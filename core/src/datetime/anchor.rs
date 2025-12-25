@@ -360,7 +360,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_anchor_now() {
+    fn resolves_now_anchor_to_current_time() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
         assert_eq!(DateTimeAnchor::now().resolve_at_start_of_day(&now), now);
         assert_eq!(DateTimeAnchor::now().resolve_at_end_of_day(&now), now);
@@ -373,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_anchor_in_days() {
+    fn resolves_indays_anchor_to_day_boundary() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
         let anchor = DateTimeAnchor::InDays(1);
 
@@ -399,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn test_anchor_time_dateonly() {
+    fn resolves_datetime_anchor_to_day_boundary() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
         let date = NaiveDate::from_ymd_opt(2025, 1, 5).unwrap();
         let loose_date = LooseDateTime::DateOnly(date);
@@ -426,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn test_anchor_time_variants() {
+    fn resolves_various_anchor_types_correctly() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
         for (name, anchor, expected) in [
             (
@@ -471,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    fn test_start_of_day() {
+    fn calculates_start_of_day() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 10, 30, 59).unwrap();
         let parsed = start_of_day(&now);
         let expected = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
@@ -479,7 +479,7 @@ mod tests {
     }
 
     #[test]
-    fn test_end_of_day() {
+    fn calculates_end_of_day() {
         let now = Utc.with_ymd_and_hms(2025, 1, 1, 10, 30, 0).unwrap();
         let parsed = end_of_day(&now);
         let last_sec = Utc.with_ymd_and_hms(2025, 1, 1, 23, 59, 59).unwrap();
@@ -489,7 +489,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_local_datetime_dst_ambiguity_pick_earliest() {
+    fn handles_dst_ambiguity_by_picking_earliest() {
         let tz = chrono_tz::America::New_York; // DST
         let now = NaiveDateTime::new(
             NaiveDate::from_ymd_opt(2025, 11, 2).unwrap(),
@@ -502,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn test_time_parsing() {
+    fn resolves_time_anchor_to_specific_time() {
         // Test parsing of DateTimeAnchor::Time variant
         let time = NaiveTime::from_hms_opt(14, 30, 0).unwrap();
         let anchor = DateTimeAnchor::Time(time);
@@ -533,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_at_table_driven() {
+    fn resolves_anchor_from_loose_datetime() {
         for (name, anchor, now, expected) in [
             (
                 "AtInDays (same datetime)",
@@ -576,7 +576,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_since() {
+    fn resolves_anchor_since_loose_datetime() {
         let dt = |y, m, d, hh, mm, ss| {
             LooseDateTime::Local(Local.with_ymd_and_hms(y, m, d, hh, mm, ss).unwrap())
         };
@@ -610,7 +610,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_since_datetime() {
+    fn resolves_anchor_since_datetime() {
         let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
         for (name, anchor, expected) in [
             (
@@ -657,7 +657,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_str() {
+    fn parses_string_to_datetime_anchor() {
         for (s, expected) in [
             // Keywords
             ("now", DateTimeAnchor::now()),
@@ -697,14 +697,14 @@ mod tests {
     }
 
     #[test]
-    fn test_from_str_invalid() {
+    fn returns_error_for_invalid_string() {
         let result = DateTimeAnchor::from_str("invalid");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Invalid datetime anchor"));
     }
 
     #[test]
-    fn test_from_str_seconds_minutes() {
+    fn parses_seconds_and_minutes_durations() {
         for (tests, expected) in [
             (
                 [
@@ -745,7 +745,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_str_hours_days() {
+    fn parses_hours_and_days_durations() {
         for (tests, expected) in [
             (
                 [
@@ -784,7 +784,7 @@ mod tests {
     }
 
     #[test]
-    fn test_next_suggested_time() {
+    fn suggests_next_available_time_slot() {
         for (hour, min, expected_hour, description) in [
             (8, 30, 9, "Before 9 AM, should suggest 9 AM"),
             (
@@ -813,7 +813,7 @@ mod tests {
     }
 
     #[test]
-    fn test_next_suggested_time_after_6pm() {
+    fn suggests_dateonly_after_business_hours() {
         // After 6 PM, should suggest DateOnly (next day)
         let now = Local.with_ymd_and_hms(2025, 1, 1, 19, 30, 0).unwrap();
         let result = next_suggested_time(&now.naive_local());

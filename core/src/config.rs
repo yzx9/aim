@@ -122,7 +122,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_config_toml() {
+    fn parses_full_toml_config() {
         const TOML: &str = r#"
 calendar_path = "calendar"
 state_dir = "state"
@@ -140,7 +140,7 @@ default_priority_none_fist = true
     }
 
     #[test]
-    fn test_config_default() {
+    fn parses_minimal_toml_with_defaults() {
         const TOML: &str = r#"
 calendar_path = "calendar"
 "#;
@@ -154,7 +154,7 @@ calendar_path = "calendar"
     }
 
     #[test]
-    fn test_expand_path_home_env() {
+    fn expands_path_with_home_env_vars() {
         let home = get_home_dir().unwrap();
         let home_prefixes: &[&str] = if cfg!(unix) {
             &["~", "$HOME", "${HOME}"]
@@ -169,7 +169,7 @@ calendar_path = "calendar"
     }
 
     #[test]
-    fn test_expand_path_config() {
+    fn expands_path_with_config_env_vars() {
         let config_dir = get_config_dir().unwrap();
         let config_prefixes: &[&str] = if cfg!(unix) {
             &["$XDG_CONFIG_HOME", "${XDG_CONFIG_HOME}"]
@@ -184,21 +184,21 @@ calendar_path = "calendar"
     }
 
     #[test]
-    fn test_expand_path_absolute() {
+    fn preserves_absolute_path() {
         let absolute_path = PathBuf::from("/etc/passwd");
         let result = expand_path(&absolute_path).unwrap();
         assert_eq!(result, absolute_path);
     }
 
     #[test]
-    fn test_expand_path_relative() {
+    fn preserves_relative_path() {
         let relative_path = PathBuf::from("relative/path/to/file");
         let result = expand_path(&relative_path).unwrap();
         assert_eq!(result, relative_path);
     }
 
     #[test]
-    fn test_due_from_str_suffix_format() {
+    fn parses_datetime_anchor_with_suffix_format() {
         // TODO: compatibility test, remove after v0.10.0
         assert_eq!(
             DateTimeAnchor::from_str("1d").unwrap(),

@@ -89,7 +89,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_unicode_width_ascii_only() {
+    fn calculates_width_for_ascii_only() {
         let s = "hello world";
         assert_eq!(unicode_width_of_slice(s, 100), 11);
         assert_eq!(unicode_width_of_slice(s, 5), 5);
@@ -97,7 +97,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unicode_width_mixed_english_chinese() {
+    fn calculates_width_for_mixed_english_chinese() {
         let s = "abc中文def";
         // "abc" + "中"
         assert_eq!(unicode_width_of_slice(s, 4), "abc中".width());
@@ -107,26 +107,26 @@ mod tests {
     }
 
     #[test]
-    fn test_unicode_width_emoji() {
+    fn calculates_width_for_emoji() {
         let s = "a😀b";
         // "a😀" => 1 (a) + 2 (😀)
         assert_eq!(unicode_width_of_slice(s, 2), "a😀".width());
     }
 
     #[test]
-    fn test_unicode_width_out_of_bounds_char_index() {
+    fn calculates_width_for_out_of_bounds_char_index() {
         let s = "hi";
         assert_eq!(unicode_width_of_slice(s, 10), s.width());
     }
 
     #[test]
-    fn test_unicode_width_empty_string() {
+    fn calculates_width_for_empty_string() {
         let s = "";
         assert_eq!(unicode_width_of_slice(s, 0), 0);
     }
 
     #[test]
-    fn test_unicode_width_full_width_characters() {
+    fn calculates_width_for_full_width_characters() {
         let s = "ＡＢＣ"; // Full-width Latin letters
         assert_eq!(unicode_width_of_slice(s, 2), "ＡＢ".width());
     }
@@ -139,13 +139,13 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_empty() {
+    fn parses_empty_datetime() {
         let now = default_datetime();
         assert_eq!(parse_datetime(&now, "").unwrap(), None);
     }
 
     #[test]
-    fn test_parse_datetime_date_only() {
+    fn parses_datetime_date_only() {
         let now = default_datetime();
         let result = parse_datetime(&now, "2023-12-25").unwrap().unwrap();
         match result {
@@ -157,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_date_time() {
+    fn parses_datetime_date_and_time() {
         let now = default_datetime();
         let result = parse_datetime(&now, "2023-12-25 14:30").unwrap().unwrap();
         match result {
@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_time_only() {
+    fn parses_datetime_time_only() {
         let now = default_datetime();
         let result = parse_datetime(&now, "20:30").unwrap().unwrap();
         match result {
@@ -186,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_invalid() {
+    fn returns_error_for_invalid_datetime() {
         let now = default_datetime();
         assert!(parse_datetime(&now, "invalid").is_err());
         assert!(parse_datetime(&now, "25:00").is_err());
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_range_both_empty() {
+    fn parses_datetime_range_with_both_empty() {
         let now = default_datetime();
         let (start, end) = parse_datetime_range(&now, "", "").unwrap();
         assert_eq!(start, None);
@@ -202,7 +202,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_range_start_only() {
+    fn parses_datetime_range_with_start_only() {
         let now = default_datetime();
         let (start, end) = parse_datetime_range(&now, "2023-12-25", "").unwrap();
         assert!(start.is_some());
@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_range_both_dates() {
+    fn parses_datetime_range_with_both_dates() {
         let now = default_datetime();
         let (start, end) = parse_datetime_range(&now, "2023-12-25", "2023-12-26").unwrap();
         assert!(start.is_some());
@@ -218,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_range_date_and_time() {
+    fn parses_datetime_range_with_date_and_time() {
         let now = default_datetime();
         let (start, end) = parse_datetime_range(&now, "2023-12-25", "14:30").unwrap();
         assert!(start.is_some());
@@ -244,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_range_datetime_and_time() {
+    fn parses_datetime_range_with_datetime_and_time() {
         let now = default_datetime();
         let (start, end) = parse_datetime_range(&now, "2023-12-25 14:00", "14:30").unwrap();
         assert!(start.is_some());
@@ -274,7 +274,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_datetime_range_datetime_and_earlier_time() {
+    fn parses_datetime_range_with_datetime_and_earlier_time() {
         let now = default_datetime();
         let (start, end) = parse_datetime_range(&now, "2023-12-25 14:00", "13:30").unwrap();
         assert!(start.is_some());
@@ -304,14 +304,14 @@ mod tests {
     }
 
     #[test]
-    fn test_format_datetime_date_only() {
+    fn formats_datetime_date_only() {
         let date = NaiveDate::from_ymd_opt(2023, 12, 25).unwrap();
         let formatted = format_datetime(LooseDateTime::DateOnly(date));
         assert_eq!(formatted, "2023-12-25");
     }
 
     #[test]
-    fn test_format_datetime_floating() {
+    fn formats_datetime_floating() {
         let dt = NaiveDateTime::new(
             NaiveDate::from_ymd_opt(2023, 12, 25).unwrap(),
             NaiveTime::from_hms_opt(14, 30, 0).unwrap(),
@@ -321,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_datetime_local() {
+    fn formats_datetime_local() {
         let dt = Local
             .from_local_datetime(&NaiveDateTime::new(
                 NaiveDate::from_ymd_opt(2023, 12, 25).unwrap(),
@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn test_byte_range_ascii_basic() {
+    fn finds_byte_range_for_ascii_basic() {
         let s = "hello";
         assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..1)); // 'h'
         assert_eq!(byte_range_of_grapheme_at(s, 4), Some(4..5)); // 'o'
@@ -341,7 +341,7 @@ mod tests {
     }
 
     #[test]
-    fn test_byte_range_chinese_multibyte() {
+    fn finds_byte_range_for_chinese_multibyte() {
         let s = "a中b";
         // UTF-8: 'a' = 1 byte, '中' = 3 bytes, 'b' = 1 byte
         assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..1)); // 'a'
@@ -351,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn test_byte_range_emoji_with_skin_tone() {
+    fn finds_byte_range_for_emoji_with_skin_tone() {
         let s = "👍🏻a";
         // "👍🏻" is 1 grapheme cluster, composed of two code points (8 bytes)
         assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..8));
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_byte_range_emoji_family_zwj() {
+    fn finds_byte_range_for_emoji_family_zwj() {
         let s = "👨‍👩‍👧"; // ZWJ sequence, treated as 1 grapheme cluster
         let len = s.len();
         assert_eq!(byte_range_of_grapheme_at(s, 0), Some(0..len));
@@ -367,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn test_byte_range_combining_mark() {
+    fn finds_byte_range_for_combining_mark() {
         // 'e' + combining acute accent = 1 grapheme cluster,
         // then 'b' UTF-8: 'e' (1 byte) + U+0301 (2 bytes) = 3 bytes total
         let s = "e\u{0301}b";
@@ -377,7 +377,7 @@ mod tests {
     }
 
     #[test]
-    fn test_byte_range_empty_string() {
+    fn finds_byte_range_for_empty_string() {
         let s = "";
         assert_eq!(byte_range_of_grapheme_at(s, 0), None);
         assert_eq!(byte_range_of_grapheme_at(s, 1), None);
