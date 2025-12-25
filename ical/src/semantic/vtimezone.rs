@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(dead_code)]
-
 //! Timezone component (VTIMEZONE) for iCalendar semantic components.
 
 use crate::RecurrenceRule;

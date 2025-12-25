@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(dead_code)]
-
 //! To-do component (VTODO) for iCalendar semantic components.
 
 use crate::RecurrenceRule;

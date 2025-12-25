@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(dead_code)]
-
 //! Journal entry component (VJOURNAL) for iCalendar semantic components.
 
 use crate::semantic::enums::{Classification, Period};

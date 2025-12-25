@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(dead_code)]
-
 //! Event component (VEVENT) for iCalendar semantic components.
 
 #[allow(clippy::wildcard_imports)]

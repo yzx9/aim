@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(dead_code)]
-
 //! Enumeration types for iCalendar semantic components.
 //!
 //! This module contains shared enums used across multiple components.

@@ -29,7 +29,6 @@ pub enum TypedParameter<'src> {
     /// representation of the text value
     ///
     /// See also: RFC 5545 Section 3.2.1. Alternate Text Representation
-    #[allow(dead_code)]
     AlternateText {
         value: SpannedSegments<'src>,
         span: Span,
@@ -92,7 +91,6 @@ pub enum TypedParameter<'src> {
     /// property value.
     ///
     /// See also: RFC 5545 Section 3.2.7. Inline Encoding
-    #[allow(dead_code)]
     Encoding { value: Encoding, span: Span },
 
     /// This parameter can be specified on properties that are used to
@@ -104,7 +102,6 @@ pub enum TypedParameter<'src> {
     /// type.
     ///
     /// See also: RFC 5545 Section 3.2.8. Format Type
-    #[allow(dead_code)]
     FormatType {
         value: SpannedSegments<'src>,
         span: Span,
@@ -115,7 +112,6 @@ pub enum TypedParameter<'src> {
     /// they would the BUSY value.
     ///
     /// See also: RFC 5545 Section 3.2.9. Free/Busy Time Type
-    #[allow(dead_code)]
     FreeBusyType { value: FreeBusyType, span: Span },
 
     /// This parameter identifies the language of the text in the property
@@ -170,7 +166,6 @@ pub enum TypedParameter<'src> {
     /// identifier value of the property.
     ///
     /// See also: RFC 5545 Section 3.2.13. Recurrence Identifier Range
-    #[allow(dead_code)]
     RecurrenceIdRange {
         value: RecurrenceIdRange,
         span: Span,
@@ -182,7 +177,6 @@ pub enum TypedParameter<'src> {
     /// component.
     ///
     /// See also: RFC 5545 Section 3.2.14. Alarm Trigger Relationship
-    #[allow(dead_code)]
     AlarmTriggerRelationship {
         value: AlarmTriggerRelationship,
         span: Span,
@@ -195,7 +189,6 @@ pub enum TypedParameter<'src> {
     /// way as they would the PARENT value.
     ///
     /// See also: RFC 5545 Section 3.2.15. Relationship Type
-    #[allow(dead_code)]
     RelationshipType { value: RelationshipType, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
@@ -244,7 +237,6 @@ pub enum TypedParameter<'src> {
     /// iCalendar object.
     ///
     /// See also: RFC 5545 Section 3.2.19. Time Zone Identifier
-    #[allow(dead_code)]
     TimeZoneIdentifier {
         value: SpannedSegments<'src>,
 

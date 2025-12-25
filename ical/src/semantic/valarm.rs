@@ -8,7 +8,6 @@ use crate::SemanticError;
 use crate::semantic::properties::{Attachment, Attendee, Duration, Text, Trigger};
 
 /// Alarm component (VALARM)
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct VAlarm {
     /// Action to perform when alarm triggers
@@ -39,7 +38,6 @@ pub struct VAlarm {
 }
 
 /// Alarm action types
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum AlarmActionType {
     /// Audio alarm

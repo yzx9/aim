@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(dead_code)]
-
 //! Free/busy time component (VFREEBUSY) for iCalendar semantic components.
 
 use crate::semantic::enums::Period;
