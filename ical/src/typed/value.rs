@@ -105,7 +105,8 @@ pub fn parse_values(
     value: SpannedSegments<'_>,
 ) -> Result<Vec<Value<'_>>, Vec<Rich<'_, char>>> {
     use ValueType::{
-        Binary, Boolean, Date, DateTime, Duration, Float, Integer, Text, Time, UtcOffset,
+        Binary, Boolean, CalendarUserAddress, Date, DateTime, Duration, Float, Integer, Period,
+        RecurrenceRule, Text, Time, Uri, UtcOffset,
     };
 
     match kind {
@@ -146,7 +147,9 @@ pub fn parse_values(
             .parse(make_input(value))
             .into_result(),
 
-        Text => values_text::<'_, _, extra::Err<_>>()
+        // URI and CAL-ADDRESS are parsed as text per RFC 5545
+        // (cal-address = uri, and URI values are essentially text strings)
+        CalendarUserAddress | Text | Uri => values_text::<'_, _, extra::Err<_>>()
             .parse(make_input(value.clone())) // PERF: avoid clone
             .into_result()
             .map(|texts| {
@@ -166,7 +169,8 @@ pub fn parse_values(
             .parse(make_input(value))
             .into_result(),
 
-        _ => unimplemented!("Parser for {kind} is not implemented"),
+        // TODO: implement other value types
+        Period | RecurrenceRule => unimplemented!("Parser for {kind} is not implemented"),
     }
 }
 

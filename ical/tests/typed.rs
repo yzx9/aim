@@ -755,10 +755,7 @@ END:VCALENDAR\r
     let _ = result;
 }
 
-// PARSER LIMITATION: URL values contain colons (http://)
-// which the syntax parser doesn't support in property values.
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Colon token in URL values"]
 fn test_url_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -773,10 +770,7 @@ END:VEVENT\r
     ));
 }
 
-// PARSER LIMITATION: ORGANIZER values contain colons (mailto:)
-// which the syntax parser doesn't support in property values.
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Colon token in ORGANIZER values"]
 fn test_organizer_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -791,10 +785,7 @@ END:VEVENT\r
     ));
 }
 
-// PARSER LIMITATION: ATTENDEE values contain colons (mailto:)
-// which the syntax parser doesn't support in property values.
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Colon token in ATTENDEE values"]
 fn test_attendee_property() {
     let src = "\
 BEGIN:VEVENT\r

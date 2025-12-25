@@ -521,9 +521,7 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 }
 
-// PARSER LIMITATION: URL values contain colons (http://)
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Colon token in URL values"]
 fn test_event_with_url() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -542,9 +540,7 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 }
 
-// PARSER LIMITATION: ORGANIZER values contain colons (mailto:)
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Colon token in ORGANIZER values"]
 fn test_event_with_organizer() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -563,9 +559,7 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 }
 
-// PARSER LIMITATION: ATTENDEE values contain colons (mailto:)
 #[test]
-#[ignore = "parser limitation: syntax parser doesn't allow Colon token in ATTENDEE values"]
 fn test_event_with_attendee() {
     let src = "\
 BEGIN:VCALENDAR\r
