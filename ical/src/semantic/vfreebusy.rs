@@ -4,8 +4,10 @@
 
 //! Free/busy time component (VFREEBUSY) for iCalendar semantic components.
 
+use crate::SemanticError;
 use crate::semantic::enums::Period;
 use crate::semantic::properties::{DateTime, Duration, Organizer, Text, Uri};
+use crate::typed::TypedComponent;
 
 /// Free/busy time component (VFREEBUSY)
 #[derive(Debug, Clone)]
@@ -50,8 +52,6 @@ pub struct VFreeBusy {
 }
 
 /// Parse a `TypedComponent` into a `VFreeBusy`
-pub fn parse_vfreebusy(
-    _comp: crate::typed::TypedComponent,
-) -> Result<VFreeBusy, crate::semantic::SemanticError> {
+pub fn parse_vfreebusy(_comp: TypedComponent) -> Result<VFreeBusy, SemanticError> {
     todo!("Implement parse_vfreebusy")
 }

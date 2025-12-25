@@ -4,11 +4,12 @@
 
 //! To-do component (VTODO) for iCalendar semantic components.
 
-use crate::RecurrenceRule;
 use crate::semantic::enums::{Classification, Period};
 use crate::semantic::properties::{Attendee, Geo, Organizer, Text};
 use crate::semantic::valarm::VAlarm;
 use crate::semantic::{DateTime, Duration, Uri};
+use crate::typed::TypedComponent;
+use crate::{RecurrenceRule, SemanticError};
 
 /// To-do component (VTODO)
 #[derive(Debug, Clone)]
@@ -113,8 +114,6 @@ pub enum TodoStatus {
 }
 
 /// Parse a `TypedComponent` into a `VTodo`
-pub fn parse_vtodo(
-    _comp: crate::typed::TypedComponent,
-) -> Result<VTodo, crate::semantic::SemanticError> {
+pub fn parse_vtodo(_comp: TypedComponent) -> Result<VTodo, SemanticError> {
     todo!("Implement parse_vtodo")
 }

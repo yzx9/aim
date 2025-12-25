@@ -4,17 +4,21 @@
 
 //! Event component (VEVENT) for iCalendar semantic components.
 
-#[allow(clippy::wildcard_imports)]
-use crate::keyword::*;
+use crate::RecurrenceRule;
+use crate::keyword::{KW_VALARM, KW_VEVENT};
 use crate::semantic::SemanticError;
 use crate::semantic::analysis::{
-    find_parameter, find_properties, find_property, get_language, get_single_value, get_tzid,
-    parse_cal_address, value_to_date_time, value_to_duration, value_to_int, value_to_string,
+    find_parameter, find_properties, find_property_by_kind, get_language, get_single_value,
+    get_tzid, parse_cal_address, value_to_date_time, value_to_duration, value_to_int,
+    value_to_string,
 };
 use crate::semantic::enums::{Classification, Period};
 use crate::semantic::properties::{Attendee, DateTime, Duration, Geo, Organizer, Text, Uri};
-use crate::semantic::valarm::VAlarm;
-use crate::typed::{TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value};
+use crate::semantic::valarm::{VAlarm, parse_valarm};
+use crate::typed::parameter_types::{CalendarUserType, ParticipationRole, ParticipationStatus};
+use crate::typed::{
+    PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
+};
 
 /// Event component (VEVENT)
 #[derive(Debug, Clone)]
@@ -80,7 +84,7 @@ pub struct VEvent {
     pub categories: Vec<Text>,
 
     /// Recurrence rule
-    pub rrule: Option<crate::typed::RecurrenceRule>,
+    pub rrule: Option<RecurrenceRule>,
 
     /// Recurrence dates
     pub rdate: Vec<Period>,
@@ -135,68 +139,87 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
     }
 
     // UID is required
-    let uid_prop = find_property(&comp.properties, KW_UID)
-        .ok_or(SemanticError::MissingProperty(KW_UID.to_string()))?;
+    let uid_prop = find_property_by_kind(&comp.properties, PropertyKind::Uid)
+        .ok_or_else(|| SemanticError::MissingProperty(PropertyKind::Uid.as_str().to_string()))?;
     let uid = value_to_string(get_single_value(uid_prop)?).ok_or_else(|| {
-        SemanticError::InvalidValue(KW_UID.to_string(), "Expected text value".to_string())
+        SemanticError::InvalidValue(
+            PropertyKind::Uid.as_str().to_string(),
+            "Expected text value".to_string(),
+        )
     })?;
 
     // DTSTAMP is required
-    let dt_stamp_prop = find_property(&comp.properties, KW_DTSTAMP)
-        .ok_or(SemanticError::MissingProperty(KW_DTSTAMP.to_string()))?;
+    let dt_stamp_prop =
+        find_property_by_kind(&comp.properties, PropertyKind::DtStamp).ok_or_else(|| {
+            SemanticError::MissingProperty(PropertyKind::DtStamp.as_str().to_string())
+        })?;
     let dt_stamp = value_to_date_time(get_single_value(dt_stamp_prop)?).ok_or_else(|| {
         SemanticError::InvalidValue(
-            KW_DTSTAMP.to_string(),
+            PropertyKind::DtStamp.as_str().to_string(),
             "Expected date-time value".to_string(),
         )
     })?;
 
     // DTSTART is required
-    let dt_start_prop = find_property(&comp.properties, KW_DTSTART)
-        .ok_or(SemanticError::MissingProperty(KW_DTSTART.to_string()))?;
-    let mut dt_start =
-        value_to_date_time(get_single_value(dt_start_prop)?).ok_or(SemanticError::InvalidValue(
-            KW_DTSTART.to_string(),
+    let dt_start_prop =
+        find_property_by_kind(&comp.properties, PropertyKind::DtStart).ok_or_else(|| {
+            SemanticError::MissingProperty(PropertyKind::DtStart.as_str().to_string())
+        })?;
+    let mut dt_start = value_to_date_time(get_single_value(dt_start_prop)?).ok_or_else(|| {
+        SemanticError::InvalidValue(
+            PropertyKind::DtStart.as_str().to_string(),
             "Expected date-time value".to_string(),
-        ))?;
+        )
+    })?;
     // Add timezone if specified
     if let Some(tz_id) = get_tzid(&dt_start_prop.parameters) {
         dt_start.tz_id = Some(tz_id);
     }
 
     // DTEND is optional
-    let dt_end = if let Some(dt_end_prop) = find_property(&comp.properties, KW_DTEND) {
-        let mut dt_end_value = value_to_date_time(get_single_value(dt_end_prop)?).ok_or(
-            SemanticError::InvalidValue(
-                KW_DTEND.to_string(),
-                "Expected date-time value".to_string(),
-            ),
-        )?;
-        if let Some(tz_id) = get_tzid(&dt_end_prop.parameters) {
-            dt_end_value.tz_id = Some(tz_id);
-        }
-        Some(dt_end_value)
-    } else {
-        None
-    };
+    let dt_end =
+        if let Some(dt_end_prop) = find_property_by_kind(&comp.properties, PropertyKind::DtEnd) {
+            let mut dt_end_value =
+                value_to_date_time(get_single_value(dt_end_prop)?).ok_or_else(|| {
+                    SemanticError::InvalidValue(
+                        PropertyKind::DtEnd.as_str().to_string(),
+                        "Expected date-time value".to_string(),
+                    )
+                })?;
+            if let Some(tz_id) = get_tzid(&dt_end_prop.parameters) {
+                dt_end_value.tz_id = Some(tz_id);
+            }
+            Some(dt_end_value)
+        } else {
+            None
+        };
 
     // DURATION is optional (alternative to DTEND)
-    let duration = if let Some(duration_prop) = find_property(&comp.properties, KW_DURATION) {
-        Some(value_to_duration(get_single_value(duration_prop)?).ok_or(
-            SemanticError::InvalidValue(
-                KW_DURATION.to_string(),
-                "Expected duration value".to_string(),
-            ),
-        )?)
+    let duration = if let Some(duration_prop) =
+        find_property_by_kind(&comp.properties, PropertyKind::Duration)
+    {
+        Some(
+            value_to_duration(get_single_value(duration_prop)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Duration.as_str().to_string(),
+                    "Expected duration value".to_string(),
+                )
+            })?,
+        )
     } else {
         None
     };
 
     // SUMMARY is optional
-    let summary = if let Some(summary_prop) = find_property(&comp.properties, KW_SUMMARY) {
-        let text = value_to_string(get_single_value(summary_prop)?).ok_or(
-            SemanticError::InvalidValue(KW_SUMMARY.to_string(), "Expected text value".to_string()),
-        )?;
+    let summary = if let Some(summary_prop) =
+        find_property_by_kind(&comp.properties, PropertyKind::Summary)
+    {
+        let text = value_to_string(get_single_value(summary_prop)?).ok_or_else(|| {
+            SemanticError::InvalidValue(
+                PropertyKind::Summary.as_str().to_string(),
+                "Expected text value".to_string(),
+            )
+        })?;
         let language = get_language(&summary_prop.parameters);
         Some(Text {
             content: text,
@@ -207,12 +230,15 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
     };
 
     // DESCRIPTION is optional
-    let description = if let Some(desc_prop) = find_property(&comp.properties, KW_DESCRIPTION) {
-        let text =
-            value_to_string(get_single_value(desc_prop)?).ok_or(SemanticError::InvalidValue(
-                KW_DESCRIPTION.to_string(),
+    let description = if let Some(desc_prop) =
+        find_property_by_kind(&comp.properties, PropertyKind::Description)
+    {
+        let text = value_to_string(get_single_value(desc_prop)?).ok_or_else(|| {
+            SemanticError::InvalidValue(
+                PropertyKind::Description.as_str().to_string(),
                 "Expected text value".to_string(),
-            ))?;
+            )
+        })?;
         let language = get_language(&desc_prop.parameters);
         Some(Text {
             content: text,
@@ -223,32 +249,36 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
     };
 
     // LOCATION is optional
-    let location = if let Some(loc_prop) = find_property(&comp.properties, KW_LOCATION) {
-        let text = value_to_string(get_single_value(loc_prop)?).ok_or(
-            SemanticError::InvalidValue(KW_LOCATION.to_string(), "Expected text value".to_string()),
-        )?;
-        let language = get_language(&loc_prop.parameters);
-        Some(Text {
-            content: text,
-            language,
-        })
-    } else {
-        None
-    };
+    let location =
+        if let Some(loc_prop) = find_property_by_kind(&comp.properties, PropertyKind::Location) {
+            let text = value_to_string(get_single_value(loc_prop)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Location.as_str().to_string(),
+                    "Expected text value".to_string(),
+                )
+            })?;
+            let language = get_language(&loc_prop.parameters);
+            Some(Text {
+                content: text,
+                language,
+            })
+        } else {
+            None
+        };
 
     // GEO is optional
-    let geo = if let Some(geo_prop) = find_property(&comp.properties, KW_GEO) {
+    let geo = if let Some(geo_prop) = find_property_by_kind(&comp.properties, PropertyKind::Geo) {
         let values = &geo_prop.values;
         if values.len() == 2 {
             let Some(lat_val) = values.first() else {
                 return Err(SemanticError::InvalidValue(
-                    KW_GEO.to_string(),
+                    PropertyKind::Geo.as_str().to_string(),
                     "Expected float value for latitude".to_string(),
                 ));
             };
             let Some(lon_val) = values.get(1) else {
                 return Err(SemanticError::InvalidValue(
-                    KW_GEO.to_string(),
+                    PropertyKind::Geo.as_str().to_string(),
                     "Expected float value for longitude".to_string(),
                 ));
             };
@@ -256,7 +286,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
                 Value::Float(f) => *f,
                 _ => {
                     return Err(SemanticError::InvalidValue(
-                        KW_GEO.to_string(),
+                        PropertyKind::Geo.as_str().to_string(),
                         "Expected float value for latitude".to_string(),
                     ));
                 }
@@ -265,7 +295,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
                 Value::Float(f) => *f,
                 _ => {
                     return Err(SemanticError::InvalidValue(
-                        KW_GEO.to_string(),
+                        PropertyKind::Geo.as_str().to_string(),
                         "Expected float value for longitude".to_string(),
                     ));
                 }
@@ -273,7 +303,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
             Some(Geo { lat, lon })
         } else {
             return Err(SemanticError::InvalidValue(
-                KW_GEO.to_string(),
+                PropertyKind::Geo.as_str().to_string(),
                 "Expected exactly 2 float values".to_string(),
             ));
         }
@@ -282,52 +312,58 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
     };
 
     // URL is optional
-    let url = if let Some(url_prop) = find_property(&comp.properties, KW_URL) {
+    let url = if let Some(url_prop) = find_property_by_kind(&comp.properties, PropertyKind::Url) {
         Some(Uri {
-            uri: value_to_string(get_single_value(url_prop)?).ok_or(
-                SemanticError::InvalidValue(KW_URL.to_string(), "Expected URI value".to_string()),
-            )?,
+            uri: value_to_string(get_single_value(url_prop)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Url.as_str().to_string(),
+                    "Expected URI value".to_string(),
+                )
+            })?,
         })
     } else {
         None
     };
 
     // ORGANIZER is optional
-    let organizer = find_property(&comp.properties, KW_ORGANIZER)
+    let organizer = find_property_by_kind(&comp.properties, PropertyKind::Organizer)
         .map(parse_organizer)
         .transpose()?;
 
     // ATTENDEE can appear multiple times
-    let attendees = find_properties(&comp.properties, KW_ATTENDEE)
+    let attendees = find_properties(&comp.properties, PropertyKind::Attendee)
         .into_iter()
         .map(parse_attendee)
         .collect::<Result<Vec<_>, _>>()?;
 
     // LAST-MODIFIED is optional
-    let last_modified = if let Some(prop) = find_property(&comp.properties, KW_LAST_MODIFIED) {
-        Some(value_to_date_time(get_single_value(prop)?).ok_or_else(|| {
-            SemanticError::InvalidValue(
-                KW_LAST_MODIFIED.to_string(),
-                "Expected date-time value".to_string(),
-            )
-        })?)
-    } else {
-        None
-    };
+    let last_modified =
+        if let Some(prop) = find_property_by_kind(&comp.properties, PropertyKind::LastModified) {
+            Some(value_to_date_time(get_single_value(prop)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::LastModified.as_str().to_string(),
+                    "Expected date-time value".to_string(),
+                )
+            })?)
+        } else {
+            None
+        };
 
     // STATUS is optional
-    let status = find_property(&comp.properties, KW_STATUS)
+    let status = find_property_by_kind(&comp.properties, PropertyKind::Status)
         .map(|p| {
-            let text = value_to_string(get_single_value(p)?).ok_or(SemanticError::InvalidValue(
-                KW_STATUS.to_string(),
-                "Expected text value".to_string(),
-            ))?;
+            let text = value_to_string(get_single_value(p)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Status.as_str().to_string(),
+                    "Expected text value".to_string(),
+                )
+            })?;
             match text.to_uppercase().as_str() {
                 "TENTATIVE" => Ok(EventStatus::Tentative),
                 "CONFIRMED" => Ok(EventStatus::Confirmed),
                 "CANCELLED" => Ok(EventStatus::Cancelled),
                 _ => Err(SemanticError::InvalidValue(
-                    KW_STATUS.to_string(),
+                    PropertyKind::Status.as_str().to_string(),
                     format!("Invalid status: {text}"),
                 )),
             }
@@ -335,17 +371,19 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
         .transpose()?;
 
     // TRANSP is optional
-    let transparency = find_property(&comp.properties, KW_TRANSP)
+    let transparency = find_property_by_kind(&comp.properties, PropertyKind::Transp)
         .map(|p| {
-            let text = value_to_string(get_single_value(p)?).ok_or(SemanticError::InvalidValue(
-                KW_TRANSP.to_string(),
-                "Expected text value".to_string(),
-            ))?;
+            let text = value_to_string(get_single_value(p)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Transp.as_str().to_string(),
+                    "Expected text value".to_string(),
+                )
+            })?;
             match text.to_uppercase().as_str() {
                 "OPAQUE" => Ok(TimeTransparency::Opaque),
                 "TRANSPARENT" => Ok(TimeTransparency::Transparent),
                 _ => Err(SemanticError::InvalidValue(
-                    KW_TRANSP.to_string(),
+                    PropertyKind::Transp.as_str().to_string(),
                     format!("Invalid transparency: {text}"),
                 )),
             }
@@ -353,42 +391,46 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
         .transpose()?;
 
     // SEQUENCE is optional
-    let sequence = if let Some(prop) = find_property(&comp.properties, KW_SEQUENCE) {
-        Some(value_to_int::<u32>(get_single_value(prop)?).ok_or_else(|| {
-            SemanticError::InvalidValue(
-                KW_SEQUENCE.to_string(),
-                "Expected integer value".to_string(),
-            )
-        })?)
-    } else {
-        None
-    };
+    let sequence =
+        if let Some(prop) = find_property_by_kind(&comp.properties, PropertyKind::Sequence) {
+            Some(value_to_int::<u32>(get_single_value(prop)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Sequence.as_str().to_string(),
+                    "Expected integer value".to_string(),
+                )
+            })?)
+        } else {
+            None
+        };
 
     // PRIORITY is optional
-    let priority = if let Some(prop) = find_property(&comp.properties, KW_PRIORITY) {
-        Some(value_to_int::<u8>(get_single_value(prop)?).ok_or_else(|| {
-            SemanticError::InvalidValue(
-                KW_PRIORITY.to_string(),
-                "Expected integer value".to_string(),
-            )
-        })?)
-    } else {
-        None
-    };
+    let priority =
+        if let Some(prop) = find_property_by_kind(&comp.properties, PropertyKind::Priority) {
+            Some(value_to_int::<u8>(get_single_value(prop)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Priority.as_str().to_string(),
+                    "Expected integer value".to_string(),
+                )
+            })?)
+        } else {
+            None
+        };
 
     // CLASS is optional
-    let classification = find_property(&comp.properties, KW_CLASS)
+    let classification = find_property_by_kind(&comp.properties, PropertyKind::Class)
         .map(|p| {
-            let text = value_to_string(get_single_value(p)?).ok_or(SemanticError::InvalidValue(
-                KW_CLASS.to_string(),
-                "Expected text value".to_string(),
-            ))?;
+            let text = value_to_string(get_single_value(p)?).ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Class.as_str().to_string(),
+                    "Expected text value".to_string(),
+                )
+            })?;
             match text.to_uppercase().as_str() {
                 "PUBLIC" => Ok(Classification::Public),
                 "PRIVATE" => Ok(Classification::Private),
                 "CONFIDENTIAL" => Ok(Classification::Confidential),
                 _ => Err(SemanticError::InvalidValue(
-                    KW_CLASS.to_string(),
+                    PropertyKind::Class.as_str().to_string(),
                     format!("Invalid classification: {text}"),
                 )),
             }
@@ -396,7 +438,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
         .transpose()?;
 
     // RESOURCES can appear multiple times (comma-separated values)
-    let resources = find_property(&comp.properties, KW_RESOURCES)
+    let resources = find_property_by_kind(&comp.properties, PropertyKind::Resources)
         .map(|p| {
             p.values
                 .iter()
@@ -411,7 +453,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
         .unwrap_or_default();
 
     // CATEGORIES can appear multiple times (comma-separated values)
-    let categories = find_property(&comp.properties, KW_CATEGORIES)
+    let categories = find_property_by_kind(&comp.properties, PropertyKind::Categories)
         .map(|p| {
             p.values
                 .iter()
@@ -426,7 +468,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
         .unwrap_or_default();
 
     // RRULE is optional
-    let rrule = match find_property(&comp.properties, KW_RRULE) {
+    let rrule = match find_property_by_kind(&comp.properties, PropertyKind::RRule) {
         Some(prop) => {
             match get_single_value(prop)? {
                 Value::Text(_text) => {
@@ -436,7 +478,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
                 }
                 _ => {
                     return Err(SemanticError::InvalidValue(
-                        KW_RRULE.to_string(),
+                        PropertyKind::RRule.as_str().to_string(),
                         "Expected text value".to_string(),
                     ));
                 }
@@ -449,7 +491,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
     let rdate = vec![]; // TODO: implement RDATE parsing
 
     // EXDATE is optional
-    let ex_date = find_properties(&comp.properties, KW_EXDATE)
+    let ex_date = find_properties(&comp.properties, PropertyKind::ExDate)
         .into_iter()
         .flat_map(|p| {
             p.values
@@ -465,7 +507,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
         .into_iter()
         .filter_map(|child| {
             if child.name == KW_VALARM {
-                Some(crate::semantic::valarm::parse_valarm(child))
+                Some(parse_valarm(child))
             } else {
                 None
             }
@@ -503,11 +545,12 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
 
 /// Parse an ORGANIZER property into an Organizer
 fn parse_organizer(prop: &TypedProperty<'_>) -> Result<Organizer, SemanticError> {
-    let cal_address =
-        parse_cal_address(get_single_value(prop)?).ok_or(SemanticError::InvalidValue(
-            KW_ORGANIZER.to_string(),
+    let cal_address = parse_cal_address(get_single_value(prop)?).ok_or_else(|| {
+        SemanticError::InvalidValue(
+            PropertyKind::Organizer.as_str().to_string(),
             "Expected calendar user address".to_string(),
-        ))?;
+        )
+    })?;
 
     // Extract CN parameter
     let cn =
@@ -548,13 +591,12 @@ fn parse_organizer(prop: &TypedProperty<'_>) -> Result<Organizer, SemanticError>
 
 /// Parse an ATTENDEE property into an Attendee
 fn parse_attendee(prop: &TypedProperty<'_>) -> Result<Attendee, SemanticError> {
-    use crate::typed::parameter_types::{CalendarUserType, ParticipationRole, ParticipationStatus};
-
-    let cal_address =
-        parse_cal_address(get_single_value(prop)?).ok_or(SemanticError::InvalidValue(
-            KW_ATTENDEE.to_string(),
+    let cal_address = parse_cal_address(get_single_value(prop)?).ok_or_else(|| {
+        SemanticError::InvalidValue(
+            PropertyKind::Attendee.as_str().to_string(),
             "Expected calendar user address".to_string(),
-        ))?;
+        )
+    })?;
 
     // Extract CN parameter
     let cn =

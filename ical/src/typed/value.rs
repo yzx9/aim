@@ -222,7 +222,7 @@ pub fn parse_values<'src>(
                     .map(|texts| {
                         texts
                             .into_iter()
-                            .map(|a| Value::Text(a.build(&value)))
+                            .map(|a| Value::Text(a.build(value)))
                             .collect()
                     });
                 if let Ok(values) = result {

@@ -6,6 +6,7 @@
 
 use crate::SemanticError;
 use crate::semantic::properties::{Attachment, Attendee, Duration, Text, Trigger};
+use crate::typed::TypedComponent;
 
 /// Alarm component (VALARM)
 #[derive(Debug, Clone)]
@@ -56,6 +57,6 @@ pub enum AlarmActionType {
 }
 
 /// Parse a `TypedComponent` into a `VAlarm`
-pub fn parse_valarm(_comp: crate::typed::TypedComponent) -> Result<VAlarm, SemanticError> {
+pub fn parse_valarm(_comp: TypedComponent) -> Result<VAlarm, SemanticError> {
     todo!("Implement parse_valarm")
 }

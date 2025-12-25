@@ -7,8 +7,13 @@
 //! This module provides utility functions for converting `TypedComponent`
 //! and `TypedProperty` into semantic types.
 
-use crate::semantic::parse_icalendar;
-use crate::typed::{TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value};
+use crate::keyword::KW_VCALENDAR;
+use crate::semantic::{DateTime, Duration, parse_icalendar};
+use crate::typed::ValueDuration;
+use crate::typed::{
+    PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
+};
+use crate::{ICalendar, Uri};
 
 /// Perform semantic analysis on typed components.
 ///
@@ -27,11 +32,11 @@ use crate::typed::{TypedComponent, TypedParameter, TypedParameterKind, TypedProp
 /// ensures there is exactly one element.
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
-) -> Result<crate::semantic::ICalendar, SemanticError> {
+) -> Result<ICalendar, SemanticError> {
     // Expect exactly one VCALENDAR component at the root
     if typed_components.len() != 1 {
         return Err(SemanticError::InvalidStructure(format!(
-            "Expected 1 root VCALENDAR component, found {}",
+            "Expected 1 root {KW_VCALENDAR} component, found {}",
             typed_components.len()
         )));
     }
@@ -48,12 +53,23 @@ pub fn find_property<'src>(
     properties.iter().find(|p| p.name == name)
 }
 
-/// Extract all properties with the given name from a component
+/// Extract the first property with the given `PropertyKind` from a component
+pub fn find_property_by_kind<'src>(
+    properties: &'src [TypedProperty<'src>],
+    kind: PropertyKind,
+) -> Option<&'src TypedProperty<'src>> {
+    properties.iter().find(|p| p.name == kind.as_str())
+}
+
+/// Extract all properties with the given `PropertyKind` from a component
 pub fn find_properties<'src>(
     properties: &'src [TypedProperty<'src>],
-    name: &str,
+    kind: PropertyKind,
 ) -> Vec<&'src TypedProperty<'src>> {
-    properties.iter().filter(|p| p.name == name).collect()
+    properties
+        .iter()
+        .filter(|p| p.name == kind.as_str())
+        .collect()
 }
 
 /// Extract a parameter value by kind from a property
@@ -78,8 +94,7 @@ pub fn get_single_value<'src>(
 }
 
 /// Convert a date value to semantic `DateTime`
-pub fn value_to_date_time(value: &Value<'_>) -> Option<crate::semantic::DateTime> {
-    use crate::semantic::DateTime;
+pub fn value_to_date_time(value: &Value<'_>) -> Option<DateTime> {
     match value {
         Value::Date(date) => Some(DateTime {
             date: *date,
@@ -98,9 +113,7 @@ pub fn value_to_date_time(value: &Value<'_>) -> Option<crate::semantic::DateTime
 }
 
 /// Convert a duration value to semantic Duration
-pub fn value_to_duration(value: &Value<'_>) -> Option<crate::semantic::Duration> {
-    use crate::semantic::Duration;
-    use crate::typed::ValueDuration;
+pub fn value_to_duration(value: &Value<'_>) -> Option<Duration> {
     match value {
         Value::Duration(vdur) => match vdur {
             ValueDuration::DateTime {
@@ -163,9 +176,9 @@ pub fn get_tzid(parameters: &[TypedParameter<'_>]) -> Option<String> {
 }
 
 /// Parse a calendar user address (URI) value
-pub fn parse_cal_address(value: &Value<'_>) -> Option<crate::semantic::Uri> {
+pub fn parse_cal_address(value: &Value<'_>) -> Option<Uri> {
     match value {
-        Value::Text(text) => Some(crate::semantic::Uri {
+        Value::Text(text) => Some(Uri {
             uri: text.resolve().to_string(),
         }),
         _ => None,

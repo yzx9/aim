@@ -4,9 +4,10 @@
 
 //! Timezone component (VTIMEZONE) for iCalendar semantic components.
 
-use crate::RecurrenceRule;
 use crate::semantic::properties::{Text, TimeZoneOffset};
 use crate::semantic::{DateTime, Uri};
+use crate::typed::TypedComponent;
+use crate::{RecurrenceRule, SemanticError};
 
 /// Timezone component (VTIMEZONE)
 #[derive(Debug, Clone)]
@@ -51,8 +52,6 @@ pub struct TimeZoneObservance {
 }
 
 /// Parse a `TypedComponent` into a `VTimeZone`
-pub fn parse_vtimezone(
-    _comp: crate::typed::TypedComponent,
-) -> Result<VTimeZone, crate::semantic::SemanticError> {
+pub fn parse_vtimezone(_comp: TypedComponent) -> Result<VTimeZone, SemanticError> {
     todo!("Implement parse_vtimezone")
 }

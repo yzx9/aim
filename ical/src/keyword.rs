@@ -89,6 +89,22 @@ pub const KW_METHOD: &str = "METHOD";
 pub const KW_PRODID: &str = "PRODID";
 pub const KW_VERSION: &str = "VERSION";
 
+// 3.7.1. Calendar Scale values
+pub const KW_CALSCALE_GREGORIAN: &str = "GREGORIAN";
+
+// 3.7.2. Method values
+pub const KW_METHOD_PUBLISH: &str = "PUBLISH";
+pub const KW_METHOD_REQUEST: &str = "REQUEST";
+pub const KW_METHOD_REPLY: &str = "REPLY";
+pub const KW_METHOD_ADD: &str = "ADD";
+pub const KW_METHOD_CANCEL: &str = "CANCEL";
+pub const KW_METHOD_REFRESH: &str = "REFRESH";
+pub const KW_METHOD_COUNTER: &str = "COUNTER";
+pub const KW_METHOD_DECLINECOUNTER: &str = "DECLINECOUNTER";
+
+// 3.7.4. Version values
+pub const KW_VERSION_2_0: &str = "2.0";
+
 // 3.8.1.  Descriptive Component Properties
 pub const KW_ATTACH: &str = "ATTACH";
 pub const KW_CATEGORIES: &str = "CATEGORIES";

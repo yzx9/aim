@@ -6,6 +6,8 @@
 
 use crate::semantic::enums::{Classification, Period};
 use crate::semantic::properties::{Attendee, DateTime, Organizer, Text};
+use crate::typed::TypedComponent;
+use crate::{RecurrenceRule, SemanticError};
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]
@@ -44,7 +46,7 @@ pub struct VJournal {
     pub categories: Vec<Text>,
 
     /// Recurrence rule
-    pub rrule: Option<crate::typed::RecurrenceRule>,
+    pub rrule: Option<RecurrenceRule>,
 
     /// Recurrence dates
     pub rdate: Vec<Period>,
@@ -71,8 +73,6 @@ pub enum JournalStatus {
 }
 
 /// Parse a `TypedComponent` into a `VJournal`
-pub fn parse_vjournal(
-    _comp: crate::typed::TypedComponent,
-) -> Result<VJournal, crate::semantic::SemanticError> {
+pub fn parse_vjournal(_comp: TypedComponent) -> Result<VJournal, SemanticError> {
     todo!("Implement parse_vjournal")
 }

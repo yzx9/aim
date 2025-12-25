@@ -4,11 +4,13 @@
 
 //! iCalendar container types.
 
-use crate::SemanticError;
 use crate::keyword::{
-    KW_CALSCALE, KW_METHOD, KW_VALARM, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
+    KW_CALSCALE, KW_CALSCALE_GREGORIAN, KW_METHOD, KW_METHOD_ADD, KW_METHOD_CANCEL,
+    KW_METHOD_COUNTER, KW_METHOD_DECLINECOUNTER, KW_METHOD_PUBLISH, KW_METHOD_REFRESH,
+    KW_METHOD_REPLY, KW_METHOD_REQUEST, KW_PRODID, KW_VALARM, KW_VCALENDAR, KW_VERSION,
+    KW_VERSION_2_0, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
-use crate::semantic::analysis::{get_single_value, value_to_string};
+use crate::semantic::analysis::{find_property, get_single_value, value_to_string};
 use crate::semantic::properties::ProductId;
 use crate::semantic::valarm::parse_valarm;
 use crate::semantic::vevent::parse_vevent;
@@ -16,8 +18,8 @@ use crate::semantic::vfreebusy::parse_vfreebusy;
 use crate::semantic::vjournal::parse_vjournal;
 use crate::semantic::vtimezone::parse_vtimezone;
 use crate::semantic::vtodo::parse_vtodo;
-use crate::semantic::{valarm, vevent, vfreebusy, vjournal, vtimezone, vtodo};
 use crate::typed::{TypedComponent, TypedProperty};
+use crate::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]
@@ -48,9 +50,6 @@ pub struct ICalendar {
 /// - Property values are invalid or malformed
 /// - Child components cannot be parsed
 pub fn parse_icalendar(comp: &TypedComponent<'_>) -> Result<ICalendar, SemanticError> {
-    use crate::keyword::{KW_CALSCALE, KW_METHOD, KW_PRODID, KW_VCALENDAR, KW_VERSION};
-    use crate::semantic::analysis::find_property;
-
     if comp.name != KW_VCALENDAR {
         return Err(SemanticError::InvalidStructure(format!(
             "Expected VCALENDAR component, got '{}'",
@@ -92,9 +91,6 @@ pub fn parse_icalendar(comp: &TypedComponent<'_>) -> Result<ICalendar, SemanticE
 
 /// Parse PRODID property into `ProductId`
 fn parse_product_id(prop: &TypedProperty<'_>) -> Result<ProductId, SemanticError> {
-    use crate::keyword::KW_PRODID;
-    use crate::semantic::analysis::{get_single_value, value_to_string};
-
     let value = get_single_value(prop)?;
     let text = value_to_string(value).ok_or(SemanticError::InvalidValue(
         KW_PRODID.to_string(),
@@ -122,9 +118,6 @@ fn parse_product_id(prop: &TypedProperty<'_>) -> Result<ProductId, SemanticError
 
 /// Parse VERSION property into `VersionType`
 fn parse_version(prop: &TypedProperty<'_>) -> Result<VersionType, SemanticError> {
-    use crate::keyword::KW_VERSION;
-    use crate::semantic::analysis::{get_single_value, value_to_string};
-
     let value = get_single_value(prop)?;
     let text = value_to_string(value).ok_or(SemanticError::InvalidValue(
         KW_VERSION.to_string(),
@@ -132,7 +125,7 @@ fn parse_version(prop: &TypedProperty<'_>) -> Result<VersionType, SemanticError>
     ))?;
 
     match text.as_str() {
-        "2.0" => Ok(VersionType::V2_0),
+        KW_VERSION_2_0 => Ok(VersionType::V2_0),
         _ => Err(SemanticError::InvalidValue(
             KW_VERSION.to_string(),
             format!("Unsupported iCalendar version: {text}"),
@@ -149,7 +142,7 @@ fn parse_calscale(prop: &TypedProperty<'_>) -> Result<CalendarScaleType, Semanti
     ))?;
 
     match text.to_uppercase().as_str() {
-        "GREGORIAN" => Ok(CalendarScaleType::Gregorian),
+        KW_CALSCALE_GREGORIAN => Ok(CalendarScaleType::Gregorian),
         _ => Err(SemanticError::InvalidValue(
             KW_CALSCALE.to_string(),
             format!("Unsupported calendar scale: {text}"),
@@ -166,14 +159,14 @@ fn parse_method(prop: &TypedProperty<'_>) -> Result<MethodType, SemanticError> {
     ))?;
 
     match text.to_uppercase().as_str() {
-        "PUBLISH" => Ok(MethodType::Publish),
-        "REQUEST" => Ok(MethodType::Request),
-        "REPLY" => Ok(MethodType::Reply),
-        "ADD" => Ok(MethodType::Add),
-        "CANCEL" => Ok(MethodType::Cancel),
-        "REFRESH" => Ok(MethodType::Refresh),
-        "COUNTER" => Ok(MethodType::Counter),
-        "DECLINECOUNTER" => Ok(MethodType::DeclineCounter),
+        KW_METHOD_PUBLISH => Ok(MethodType::Publish),
+        KW_METHOD_REQUEST => Ok(MethodType::Request),
+        KW_METHOD_REPLY => Ok(MethodType::Reply),
+        KW_METHOD_ADD => Ok(MethodType::Add),
+        KW_METHOD_CANCEL => Ok(MethodType::Cancel),
+        KW_METHOD_REFRESH => Ok(MethodType::Refresh),
+        KW_METHOD_COUNTER => Ok(MethodType::Counter),
+        KW_METHOD_DECLINECOUNTER => Ok(MethodType::DeclineCounter),
         _ => Err(SemanticError::InvalidValue(
             KW_METHOD.to_string(),
             format!("Unsupported method type: {text}"),
@@ -210,22 +203,22 @@ fn parse_component_children(
 #[derive(Debug, Clone)]
 pub enum CalendarComponent {
     /// Event component
-    Event(vevent::VEvent),
+    Event(VEvent),
 
     /// To-do component
-    Todo(vtodo::VTodo),
+    Todo(VTodo),
 
     /// Journal entry component
-    VJournal(vjournal::VJournal),
+    VJournal(VJournal),
 
     /// Free/busy time component
-    VFreeBusy(vfreebusy::VFreeBusy),
+    VFreeBusy(VFreeBusy),
 
     /// Timezone definition component
-    VTimeZone(vtimezone::VTimeZone),
+    VTimeZone(VTimeZone),
 
     /// Alarm component
-    VAlarm(valarm::VAlarm),
+    VAlarm(VAlarm),
     // /// Custom component
     // Custom(String, CustomComponent),
 }
