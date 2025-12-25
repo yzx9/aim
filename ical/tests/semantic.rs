@@ -477,9 +477,9 @@ END:VCALENDAR\r
     }
 }
 
-// PARSER LIMITATION: Date-only values (without time component) need a special parser
+// PARSER LIMITATION: VJOURNAL semantic parser is not yet implemented
 #[test]
-#[ignore = "parser limitation: datetime parser expects time component after date"]
+#[ignore = "parser limitation: VJOURNAL semantic parser not implemented"]
 fn semantic_when_journal_has_date_only_start() {
     let src = "\
 BEGIN:VCALENDAR\r

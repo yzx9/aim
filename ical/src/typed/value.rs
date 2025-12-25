@@ -96,78 +96,180 @@ pub enum Value<'src> {
     UtcOffset(ValueUtcOffset), // TODO: implement
 }
 
-pub fn parse_values(
-    kind: ValueType,
-    value: SpannedSegments<'_>,
-) -> Result<Vec<Value<'_>>, Vec<Rich<'_, char>>> {
+/// Parse property values, attempting each allowed value type until one succeeds.
+///
+/// When multiple value types are allowed (e.g., DATE or DATE-TIME), this function
+/// will try each type in order, returning the first successful parse. This enables
+/// type inference based on the format of the value.
+///
+/// # Arguments
+///
+/// * `kinds` - Slice of allowed value types to try, in order of preference
+/// * `value` - The property value to parse
+///
+/// # Returns
+///
+/// * `Ok(Vec<Value>)` - Successfully parsed values
+/// * `Err(Vec<Rich>)` - Parse errors from all attempted types
+#[allow(clippy::too_many_lines)]
+pub fn parse_values<'src>(
+    kinds: &[ValueType],
+    value: &SpannedSegments<'src>,
+) -> Result<Vec<Value<'src>>, Vec<Rich<'src, char>>> {
     use ValueType::{
         Binary, Boolean, CalendarUserAddress, Date, DateTime, Duration, Float, Integer, Period,
         RecurrenceRule, Text, Time, Uri, UtcOffset,
     };
 
-    match kind {
-        Binary => {
-            value_binary::<'_, _, extra::Err<_>>()
-                .check(make_input(value.clone())) // PERF: avoid clone
-                .into_result()?;
-            Ok(vec![Value::Binary(value)])
+    // Collect errors from all attempted types
+    let mut all_errors = Vec::new();
+
+    // PERF: provide fast path for common groups of value types
+    // - DATE / DATE-TIME: DTSTART, DTEND, DUE, EXDATE, RECURRENCE-ID, RDATE
+    // - DATE-TIME / DATE / PERIOD: RDATE
+    // - DURATION / DATE-TIME: TRIGGER
+    //
+    // Try each value type in order
+    for kind in kinds {
+        match kind {
+            Binary => {
+                let result: Result<(), Vec<Rich<char>>> = value_binary::<'_, _, extra::Err<_>>()
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if result.is_ok() {
+                    return Ok(vec![Value::Binary(value.clone())]);
+                }
+            }
+
+            Boolean => {
+                let result = value_boolean::<'_, _, extra::Err<_>>()
+                    .map(|a| vec![Value::Boolean(a)])
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            Date => {
+                let result = values_date::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Date).collect())
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            DateTime => {
+                let result = values_date_time::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::DateTime).collect())
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            Duration => {
+                let result = values_duration::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Duration).collect())
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            Float => {
+                let result = values_float::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Float).collect())
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            Integer => {
+                let result = values_integer::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Integer).collect())
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            // URI and CAL-ADDRESS are parsed as text per RFC 5545
+            // (cal-address = uri, and URI values are essentially text strings)
+            CalendarUserAddress | Text | Uri => {
+                let result = values_text::<'_, _, extra::Err<_>>()
+                    .parse(make_input(value.clone()))
+                    .into_result()
+                    .map(|texts| {
+                        texts
+                            .into_iter()
+                            .map(|a| Value::Text(a.build(&value)))
+                            .collect()
+                    });
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            Time => {
+                let result = values_time::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Time).collect())
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            UtcOffset => {
+                let result = value_utc_offset::<'_, _, extra::Err<_>>()
+                    .map(|a| vec![Value::UtcOffset(a)])
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
+            // TODO: implement other value types
+            Period | RecurrenceRule => {
+                // Return an error for unimplemented types
+                let span = value.span();
+                return Err(vec![Rich::custom(
+                    SimpleSpan::new((), span),
+                    format!("Parser for {kind} is not implemented"),
+                )]);
+            }
         }
-
-        Boolean => value_boolean::<'_, _, extra::Err<_>>()
-            .map(|a| vec![Value::Boolean(a)])
-            .parse(make_input(value))
-            .into_result(),
-
-        Date => values_date::<'_, _, extra::Err<_>>()
-            .map(|a| a.into_iter().map(Value::Date).collect())
-            .parse(make_input(value))
-            .into_result(),
-
-        DateTime => values_date_time::<'_, _, extra::Err<_>>()
-            .map(|a| a.into_iter().map(Value::DateTime).collect())
-            .parse(make_input(value))
-            .into_result(),
-
-        Duration => values_duration::<'_, _, extra::Err<_>>()
-            .map(|a| a.into_iter().map(Value::Duration).collect())
-            .parse(make_input(value))
-            .into_result(),
-
-        Float => values_float::<'_, _, extra::Err<_>>()
-            .map(|a| a.into_iter().map(Value::Float).collect())
-            .parse(make_input(value))
-            .into_result(),
-
-        Integer => values_integer::<'_, _, extra::Err<_>>()
-            .map(|a| a.into_iter().map(Value::Integer).collect())
-            .parse(make_input(value))
-            .into_result(),
-
-        // URI and CAL-ADDRESS are parsed as text per RFC 5545
-        // (cal-address = uri, and URI values are essentially text strings)
-        CalendarUserAddress | Text | Uri => values_text::<'_, _, extra::Err<_>>()
-            .parse(make_input(value.clone())) // PERF: avoid clone
-            .into_result()
-            .map(|texts| {
-                texts
-                    .into_iter()
-                    .map(|a| Value::Text(a.build(&value)))
-                    .collect()
-            }),
-
-        Time => values_time::<'_, _, extra::Err<_>>()
-            .map(|a| a.into_iter().map(Value::Time).collect())
-            .parse(make_input(value))
-            .into_result(),
-
-        UtcOffset => value_utc_offset::<'_, _, extra::Err<_>>()
-            .map(|a| vec![Value::UtcOffset(a)])
-            .parse(make_input(value))
-            .into_result(),
-
-        // TODO: implement other value types
-        Period | RecurrenceRule => unimplemented!("Parser for {kind} is not implemented"),
     }
+
+    // All types failed - return all collected errors
+    Err(all_errors)
 }
 
 #[non_exhaustive]

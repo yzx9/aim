@@ -103,7 +103,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.7.2.  Method - iCalendar object method associated with the calendar object
@@ -111,7 +110,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.7.3.  Product Identifier - Identifier for the product that created the iCalendar object
@@ -119,7 +117,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.7.4.  Version - iCalendar specification version required to interpret the object
@@ -127,7 +124,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.1.  Attachment - Default URI, can be BINARY for inline content
@@ -139,7 +135,6 @@ property_kind! {
             TypedParameterKind::ValueType,
         ],
         value_types: &[ValueType::Uri, ValueType::Binary],
-        default_value_type: ValueType::Uri,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.2.  Categories - Comma-separated text values for classification
@@ -147,7 +142,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[TypedParameterKind::Language],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::at_least(1),
     },
     // 3.8.1.3.  Classification - Access classification (PUBLIC/PRIVATE/CONFIDENTIAL)
@@ -155,7 +149,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.4.  Comment - Non-processing information, free-form text
@@ -166,7 +159,6 @@ property_kind! {
             TypedParameterKind::Language,
         ],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.5.  Description - Event/task description, single occurrence
@@ -177,7 +169,6 @@ property_kind! {
             TypedParameterKind::Language,
         ],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.6.  Geographic Position - Latitude;longitude as FLOAT values
@@ -188,7 +179,6 @@ property_kind! {
             TypedParameterKind::Language,
         ],
         value_types: &[ValueType::Float],
-        default_value_type: ValueType::Float,
         value_cardinality: ValueCardinality::exactly(2),
     },
     // 3.8.1.7.  Location - Event/task location
@@ -199,7 +189,6 @@ property_kind! {
             TypedParameterKind::Language,
         ],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.8.  Percent Complete - Task completion percentage (0-100)
@@ -207,7 +196,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Integer],
-        default_value_type: ValueType::Integer,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.9.  Priority - Event/task priority level (0-9, 0=undefined, 1=highest)
@@ -215,7 +203,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Integer],
-        default_value_type: ValueType::Integer,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.10.  Resources - Event/task resources, comma-separated text
@@ -226,7 +213,6 @@ property_kind! {
             TypedParameterKind::Language,
         ],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::at_least(1),
     },
     // 3.8.1.11.  Status - Event/task status (TENTATIVE/CONFIRMED/CANCELLED, etc.)
@@ -234,7 +220,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.12.  Summary - Event/task summary/title
@@ -245,7 +230,6 @@ property_kind! {
             TypedParameterKind::Language,
         ],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.2.1.  Date-Time Completed - When a to-do was completed (VTODO only)
@@ -253,7 +237,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.2.2.  Date-Time End - When an event ends (DATE or DATE-TIME)
@@ -263,8 +246,7 @@ property_kind! {
             TypedParameterKind::TimeZoneIdentifier,
             TypedParameterKind::ValueType,
         ],
-        value_types: &[ValueType::Date, ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
+        value_types: &[ValueType::DateTime, ValueType::Date],
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.2.3.  Date-Time Due - When a to-do is due (DATE or DATE-TIME)
@@ -274,8 +256,7 @@ property_kind! {
             TypedParameterKind::TimeZoneIdentifier,
             TypedParameterKind::ValueType,
         ],
-        value_types: &[ValueType::Date, ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
+        value_types: &[ValueType::DateTime, ValueType::Date],
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.2.4.  Date-Time Start - When an event starts (DATE or DATE-TIME)
@@ -285,8 +266,7 @@ property_kind! {
             TypedParameterKind::TimeZoneIdentifier,
             TypedParameterKind::ValueType,
         ],
-        value_types: &[ValueType::Date, ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
+        value_types: &[ValueType::DateTime, ValueType::Date],
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.2.5.  Duration - Event/task duration in iCalendar duration format
@@ -294,7 +274,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Duration],
-        default_value_type: ValueType::Duration,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.2.6.  Free/Busy Time - One or more free/busy time intervals (VFREEBUSY only)
@@ -305,7 +284,6 @@ property_kind! {
             TypedParameterKind::TimeZoneIdentifier,
         ],
         value_types: &[ValueType::Period],
-        default_value_type: ValueType::Period,
         value_cardinality: ValueCardinality::at_least(1),
     },
     // 3.8.2.7.  Time Transparency - Event transparency to busy time searches
@@ -313,7 +291,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.3.1.  Time Zone Identifier - Unique identifier for VTIMEZONE component
@@ -321,7 +298,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.3.2.  Time Zone Name - Customary designation for time zone
@@ -329,7 +305,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::Multiple,
         parameters: &[TypedParameterKind::Language],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.3.3.  Time Zone Offset From - Offset prior to time zone observance
@@ -337,7 +312,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::UtcOffset],
-        default_value_type: ValueType::UtcOffset,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.3.4.  Time Zone Offset To - Offset in use during time zone observance
@@ -345,7 +319,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::UtcOffset],
-        default_value_type: ValueType::UtcOffset,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.3.5.  Time Zone URL - URI pointing to VTIMEZONE component location
@@ -353,7 +326,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Uri],
-        default_value_type: ValueType::Uri,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.4.1.  Attendee - Defines an attendee within a calendar component
@@ -373,7 +345,6 @@ property_kind! {
             TypedParameterKind::SendBy,
         ],
         value_types: &[ValueType::CalendarUserAddress],
-        default_value_type: ValueType::CalendarUserAddress,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.4.2.  Contact - Contact information or reference
@@ -384,7 +355,6 @@ property_kind! {
             TypedParameterKind::Language,
         ],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.4.3.  Organizer - Defines the organizer for a calendar component
@@ -397,7 +367,6 @@ property_kind! {
             TypedParameterKind::SendBy,
         ],
         value_types: &[ValueType::CalendarUserAddress],
-        default_value_type: ValueType::CalendarUserAddress,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.4.4.  Recurrence ID - Identifies specific instance of recurring component
@@ -408,8 +377,7 @@ property_kind! {
             TypedParameterKind::RecurrenceIdRange,
             TypedParameterKind::ValueType,
         ],
-        value_types: &[ValueType::Date, ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
+        value_types: &[ValueType::DateTime, ValueType::Date],
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.4.5.  Related To - Represents relationship between calendar components
@@ -417,7 +385,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::Multiple,
         parameters: &[TypedParameterKind::RelationshipType],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.4.6.  Uniform Resource Locator - URL associated with iCalendar object
@@ -425,7 +392,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Uri],
-        default_value_type: ValueType::Uri,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.4.7.  Unique Identifier - Persistent, globally unique identifier
@@ -433,7 +399,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.5.1.  Exception Date-Times - List of DATE-TIME exceptions for recurring items
@@ -443,8 +408,7 @@ property_kind! {
             TypedParameterKind::TimeZoneIdentifier,
             TypedParameterKind::ValueType,
         ],
-        value_types: &[ValueType::Date, ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
+        value_types: &[ValueType::DateTime, ValueType::Date],
         value_cardinality: ValueCardinality::at_least(1),
     },
     // 3.8.5.2.  Recurrence Date-Times - List of DATE-TIME values for recurring items
@@ -454,8 +418,7 @@ property_kind! {
             TypedParameterKind::TimeZoneIdentifier,
             TypedParameterKind::ValueType,
         ],
-        value_types: &[ValueType::Date, ValueType::DateTime, ValueType::Period],
-        default_value_type: ValueType::DateTime,
+        value_types: &[ValueType::DateTime, ValueType::Date, ValueType::Period],
         value_cardinality: ValueCardinality::at_least(1),
     },
     // 3.8.5.3.  Recurrence Rule - Rule or repeating pattern for recurring items
@@ -463,7 +426,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::RecurrenceRule],
-        default_value_type: ValueType::RecurrenceRule,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.6.1.  Action - Action to invoke when alarm is triggered
@@ -471,7 +433,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.6.2.  Repeat Count - Number of times alarm should repeat after initial trigger
@@ -479,7 +440,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Integer],
-        default_value_type: ValueType::Integer,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.6.3.  Trigger - When an alarm will trigger
@@ -491,7 +451,6 @@ property_kind! {
             TypedParameterKind::AlarmTriggerRelationship,
         ],
         value_types: &[ValueType::Duration, ValueType::DateTime],
-        default_value_type: ValueType::Duration,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.7.1.  Date-Time Created - Date/time calendar information was created
@@ -499,7 +458,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.7.2.  Date-Time Stamp - Date/time instance was created or info was last revised
@@ -507,7 +465,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.7.3.  Last Modified - Date/time calendar component was last revised
@@ -515,7 +472,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::DateTime],
-        default_value_type: ValueType::DateTime,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.7.4.  Sequence Number - Revision sequence number within sequence of revisions
@@ -523,7 +479,6 @@ property_kind! {
         property_cardinality: PropertyCardinality::AtMostOnce,
         parameters: &[],
         value_types: &[ValueType::Integer],
-        default_value_type: ValueType::Integer,
         value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.8.1.  IANA Properties
@@ -534,7 +489,6 @@ property_kind! {
         parameters: &[TypedParameterKind::Language],
         // Format: statcode ";" statdesc [";" extdata] - semicolon-separated structured value
         value_types: &[ValueType::Text],
-        default_value_type: ValueType::Text,
         value_cardinality: ValueCardinality::exactly(1),
     },
 }
@@ -550,8 +504,6 @@ pub struct PropertySpec<'a> {
     pub parameters: &'a [TypedParameterKind],
     /// Allowed value types for this property
     pub value_types: &'a [ValueType],
-    /// The default value type for this property
-    pub default_value_type: ValueType,
     /// Value cardinality: how many values in a single property line
     pub value_cardinality: ValueCardinality,
 }
@@ -623,9 +575,10 @@ mod tests {
                 name.chars().all(|a| a.is_ascii_uppercase() || a == '-'),
                 "Property {name}: name should be uppercase ASCII or hyphen"
             );
+            // Verify value_types is not empty
             assert!(
-                spec.value_types.contains(&spec.default_value_type),
-                "Property {name}: default_value_type should be in value_types"
+                !spec.value_types.is_empty(),
+                "Property {name}: value_types must not be empty"
             );
         }
     }

@@ -304,10 +304,7 @@ END:VEVENT\r
     ));
 }
 
-// PARSER LIMITATION: Date-only values (without time component) need a special parser
-// The current datetime parser expects a time after the date.
 #[test]
-#[ignore = "parser limitation: datetime parser expects time component after date"]
 fn typed_date_only_dtstart() {
     let src = "\
 BEGIN:VEVENT\r
@@ -322,9 +319,7 @@ END:VEVENT\r
     ));
 }
 
-// PARSER LIMITATION: Date-only values (without time component) need a special parser
 #[test]
-#[ignore = "parser limitation: datetime parser expects time component after date"]
 fn typed_date_only_dtend() {
     let src = "\
 BEGIN:VEVENT\r
@@ -435,9 +430,7 @@ END:VCALENDAR\r
     assert_eq!(todo.properties.len(), 8);
 }
 
-// PARSER LIMITATION: Date-only values (without time component) need a special parser
 #[test]
-#[ignore = "parser limitation: datetime parser expects time component after date"]
 fn typed_journal_complete() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -794,6 +787,57 @@ END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
     assert_eq!(components[0].properties[0].name, "ATTENDEE");
+    assert!(matches!(
+        &components[0].properties[0].values[0],
+        Value::Text(_)
+    ));
+}
+
+// Test that ATTACH with BINARY requires explicit VALUE=BINARY parameter
+// Per RFC 5545 Section 3.3.1: BINARY MUST include ENCODING=BASE64 and VALUE=BINARY
+#[test]
+fn typed_attach_binary_requires_value_parameter() {
+    // Without VALUE=BINARY, should be parsed as URI (text value)
+    let src = "\
+BEGIN:VEVENT\r
+ATTACH;ENCODING=BASE64:VGhpcyBpcyBub3QgYSB2YWxpZCBVUkk=\r
+END:VEVENT\r
+";
+    let components = parse_typed(src).unwrap();
+    // This should parse as URI (text) since BINARY requires explicit VALUE=BINARY
+    assert_eq!(components[0].properties[0].name, "ATTACH");
+    assert!(matches!(
+        &components[0].properties[0].values[0],
+        Value::Text(_)
+    ));
+}
+
+#[test]
+fn typed_attach_binary_with_explicit_value_parameter() {
+    // With VALUE=BINARY explicitly specified, should parse as Binary
+    let src = "\
+BEGIN:VEVENT\r
+ATTACH;ENCODING=BASE64;VALUE=BINARY:VGhpcyBpcyBub3QgYSB2YWxpZCBVUkk=\r
+END:VEVENT\r
+";
+    let components = parse_typed(src).unwrap();
+    assert_eq!(components[0].properties[0].name, "ATTACH");
+    assert!(matches!(
+        &components[0].properties[0].values[0],
+        Value::Binary(_)
+    ));
+}
+
+#[test]
+fn typed_attach_uri_without_value_parameter() {
+    // URI without VALUE parameter should parse as URI (default)
+    let src = "\
+BEGIN:VEVENT\r
+ATTACH:http://example.com/document.pdf\r
+END:VEVENT\r
+";
+    let components = parse_typed(src).unwrap();
+    assert_eq!(components[0].properties[0].name, "ATTACH");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)

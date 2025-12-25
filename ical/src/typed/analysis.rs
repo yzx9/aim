@@ -98,10 +98,10 @@ fn typed_property<'src>(
     }
 
     let parameters = parameters(spec, prop.parameters)?;
-    let value_type = value_type(spec, &parameters)?;
+    let value_types = value_types(spec, &parameters)?;
 
-    // PERF: cache parser, avoid cloning the value
-    let values = parse_values(value_type, prop.value.clone()).map_err(|errs| {
+    // PERF: cache parser
+    let values = parse_values(&value_types, &prop.value).map_err(|errs| {
         errs.into_iter()
             .map(|err| TypedAnalysisError::ValueSyntax {
                 value: prop.value.clone(),
@@ -390,25 +390,37 @@ fn parameters<'src>(
     }
 }
 
-fn value_type<'src>(
+fn value_types<'src>(
     spec: &'src PropertySpec,
     params: &Vec<TypedParameter<'src>>,
-) -> Result<ValueType, Vec<TypedAnalysisError<'src>>> {
-    let Some(TypedParameter::ValueType { value, span }) = params
+) -> Result<Vec<ValueType>, Vec<TypedAnalysisError<'src>>> {
+    use ValueType::Binary;
+
+    // If VALUE parameter is explicitly specified, use only that type
+    if let Some(TypedParameter::ValueType { value, span }) = params
         .iter()
         .find(|param| matches!(param, TypedParameter::ValueType { .. }))
-    else {
-        return Ok(spec.default_value_type);
-    };
-
-    if spec.value_types.contains(value) {
-        Ok(*value)
+    {
+        if spec.value_types.contains(value) {
+            // Return only the explicitly specified type
+            Ok(vec![*value])
+        } else {
+            Err(vec![TypedAnalysisError::ValueTypeDisallowed {
+                property: spec.name(),
+                value_type: *value,
+                expected_types: spec.value_types,
+                span: span.clone(),
+            }])
+        }
     } else {
-        Err(vec![TypedAnalysisError::ValueTypeDisallowed {
-            property: spec.name(),
-            value_type: *value,
-            expected_types: spec.value_types,
-            span: span.clone(),
-        }])
+        // No VALUE parameter specified - return all allowed types for type inference,
+        // EXCEPT for BINARY which MUST be explicitly specified with VALUE=BINARY
+        // (per RFC 5545 Section 3.3.1 and 3.8.1.1)
+        Ok(spec
+            .value_types
+            .iter()
+            .filter(|&&t| t != Binary)
+            .copied()
+            .collect())
     }
 }
