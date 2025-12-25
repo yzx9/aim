@@ -19,11 +19,7 @@ mod vtimezone;
 mod vtodo;
 
 // Re-export public types from the analysis submodule
-pub use analysis::{
-    SemanticError, find_parameter, find_properties, find_property, get_language, get_single_value,
-    get_tzid, parse_cal_address, semantic_analysis, value_to_date_time, value_to_duration,
-    value_to_int, value_to_string,
-};
+pub use analysis::{SemanticError, semantic_analysis};
 pub use enums::{AttachmentValue, Classification, Period};
 pub use icalendar::{ICalendar, MethodType, parse_icalendar};
 pub use properties::{

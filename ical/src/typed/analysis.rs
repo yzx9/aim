@@ -4,7 +4,7 @@
 
 //! Typed representation of iCalendar components and properties.
 
-use std::{collections::HashMap, collections::HashSet, sync::LazyLock};
+use std::collections::HashSet;
 
 use chumsky::error::Rich;
 use thiserror::Error;
@@ -14,16 +14,9 @@ use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxPro
 use crate::typed::parameter::TypedParameter;
 use crate::typed::parameter_types::ValueType;
 use crate::typed::property_spec::{
-    PROPERTY_SPECS, PropertyCardinality, PropertySpec, ValueCardinality,
+    PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality,
 };
 use crate::typed::value::{Value, parse_values};
-
-static PROP_TABLE: LazyLock<HashMap<&'static str, &'static PropertySpec>> = LazyLock::new(|| {
-    PROPERTY_SPECS
-        .iter()
-        .map(|spec| (spec.name, spec))
-        .collect()
-});
 
 /// Perform typed analysis on raw components, returning typed components or errors.
 ///
@@ -84,24 +77,24 @@ fn typed_property<'src>(
     existing: &mut HashSet<&str>,
     prop: SyntaxProperty<'src>,
 ) -> Result<TypedProperty<'src>, Vec<TypedAnalysisError<'src>>> {
-    let prop_name_upper = prop.name.resolve().to_ascii_uppercase();
-    let Some(spec) = PROP_TABLE.get::<str>(prop_name_upper.as_ref()) else {
+    let Ok(prop_kind) = PropertyKind::try_from(&prop.name) else {
         return Err(vec![TypedAnalysisError::PropertyUnknown {
             span: prop.name.span(),
             property: prop.name,
         }]);
     };
+    let spec = prop_kind.spec();
 
     // Check if property can appear multiple times in the component
     if matches!(spec.property_cardinality, PropertyCardinality::AtMostOnce) {
-        if existing.contains(spec.name) {
+        if existing.contains(spec.name()) {
             return Err(vec![TypedAnalysisError::PropertyDuplicated {
-                property: spec.name,
+                property: spec.name(),
                 span: prop.name.span(),
             }]);
         }
 
-        existing.insert(spec.name);
+        existing.insert(spec.name());
     }
 
     let parameters = parameters(spec, prop.parameters)?;
@@ -123,7 +116,7 @@ fn typed_property<'src>(
             let expected = n.get() as usize;
             if values.len() != expected {
                 return Err(vec![TypedAnalysisError::PropertyInvalidValueCount {
-                    property: spec.name,
+                    property: spec.name(),
                     expected: n.get(),
                     found: values.len(),
                     span: prop.name.span(),
@@ -134,7 +127,7 @@ fn typed_property<'src>(
             let min = n.get() as usize;
             if values.len() < min {
                 return Err(vec![TypedAnalysisError::PropertyInsufficientValues {
-                    property: spec.name,
+                    property: spec.name(),
                     min: n.get(),
                     found: values.len(),
                     span: prop.name.span(),
@@ -144,7 +137,7 @@ fn typed_property<'src>(
     }
 
     Ok(TypedProperty {
-        name: spec.name,
+        name: spec.name(),
         parameters,
         values,
     })
@@ -295,7 +288,7 @@ fn parameters<'src>(
                     // Check if parameter is allowed for this property
                     errors.push(TypedAnalysisError::ParameterDisallowedForProperty {
                         parameter: param_name,
-                        property: spec.name,
+                        property: spec.name(),
                         span: typed.span(),
                     });
                 } else if existing.contains(&param_kind) {
@@ -334,7 +327,7 @@ fn value_type<'src>(
         Ok(*value)
     } else {
         Err(vec![TypedAnalysisError::ValueTypeDisallowed {
-            property: spec.name,
+            property: spec.name(),
             value_type: *value,
             expected_types: spec.value_types,
             span: span.clone(),

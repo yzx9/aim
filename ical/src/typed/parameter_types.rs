@@ -23,9 +23,9 @@ use crate::typed::parameter::{TypedParameter, TypedParameterKind};
 pub fn parse_rsvp(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
     let span = param.span();
     parse_single(&mut param, TypedParameterKind::RsvpExpectation).and_then(|v| {
-        if v.value.eq_ignore_ascii_case(KW_TRUE) {
+        if v.value.eq_str_ignore_ascii_case(KW_TRUE) {
             Ok(TypedParameter::RsvpExpectation { value: true, span })
-        } else if v.value.eq_ignore_ascii_case(KW_FALSE) {
+        } else if v.value.eq_str_ignore_ascii_case(KW_FALSE) {
             Ok(TypedParameter::RsvpExpectation { value: false, span })
         } else {
             Err(vec![TypedAnalysisError::ParameterValueInvalid {
@@ -99,7 +99,7 @@ macro_rules! define_param_enum {
 
             fn try_from(segs: &SpannedSegments<'_>) -> Result<Self, Self::Error> {
                 $(
-                    if segs.eq_ignore_ascii_case($kw) {
+                    if segs.eq_str_ignore_ascii_case($kw) {
                         return Ok(Self::$Variant);
                     }
                 )+

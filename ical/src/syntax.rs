@@ -313,6 +313,10 @@ pub struct SpannedSegments<'src> {
 }
 
 impl<'src> SpannedSegments<'src> {
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
     pub fn span(&self) -> Span {
         match (self.segments.first(), self.segments.last()) {
             (Some((_, first_span)), Some((_, last_span))) => Span {
@@ -336,7 +340,7 @@ impl<'src> SpannedSegments<'src> {
         }
     }
 
-    pub fn eq_ignore_ascii_case(&self, mut other: &str) -> bool {
+    pub fn eq_str_ignore_ascii_case(&self, mut other: &str) -> bool {
         if other.len() != self.len {
             return false;
         }
