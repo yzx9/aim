@@ -285,13 +285,14 @@ where
     }
     .map_with(SpannedToken::from_map_extra)
     .repeated()
+    .at_least(1)
     .collect()
     .map(|value| RawParameterValue {
         value,
         quoted: false,
     });
 
-    let values = choice((paramtext, quoted_string))
+    let values = choice((quoted_string, paramtext))
         .separated_by(just(Token::Comma))
         .collect::<Vec<_>>();
 

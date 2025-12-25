@@ -132,11 +132,7 @@ END:VEVENT\r
     );
 }
 
-// PARSER LIMITATION: The parser tries `paramtext` before `quoted_string` in choice(),
-// so it fails to parse quoted parameter values. The parser would need to try `quoted_string`
-// first, or use better backtracking to handle this case.
 #[test]
-#[ignore = "parser limitation: choice order issue - quoted_string should be tried before paramtext"]
 fn test_quoted_parameter_value() {
     let src = "\
 BEGIN:VCALENDAR\r
