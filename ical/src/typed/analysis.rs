@@ -143,113 +143,191 @@ fn typed_property<'src>(
     })
 }
 
+/// A typed iCalendar component with validated properties and nested child components.
 #[derive(Debug, Clone)]
 pub struct TypedComponent<'src> {
-    pub name: &'src str, // "VCALENDAR" / "VEVENT" / "VTIMEZONE" / "VALARM" / ...
-    pub properties: Vec<TypedProperty<'src>>, // Keep the original order
+    /// Component name (e.g., "VCALENDAR", "VEVENT", "VTIMEZONE", "VALARM")
+    pub name: &'src str,
+    /// Properties in original order
+    pub properties: Vec<TypedProperty<'src>>,
+    /// Nested child components
     pub children: Vec<TypedComponent<'src>>,
 }
 
+/// A typed iCalendar property with validated parameters and values.
 #[derive(Debug, Clone)]
 pub struct TypedProperty<'src> {
-    pub name: &'src str, // Standardized property name in UPPERCASE
+    /// Property name (standardized in UPPERCASE)
+    pub name: &'src str,
+    /// Property parameters
     pub parameters: Vec<TypedParameter<'src>>,
+    /// Property values
     pub values: Vec<Value<'src>>,
 }
 
+/// Errors that can occur during typed analysis of iCalendar components.
 #[non_exhaustive]
 #[derive(Error, Debug, Clone)]
 pub enum TypedAnalysisError<'src> {
+    /// Unknown property encountered.
     #[error("Unknown property '{property}'")]
     PropertyUnknown {
+        /// The property name
         property: SpannedSegments<'src>,
+        /// The span of the error
         span: Span,
     },
 
+    /// Property occurs multiple times when only one is allowed.
     #[error("Property '{property}' occurs multiple times")]
-    PropertyDuplicated { property: &'src str, span: Span },
+    PropertyDuplicated {
+        /// The property name
+        property: &'src str,
+        /// The span of the error
+        span: Span,
+    },
 
+    /// Property has an invalid value count.
     #[error("Property '{property}' requires exactly {expected} value(s), but found {found}")]
     PropertyInvalidValueCount {
+        /// The property name
         property: &'src str,
+        /// Expected number of values
         expected: u8,
+        /// Actual number of values found
         found: usize,
+        /// The span of the error
         span: Span,
     },
 
+    /// Property has insufficient values.
     #[error("Property '{property}' requires at least {min} value(s), but found {found}")]
     PropertyInsufficientValues {
+        /// The property name
         property: &'src str,
+        /// Minimum required number of values
         min: u8,
+        /// Actual number of values found
         found: usize,
+        /// The span of the error
         span: Span,
     },
 
+    /// Property does not allow multiple values.
     #[error("Property '{property}' does not allow multiple values")]
-    PropertyMultipleValuesDisallowed { property: &'src str, span: Span },
+    PropertyMultipleValuesDisallowed {
+        /// The property name
+        property: &'src str,
+        /// The span of the error
+        span: Span,
+    },
 
+    /// Unknown parameter encountered.
     #[error("Parameter '{parameter}' is unknown")]
     ParameterUnknown {
+        /// The parameter name
         parameter: SpannedSegments<'src>,
+        /// The span of the error
         span: Span,
     },
 
+    /// Parameter occurs multiple times when only one is allowed.
     #[error("Parameter '{parameter}' occurs multiple times")]
-    ParameterDuplicated { parameter: &'src str, span: Span },
+    ParameterDuplicated {
+        /// The parameter name
+        parameter: &'src str,
+        /// The span of the error
+        span: Span,
+    },
 
+    /// Parameter does not allow multiple values.
     #[error("Parameter '{parameter}' does not allow multiple values")]
-    ParameterMultipleValuesDisallowed { parameter: &'src str, span: Span },
+    ParameterMultipleValuesDisallowed {
+        /// The parameter name
+        parameter: &'src str,
+        /// The span of the error
+        span: Span,
+    },
 
+    /// Parameter is not allowed for this property.
     #[error("Parameter '{parameter}' is not allowed for property '{property}'")]
     ParameterDisallowedForProperty {
+        /// The parameter name
         parameter: &'src str,
+        /// The property name
         property: &'src str,
+        /// The span of the error
         span: Span,
     },
 
+    /// Parameter value must be quoted.
     #[error("Parameter '{parameter}={value}' value must be quoted")]
     ParameterValueMustBeQuoted {
+        /// The parameter name
         parameter: &'src str,
+        /// The parameter value
         value: SpannedSegments<'src>,
+        /// The span of the error
         span: Span,
     },
 
+    /// Parameter value must not be quoted.
     #[error("Parameter '{parameter}=\"{value}\"' value must not be quoted")]
     ParameterValueMustNotBeQuoted {
+        /// The parameter name
         parameter: &'src str,
+        /// The parameter value
         value: SpannedSegments<'src>,
+        /// The span of the error
         span: Span,
     },
 
+    /// Invalid parameter value.
     #[error("Invalid value for parameter '{parameter}={value}'")]
     ParameterValueInvalid {
+        /// The parameter name
         parameter: &'src str,
+        /// The parameter value
         value: SpannedSegments<'src>,
+        /// The span of the error
         span: Span,
     },
 
+    /// Syntax error in parameter value.
     #[error("Syntax error in value of parameter '{parameter}': {err}")]
     ParameterValueSyntax {
+        /// The parameter name
         parameter: &'src str,
+        /// The syntax error details
         err: Rich<'src, char>,
     },
 
+    /// Value type is not allowed for this property.
     #[error("Invalid value type '{value_type}' for property '{property}'")]
     ValueTypeDisallowed {
+        /// The property name
         property: &'src str,
+        /// The value type that was provided
         value_type: ValueType,
+        /// The expected value types
         expected_types: &'src [ValueType],
+        /// The span of the error
         span: Span,
     },
 
+    /// Syntax error in property value.
     #[error("Syntax error in value '{value}': {err}")]
     ValueSyntax {
+        /// The value
         value: SpannedSegments<'src>,
+        /// The syntax error details
         err: Rich<'src, char>,
     },
 }
 
 impl TypedAnalysisError<'_> {
+    /// Get the span of this error.
+    #[must_use]
     pub fn span(&self) -> Span {
         match self {
             TypedAnalysisError::PropertyUnknown { span, .. }

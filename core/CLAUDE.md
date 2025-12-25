@@ -107,3 +107,10 @@ Shared data structures used throughout the application:
 - Comprehensive test coverage for critical components
 - Clean separation of concerns between modules
 - Always write code and comments in English
+
+## Common Development Tasks
+
+```
+# Add a new database migration
+just migrate-add <name>
+```

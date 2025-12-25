@@ -19,7 +19,9 @@ use crate::typed::parameter_types::{
 };
 use std::str::FromStr;
 
+/// A typed iCalendar parameter with validated values.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub enum TypedParameter<'src> {
     /// This parameter specifies a URI that points to an alternate
     /// representation for a textual property value. A property specifying
@@ -268,6 +270,7 @@ pub enum TypedParameter<'src> {
 
 impl TypedParameter<'_> {
     /// Returns the type of the parameter
+    #[must_use]
     pub fn kind(&self) -> TypedParameterKind {
         match self {
             TypedParameter::AlternateText { .. } => TypedParameterKind::AlternateText,
@@ -298,11 +301,13 @@ impl TypedParameter<'_> {
     }
 
     /// Name of the parameter (keyword)
+    #[must_use]
     pub fn name(&self) -> &'static str {
         self.kind().name()
     }
 
     /// Span of the parameter
+    #[must_use]
     pub fn span(&self) -> Span {
         match self {
             TypedParameter::AlternateText { span, .. }
@@ -411,6 +416,7 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
 
 /// Simple enum for `TypedParameter` types that maps parameter type to keyword
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[allow(missing_docs)]
 pub enum TypedParameterKind {
     AlternateText,
     CommonName,

@@ -10,6 +10,21 @@
 use crate::semantic::parse_icalendar;
 use crate::typed::{TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value};
 
+/// Perform semantic analysis on typed components.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The root component structure is invalid (not exactly one VCALENDAR)
+/// - The component is not a valid VCALENDAR
+/// - Required properties are missing
+/// - Property values are invalid
+///
+/// # Panics
+///
+/// Panics if `typed_components` has exactly one element but the iterator
+/// yields `None`. This should never happen in practice as the length check
+/// ensures there is exactly one element.
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
 ) -> Result<crate::semantic::ICalendar, SemanticError> {

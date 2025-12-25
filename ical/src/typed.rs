@@ -6,6 +6,7 @@
 
 mod analysis;
 mod parameter;
+/// Parameter type definitions and parsing functions.
 pub mod parameter_types;
 mod property_spec;
 mod rrule;
@@ -21,7 +22,9 @@ pub use crate::typed::parameter::{TypedParameter, TypedParameterKind};
 pub use crate::typed::parameter_types::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, ParticipationRole, ParticipationStatus,
 };
-// pub use crate::typed::property_spec::{PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality};
+pub use crate::typed::property_spec::{
+    PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality,
+};
 pub use crate::typed::rrule::{Day, RecurrenceFrequency, RecurrenceRule, WeekDay};
 pub use crate::typed::value::Value;
 pub use crate::typed::value::ValueDuration;

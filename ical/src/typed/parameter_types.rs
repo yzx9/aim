@@ -20,6 +20,11 @@ use crate::syntax::{SpannedSegments, SyntaxParameter, SyntaxParameterValue};
 use crate::typed::TypedAnalysisError;
 use crate::typed::parameter::{TypedParameter, TypedParameterKind};
 
+/// Parse RSVP expectation parameter.
+///
+/// # Errors
+///
+/// Returns an error if the parameter value is not `TRUE` or `FALSE`.
 pub fn parse_rsvp(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
     let span = param.span();
     parse_single(&mut param, TypedParameterKind::RsvpExpectation).and_then(|v| {
@@ -37,6 +42,13 @@ pub fn parse_rsvp(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
     })
 }
 
+/// Parse timezone identifier parameter.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The parameter does not have exactly one value (when jiff feature is enabled)
+/// - The timezone identifier is not valid (when jiff feature is enabled)
 pub fn parse_tzid<'src>(mut param: SyntaxParameter<'src>) -> ParseResult<'src> {
     let span = param.span();
 
@@ -87,6 +99,7 @@ macro_rules! define_param_enum {
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[allow(missing_docs)]
         pub enum $Name {
             $(
                 $(#[$vmeta])*
@@ -124,6 +137,8 @@ macro_rules! define_param_enum {
             }
         }
 
+        #[allow(missing_docs)]
+        #[allow(clippy::missing_errors_doc)]
         pub fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
             let kind = TypedParameterKind::from_str($param_kw).unwrap();
             parse_single_not_quoted(&mut param, kind).and_then(|value| {
@@ -330,6 +345,17 @@ define_param_enum! {
 
 type ParseResult<'src> = Result<TypedParameter<'src>, Vec<TypedAnalysisError<'src>>>;
 
+/// Parse a single value from a parameter.
+///
+/// # Errors
+///
+/// Returns an error if the parameter does not have exactly one value.
+///
+/// # Panics
+///
+/// Panics if the parameter has exactly one value but `Vec::pop()` returns `None`.
+/// This should never happen in practice as the length check ensures there is
+/// exactly one value.
 pub fn parse_single<'src>(
     param: &mut SyntaxParameter<'src>,
     kind: TypedParameterKind,
@@ -345,6 +371,13 @@ pub fn parse_single<'src>(
     }
 }
 
+/// Parse a single quoted value from a parameter.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The parameter does not have exactly one value
+/// - The value is not quoted
 pub fn parse_single_quoted<'src>(
     param: &mut SyntaxParameter<'src>,
     kind: TypedParameterKind,
@@ -362,6 +395,13 @@ pub fn parse_single_quoted<'src>(
     })
 }
 
+/// Parse a single unquoted value from a parameter.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The parameter does not have exactly one value
+/// - The value is quoted
 pub fn parse_single_not_quoted<'src>(
     param: &mut SyntaxParameter<'src>,
     kind: TypedParameterKind,
@@ -379,6 +419,11 @@ pub fn parse_single_not_quoted<'src>(
     })
 }
 
+/// Parse multiple quoted values from a parameter.
+///
+/// # Errors
+///
+/// Returns an error if any of the values are not quoted.
 pub fn parse_multiple_quoted(
     param: SyntaxParameter<'_>,
     kind: TypedParameterKind,

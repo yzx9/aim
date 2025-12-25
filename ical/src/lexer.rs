@@ -12,6 +12,7 @@ use chumsky::{extra::ParserExtra, span::SimpleSpan};
 use logos::Logos;
 
 /// Create a lexer for iCalendar source code
+#[must_use]
 pub fn lex_analysis(src: &'_ str) -> impl ValueInput<'_, Token = Token<'_>, Span = SimpleSpan> {
     // Create a logos lexer over the source code
     let token_iter = Token::lexer(src)
@@ -32,6 +33,7 @@ pub fn lex_analysis(src: &'_ str) -> impl ValueInput<'_, Token = Token<'_>, Span
         .map((0..src.len()).into(), |(t, s): (_, _)| (t, s))
 }
 
+/// Token emitted by the iCalendar lexer
 #[derive(PartialEq, Eq, Clone, Copy, Logos)]
 #[logos(skip r#"\r\n[ \t]"#)] // skip folding
 pub enum Token<'a> {
@@ -117,8 +119,10 @@ impl Debug for Token<'_> {
     }
 }
 
+/// A span representing a range in the source code
 pub type Span = Range<usize>;
 
+/// A token with its associated span in the source code
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpannedToken<'src>(pub Token<'src>, pub Span);
 

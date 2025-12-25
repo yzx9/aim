@@ -37,27 +37,40 @@ where
     Ok(components.into_iter().map(|comp| comp.build(src)).collect())
 }
 
+/// A parsed iCalendar component (e.g., VCALENDAR, VEVENT, VTODO)
 #[derive(Debug, Clone)]
 pub struct SyntaxComponent<'src> {
-    pub name: &'src str, // "VCALENDAR" / "VEVENT" / "VTIMEZONE" / "VALARM" / ...
-    pub properties: Vec<SyntaxProperty<'src>>, // Keep the original order
+    /// Component name (e.g., "VCALENDAR", "VEVENT", "VTIMEZONE", "VALARM")
+    pub name: &'src str,
+    /// Properties in original order
+    pub properties: Vec<SyntaxProperty<'src>>,
+    /// Nested child components
     pub children: Vec<SyntaxComponent<'src>>,
 }
 
+/// A parsed iCalendar property (name, optional parameters, and value)
 #[derive(Debug, Clone)]
 pub struct SyntaxProperty<'src> {
-    pub name: SpannedSegments<'src>, // Case insensitive, keep original for writing back
-    pub parameters: Vec<SyntaxParameter<'src>>, // Allow duplicates & multi-values
-    pub value: SpannedSegments<'src>, // Raw value, may need further parsing
+    /// Property name (case-insensitive, original casing preserved)
+    pub name: SpannedSegments<'src>,
+    /// Property parameters (allow duplicates & multi-values)
+    pub parameters: Vec<SyntaxParameter<'src>>,
+    /// Raw property value (may need further parsing by typed analysis)
+    pub value: SpannedSegments<'src>,
 }
 
+/// A parsed iCalendar parameter (e.g., `TZID=America/New_York`)
 #[derive(Debug, Clone)]
 pub struct SyntaxParameter<'src> {
-    pub name: SpannedSegments<'src>, // e.g. "TZID", "VALUE", "CN", "ROLE", "PARTSTAT"
-    pub values: Vec<SyntaxParameterValue<'src>>, // Split by commas
+    /// Parameter name (e.g., "TZID", "VALUE", "CN", "ROLE", "PARTSTAT")
+    pub name: SpannedSegments<'src>,
+    /// Parameter values split by commas
+    pub values: Vec<SyntaxParameterValue<'src>>,
 }
 
 impl SyntaxParameter<'_> {
+    /// Get the full span of this parameter (from name to last value)
+    #[must_use]
     pub fn span(&self) -> Span {
         match self.values.last() {
             Some(v) => Span {
@@ -69,9 +82,12 @@ impl SyntaxParameter<'_> {
     }
 }
 
+/// A single parameter value with optional quoting
 #[derive(Debug, Clone)]
 pub struct SyntaxParameterValue<'src> {
+    /// The parameter value
     pub value: SpannedSegments<'src>,
+    /// Whether the value was quoted in the source
     pub quoted: bool,
 }
 
@@ -304,8 +320,10 @@ where
     .collect::<SpanCollector>()
 }
 
+/// A spanned text segment (text with its position in the source)
 pub type SpannedSegment<'src> = (&'src str, Span);
 
+/// A collection of spanned text segments (multi-segment value with positions)
 #[derive(Default, Clone, Debug)]
 pub struct SpannedSegments<'src> {
     pub(crate) segments: Vec<SpannedSegment<'src>>,
@@ -313,10 +331,20 @@ pub struct SpannedSegments<'src> {
 }
 
 impl<'src> SpannedSegments<'src> {
+    /// Get the total length in bytes of all segments
+    #[must_use]
     pub const fn len(&self) -> usize {
         self.len
     }
 
+    /// Returns `true` if the segments contain no elements
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Get the full span from first to last segment
+    #[must_use]
     pub fn span(&self) -> Span {
         match (self.segments.first(), self.segments.last()) {
             (Some((_, first_span)), Some((_, last_span))) => Span {
@@ -327,6 +355,13 @@ impl<'src> SpannedSegments<'src> {
         }
     }
 
+    /// Resolve segments into a single string (borrowed if single segment, owned otherwise)
+    ///
+    /// # Panics
+    ///
+    /// Panics if there are no segments. This should never happen in practice
+    /// as `SpannedSegments` is always created with at least one segment.
+    #[must_use]
     pub fn resolve(&self) -> Cow<'src, str> {
         if self.segments.len() == 1 {
             let s = self.segments.first().unwrap().0; // SAFETY: due to len() == 1
@@ -340,6 +375,8 @@ impl<'src> SpannedSegments<'src> {
         }
     }
 
+    /// Compare segments to a string ignoring ASCII case
+    #[must_use]
     pub fn eq_str_ignore_ascii_case(&self, mut other: &str) -> bool {
         if other.len() != self.len {
             return false;
@@ -376,6 +413,7 @@ impl Display for SpannedSegments<'_> {
     }
 }
 
+/// Iterator over characters in spanned segments
 #[derive(Debug, Clone)]
 pub struct SegmentedSpannedChars<'src> {
     segments: Vec<SpannedSegment<'src>>,

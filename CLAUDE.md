@@ -93,9 +93,6 @@ cargo build
 # Build specific crate
 cargo build -p aimcal-core
 
-# Add a new database migration
-just migrate-add <name>
-
 # List all available just commands
 just
 ```

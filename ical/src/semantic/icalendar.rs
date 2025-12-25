@@ -41,6 +41,14 @@ pub struct ICalendar {
 }
 
 /// Parse a `TypedComponent` into typed `ICalendar`
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The component name is not VCALENDAR
+/// - Required properties (PRODID, VERSION) are missing
+/// - Property values are invalid or malformed
+/// - Child components cannot be parsed
 pub fn parse_icalendar(comp: &TypedComponent<'_>) -> Result<ICalendar, SemanticError> {
     use crate::keyword::{KW_CALSCALE, KW_METHOD, KW_PRODID, KW_VCALENDAR, KW_VERSION};
     use crate::semantic::analysis::find_property;

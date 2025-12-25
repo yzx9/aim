@@ -21,7 +21,7 @@ mod vtodo;
 // Re-export public types from the analysis submodule
 pub use analysis::{SemanticError, semantic_analysis};
 pub use enums::{AttachmentValue, Classification, Period};
-pub use icalendar::{ICalendar, MethodType, parse_icalendar};
+pub use icalendar::{CalendarComponent, CalendarScaleType, ICalendar, MethodType, parse_icalendar, VersionType};
 pub use properties::{
     Attachment, Attendee, DateTime, Duration, Geo, Organizer, ProductId, Text, TimeZoneOffset,
     Trigger, TriggerValue, Uri,

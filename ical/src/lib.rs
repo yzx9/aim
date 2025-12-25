@@ -27,11 +27,11 @@
 )]
 
 mod keyword;
-mod lexer;
+pub mod lexer;
 mod parser;
-mod semantic;
-mod syntax;
-mod typed;
+pub mod semantic;
+pub mod syntax;
+pub mod typed;
 
 pub use crate::parser::{ParseError, parse};
 pub use crate::semantic::{
