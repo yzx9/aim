@@ -10,16 +10,14 @@
 use crate::keyword::KW_VCALENDAR;
 use crate::semantic::{DateTime, Duration, parse_icalendar};
 use crate::typed::ValueDuration;
-use crate::typed::{
-    PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
-};
+use crate::typed::{TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value};
 use crate::{ICalendar, Uri};
 
 /// Perform semantic analysis on typed components.
 ///
 /// # Errors
 ///
-/// Returns an error if:
+/// Returns a vector of errors if:
 /// - The root component structure is invalid (not exactly one VCALENDAR)
 /// - The component is not a valid VCALENDAR
 /// - Required properties are missing
@@ -32,13 +30,13 @@ use crate::{ICalendar, Uri};
 /// ensures there is exactly one element.
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
-) -> Result<ICalendar, SemanticError> {
+) -> Result<ICalendar, Vec<SemanticError>> {
     // Expect exactly one VCALENDAR component at the root
     if typed_components.len() != 1 {
-        return Err(SemanticError::InvalidStructure(format!(
+        return Err(vec![SemanticError::InvalidStructure(format!(
             "Expected 1 root {KW_VCALENDAR} component, found {}",
             typed_components.len()
-        )));
+        ))]);
     }
 
     let root_component = typed_components.into_iter().next().unwrap();
@@ -51,25 +49,6 @@ pub fn find_property<'src>(
     name: &str,
 ) -> Option<&'src TypedProperty<'src>> {
     properties.iter().find(|p| p.name == name)
-}
-
-/// Extract the first property with the given `PropertyKind` from a component
-pub fn find_property_by_kind<'src>(
-    properties: &'src [TypedProperty<'src>],
-    kind: PropertyKind,
-) -> Option<&'src TypedProperty<'src>> {
-    properties.iter().find(|p| p.name == kind.as_str())
-}
-
-/// Extract all properties with the given `PropertyKind` from a component
-pub fn find_properties<'src>(
-    properties: &'src [TypedProperty<'src>],
-    kind: PropertyKind,
-) -> Vec<&'src TypedProperty<'src>> {
-    properties
-        .iter()
-        .filter(|p| p.name == kind.as_str())
-        .collect()
 }
 
 /// Extract a parameter value by kind from a property

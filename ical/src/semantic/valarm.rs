@@ -57,6 +57,6 @@ pub enum AlarmActionType {
 }
 
 /// Parse a `TypedComponent` into a `VAlarm`
-pub fn parse_valarm(_comp: TypedComponent) -> Result<VAlarm, SemanticError> {
+pub fn parse_valarm(_comp: TypedComponent) -> Result<VAlarm, Vec<SemanticError>> {
     todo!("Implement parse_valarm")
 }

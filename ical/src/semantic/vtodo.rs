@@ -114,6 +114,6 @@ pub enum TodoStatus {
 }
 
 /// Parse a `TypedComponent` into a `VTodo`
-pub fn parse_vtodo(_comp: TypedComponent) -> Result<VTodo, SemanticError> {
+pub fn parse_vtodo(_comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
     todo!("Implement parse_vtodo")
 }

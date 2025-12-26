@@ -106,8 +106,11 @@ pub fn parse(src: &'_ str) -> Result<ICalendar, Vec<ParseError<'_>>> {
     let typed_components = typed_analysis(syntax_components)
         .map_err(|errs| errs.into_iter().map(ParseError::Typed).collect::<Vec<_>>())?;
 
-    let icalendar =
-        semantic_analysis(typed_components).map_err(|e| vec![ParseError::Semantic(e)])?;
+    let icalendar = semantic_analysis(typed_components).map_err(|errs| {
+        errs.into_iter()
+            .map(ParseError::Semantic)
+            .collect::<Vec<_>>()
+    })?;
 
     Ok(icalendar)
 }

@@ -17,7 +17,7 @@ use aimcal_ical::typed::typed_analysis;
 /// Test helper to parse iCalendar source through semantic phase
 fn parse_semantic(
     src: &str,
-) -> Result<aimcal_ical::semantic::ICalendar, aimcal_ical::SemanticError> {
+) -> Result<aimcal_ical::semantic::ICalendar, Vec<aimcal_ical::SemanticError>> {
     use aimcal_ical::syntax::SyntaxComponent;
     use chumsky::error::Rich;
 

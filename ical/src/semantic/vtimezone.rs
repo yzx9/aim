@@ -52,6 +52,6 @@ pub struct TimeZoneObservance {
 }
 
 /// Parse a `TypedComponent` into a `VTimeZone`
-pub fn parse_vtimezone(_comp: TypedComponent) -> Result<VTimeZone, SemanticError> {
+pub fn parse_vtimezone(_comp: TypedComponent) -> Result<VTimeZone, Vec<SemanticError>> {
     todo!("Implement parse_vtimezone")
 }

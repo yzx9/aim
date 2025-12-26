@@ -52,6 +52,6 @@ pub struct VFreeBusy {
 }
 
 /// Parse a `TypedComponent` into a `VFreeBusy`
-pub fn parse_vfreebusy(_comp: TypedComponent) -> Result<VFreeBusy, SemanticError> {
+pub fn parse_vfreebusy(_comp: TypedComponent) -> Result<VFreeBusy, Vec<SemanticError>> {
     todo!("Implement parse_vfreebusy")
 }

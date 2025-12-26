@@ -73,6 +73,6 @@ pub enum JournalStatus {
 }
 
 /// Parse a `TypedComponent` into a `VJournal`
-pub fn parse_vjournal(_comp: TypedComponent) -> Result<VJournal, SemanticError> {
+pub fn parse_vjournal(_comp: TypedComponent) -> Result<VJournal, Vec<SemanticError>> {
     todo!("Implement parse_vjournal")
 }

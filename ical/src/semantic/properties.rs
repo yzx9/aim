@@ -76,7 +76,7 @@ pub struct Text {
 }
 
 /// Product identifier that identifies the software that created the iCalendar data
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ProductId {
     /// Company identifier
     pub company: String,

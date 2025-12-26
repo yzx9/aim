@@ -44,41 +44,82 @@ pub struct ICalendar {
 ///
 /// # Errors
 ///
-/// Returns an error if:
+/// Returns a vector of errors if:
 /// - The component name is not VCALENDAR
 /// - Required properties (PRODID, VERSION) are missing
 /// - Property values are invalid or malformed
 /// - Child components cannot be parsed
-pub fn parse_icalendar(comp: &TypedComponent<'_>) -> Result<ICalendar, SemanticError> {
+pub fn parse_icalendar(comp: &TypedComponent<'_>) -> Result<ICalendar, Vec<SemanticError>> {
+    let mut errors = Vec::new();
+
     if comp.name != KW_VCALENDAR {
-        return Err(SemanticError::InvalidStructure(format!(
+        return Err(vec![SemanticError::InvalidStructure(format!(
             "Expected VCALENDAR component, got '{}'",
             comp.name
-        )));
+        ))]);
     }
 
     // PRODID is required
-    let prod_id = find_property(&comp.properties, KW_PRODID)
-        .map(parse_product_id)
-        .ok_or(SemanticError::MissingProperty(KW_PRODID.to_string()))??;
+    let prod_id = match find_property(&comp.properties, KW_PRODID) {
+        Some(prop) => match parse_product_id(prop) {
+            Ok(v) => v,
+            Err(e) => {
+                errors.push(e);
+                ProductId::default()
+            }
+        },
+        None => {
+            errors.push(SemanticError::MissingProperty(KW_PRODID.to_string()));
+            ProductId::default()
+        }
+    };
 
     // VERSION is required (should be "2.0")
-    let version = find_property(&comp.properties, KW_VERSION)
-        .map(parse_version)
-        .ok_or(SemanticError::MissingProperty(KW_VERSION.to_string()))??;
+    let version = match find_property(&comp.properties, KW_VERSION) {
+        Some(prop) => match parse_version(prop) {
+            Ok(v) => v,
+            Err(e) => {
+                errors.push(e);
+                VersionType::V2_0
+            }
+        },
+        None => {
+            errors.push(SemanticError::MissingProperty(KW_VERSION.to_string()));
+            VersionType::V2_0
+        }
+    };
 
     // CALSCALE is optional
-    let calscale = find_property(&comp.properties, KW_CALSCALE)
-        .map(parse_calscale)
-        .transpose()?;
+    let calscale = match find_property(&comp.properties, KW_CALSCALE) {
+        Some(prop) => match parse_calscale(prop) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                errors.push(e);
+                None
+            }
+        },
+        None => None,
+    };
 
     // METHOD is optional
-    let method = find_property(&comp.properties, KW_METHOD)
-        .map(parse_method)
-        .transpose()?;
+    let method = match find_property(&comp.properties, KW_METHOD) {
+        Some(prop) => match parse_method(prop) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                errors.push(e);
+                None
+            }
+        },
+        None => None,
+    };
 
     // Parse child components
-    let components = parse_component_children(&comp.children)?;
+    let (components, child_errors) = parse_component_children(&comp.children);
+    errors.extend(child_errors);
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
 
     Ok(ICalendar {
         prod_id,
@@ -175,28 +216,47 @@ fn parse_method(prop: &TypedProperty<'_>) -> Result<MethodType, SemanticError> {
 }
 
 /// Parse component children into `CalendarComponent` enum
+///
+/// Returns the components and any errors encountered during parsing.
+/// Components with errors are skipped, allowing all valid components
+/// to be collected while reporting all errors.
 fn parse_component_children(
     children: &[TypedComponent<'_>],
-) -> Result<Vec<CalendarComponent>, SemanticError> {
+) -> (Vec<CalendarComponent>, Vec<SemanticError>) {
     let mut components = Vec::new();
+    let mut errors = Vec::new();
+
     for child in children {
         match child.name {
-            KW_VEVENT => components.push(CalendarComponent::Event(parse_vevent(child.clone())?)),
-            KW_VTODO => components.push(CalendarComponent::Todo(parse_vtodo(child.clone())?)),
-            KW_VJOURNAL => {
-                components.push(CalendarComponent::VJournal(parse_vjournal(child.clone())?));
-            }
-            KW_VFREEBUSY => components.push(CalendarComponent::VFreeBusy(parse_vfreebusy(
-                child.clone(),
-            )?)),
-            KW_VTIMEZONE => components.push(CalendarComponent::VTimeZone(parse_vtimezone(
-                child.clone(),
-            )?)),
-            KW_VALARM => components.push(CalendarComponent::VAlarm(parse_valarm(child.clone())?)),
-            _ => return Err(SemanticError::UnknownComponent(child.name.to_string())),
+            KW_VEVENT => match parse_vevent(child.clone()) {
+                Ok(v) => components.push(CalendarComponent::Event(v)),
+                Err(e) => errors.extend(e),
+            },
+            KW_VTODO => match parse_vtodo(child.clone()) {
+                Ok(v) => components.push(CalendarComponent::Todo(v)),
+                Err(e) => errors.extend(e),
+            },
+            KW_VJOURNAL => match parse_vjournal(child.clone()) {
+                Ok(v) => components.push(CalendarComponent::VJournal(v)),
+                Err(e) => errors.extend(e),
+            },
+            KW_VFREEBUSY => match parse_vfreebusy(child.clone()) {
+                Ok(v) => components.push(CalendarComponent::VFreeBusy(v)),
+                Err(e) => errors.extend(e),
+            },
+            KW_VTIMEZONE => match parse_vtimezone(child.clone()) {
+                Ok(v) => components.push(CalendarComponent::VTimeZone(v)),
+                Err(e) => errors.extend(e),
+            },
+            KW_VALARM => match parse_valarm(child.clone()) {
+                Ok(v) => components.push(CalendarComponent::VAlarm(v)),
+                Err(e) => errors.extend(e),
+            },
+            _ => errors.push(SemanticError::UnknownComponent(child.name.to_string())),
         }
     }
-    Ok(components)
+
+    (components, errors)
 }
 
 /// Calendar components that can appear in an iCalendar object
