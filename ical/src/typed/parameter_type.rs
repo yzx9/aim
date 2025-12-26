@@ -7,14 +7,14 @@ use std::str::FromStr;
 use crate::keyword::{
     KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_CUTYPE, KW_CUTYPE_GROUP, KW_CUTYPE_INDIVIDUAL,
     KW_CUTYPE_RESOURCE, KW_CUTYPE_ROOM, KW_CUTYPE_UNKNOWN, KW_DATE, KW_DATETIME, KW_DURATION,
-    KW_ENCODING, KW_ENCODING_8BIT, KW_ENCODING_BASE64, KW_FALSE, KW_FBTYPE, KW_FBTYPE_BUSY,
+    KW_ENCODING, KW_ENCODING_8BIT, KW_ENCODING_BASE64, KW_FBTYPE, KW_FBTYPE_BUSY,
     KW_FBTYPE_BUSY_TENTATIVE, KW_FBTYPE_BUSY_UNAVAILABLE, KW_FBTYPE_FREE, KW_FLOAT, KW_INTEGER,
     KW_PARTSTAT, KW_PARTSTAT_ACCEPTED, KW_PARTSTAT_COMPLETED, KW_PARTSTAT_DECLINED,
     KW_PARTSTAT_DELEGATED, KW_PARTSTAT_IN_PROCESS, KW_PARTSTAT_NEEDS_ACTION, KW_PARTSTAT_TENTATIVE,
     KW_PERIOD, KW_RANGE, KW_RANGE_THISANDFUTURE, KW_RELATED, KW_RELATED_END, KW_RELATED_START,
     KW_RELTYPE, KW_RELTYPE_CHILD, KW_RELTYPE_PARENT, KW_RELTYPE_SIBLING, KW_ROLE, KW_ROLE_CHAIR,
-    KW_ROLE_NON_PARTICIPANT, KW_ROLE_OPT_PARTICIPANT, KW_ROLE_REQ_PARTICIPANT, KW_RRULE, KW_TEXT,
-    KW_TIME, KW_TRUE, KW_URI, KW_UTC_OFFSET, KW_VALUE,
+    KW_ROLE_NON_PARTICIPANT, KW_ROLE_OPT_PARTICIPANT, KW_ROLE_REQ_PARTICIPANT, KW_RRULE,
+    KW_RSVP_FALSE, KW_RSVP_TRUE, KW_TEXT, KW_TIME, KW_URI, KW_UTC_OFFSET, KW_VALUE,
 };
 use crate::syntax::{SpannedSegments, SyntaxParameter, SyntaxParameterValue};
 use crate::typed::TypedAnalysisError;
@@ -28,9 +28,9 @@ use crate::typed::parameter::{TypedParameter, TypedParameterKind};
 pub fn parse_rsvp(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
     let span = param.span();
     parse_single(&mut param, TypedParameterKind::RsvpExpectation).and_then(|v| {
-        if v.value.eq_str_ignore_ascii_case(KW_TRUE) {
+        if v.value.eq_str_ignore_ascii_case(KW_RSVP_TRUE) {
             Ok(TypedParameter::RsvpExpectation { value: true, span })
-        } else if v.value.eq_str_ignore_ascii_case(KW_FALSE) {
+        } else if v.value.eq_str_ignore_ascii_case(KW_RSVP_FALSE) {
             Ok(TypedParameter::RsvpExpectation { value: false, span })
         } else {
             Err(vec![TypedAnalysisError::ParameterValueInvalid {

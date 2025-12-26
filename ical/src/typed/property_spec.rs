@@ -17,7 +17,7 @@ use crate::keyword::{
 };
 use crate::syntax::SpannedSegments;
 use crate::typed::parameter::TypedParameterKind;
-use crate::typed::parameter_types::ValueType;
+use crate::typed::parameter_type::ValueType;
 
 /// Macro to define `PropertyKind` with all associated metadata.
 ///

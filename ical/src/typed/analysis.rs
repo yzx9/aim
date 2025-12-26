@@ -12,7 +12,7 @@ use thiserror::Error;
 use crate::lexer::Span;
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
 use crate::typed::parameter::TypedParameter;
-use crate::typed::parameter_types::ValueType;
+use crate::typed::parameter_type::ValueType;
 use crate::typed::property_spec::{
     PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality,
 };

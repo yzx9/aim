@@ -7,7 +7,7 @@
 mod analysis;
 mod parameter;
 /// Parameter type definitions and parsing functions.
-pub mod parameter_types;
+pub mod parameter_type;
 mod property_spec;
 mod rrule;
 mod value;
@@ -20,7 +20,7 @@ pub use crate::typed::analysis::{
     TypedAnalysisError, TypedComponent, TypedProperty, typed_analysis,
 };
 pub use crate::typed::parameter::{TypedParameter, TypedParameterKind};
-pub use crate::typed::parameter_types::{
+pub use crate::typed::parameter_type::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, ParticipationRole, ParticipationStatus,
 };
 pub use crate::typed::property_spec::{

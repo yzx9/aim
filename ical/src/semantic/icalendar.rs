@@ -233,19 +233,19 @@ fn parse_component_children(
                 Ok(v) => components.push(CalendarComponent::Todo(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VJOURNAL => match parse_vjournal(child.clone()) {
+            KW_VJOURNAL => match parse_vjournal(child) {
                 Ok(v) => components.push(CalendarComponent::VJournal(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VFREEBUSY => match parse_vfreebusy(child.clone()) {
+            KW_VFREEBUSY => match parse_vfreebusy(child) {
                 Ok(v) => components.push(CalendarComponent::VFreeBusy(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VTIMEZONE => match parse_vtimezone(child.clone()) {
+            KW_VTIMEZONE => match parse_vtimezone(child) {
                 Ok(v) => components.push(CalendarComponent::VTimeZone(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VALARM => match parse_valarm(child.clone()) {
+            KW_VALARM => match parse_valarm(child) {
                 Ok(v) => components.push(CalendarComponent::VAlarm(v)),
                 Err(e) => errors.extend(e),
             },

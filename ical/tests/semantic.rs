@@ -99,9 +99,7 @@ END:VCALENDAR\r
     }
 }
 
-// SEMANTIC ANALYSIS NOT IMPLEMENTED: VTodo parsing is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VTodo parsing"]
 fn semantic_parses_simple_todo() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -129,9 +127,7 @@ END:VCALENDAR\r
     }
 }
 
-// SEMANTIC ANALYSIS NOT IMPLEMENTED: VJournal parsing is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VJournal parsing"]
 fn semantic_parses_simple_journal() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -159,9 +155,7 @@ END:VCALENDAR\r
     }
 }
 
-// SEMANTIC ANALYSIS NOT IMPLEMENTED: VFreeBusy parsing is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VFreeBusy parsing"]
 fn semantic_parses_simple_freebusy() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -172,6 +166,7 @@ UID:12345\r
 DTSTAMP:20250101T000000Z\r
 DTSTART:20250615T080000Z\r
 DTEND:20250615T170000Z\r
+ORGANIZER:mailto:user@example.com\r
 END:VFREEBUSY\r
 END:VCALENDAR\r
 ";
@@ -181,16 +176,14 @@ END:VCALENDAR\r
     match &calendar.components[0] {
         CalendarComponent::VFreeBusy(fb) => {
             // VFreeBusy has dt_start and dt_end fields
-            assert!(fb.dt_start.date.day > 0);
-            assert!(fb.dt_end.date.day > 0);
+            assert!(fb.dt_start.date().day > 0);
+            assert!(fb.dt_end.as_ref().unwrap().date().day > 0);
         }
         _ => panic!("Expected VFreeBusy component"),
     }
 }
 
-// SEMANTIC ANALYSIS NOT IMPLEMENTED: VALARM semantic parsing is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VALARM parsing"]
 fn semantic_parses_event_with_alarm() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -263,7 +256,7 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
-            assert!(event.dt_start.date.day > 0);
+            assert!(event.dt_start.date().day > 0);
             assert!(event.dt_end.is_some());
         }
         _ => panic!("Expected Event component"),
@@ -289,7 +282,7 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
-            assert!(event.dt_start.date.day > 0);
+            assert!(event.dt_start.date().day > 0);
             assert!(event.duration.is_some());
         }
         _ => panic!("Expected Event component"),
@@ -505,9 +498,7 @@ END:VCALENDAR\r
     }
 }
 
-// PARSER LIMITATION: VJOURNAL semantic parser is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VJOURNAL parsing"]
 fn semantic_when_journal_has_date_only_start() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -525,9 +516,7 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 }
 
-// SEMANTIC ANALYSIS NOT IMPLEMENTED: VALARM semantic parsing is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VALARM parsing"]
 fn semantic_when_alarm_has_negative_trigger() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -631,9 +620,7 @@ END:VCALENDAR\r
     }
 }
 
-// SEMANTIC ANALYSIS NOT IMPLEMENTED: VTodo parsing is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VTodo parsing"]
 fn semantic_parses_todo_percent_complete() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -659,9 +646,7 @@ END:VCALENDAR\r
     }
 }
 
-// SEMANTIC ANALYSIS NOT IMPLEMENTED: VTodo parsing is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VTodo parsing in mixed components"]
 fn semantic_parses_mixed_components() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -796,9 +781,7 @@ END:VCALENDAR\r
     assert!(calendar.calscale.is_some());
 }
 
-// SEMANTIC ANALYSIS NOT IMPLEMENTED: VTimeZone parsing is not yet implemented
 #[test]
-#[ignore = "semantic analysis not implemented: VTimeZone parsing"]
 fn semantic_parses_nested_timezone() {
     let src = "\
 BEGIN:VCALENDAR\r

@@ -8,25 +8,42 @@
 pub const KW_ALTREP: &str = "ALTREP";
 pub const KW_CN: &str = "CN";
 pub const KW_CUTYPE: &str = "CUTYPE";
+pub const KW_DELEGATED_FROM: &str = "DELEGATED-FROM";
+pub const KW_DELEGATED_TO: &str = "DELEGATED-TO";
+pub const KW_DIR: &str = "DIR";
+pub const KW_ENCODING: &str = "ENCODING";
+pub const KW_FBTYPE: &str = "FBTYPE";
+pub const KW_LANGUAGE: &str = "LANGUAGE";
+pub const KW_MEMBER: &str = "MEMBER";
+pub const KW_PARTSTAT: &str = "PARTSTAT";
+pub const KW_RANGE: &str = "RANGE";
+pub const KW_FMTTYPE: &str = "FMTTYPE";
+pub const KW_RELATED: &str = "RELATED";
+pub const KW_RELTYPE: &str = "RELTYPE";
+pub const KW_ROLE: &str = "ROLE";
+pub const KW_RSVP: &str = "RSVP";
+pub const KW_SENT_BY: &str = "SENT-BY";
+pub const KW_TZID: &str = "TZID";
+pub const KW_VALUE: &str = "VALUE";
+
+// 3.2.3.  Calendar User Type
 pub const KW_CUTYPE_INDIVIDUAL: &str = "INDIVIDUAL";
 pub const KW_CUTYPE_GROUP: &str = "GROUP";
 pub const KW_CUTYPE_RESOURCE: &str = "RESOURCE";
 pub const KW_CUTYPE_ROOM: &str = "ROOM";
 pub const KW_CUTYPE_UNKNOWN: &str = "UNKNOWN";
-pub const KW_DELEGATED_FROM: &str = "DELEGATED-FROM";
-pub const KW_DELEGATED_TO: &str = "DELEGATED-TO";
-pub const KW_DIR: &str = "DIR";
-pub const KW_ENCODING: &str = "ENCODING";
+
+// 3.2.7.  Inline Encoding
 pub const KW_ENCODING_8BIT: &str = "8bit";
 pub const KW_ENCODING_BASE64: &str = "base64";
-pub const KW_FBTYPE: &str = "FBTYPE";
+
+// 3.2.9.  Free/Busy Time Type
 pub const KW_FBTYPE_FREE: &str = "FREE";
 pub const KW_FBTYPE_BUSY: &str = "BUSY";
 pub const KW_FBTYPE_BUSY_UNAVAILABLE: &str = "BUSY-UNAVAILABLE";
 pub const KW_FBTYPE_BUSY_TENTATIVE: &str = "BUSY-TENTATIVE";
-pub const KW_LANGUAGE: &str = "LANGUAGE";
-pub const KW_MEMBER: &str = "MEMBER";
-pub const KW_PARTSTAT: &str = "PARTSTAT";
+
+// 3.2.12.  Participation Status
 pub const KW_PARTSTAT_NEEDS_ACTION: &str = "NEEDS-ACTION";
 pub const KW_PARTSTAT_ACCEPTED: &str = "ACCEPTED";
 pub const KW_PARTSTAT_DECLINED: &str = "DECLINED";
@@ -34,27 +51,28 @@ pub const KW_PARTSTAT_TENTATIVE: &str = "TENTATIVE";
 pub const KW_PARTSTAT_DELEGATED: &str = "DELEGATED";
 pub const KW_PARTSTAT_COMPLETED: &str = "COMPLETED";
 pub const KW_PARTSTAT_IN_PROCESS: &str = "IN-PROCESS";
-pub const KW_RANGE: &str = "RANGE";
+
+// 3.2.13.  Recurrence Identifier Range
 pub const KW_RANGE_THISANDFUTURE: &str = "THISANDFUTURE";
-pub const KW_FMTTYPE: &str = "FMTTYPE";
-pub const KW_RELATED: &str = "RELATED";
+
+// 3.2.14.  Alarm Trigger Relationship
 pub const KW_RELATED_START: &str = "START";
 pub const KW_RELATED_END: &str = "END";
-pub const KW_RELTYPE: &str = "RELTYPE";
+
+// 3.2.15.  Relationship Type
 pub const KW_RELTYPE_PARENT: &str = "PARENT";
 pub const KW_RELTYPE_CHILD: &str = "CHILD";
 pub const KW_RELTYPE_SIBLING: &str = "SIBLING";
-pub const KW_ROLE: &str = "ROLE";
+
+// 3.2.16.  Participation Role
 pub const KW_ROLE_CHAIR: &str = "CHAIR";
 pub const KW_ROLE_REQ_PARTICIPANT: &str = "REQ-PARTICIPANT";
 pub const KW_ROLE_OPT_PARTICIPANT: &str = "OPT-PARTICIPANT";
 pub const KW_ROLE_NON_PARTICIPANT: &str = "NON-PARTICIPANT";
-pub const KW_RSVP: &str = "RSVP";
-pub const KW_TRUE: &str = "TRUE";
-pub const KW_FALSE: &str = "FALSE";
-pub const KW_SENT_BY: &str = "SENT-BY";
-pub const KW_TZID: &str = "TZID";
-pub const KW_VALUE: &str = "VALUE";
+
+// 3.2.17.  RSVP Expectation
+pub const KW_RSVP_TRUE: &str = "TRUE";
+pub const KW_RSVP_FALSE: &str = "FALSE";
 
 // 3.3.  Property Value Data Types
 pub const KW_BINARY: &str = "BINARY";
@@ -82,6 +100,16 @@ pub const KW_VJOURNAL: &str = "VJOURNAL";
 pub const KW_VFREEBUSY: &str = "VFREEBUSY";
 pub const KW_VTIMEZONE: &str = "VTIMEZONE";
 pub const KW_VALARM: &str = "VALARM";
+
+// 3.6.5.  Time Zone Component Component Names
+pub const KW_STANDARD: &str = "STANDARD";
+pub const KW_DAYLIGHT: &str = "DAYLIGHT";
+
+// 3.8.6.  Alarm Component Properties - ACTION values
+pub const KW_ACTION_AUDIO: &str = "AUDIO";
+pub const KW_ACTION_DISPLAY: &str = "DISPLAY";
+pub const KW_ACTION_EMAIL: &str = "EMAIL";
+pub const KW_ACTION_PROCEDURE: &str = "PROCEDURE";
 
 // 3.7.  Calendar Properties
 pub const KW_CALSCALE: &str = "CALSCALE";

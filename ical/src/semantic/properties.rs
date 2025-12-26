@@ -4,48 +4,96 @@
 
 //! Property and value types for iCalendar semantic components.
 
-use crate::semantic::enums::AttachmentValue;
 use crate::typed::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, ParticipationRole, ParticipationStatus,
-    ValueDate, ValueTime,
+    ValueDate, ValueDuration, ValueTime,
 };
 
 /// Date and time representation
 #[derive(Debug, Clone)]
-pub struct DateTime {
-    /// Date part
-    pub date: ValueDate,
+pub enum DateTime {
+    /// Date and time without timezone (floating time)
+    Floating {
+        /// Date part
+        date: ValueDate,
+        /// Time part
+        time: ValueTime,
+    },
 
-    /// Time part (optional for DATE values)
-    pub time: Option<ValueTime>,
+    /// Date and time with specific timezone
+    Zoned {
+        /// Date part
+        date: ValueDate,
+        /// Time part
+        time: ValueTime,
+        /// Timezone identifier
+        tz_id: String,
+    },
 
-    /// Timezone identifier (optional for local time)
-    pub tz_id: Option<String>,
+    /// Date and time in UTC
+    Utc {
+        /// Date part
+        date: ValueDate,
+        /// Time part
+        time: ValueTime,
+    },
 
-    /// Whether this is a DATE-only value
-    pub date_only: bool,
+    /// Date-only value
+    Date {
+        /// Date part
+        date: ValueDate,
+    },
 }
 
-/// Duration representation
-#[derive(Debug, Clone, Copy)]
-pub struct Duration {
-    /// Whether the duration is positive
-    pub positive: bool,
+impl DateTime {
+    /// Get the date part of this `DateTime`
+    #[must_use]
+    pub fn date(&self) -> ValueDate {
+        match self {
+            DateTime::Floating { date, .. }
+            | DateTime::Zoned { date, .. }
+            | DateTime::Utc { date, .. }
+            | DateTime::Date { date } => *date,
+        }
+    }
 
-    /// Weeks component
-    pub weeks: Option<u32>,
+    /// Get the time part if this is not a date-only value
+    #[must_use]
+    pub fn time(&self) -> Option<ValueTime> {
+        match self {
+            DateTime::Floating { time, .. }
+            | DateTime::Zoned { time, .. }
+            | DateTime::Utc { time, .. } => Some(*time),
+            DateTime::Date { .. } => None,
+        }
+    }
 
-    /// Days component
-    pub days: Option<u32>,
+    /// Get the timezone ID if this is a zoned value
+    #[must_use]
+    pub fn tz_id(&self) -> Option<&str> {
+        match self {
+            DateTime::Zoned { tz_id, .. } => Some(tz_id),
+            _ => None,
+        }
+    }
 
-    /// Hours component
-    pub hours: Option<u32>,
+    /// Check if this is a date-only value
+    #[must_use]
+    pub fn is_date_only(&self) -> bool {
+        matches!(self, DateTime::Date { .. })
+    }
 
-    /// Minutes component
-    pub minutes: Option<u32>,
+    /// Check if this is a UTC value
+    #[must_use]
+    pub fn is_utc(&self) -> bool {
+        matches!(self, DateTime::Utc { .. })
+    }
 
-    /// Seconds component
-    pub seconds: Option<u32>,
+    /// Check if this is a floating (no timezone) value
+    #[must_use]
+    pub fn is_floating(&self) -> bool {
+        matches!(self, DateTime::Floating { .. })
+    }
 }
 
 /// Geographic position
@@ -174,7 +222,7 @@ pub struct Trigger {
 #[derive(Debug, Clone)]
 pub enum TriggerValue {
     /// Relative duration before/after the event
-    Duration(Duration),
+    Duration(ValueDuration),
 
     /// Absolute date/time
     DateTime(DateTime),
@@ -191,4 +239,49 @@ pub struct TimeZoneOffset {
 
     /// Minutes
     pub minutes: u8,
+}
+
+/// Classification of calendar data
+#[derive(Debug, Clone, Copy)]
+pub enum Classification {
+    /// Public classification
+    Public,
+
+    /// Private classification
+    Private,
+
+    /// Confidential classification
+    Confidential,
+    // /// Custom classification
+    // Custom(String),
+}
+
+/// Period of time (start-end or start-duration)
+#[derive(Debug, Clone)]
+pub enum Period {
+    /// Start and end date/time
+    DateTimeRange {
+        /// Start of the period
+        start: DateTime,
+        /// End of the period
+        end: DateTime,
+    },
+
+    /// Start date/time and duration
+    Duration {
+        /// Start of the period
+        start: DateTime,
+        /// Duration from the start
+        duration: ValueDuration,
+    },
+}
+
+/// Attachment value (URI or binary)
+#[derive(Debug, Clone)]
+pub enum AttachmentValue {
+    /// URI reference
+    Uri(Uri),
+
+    /// Binary data
+    Binary(Vec<u8>),
 }

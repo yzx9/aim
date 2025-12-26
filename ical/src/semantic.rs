@@ -8,7 +8,6 @@
 //! calendar data without dealing with string parsing and validation.
 
 mod analysis;
-mod enums;
 pub mod icalendar;
 mod properties;
 mod valarm;
@@ -20,13 +19,12 @@ mod vtodo;
 
 // Re-export public types from the analysis submodule
 pub use analysis::{SemanticError, semantic_analysis};
-pub use enums::{AttachmentValue, Classification, Period};
 pub use icalendar::{
     CalendarComponent, CalendarScaleType, ICalendar, MethodType, VersionType, parse_icalendar,
 };
 pub use properties::{
-    Attachment, Attendee, DateTime, Duration, Geo, Organizer, ProductId, Text, TimeZoneOffset,
-    Trigger, TriggerValue, Uri,
+    Attachment, AttachmentValue, Attendee, Classification, DateTime, Geo, Organizer, Period,
+    ProductId, Text, TimeZoneOffset, Trigger, TriggerValue, Uri,
 };
 pub use valarm::VAlarm;
 pub use vevent::{EventStatus, TimeTransparency, VEvent};

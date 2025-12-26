@@ -10,7 +10,7 @@ use crate::keyword::{
 use crate::lexer::Span;
 use crate::syntax::{SpannedSegments, SyntaxParameter};
 use crate::typed::TypedAnalysisError;
-use crate::typed::parameter_types::{
+use crate::typed::parameter_type::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,
     ParticipationStatus, RecurrenceIdRange, RelationshipType, ValueType,
     parse_alarm_trigger_relationship, parse_cutype, parse_encoding, parse_fbtype,

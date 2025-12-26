@@ -4,26 +4,20 @@
 
 //! Event component (VEVENT) for iCalendar semantic components.
 
-use chumsky::Parser;
-use chumsky::error::Rich;
-use chumsky::extra::Err as ChumskyErr;
-use chumsky::input::Stream;
-
 use crate::RecurrenceRule;
 use crate::keyword::{KW_VALARM, KW_VEVENT};
 use crate::semantic::SemanticError;
 use crate::semantic::analysis::{
-    find_parameter, get_language, get_single_value, get_tzid, parse_cal_address,
-    value_to_date_time, value_to_duration, value_to_int, value_to_string,
+    get_language, get_single_value, get_tzid, parse_attendee_property,
+    parse_classification_property, parse_geo_property, parse_multi_text_property,
+    parse_organizer_property, value_to_any_date_time, value_to_date_time,
+    value_to_date_time_with_tz, value_to_int, value_to_string,
 };
-use crate::semantic::enums::{Classification, Period};
-use crate::semantic::properties::{Attendee, DateTime, Duration, Geo, Organizer, Text, Uri};
+use crate::semantic::properties::{
+    Attendee, Classification, DateTime, Geo, Organizer, Period, Text, Uri,
+};
 use crate::semantic::valarm::{VAlarm, parse_valarm};
-use crate::typed::parameter_types::{CalendarUserType, ParticipationRole, ParticipationStatus};
-use crate::typed::{
-    PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
-    ValueDate, values_float_semicolon,
-};
+use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value, ValueDate, ValueDuration};
 
 /// Event component (VEVENT)
 #[derive(Debug, Clone)]
@@ -41,7 +35,7 @@ pub struct VEvent {
     pub dt_end: Option<DateTime>,
 
     /// Duration of the event (alternative to `dt_end`)
-    pub duration: Option<Duration>,
+    pub duration: Option<ValueDuration>,
 
     /// Summary/title of the event
     pub summary: Option<Text>,
@@ -424,30 +418,23 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
                         PropertyKind::DtStamp.as_str().to_string(),
                         "Expected date-time value".to_string(),
                     ));
-                    // Return a dummy value to continue parsing
-                    DateTime {
+                    DateTime::Date {
                         date: ValueDate {
                             year: 0,
                             month: 1,
                             day: 1,
                         },
-                        time: None,
-                        tz_id: None,
-                        date_only: true,
                     }
                 }
             },
             Err(e) => {
                 errors.push(e);
-                DateTime {
+                DateTime::Date {
                     date: ValueDate {
                         year: 0,
                         month: 1,
                         day: 1,
                     },
-                    time: None,
-                    tz_id: None,
-                    date_only: true,
                 }
             }
         },
@@ -455,147 +442,132 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
             errors.push(SemanticError::MissingProperty(
                 PropertyKind::DtStamp.as_str().to_string(),
             ));
-            DateTime {
+            DateTime::Date {
                 date: ValueDate {
                     year: 0,
                     month: 1,
                     day: 1,
                 },
-                time: None,
-                tz_id: None,
-                date_only: true,
             }
         }
     };
 
     // DTSTART is required
     let dt_start = match props.dt_start {
-        Some(prop) => match get_single_value(prop) {
-            Ok(value) => match value_to_date_time(value) {
-                Some(mut v) => {
-                    // Add timezone if specified
-                    if let Some(tz_id) = get_tzid(&prop.parameters) {
-                        v.tz_id = Some(tz_id);
+        Some(prop) => {
+            let tz_id = get_tzid(&prop.parameters);
+            match get_single_value(prop) {
+                Ok(value) => {
+                    let result = match &tz_id {
+                        Some(id) => value_to_date_time_with_tz(value, id.clone()),
+                        None => value_to_any_date_time(value),
+                    };
+                    match result {
+                        Some(v) => v,
+                        None => {
+                            errors.push(SemanticError::InvalidValue(
+                                PropertyKind::DtStart.as_str().to_string(),
+                                "Expected date-time value".to_string(),
+                            ));
+                            DateTime::Date {
+                                date: ValueDate {
+                                    year: 0,
+                                    month: 1,
+                                    day: 1,
+                                },
+                            }
+                        }
                     }
-                    v
                 }
-                None => {
-                    errors.push(SemanticError::InvalidValue(
-                        PropertyKind::DtStart.as_str().to_string(),
-                        "Expected date-time value".to_string(),
-                    ));
-                    DateTime {
+                Err(e) => {
+                    errors.push(e);
+                    DateTime::Date {
                         date: ValueDate {
                             year: 0,
                             month: 1,
                             day: 1,
                         },
-                        time: None,
-                        tz_id: None,
-                        date_only: true,
                     }
                 }
-            },
-            Err(e) => {
-                errors.push(e);
-                DateTime {
-                    date: ValueDate {
-                        year: 0,
-                        month: 1,
-                        day: 1,
-                    },
-                    time: None,
-                    tz_id: None,
-                    date_only: true,
-                }
             }
-        },
+        }
         None => {
             errors.push(SemanticError::MissingProperty(
                 PropertyKind::DtStart.as_str().to_string(),
             ));
-            DateTime {
+            DateTime::Date {
                 date: ValueDate {
                     year: 0,
                     month: 1,
                     day: 1,
                 },
-                time: None,
-                tz_id: None,
-                date_only: true,
             }
         }
     };
 
     // DTEND is optional
-    let dt_end = props.dt_end.map(|prop| match get_single_value(prop) {
-        Ok(value) => match value_to_date_time(value) {
-            Some(mut v) => {
-                if let Some(tz_id) = get_tzid(&prop.parameters) {
-                    v.tz_id = Some(tz_id);
+    let dt_end = props.dt_end.map(|prop| {
+        let tz_id = get_tzid(&prop.parameters);
+        match get_single_value(prop) {
+            Ok(value) => {
+                let result = match &tz_id {
+                    Some(id) => value_to_date_time_with_tz(value, id.clone()),
+                    None => value_to_any_date_time(value),
+                };
+                match result {
+                    Some(v) => v,
+                    None => {
+                        errors.push(SemanticError::InvalidValue(
+                            PropertyKind::DtEnd.as_str().to_string(),
+                            "Expected date-time value".to_string(),
+                        ));
+                        DateTime::Date {
+                            date: ValueDate {
+                                year: 0,
+                                month: 1,
+                                day: 1,
+                            },
+                        }
+                    }
                 }
-                v
             }
-            None => {
-                errors.push(SemanticError::InvalidValue(
-                    PropertyKind::DtEnd.as_str().to_string(),
-                    "Expected date-time value".to_string(),
-                ));
-                DateTime {
+            Err(e) => {
+                errors.push(e);
+                DateTime::Date {
                     date: ValueDate {
                         year: 0,
                         month: 1,
                         day: 1,
                     },
-                    time: None,
-                    tz_id: None,
-                    date_only: true,
                 }
-            }
-        },
-        Err(e) => {
-            errors.push(e);
-            DateTime {
-                date: ValueDate {
-                    year: 0,
-                    month: 1,
-                    day: 1,
-                },
-                time: None,
-                tz_id: None,
-                date_only: true,
             }
         }
     });
 
     // DURATION is optional (alternative to DTEND)
     let duration = props.duration.map(|prop| match get_single_value(prop) {
-        Ok(value) => match value_to_duration(value) {
-            Some(v) => v,
-            None => {
-                errors.push(SemanticError::InvalidValue(
-                    PropertyKind::Duration.as_str().to_string(),
-                    "Expected duration value".to_string(),
-                ));
-                Duration {
-                    positive: true,
-                    weeks: None,
-                    days: None,
-                    hours: None,
-                    minutes: None,
-                    seconds: None,
-                }
+        Ok(Value::Duration(v)) => *v,
+        Ok(_) => {
+            errors.push(SemanticError::InvalidValue(
+                PropertyKind::Duration.as_str().to_string(),
+                "Expected duration value".to_string(),
+            ));
+            ValueDuration::DateTime {
+                positive: true,
+                day: 0,
+                hour: 0,
+                minute: 0,
+                second: 0,
             }
-        },
+        }
         Err(e) => {
             errors.push(e);
-            Duration {
+            ValueDuration::DateTime {
                 positive: true,
-                weeks: None,
-                days: None,
-                hours: None,
-                minutes: None,
-                seconds: None,
+                day: 0,
+                hour: 0,
+                minute: 0,
+                second: 0,
             }
         }
     });
@@ -691,50 +663,11 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
     });
 
     // GEO is optional (semicolon-separated lat;long)
-    let geo = props.geo.map(|prop| {
-        match get_single_value(prop) {
-            Ok(value) => match value_to_string(value) {
-                Some(text) => {
-                    // Use the typed phase's float parser with semicolon separator
-                    let stream = Stream::from_iter(text.chars());
-                    let parser = values_float_semicolon::<_, ChumskyErr<Rich<char, _>>>();
-                    match parser.parse(stream).into_result() {
-                        Ok(result) => {
-                            let (Some(&lat), Some(&lon)) = (result.first(), result.get(1)) else {
-                                errors.push(SemanticError::InvalidValue(
-                                    PropertyKind::Geo.as_str().to_string(),
-                                    format!(
-                                        "Expected exactly 2 float values (lat;long), got {}",
-                                        result.len()
-                                    ),
-                                ));
-                                return Geo { lat: 0.0, lon: 0.0 };
-                            };
-                            Geo { lat, lon }
-                        }
-                        Err(_) => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Geo.as_str().to_string(),
-                                format!(
-                                    "Expected 'lat;long' format with semicolon separator, got {text}"
-                                ),
-                            ));
-                            Geo { lat: 0.0, lon: 0.0 }
-                        }
-                    }
-                }
-                None => {
-                    errors.push(SemanticError::InvalidValue(
-                        PropertyKind::Geo.as_str().to_string(),
-                        "Expected text value".to_string(),
-                    ));
-                    Geo { lat: 0.0, lon: 0.0 }
-                }
-            },
-            Err(e) => {
-                errors.push(e);
-                Geo { lat: 0.0, lon: 0.0 }
-            }
+    let geo = props.geo.map(|prop| match parse_geo_property(prop) {
+        Ok(v) => v,
+        Err(e) => {
+            errors.push(e);
+            Geo { lat: 0.0, lon: 0.0 }
         }
     });
 
@@ -758,7 +691,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
 
     // ORGANIZER is optional
     let organizer = match props.organizer {
-        Some(prop) => match parse_organizer(prop) {
+        Some(prop) => match parse_organizer_property(prop) {
             Ok(v) => Some(v),
             Err(e) => {
                 errors.push(e);
@@ -772,7 +705,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
     let attendees = props
         .attendees
         .into_iter()
-        .filter_map(|prop| match parse_attendee(prop) {
+        .filter_map(|prop| match parse_attendee_property(prop) {
             Ok(v) => Some(v),
             Err(e) => {
                 errors.push(e);
@@ -792,29 +725,23 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
                         PropertyKind::LastModified.as_str().to_string(),
                         "Expected date-time value".to_string(),
                     ));
-                    DateTime {
+                    DateTime::Date {
                         date: ValueDate {
                             year: 0,
                             month: 1,
                             day: 1,
                         },
-                        time: None,
-                        tz_id: None,
-                        date_only: true,
                     }
                 }
             },
             Err(e) => {
                 errors.push(e);
-                DateTime {
+                DateTime::Date {
                     date: ValueDate {
                         year: 0,
                         month: 1,
                         day: 1,
                     },
-                    time: None,
-                    tz_id: None,
-                    date_only: true,
                 }
             }
         });
@@ -920,28 +847,8 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
 
     // CLASS is optional
     let classification = match props.classification {
-        Some(prop) => match get_single_value(prop) {
-            Ok(value) => match value_to_string(value) {
-                Some(text) => match text.to_uppercase().as_str() {
-                    "PUBLIC" => Some(Classification::Public),
-                    "PRIVATE" => Some(Classification::Private),
-                    "CONFIDENTIAL" => Some(Classification::Confidential),
-                    _ => {
-                        errors.push(SemanticError::InvalidValue(
-                            PropertyKind::Class.as_str().to_string(),
-                            format!("Invalid classification: {text}"),
-                        ));
-                        None
-                    }
-                },
-                None => {
-                    errors.push(SemanticError::InvalidValue(
-                        PropertyKind::Class.as_str().to_string(),
-                        "Expected text value".to_string(),
-                    ));
-                    None
-                }
-            },
+        Some(prop) => match parse_classification_property(prop) {
+            Ok(v) => Some(v),
             Err(e) => {
                 errors.push(e);
                 None
@@ -951,30 +858,10 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
     };
 
     // RESOURCES can appear multiple times (comma-separated values)
-    let resources = props.resources.map(|p| {
-        p.values
-            .iter()
-            .filter_map(|v| {
-                value_to_string(v).map(|s| Text {
-                    content: s,
-                    language: get_language(&p.parameters),
-                })
-            })
-            .collect()
-    });
+    let resources = props.resources.map(parse_multi_text_property);
 
     // CATEGORIES can appear multiple times (comma-separated values)
-    let categories = props.categories.map(|p| {
-        p.values
-            .iter()
-            .filter_map(|v| {
-                value_to_string(v).map(|s| Text {
-                    content: s,
-                    language: get_language(&p.parameters),
-                })
-            })
-            .collect()
-    });
+    let categories = props.categories.map(parse_multi_text_property);
 
     // RRULE is optional
     let rrule = match props.rrule {
@@ -1020,7 +907,7 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
         .into_iter()
         .filter_map(|child| {
             if child.name == KW_VALARM {
-                Some(parse_valarm(child))
+                Some(parse_valarm(&child))
             } else {
                 None
             }
@@ -1068,163 +955,5 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, Vec<SemanticError>> 
         ex_date,
         tz_id,
         alarms,
-    })
-}
-
-/// Parse an ORGANIZER property into an Organizer
-fn parse_organizer(prop: &TypedProperty<'_>) -> Result<Organizer, SemanticError> {
-    let cal_address = parse_cal_address(get_single_value(prop)?).ok_or_else(|| {
-        SemanticError::InvalidValue(
-            PropertyKind::Organizer.as_str().to_string(),
-            "Expected calendar user address".to_string(),
-        )
-    })?;
-
-    // Extract CN parameter
-    let cn =
-        find_parameter(&prop.parameters, TypedParameterKind::CommonName).and_then(|p| match p {
-            TypedParameter::CommonName { value, .. } => Some(value.resolve().to_string()),
-            _ => None,
-        });
-
-    // Extract DIR parameter
-    let dir =
-        find_parameter(&prop.parameters, TypedParameterKind::Directory).and_then(|p| match p {
-            TypedParameter::Directory { value, .. } => Some(Uri {
-                uri: value.resolve().to_string(),
-            }),
-            _ => None,
-        });
-
-    // Extract SENT-BY parameter
-    let sent_by =
-        find_parameter(&prop.parameters, TypedParameterKind::SendBy).and_then(|p| match p {
-            TypedParameter::SendBy { value, .. } => Some(Uri {
-                uri: value.resolve().to_string(),
-            }),
-            _ => None,
-        });
-
-    // Extract LANGUAGE parameter
-    let language = get_language(&prop.parameters);
-
-    Ok(Organizer {
-        cal_address,
-        cn,
-        dir,
-        sent_by,
-        language,
-    })
-}
-
-/// Parse an ATTENDEE property into an Attendee
-fn parse_attendee(prop: &TypedProperty<'_>) -> Result<Attendee, SemanticError> {
-    let cal_address = parse_cal_address(get_single_value(prop)?).ok_or_else(|| {
-        SemanticError::InvalidValue(
-            PropertyKind::Attendee.as_str().to_string(),
-            "Expected calendar user address".to_string(),
-        )
-    })?;
-
-    // Extract CN parameter
-    let cn =
-        find_parameter(&prop.parameters, TypedParameterKind::CommonName).and_then(|p| match p {
-            TypedParameter::CommonName { value, .. } => Some(value.resolve().to_string()),
-            _ => None,
-        });
-
-    // Extract ROLE parameter (default: REQ-PARTICIPANT)
-    let role = find_parameter(&prop.parameters, TypedParameterKind::ParticipationRole)
-        .and_then(|p| match p {
-            TypedParameter::ParticipationRole { value, .. } => Some(*value),
-            _ => None,
-        })
-        .unwrap_or(ParticipationRole::ReqParticipant);
-
-    // Extract PARTSTAT parameter (default: NEEDS-ACTION)
-    let part_stat = find_parameter(&prop.parameters, TypedParameterKind::ParticipationStatus)
-        .and_then(|p| match p {
-            TypedParameter::ParticipationStatus { value, .. } => Some(*value),
-            _ => None,
-        })
-        .unwrap_or(ParticipationStatus::NeedsAction);
-
-    // Extract RSVP parameter
-    let rsvp = find_parameter(&prop.parameters, TypedParameterKind::RsvpExpectation).and_then(
-        |p| match p {
-            TypedParameter::RsvpExpectation { value, .. } => Some(*value),
-            _ => None,
-        },
-    );
-
-    // Extract CUTYPE parameter (default: INDIVIDUAL)
-    let cutype = find_parameter(&prop.parameters, TypedParameterKind::CalendarUserType)
-        .and_then(|p| match p {
-            TypedParameter::CalendarUserType { value, .. } => Some(*value),
-            _ => None,
-        })
-        .unwrap_or(CalendarUserType::Individual);
-
-    // Extract MEMBER parameter
-    let member = find_parameter(&prop.parameters, TypedParameterKind::GroupOrListMembership)
-        .and_then(|p| match p {
-            TypedParameter::GroupOrListMembership { values, .. } => values.first().map(|v| Uri {
-                uri: v.resolve().to_string(),
-            }),
-            _ => None,
-        });
-
-    // Extract DELEGATED-TO parameter
-    let delegated_to =
-        find_parameter(&prop.parameters, TypedParameterKind::Delegatees).and_then(|p| match p {
-            TypedParameter::Delegatees { values, .. } => values.first().map(|v| Uri {
-                uri: v.resolve().to_string(),
-            }),
-            _ => None,
-        });
-
-    // Extract DELEGATED-FROM parameter
-    let delegated_from =
-        find_parameter(&prop.parameters, TypedParameterKind::Delegators).and_then(|p| match p {
-            TypedParameter::Delegators { values, .. } => values.first().map(|v| Uri {
-                uri: v.resolve().to_string(),
-            }),
-            _ => None,
-        });
-
-    // Extract DIR parameter
-    let dir =
-        find_parameter(&prop.parameters, TypedParameterKind::Directory).and_then(|p| match p {
-            TypedParameter::Directory { value, .. } => Some(Uri {
-                uri: value.resolve().to_string(),
-            }),
-            _ => None,
-        });
-
-    // Extract SENT-BY parameter
-    let sent_by =
-        find_parameter(&prop.parameters, TypedParameterKind::SendBy).and_then(|p| match p {
-            TypedParameter::SendBy { value, .. } => Some(Uri {
-                uri: value.resolve().to_string(),
-            }),
-            _ => None,
-        });
-
-    // Extract LANGUAGE parameter
-    let language = get_language(&prop.parameters);
-
-    Ok(Attendee {
-        cal_address,
-        cn,
-        role,
-        part_stat,
-        rsvp,
-        cutype,
-        member,
-        delegated_to,
-        delegated_from,
-        dir,
-        sent_by,
-        language,
     })
 }
