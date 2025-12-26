@@ -52,5 +52,5 @@ fn get_config_dir() -> Result<PathBuf, Box<dyn Error>> {
     let config_dir = xdg::BaseDirectories::new().get_config_home();
     #[cfg(windows)]
     let config_dir = dirs::config_dir();
-    config_dir.ok_or("User-specific home directory not found".into())
+    config_dir.ok_or_else(|| "User-specific home directory not found".into())
 }

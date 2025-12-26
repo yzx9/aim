@@ -96,7 +96,7 @@ fn expand_path(path: &Path) -> Result<PathBuf, Box<dyn Error>> {
 }
 
 fn get_home_dir() -> Result<PathBuf, Box<dyn Error>> {
-    dirs::home_dir().ok_or("User-specific home directory not found".into())
+    dirs::home_dir().ok_or_else(|| "User-specific home directory not found".into())
 }
 
 fn get_config_dir() -> Result<PathBuf, Box<dyn Error>> {
@@ -104,7 +104,7 @@ fn get_config_dir() -> Result<PathBuf, Box<dyn Error>> {
     let config_dir = xdg::BaseDirectories::new().get_config_home();
     #[cfg(windows)]
     let config_dir = dirs::config_dir();
-    config_dir.ok_or("User-specific home directory not found".into())
+    config_dir.ok_or_else(|| "User-specific home directory not found".into())
 }
 
 fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
@@ -112,7 +112,7 @@ fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
     let state_dir = xdg::BaseDirectories::new().get_state_home();
     #[cfg(windows)]
     let state_dir = dirs::data_dir();
-    state_dir.ok_or("User-specific state directory not found".into())
+    state_dir.ok_or_else(|| "User-specific state directory not found".into())
 }
 
 #[cfg(test)]

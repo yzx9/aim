@@ -133,10 +133,9 @@ pub fn parse_icalendar(comp: &TypedComponent<'_>) -> Result<ICalendar, Vec<Seman
 /// Parse PRODID property into `ProductId`
 fn parse_product_id(prop: &TypedProperty<'_>) -> Result<ProductId, SemanticError> {
     let value = get_single_value(prop)?;
-    let text = value_to_string(value).ok_or(SemanticError::InvalidValue(
-        KW_PRODID.to_string(),
-        "Expected text value".to_string(),
-    ))?;
+    let text = value_to_string(value).ok_or_else(|| {
+        SemanticError::InvalidValue(KW_PRODID.to_string(), "Expected text value".to_string())
+    })?;
 
     // PRODID format: company//product//language
     // e.g., "-//Mozilla.org/NONSGML Mozilla Calendar V1.0//EN"
@@ -177,10 +176,9 @@ fn parse_version(prop: &TypedProperty<'_>) -> Result<VersionType, SemanticError>
 /// Parse CALSCALE property into `CalendarScaleType`
 fn parse_calscale(prop: &TypedProperty<'_>) -> Result<CalendarScaleType, SemanticError> {
     let value = get_single_value(prop)?;
-    let text = value_to_string(value).ok_or(SemanticError::InvalidValue(
-        KW_CALSCALE.to_string(),
-        "Expected text value".to_string(),
-    ))?;
+    let text = value_to_string(value).ok_or_else(|| {
+        SemanticError::InvalidValue(KW_CALSCALE.to_string(), "Expected text value".to_string())
+    })?;
 
     match text.to_uppercase().as_str() {
         KW_CALSCALE_GREGORIAN => Ok(CalendarScaleType::Gregorian),
@@ -194,10 +192,9 @@ fn parse_calscale(prop: &TypedProperty<'_>) -> Result<CalendarScaleType, Semanti
 /// Parse METHOD property into `MethodType`
 fn parse_method(prop: &TypedProperty<'_>) -> Result<MethodType, SemanticError> {
     let value = get_single_value(prop)?;
-    let text = value_to_string(value).ok_or(SemanticError::InvalidValue(
-        KW_METHOD.to_string(),
-        "Expected text value".to_string(),
-    ))?;
+    let text = value_to_string(value).ok_or_else(|| {
+        SemanticError::InvalidValue(KW_METHOD.to_string(), "Expected text value".to_string())
+    })?;
 
     match text.to_uppercase().as_str() {
         KW_METHOD_PUBLISH => Ok(MethodType::Publish),
