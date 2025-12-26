@@ -48,7 +48,8 @@ single entry point for parsing operations.
 ```
 ical
 ├── Cargo.toml
-├── RFC5545.txt     # If you have questions, check the RFC first and use search—it’s very long
+├── CLAUDE.toml
+├── RFC5545.txt     # If you have questions, check the RFC first and use search—it's very long
 └── src/
     ├── lib.rs      # Public API exports
     ├── keyword.rs  # RFC 5545 keyword constants
@@ -62,6 +63,7 @@ ical
         ├── parameter_types.rs # Parameter type definitions
         ├── value.rs      # Value type implementations
         ├── value_datetime.rs  # Date/time value handling
+        ├── value_duration.rs  # Duration value handling
         ├── value_numeric.rs   # Numeric value handling
         └── value_text.rs      # Text value handling
 ```

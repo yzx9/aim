@@ -351,7 +351,7 @@ END:VEVENT\r
 
 // PARSER LIMITATION: RRULE parser is not implemented in the typed module.
 #[test]
-#[ignore = "parser limitation: RRULE parser not implemented in typed module"]
+#[ignore = "RRULE parser not implemented in typed module"]
 fn typed_rrule_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -472,10 +472,7 @@ END:VCALENDAR\r
     assert_eq!(freebusy.properties.len(), 4);
 }
 
-// PARSER LIMITATION: Duration parser doesn't handle negative durations (with leading minus sign)
-// or has issues with certain duration formats.
 #[test]
-#[ignore = "parser limitation: duration parser issue with TRIGGER format or negative durations"]
 fn typed_alarm_component() {
     let src = "\
 BEGIN:VCALENDAR\r

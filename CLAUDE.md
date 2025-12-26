@@ -1,6 +1,9 @@
 # AIM Project Overview
 
-AIM (Analyze. Interact. Manage) is a Rust-based calendar and task management application that provides both a core library and a command-line interface. The project follows a modular architecture with a clear separation between the core functionality and the CLI presentation layer.
+AIM (Analyze. Interact. Manage) is a Rust-based calendar and task management
+application that provides both a core library and a command-line interface. The
+project follows a modular architecture with a clear separation between the core
+functionality and the CLI presentation layer.
 
 ## Project Structure
 
@@ -13,7 +16,7 @@ aim/            # Workspace root
 ├── ical/       # iCalendar parser (aimcal-ical)
 ├── aimcal/     # Public API facade crate
 ├── Cargo.toml  # Workspace configuration
-└── AGENTS.md   # This file
+└── CLAUDE.md   # This file
 ```
 
 ### Public API Crate (`aimcal/`)
@@ -67,10 +70,17 @@ iCalendar parsing and serialization library:
 ### Documentation Standards
 
 - **API documentation**: All public functions, structs, and traits
-- **AGENTS.md reading and updates**: Read the AGNETS.md when needed and keep it up to date
+- **CLAUDE.md updates**: Read the CLAUDE.md when needed and keep it up to date
 - **README.md updates**: Keeping user documentation current
 - **Inline comments**: Explaining complex algorithms or decisions
 - **Module-level docs**: Overview of module purpose and usage
+
+### Code Organization
+
+- **No mod.rs files**: The project doesn't use `mod.rs` files for submodules.
+  Module declarations are placed directly in parent modules (e.g., `typed.rs`
+  declares `mod value;` instead of having a `typed/mod.rs` file with module
+  declarations)
 
 ### Misc
 
@@ -103,12 +113,12 @@ just
 # Using just (runs all tests in workspace with all features)
 just test
 
-# Run the application (using cargo directly)
-cargo run
-
 # Format code
 cargo fmt
 
 # Runs clippy on workspace with all targets and features
 just lint
 ```
+
+**Important**: Always run these commands before committing changes to ensure
+code quality and prevent breaking the build.

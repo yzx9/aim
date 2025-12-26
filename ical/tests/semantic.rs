@@ -188,9 +188,9 @@ END:VCALENDAR\r
     }
 }
 
-// PARSER LIMITATION: Duration parser doesn't handle certain duration formats
+// SEMANTIC ANALYSIS NOT IMPLEMENTED: VALARM semantic parsing is not yet implemented
 #[test]
-#[ignore = "parser limitation: duration parser fails on PT15M format"]
+#[ignore = "semantic analysis not implemented: VALARM parsing"]
 fn semantic_parses_event_with_alarm() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -507,7 +507,7 @@ END:VCALENDAR\r
 
 // PARSER LIMITATION: VJOURNAL semantic parser is not yet implemented
 #[test]
-#[ignore = "parser limitation: VJOURNAL semantic parser not implemented"]
+#[ignore = "semantic analysis not implemented: VJOURNAL parsing"]
 fn semantic_when_journal_has_date_only_start() {
     let src = "\
 BEGIN:VCALENDAR\r
@@ -525,9 +525,9 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 }
 
-// PARSER LIMITATION: Duration parser doesn't handle negative durations
+// SEMANTIC ANALYSIS NOT IMPLEMENTED: VALARM semantic parsing is not yet implemented
 #[test]
-#[ignore = "parser limitation: duration parser doesn't support negative durations (e.g., -PT15M)"]
+#[ignore = "semantic analysis not implemented: VALARM parsing"]
 fn semantic_when_alarm_has_negative_trigger() {
     let src = "\
 BEGIN:VCALENDAR\r
