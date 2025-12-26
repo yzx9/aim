@@ -373,13 +373,10 @@ END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
     assert_eq!(components[0].properties[0].name, "EXDATE");
-    // EXDATE should parse as multiple date-time values
+    assert_eq!(components[0].properties[0].values.len(), 2);
 }
 
-// PARSER LIMITATION: GEO values use semicolon as separator (float;float format),
-// but the float parser uses comma as separator. A specialized GEO parser is needed.
 #[test]
-#[ignore = "parser limitation: GEO value format (float;float) requires specialized parser"]
 fn typed_geo_property() {
     let src = "\
 BEGIN:VEVENT\r
@@ -388,7 +385,11 @@ END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
     assert_eq!(components[0].properties[0].name, "GEO");
-    // GEO should parse as two float values
+    // GEO is parsed as TEXT in typed phase; actual float parsing happens in semantic phase
+    assert!(matches!(
+        &components[0].properties[0].values[0],
+        Value::Text(_)
+    ));
 }
 
 #[test]

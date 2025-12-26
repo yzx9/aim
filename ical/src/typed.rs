@@ -26,7 +26,7 @@ pub use crate::typed::property_spec::{
     PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality,
 };
 pub use crate::typed::rrule::{Day, RecurrenceFrequency, RecurrenceRule, WeekDay};
-pub use crate::typed::value::Value;
-pub use crate::typed::value::ValueDuration;
+pub use crate::typed::value::{Value, ValueDuration, ValueExpected};
 pub use crate::typed::value_datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
+pub use crate::typed::value_numeric::values_float_semicolon;
 pub use crate::typed::value_text::ValueText;

@@ -171,15 +171,13 @@ property_kind! {
         value_types: &[ValueType::Text],
         value_cardinality: ValueCardinality::exactly(1),
     },
-    // 3.8.1.6.  Geographic Position - Latitude;longitude as FLOAT values
+    // 3.8.1.6.  Geographic Position - Latitude;longitude (semicolon-separated float values)
+    // Parsed as TEXT in typed phase, actual float conversion happens in semantic phase
     Geo => KW_GEO => PropertySpec {
         property_cardinality: PropertyCardinality::AtMostOnce,
-        parameters: &[
-            TypedParameterKind::AlternateText,
-            TypedParameterKind::Language,
-        ],
-        value_types: &[ValueType::Float],
-        value_cardinality: ValueCardinality::exactly(2),
+        parameters: &[],
+        value_types: &[ValueType::Text],
+        value_cardinality: ValueCardinality::exactly(1),
     },
     // 3.8.1.7.  Location - Event/task location
     Location => KW_LOCATION => PropertySpec {

@@ -325,6 +325,34 @@ END:VCALENDAR\r
 }
 
 #[test]
+fn semantic_parses_event_geo() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VEVENT\r
+UID:12345\r
+DTSTAMP:20250101T000000Z\r
+DTSTART:20250615T100000Z\r
+GEO:37.386013;-122.083932\r
+SUMMARY:Team Meeting\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+    let calendar = parse_semantic(src).unwrap();
+
+    match &calendar.components[0] {
+        CalendarComponent::Event(event) => {
+            assert!(event.geo.is_some());
+            let geo = event.geo.as_ref().unwrap();
+            assert!((geo.lat - 37.386013).abs() < f64::EPSILON);
+            assert!((geo.lon - (-122.083932)).abs() < f64::EPSILON);
+        }
+        _ => panic!("Expected Event component"),
+    }
+}
+
+#[test]
 fn semantic_parses_event_description() {
     let src = "\
 BEGIN:VCALENDAR\r

@@ -16,7 +16,7 @@ use crate::typed::value::ValueExpected;
 /// ```txt
 /// float      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
 /// ```
-fn value_float<'src, I, E>() -> impl Parser<'src, I, f64, E>
+pub fn value_float<'src, I, E>() -> impl Parser<'src, I, f64, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -78,7 +78,42 @@ where
     E: ParserExtra<'src, I>,
     E::Error: LabelError<'src, I, ValueExpected>,
 {
-    value_float().separated_by(just(',')).collect()
+    values_float_impl(',')
+}
+
+/// Float multiple values parser with semicolon separator.
+///
+/// This parser is used for properties like GEO that use semicolon-separated
+/// float values instead of the standard comma-separated format.
+///
+/// Format Definition:
+/// ```txt
+/// geovalue = float ";" float
+/// ;Latitude and Longitude components
+/// ```
+///
+/// # Example
+///
+/// ```text
+/// GEO:37.386013;-122.083932
+/// ```
+#[must_use]
+pub fn values_float_semicolon<'src, I, E>() -> impl Parser<'src, I, Vec<f64>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
+{
+    values_float_impl(';')
+}
+
+fn values_float_impl<'src, I, E>(separator: char) -> impl Parser<'src, I, Vec<f64>, E>
+where
+    I: Input<'src, Token = char, Span = SimpleSpan>,
+    E: ParserExtra<'src, I>,
+    E::Error: LabelError<'src, I, ValueExpected>,
+{
+    value_float().separated_by(just(separator)).collect()
 }
 
 /// Format Definition:  This value type is defined by the following notation:
@@ -184,14 +219,27 @@ mod tests {
 
         let infinity = (0..=f64::MAX_10_EXP).map(|_| '9').collect::<String>();
         let fail_cases = [
-            &infinity,  // infinity
-            "nan",      // RFC5545 does not allow non-numeric values
-            "infinity", // RFC5545 does not allow non-numeric values
-            "+.",       // missing digits
-            "-.",       // missing digits
-            ".",        // missing digits
-            "",         // empty string
-            "12a34",    // invalid character
+            &infinity,   // infinity
+            "nan",       // RFC5545 does not allow non-numeric values
+            "infinity",  // RFC5545 does not allow non-numeric values
+            "+.",        // missing digits
+            "-.",        // missing digits
+            ".",         // missing digits
+            "",          // empty string
+            "12a34",     // invalid character
+            // Scientific notation is NOT allowed by RFC 5545 Section 3.3.7
+            // Format: float = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
+            "1e10",      // scientific notation with 'e'
+            "1.5e10",    // scientific notation with 'e' and decimal
+            "2E-3",      // scientific notation with uppercase 'E' and negative exponent
+            "1.23e+5",   // scientific notation with 'e' and explicit plus
+            "3E",        // scientific notation with 'E' but no exponent
+            "1.5e",      // scientific notation with 'e' but no exponent
+            "-2.5e3",    // scientific notation with negative sign
+            "+1.2E10",   // scientific notation with plus sign and uppercase 'E'
+            "0e0",       // scientific notation with zero values
+            ".5e10",     // scientific notation with leading dot
+            "1.e10",     // scientific notation with trailing dot
         ];
         for src in fail_cases {
             assert!(parse(src).is_err(), "Parse {src} should fail");

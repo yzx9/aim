@@ -4,6 +4,11 @@
 
 //! Event component (VEVENT) for iCalendar semantic components.
 
+use chumsky::Parser;
+use chumsky::error::Rich;
+use chumsky::extra::Err as ChumskyErr;
+use chumsky::input::Stream;
+
 use crate::RecurrenceRule;
 use crate::keyword::{KW_VALARM, KW_VEVENT};
 use crate::semantic::SemanticError;
@@ -18,6 +23,7 @@ use crate::semantic::valarm::{VAlarm, parse_valarm};
 use crate::typed::parameter_types::{CalendarUserType, ParticipationRole, ParticipationStatus};
 use crate::typed::{
     PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
+    values_float_semicolon,
 };
 
 /// Event component (VEVENT)
@@ -266,47 +272,36 @@ pub fn parse_vevent(comp: TypedComponent) -> Result<VEvent, SemanticError> {
             None
         };
 
-    // GEO is optional
+    // GEO is optional (semicolon-separated lat;long)
     let geo = if let Some(geo_prop) = find_property_by_kind(&comp.properties, PropertyKind::Geo) {
-        let values = &geo_prop.values;
-        if values.len() == 2 {
-            let Some(lat_val) = values.first() else {
-                return Err(SemanticError::InvalidValue(
-                    PropertyKind::Geo.as_str().to_string(),
-                    "Expected float value for latitude".to_string(),
-                ));
-            };
-            let Some(lon_val) = values.get(1) else {
-                return Err(SemanticError::InvalidValue(
-                    PropertyKind::Geo.as_str().to_string(),
-                    "Expected float value for longitude".to_string(),
-                ));
-            };
-            let lat = match lat_val {
-                Value::Float(f) => *f,
-                _ => {
-                    return Err(SemanticError::InvalidValue(
-                        PropertyKind::Geo.as_str().to_string(),
-                        "Expected float value for latitude".to_string(),
-                    ));
-                }
-            };
-            let lon = match lon_val {
-                Value::Float(f) => *f,
-                _ => {
-                    return Err(SemanticError::InvalidValue(
-                        PropertyKind::Geo.as_str().to_string(),
-                        "Expected float value for longitude".to_string(),
-                    ));
-                }
-            };
-            Some(Geo { lat, lon })
-        } else {
+        let text = value_to_string(get_single_value(geo_prop)?).ok_or_else(|| {
+            SemanticError::InvalidValue(
+                PropertyKind::Geo.as_str().to_string(),
+                "Expected text value".to_string(),
+            )
+        })?;
+
+        // Use the typed phase's float parser with semicolon separator
+        let stream = Stream::from_iter(text.chars());
+        let parser = values_float_semicolon::<_, ChumskyErr<Rich<char, _>>>();
+        let result = parser.parse(stream).into_result().map_err(|_| {
+            SemanticError::InvalidValue(
+                PropertyKind::Geo.as_str().to_string(),
+                format!("Expected 'lat;long' format with semicolon separator, got {text}"),
+            )
+        })?;
+
+        let (Some(&lat), Some(&lon)) = (result.first(), result.get(1)) else {
             return Err(SemanticError::InvalidValue(
                 PropertyKind::Geo.as_str().to_string(),
-                "Expected exactly 2 float values".to_string(),
+                format!(
+                    "Expected exactly 2 float values (lat;long), got {}",
+                    result.len()
+                ),
             ));
-        }
+        };
+
+        Some(Geo { lat, lon })
     } else {
         None
     };

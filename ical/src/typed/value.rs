@@ -272,12 +272,20 @@ pub fn parse_values<'src>(
     Err(all_errors)
 }
 
+/// Expected value types for parser error reporting.
+///
+/// This enum is used to provide descriptive error messages when parsing
+/// fails. Each variant represents a type that was expected during parsing.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueExpected {
+    /// A date value was expected
     Date,
+    /// A 64-bit floating-point value was expected
     F64,
+    /// A 32-bit signed integer value was expected
     I32,
+    /// A 32-bit unsigned integer value was expected
     U32,
 }
 
