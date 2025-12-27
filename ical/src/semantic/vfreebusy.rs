@@ -10,11 +10,11 @@ use crate::semantic::analysis::{
     find_parameter, get_language, get_single_value, get_tzid, parse_organizer_property,
     value_to_any_date_time, value_to_date_time, value_to_date_time_with_tz, value_to_string,
 };
-use crate::semantic::properties::{DateTime, Organizer, Period, Text, Uri};
+use crate::semantic::property::{DateTime, Organizer, Period, Text, Uri};
 use crate::typed::parameter_type::FreeBusyType;
 use crate::typed::{
     PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
-    ValueDate, ValueDuration,
+    ValueDate, ValueDuration, ValuePeriod,
 };
 
 /// Free/busy time component (VFREEBUSY)
@@ -493,8 +493,50 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
 }
 
 /// Convert a Value to a Period
-/// NOTE: This is a placeholder since Period values are not yet implemented in the typed phase
-fn value_to_period(_value: &Value<'_>) -> Option<Period> {
-    // TODO: Parse Period values when implemented in typed phase
-    None
+fn value_to_period(value: &Value<'_>) -> Option<Period> {
+    match value {
+        Value::Period(value_period) => match value_period {
+            ValuePeriod::Explicit { start, end } => {
+                // Both start and end have the same UTC flag (guaranteed by parser)
+                if start.time.utc {
+                    Some(Period::ExplicitUtc {
+                        start_date: start.date,
+                        start_time: start.time,
+                        end_date: end.date,
+                        end_time: end.time,
+                    })
+                } else {
+                    Some(Period::ExplicitFloating {
+                        start_date: start.date,
+                        start_time: start.time,
+                        end_date: end.date,
+                        end_time: end.time,
+                    })
+                }
+            }
+            ValuePeriod::Duration { start, duration } => {
+                // Only positive durations are valid for periods
+                if matches!(duration, ValueDuration::DateTime { positive: true, .. })
+                    || matches!(duration, ValueDuration::Week { positive: true, .. })
+                {
+                    if start.time.utc {
+                        Some(Period::DurationUtc {
+                            start_date: start.date,
+                            start_time: start.time,
+                            duration: *duration,
+                        })
+                    } else {
+                        Some(Period::DurationFloating {
+                            start_date: start.date,
+                            start_time: start.time,
+                            duration: *duration,
+                        })
+                    }
+                } else {
+                    None
+                }
+            }
+        },
+        _ => None,
+    }
 }

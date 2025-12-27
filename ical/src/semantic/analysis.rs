@@ -113,11 +113,28 @@ pub fn value_to_date_time_with_tz(value: &Value<'_>, tz_id: String) -> Option<Da
                     time: dt.time,
                 })
             } else {
-                Some(DateTime::Zoned {
-                    date: dt.date,
-                    time: dt.time,
-                    tz_id,
-                })
+                #[cfg(feature = "jiff")]
+                let tz_jiff =
+                    jiff::tz::TimeZone::get(tz_id.as_str()).unwrap_or(jiff::tz::TimeZone::UTC);
+
+                #[cfg(feature = "jiff")]
+                {
+                    Some(DateTime::Zoned {
+                        date: dt.date,
+                        time: dt.time,
+                        tz_id,
+                        tz_jiff,
+                    })
+                }
+
+                #[cfg(not(feature = "jiff"))]
+                {
+                    Some(DateTime::Zoned {
+                        date: dt.date,
+                        time: dt.time,
+                        tz_id,
+                    })
+                }
             }
         }
         _ => None,

@@ -10,7 +10,7 @@ use crate::semantic::SemanticError;
 use crate::semantic::analysis::{
     get_language, get_single_value, value_to_date_time, value_to_string,
 };
-use crate::semantic::properties::{Text, TimeZoneOffset, Uri};
+use crate::semantic::property::{Text, TimeZoneOffset, Uri};
 use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value, ValueDate};
 
 /// Timezone component (VTIMEZONE)

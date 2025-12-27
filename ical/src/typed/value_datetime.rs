@@ -108,29 +108,18 @@ pub struct ValueDateTime {
 
     /// Time component.
     pub time: ValueTime,
+
+    /// Cached parsed civil datetime (available with jiff feature)
+    #[cfg(feature = "jiff")]
+    jiff: jiff::civil::DateTime,
 }
 
 impl ValueDateTime {
-    /// Convert to `jiff::civil::DateTime`, contracting leap second 60 to 59.
+    /// Get reference to cached `jiff::civil::DateTime`.
     #[cfg(feature = "jiff")]
     #[must_use]
-    pub fn civil_date_time(self) -> jiff::civil::DateTime {
-        self.into()
-    }
-}
-
-#[cfg(feature = "jiff")]
-impl From<ValueDateTime> for jiff::civil::DateTime {
-    fn from(value: ValueDateTime) -> Self {
-        jiff::civil::datetime(
-            value.date.year,
-            value.date.month,
-            value.date.day,
-            value.time.hour,
-            value.time.minute,
-            min(value.time.second, 59), // NOTE: We contract leap second 60 to 59 for simplicity
-            0,
-        )
+    pub const fn civil_date_time(&self) -> &jiff::civil::DateTime {
+        &self.jiff
     }
 }
 
@@ -139,7 +128,7 @@ impl From<ValueDateTime> for jiff::civil::DateTime {
 /// ```txt
 /// date-time  = date "T" time ;As specified in the DATE and TIME
 /// ```
-fn value_date_time<'src, I, E>() -> impl Parser<'src, I, ValueDateTime, E>
+pub fn value_date_time<'src, I, E>() -> impl Parser<'src, I, ValueDateTime, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -148,7 +137,25 @@ where
     value_date()
         .then_ignore(just('T'))
         .then(value_time())
-        .map(|(date, time)| ValueDateTime { date, time })
+        .map(|(date, time)| {
+            #[cfg(feature = "jiff")]
+            {
+                let jiff = jiff::civil::datetime(
+                    date.year,
+                    date.month,
+                    date.day,
+                    time.hour,
+                    time.minute,
+                    min(time.second, 59), // NOTE: We contract leap second 60 to 59 for simplicity
+                    0,
+                );
+                ValueDateTime { date, time, jiff }
+            }
+            #[cfg(not(feature = "jiff"))]
+            {
+                ValueDateTime { date, time }
+            }
+        })
 }
 
 /// Date-Time multiple values parser.
@@ -178,22 +185,42 @@ pub struct ValueTime {
 
     /// Whether the time is in UTC (indicated by a trailing 'Z').
     pub utc: bool,
+
+    /// Cached parsed civil time (available with jiff feature)
+    #[cfg(feature = "jiff")]
+    jiff: jiff::civil::Time,
 }
 
 impl ValueTime {
-    /// Convert to `jiff::civil::Time`, contracting leap second 60 to 59.
+    /// Create a new `ValueTime` from components.
+    #[must_use]
+    pub fn new(hour: i8, minute: i8, second: i8, utc: bool) -> Self {
+        #[cfg(feature = "jiff")]
+        {
+            Self {
+                hour,
+                minute,
+                second,
+                utc,
+                jiff: jiff::civil::time(hour, minute, min(second, 59), 0),
+            }
+        }
+        #[cfg(not(feature = "jiff"))]
+        {
+            Self {
+                hour,
+                minute,
+                second,
+                utc,
+            }
+        }
+    }
+
+    /// Get reference to cached `jiff::civil::Time`.
     #[cfg(feature = "jiff")]
     #[must_use]
-    pub fn civil_time(self) -> jiff::civil::Time {
-        self.into()
-    }
-}
-
-#[cfg(feature = "jiff")]
-impl From<ValueTime> for jiff::civil::Time {
-    fn from(value: ValueTime) -> Self {
-        // NOTE: We contract leap second 60 to 59 for simplicity
-        jiff::civil::time(value.hour, value.minute, min(value.second, 59), 0)
+    pub const fn civil_time(&self) -> jiff::civil::Time {
+        self.jiff
     }
 }
 
@@ -218,11 +245,27 @@ where
         .then(time_minute())
         .then(time_second_with_leap())
         .then(just('Z').or_not())
-        .map(|(((hour, minute), second), utc)| ValueTime {
-            hour,
-            minute,
-            second,
-            utc: utc.is_some(),
+        .map(|(((hour, minute), second), utc)| {
+            #[cfg(feature = "jiff")]
+            {
+                let jiff = jiff::civil::time(hour, minute, min(second, 59), 0);
+                ValueTime {
+                    hour,
+                    minute,
+                    second,
+                    utc: utc.is_some(),
+                    jiff,
+                }
+            }
+            #[cfg(not(feature = "jiff"))]
+            {
+                ValueTime {
+                    hour,
+                    minute,
+                    second,
+                    utc: utc.is_some(),
+                }
+            }
         })
 }
 
@@ -407,44 +450,48 @@ mod tests {
         #[rustfmt::skip]
         let success_cases = [
             // examples from RFC 5545 Section 3.3.5
-            ("19980118T230000", ValueDateTime {
-                date: ValueDate { year: 1998, month: 1, day: 18 },
-                time: ValueTime { hour: 23, minute: 0, second: 0, utc: false },
-            }),
-            ("19980119T070000Z", ValueDateTime {
-                date: ValueDate { year: 1998, month: 1, day: 19 },
-                time: ValueTime { hour: 7, minute: 0, second: 0, utc: true },
-            }),
-            ("19980119T020000", ValueDateTime { // TODO: TZID=America/New_York:19980119T020000
-                date: ValueDate { year: 1998, month: 1, day: 19 },
-                time: ValueTime { hour: 2, minute: 0, second: 0, utc: false },
-            }),
-            ("19970630T235960Z", ValueDateTime {
-                date: ValueDate { year: 1997, month: 6, day: 30 },
-                time: ValueTime { hour: 23, minute: 59, second: 60, utc: true },
-            }),
-            ("19970714T133000", ValueDateTime { // Local time
-                date: ValueDate { year: 1997, month: 7, day: 14 },
-                time: ValueTime { hour: 13, minute: 30, second: 0, utc: false },
-            }),
-            ("19970714T173000Z", ValueDateTime { // UTC time
-                date: ValueDate { year: 1997, month: 7, day: 14 },
-                time: ValueTime { hour: 17, minute: 30, second: 0, utc: true },
-            }),
-            // TODO: TZID=America/New_York:19970714T133000
+            ("19980118T230000", (ValueDate { year: 1998, month: 1, day: 18 }, ValueTime::new(23, 0, 0, false))),
+            ("19980119T070000Z", (ValueDate { year: 1998, month: 1, day: 19 }, ValueTime::new(7, 0, 0, true))),
+            ("19980119T020000", (ValueDate { year: 1998, month: 1, day: 19 }, ValueTime::new(2, 0, 0, false))), // ignore: TZID=America/New_York:19980119T020000
+            ("19970630T235960Z", (ValueDate { year: 1997, month: 6, day: 30 }, ValueTime::new(23, 59, 60, true))),
+            ("19970714T133000", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(13, 30, 0, false))), // Local time
+            ("19970714T173000Z", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(17, 30, 0, true))), // UTC time
+            // ignore: TZID=America/New_York:19970714T133000
             //
             // extra tests
-            ("19970714T133000", ValueDateTime {
-                date: ValueDate { year: 1997, month: 7, day: 14 },
-                time: ValueTime { hour: 13, minute: 30, second: 0, utc: false },
-            }),
-            ("19970714T133000Z", ValueDateTime {
-                date: ValueDate { year: 1997, month: 7, day: 14 },
-                time: ValueTime { hour: 13, minute: 30, second: 0, utc: true },
-            }),
+            ("19970714T133000", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(13, 30, 0, false))),
+            ("19970714T133000Z", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(13, 30, 0, true))),
         ];
-        for (src, expected) in success_cases {
-            assert_eq!(parse(src).unwrap(), expected);
+        for (src, (expected_date, expected_time)) in success_cases {
+            let result = parse(src).unwrap();
+            assert_eq!(result.date, expected_date, "Failed for {src}");
+            assert_eq!(result.time, expected_time, "Failed for {src}");
+            #[cfg(feature = "jiff")]
+            {
+                // Verify civil field is correctly computed
+                let expected_civil = jiff::civil::datetime(
+                    expected_date.year,
+                    expected_date.month,
+                    expected_date.day,
+                    expected_time.hour,
+                    expected_time.minute,
+                    expected_time.second.min(59),
+                    0,
+                );
+                assert_eq!(result.jiff, expected_civil, "Failed for {src}");
+                // Verify civil_time returns correct value
+                let expected_time_civil = jiff::civil::time(
+                    expected_time.hour,
+                    expected_time.minute,
+                    expected_time.second.min(59),
+                    0,
+                );
+                assert_eq!(
+                    result.time.civil_time(),
+                    expected_time_civil,
+                    "Failed for {src}"
+                );
+            }
         }
 
         let fail_cases = [
@@ -473,16 +520,24 @@ mod tests {
         #[rustfmt::skip]
         let success_cases = [
             // examples from RFC 5545 Section 3.3.12
-            ("135501",  ValueTime { hour: 13, minute: 55, second:  1, utc: false }),
-            ("135501Z", ValueTime { hour: 13, minute: 55, second:  1, utc:  true }),
+            ("135501",  ValueTime::new(13, 55,  1, false)),
+            ("135501Z", ValueTime::new(13, 55,  1, true)),
             // extra tests
-            ("000000",  ValueTime { hour:  0, minute:  0, second:  0, utc: false }),
-            ("235959",  ValueTime { hour: 23, minute: 59, second: 59, utc: false }),
-            ("120000Z", ValueTime { hour: 12, minute:  0, second:  0, utc:  true }),
-            ("000060",  ValueTime { hour:  0, minute:  0, second: 60, utc: false }), // leap second
+            ("000000",  ValueTime::new( 0,  0,  0, false)),
+            ("235959",  ValueTime::new(23, 59, 59, false)),
+            ("120000Z", ValueTime::new(12,  0,  0, true)),
+            ("000060",  ValueTime::new( 0,  0, 60, false)), // leap second
         ];
         for (src, expected) in success_cases {
-            assert_eq!(parse(src).unwrap(), expected);
+            let result = parse(src).unwrap();
+            assert_eq!(result, expected);
+            #[cfg(feature = "jiff")]
+            {
+                // Verify civil_time returns correct value
+                let expected_jiff =
+                    jiff::civil::time(expected.hour, expected.minute, min(expected.second, 59), 0);
+                assert_eq!(result.civil_time(), expected_jiff, "Failed for {src}");
+            }
         }
 
         let fail_cases = [

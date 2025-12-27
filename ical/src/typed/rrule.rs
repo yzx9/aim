@@ -4,7 +4,7 @@
 
 //! Recurrence rule type definitions for iCalendar.
 
-use super::ValueDateTime;
+use crate::typed::ValueDateTime;
 
 /// Recurrence rule
 #[derive(Debug, Clone)]

@@ -4,7 +4,6 @@
 
 //! Alarm component (VALARM) for iCalendar semantic components.
 
-use crate::TriggerValue;
 use crate::keyword::{
     KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE, KW_VALARM,
 };
@@ -13,13 +12,13 @@ use crate::semantic::analysis::{
     find_parameter, get_language, get_single_value, parse_attendee_property, value_to_date_time,
     value_to_int, value_to_string,
 };
-use crate::semantic::properties::{Attachment, AttachmentValue, Attendee, Text, Trigger};
+use crate::semantic::property::{Attachment, AttachmentValue, Attendee, Text, Trigger};
 use crate::typed::ValueDuration;
 use crate::typed::parameter_type::AlarmTriggerRelationship;
 use crate::typed::{
-    Encoding, PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty,
-    Value,
+    PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
 };
+use crate::{TriggerValue, Uri};
 
 /// Alarm component (VALARM)
 #[derive(Debug, Clone)]
@@ -477,14 +476,11 @@ fn parse_attachment(prop: &TypedProperty<'_>) -> Result<Attachment, SemanticErro
 
     match value {
         Value::Text(uri) => Ok(Attachment {
-            value: AttachmentValue::Uri(crate::semantic::properties::Uri {
+            value: AttachmentValue::Uri(Uri {
                 uri: uri.resolve().to_string(),
             }),
             fmt_type,
-            encoding: encoding.map(|e| match e {
-                Encoding::Bit8 => Encoding::Bit8,
-                Encoding::Base64 => Encoding::Base64,
-            }),
+            encoding,
         }),
         Value::Binary(data) => {
             // Convert SpannedSegments to String, then to Vec<u8>
@@ -492,10 +488,7 @@ fn parse_attachment(prop: &TypedProperty<'_>) -> Result<Attachment, SemanticErro
             Ok(Attachment {
                 value: AttachmentValue::Binary(data_str.into_bytes()),
                 fmt_type,
-                encoding: encoding.map(|e| match e {
-                    Encoding::Bit8 => Encoding::Bit8,
-                    Encoding::Base64 => Encoding::Base64,
-                }),
+                encoding,
             })
         }
         _ => Err(SemanticError::InvalidValue(

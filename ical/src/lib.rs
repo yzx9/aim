@@ -41,6 +41,6 @@ pub use crate::semantic::{
     VTodo,
 };
 pub use crate::typed::{
-    Day, RecurrenceFrequency, RecurrenceRule, ValueDate, ValueDateTime, ValueDuration, ValueText,
-    ValueTime, ValueUtcOffset, WeekDay,
+    Day, RecurrenceFrequency, RecurrenceRule, ValueDate, ValueDateTime, ValueDuration, ValuePeriod,
+    ValueText, ValueTime, ValueUtcOffset, WeekDay,
 };

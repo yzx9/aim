@@ -12,9 +12,7 @@ use crate::semantic::analysis::{
     parse_classification_property, parse_multi_text_property, parse_organizer_property,
     value_to_any_date_time, value_to_date_time, value_to_date_time_with_tz, value_to_string,
 };
-use crate::semantic::properties::{
-    Attendee, Classification, DateTime, Organizer, Period, Text, Uri,
-};
+use crate::semantic::property::{Attendee, Classification, DateTime, Organizer, Period, Text, Uri};
 use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value, ValueDate};
 
 /// Journal entry component (VJOURNAL)

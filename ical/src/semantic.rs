@@ -9,7 +9,7 @@
 
 mod analysis;
 pub mod icalendar;
-mod properties;
+mod property;
 mod valarm;
 mod vevent;
 mod vfreebusy;
@@ -22,7 +22,7 @@ pub use analysis::{SemanticError, semantic_analysis};
 pub use icalendar::{
     CalendarComponent, CalendarScaleType, ICalendar, MethodType, VersionType, parse_icalendar,
 };
-pub use properties::{
+pub use property::{
     Attachment, AttachmentValue, Attendee, Classification, DateTime, Geo, Organizer, Period,
     ProductId, Text, TimeZoneOffset, Trigger, TriggerValue, Uri,
 };

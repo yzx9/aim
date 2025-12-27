@@ -14,6 +14,7 @@ mod value;
 mod value_datetime;
 mod value_duration;
 mod value_numeric;
+mod value_period;
 mod value_text;
 
 pub use crate::typed::analysis::{
@@ -31,4 +32,5 @@ pub use crate::typed::value::{Value, ValueExpected};
 pub use crate::typed::value_datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
 pub use crate::typed::value_duration::ValueDuration;
 pub use crate::typed::value_numeric::values_float_semicolon;
+pub use crate::typed::value_period::ValuePeriod;
 pub use crate::typed::value_text::ValueText;

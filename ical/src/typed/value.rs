@@ -18,6 +18,7 @@ use crate::typed::parameter_type::ValueType;
 use crate::typed::value_datetime::{value_utc_offset, values_date, values_date_time, values_time};
 use crate::typed::value_duration::{ValueDuration, values_duration};
 use crate::typed::value_numeric::{values_float, values_integer};
+use crate::typed::value_period::{ValuePeriod, values_period};
 use crate::typed::value_text::values_text;
 use crate::typed::{ValueDate, ValueDateTime, ValueText, ValueTime, ValueUtcOffset};
 
@@ -75,9 +76,14 @@ pub enum Value<'src> {
     /// See RFC 5545 Section 3.3.8 for more details.
     Integer(i32),
 
-    // TODO: 3.3.9. Period of Time
     // TODO: 3.3.10. Recurrence Rule
     //
+    /// This value type is used to identify values that contain a precise
+    /// period of time.
+    ///
+    /// See RFC 5545 Section 3.3.9 for more details.
+    Period(ValuePeriod),
+
     /// This value type is used to identify values that contain human-readable
     /// text.
     ///
@@ -256,8 +262,20 @@ pub fn parse_values<'src>(
                 }
             }
 
+            Period => {
+                let result = values_period::<'_, _, extra::Err<_>>()
+                    .map(|a| a.into_iter().map(Value::Period).collect())
+                    .parse(make_input(value.clone()))
+                    .into_result();
+                if let Ok(values) = result {
+                    return Ok(values);
+                } else if let Err(errs) = result {
+                    all_errors.extend(errs);
+                }
+            }
+
             // TODO: implement other value types
-            Period | RecurrenceRule => {
+            RecurrenceRule => {
                 // Return an error for unimplemented types
                 let span = value.span();
                 return Err(vec![Rich::custom(
@@ -287,6 +305,8 @@ pub enum ValueExpected {
     I32,
     /// A 32-bit unsigned integer value was expected
     U32,
+    /// Period date-times must have consistent timezone (both UTC or both floating)
+    MismatchedTimezone,
 }
 
 impl From<ValueExpected> for RichPattern<'_, char> {
@@ -296,6 +316,9 @@ impl From<ValueExpected> for RichPattern<'_, char> {
             ValueExpected::F64 => Self::Label(Cow::Borrowed("f64 out of range")),
             ValueExpected::I32 => Self::Label(Cow::Borrowed("i32 out of range")),
             ValueExpected::U32 => Self::Label(Cow::Borrowed("u32 out of range")),
+            ValueExpected::MismatchedTimezone => Self::Label(Cow::Borrowed(
+                "period date-times must have consistent timezone",
+            )),
         }
     }
 }

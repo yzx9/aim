@@ -807,3 +807,131 @@ END:VCALENDAR\r
         _ => panic!("Expected VTimeZone component"),
     }
 }
+
+#[test]
+fn semantic_parses_freebusy_with_periods() {
+    use aimcal_ical::semantic::Period;
+
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VFREEBUSY\r
+UID:fb1@example.com\r
+DTSTAMP:20250101T000000Z\r
+DTSTART:20250615T080000Z\r
+DTEND:20250615T170000Z\r
+ORGANIZER:mailto:user@example.com\r
+FREEBUSY;FBTYPE=BUSY:20250615T090000Z/20250615T120000Z,20250615T130000Z/PT2H\r
+END:VFREEBUSY\r
+END:VCALENDAR\r
+";
+    let calendar = parse_semantic(src).unwrap();
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::VFreeBusy(fb) => {
+            assert_eq!(fb.busy.len(), 2);
+
+            // First period: explicit UTC period
+            match &fb.busy[0] {
+                Period::ExplicitUtc {
+                    start_date,
+                    start_time,
+                    end_date: _,
+                    end_time,
+                } => {
+                    assert_eq!(start_date.year, 2025);
+                    assert_eq!(start_date.month, 6);
+                    assert_eq!(start_date.day, 15);
+                    assert_eq!(start_time.hour, 9);
+                    assert_eq!(end_time.hour, 12);
+                }
+                _ => panic!("Expected ExplicitUtc period"),
+            }
+
+            // Second period: duration period
+            match &fb.busy[1] {
+                Period::DurationUtc {
+                    start_date,
+                    start_time,
+                    duration,
+                } => {
+                    assert_eq!(start_date.year, 2025);
+                    assert_eq!(start_date.month, 6);
+                    assert_eq!(start_date.day, 15);
+                    assert_eq!(start_time.hour, 13);
+                    assert_eq!(start_time.minute, 0);
+                    // Duration: PT2H (2 hours)
+                    use aimcal_ical::typed::ValueDuration;
+                    match duration {
+                        ValueDuration::DateTime {
+                            positive,
+                            day,
+                            hour,
+                            minute,
+                            second,
+                        } => {
+                            assert!(*positive);
+                            assert_eq!(*day, 0);
+                            assert_eq!(*hour, 2);
+                            assert_eq!(*minute, 0);
+                            assert_eq!(*second, 0);
+                        }
+                        _ => panic!("Expected DateTime duration"),
+                    }
+                }
+                _ => panic!("Expected DurationUtc period"),
+            }
+        }
+        _ => panic!("Expected VFreeBusy component"),
+    }
+}
+
+#[test]
+fn semantic_parses_freebusy_with_floating_periods() {
+    use aimcal_ical::semantic::Period;
+
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VFREEBUSY\r
+UID:fb2@example.com\r
+DTSTAMP:20250101T000000Z\r
+DTSTART:20250615T080000Z\r
+DTEND:20250615T170000Z\r
+ORGANIZER:mailto:user@example.com\r
+FREEBUSY;FBTYPE=BUSY:20250615T090000/20250615T120000\r
+END:VFREEBUSY\r
+END:VCALENDAR\r
+";
+    let calendar = parse_semantic(src).unwrap();
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::VFreeBusy(fb) => {
+            assert_eq!(fb.busy.len(), 1);
+
+            // Floating time period (no Z suffix)
+            match &fb.busy[0] {
+                Period::ExplicitFloating {
+                    start_date,
+                    start_time,
+                    end_date: _,
+                    end_time,
+                } => {
+                    assert_eq!(start_date.year, 2025);
+                    assert_eq!(start_date.month, 6);
+                    assert_eq!(start_date.day, 15);
+                    assert_eq!(start_time.hour, 9);
+                    assert_eq!(start_time.minute, 0);
+                    assert!(!start_time.utc);
+                    assert_eq!(end_time.hour, 12);
+                }
+                _ => panic!("Expected ExplicitFloating period"),
+            }
+        }
+        _ => panic!("Expected VFreeBusy component"),
+    }
+}

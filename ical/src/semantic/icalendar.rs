@@ -10,8 +10,8 @@ use crate::keyword::{
     KW_METHOD_REPLY, KW_METHOD_REQUEST, KW_PRODID, KW_VALARM, KW_VCALENDAR, KW_VERSION,
     KW_VERSION_2_0, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
+use crate::semantic::ProductId;
 use crate::semantic::analysis::{find_property, get_single_value, value_to_string};
-use crate::semantic::properties::ProductId;
 use crate::semantic::valarm::parse_valarm;
 use crate::semantic::vevent::parse_vevent;
 use crate::semantic::vfreebusy::parse_vfreebusy;

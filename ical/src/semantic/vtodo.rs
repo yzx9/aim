@@ -13,7 +13,7 @@ use crate::semantic::analysis::{
     parse_organizer_property, value_to_any_date_time, value_to_date_time,
     value_to_date_time_with_tz, value_to_int, value_to_string,
 };
-use crate::semantic::properties::{
+use crate::semantic::property::{
     Attendee, Classification, DateTime, Geo, Organizer, Period, Text, Uri,
 };
 use crate::semantic::valarm::{VAlarm, parse_valarm};
