@@ -9,8 +9,8 @@ validation.
 
 The parser follows a **four-phase pipeline**:
 
-1. **Lexical Analysis** - Tokenizes raw iCalendar text into structured tokens
-2. **Syntax Analysis** - Assembles tokens into component structure
+1. **Lexical Analysis** - Tokenizes raw iCalendar text into structured tokens (using `logos`)
+2. **Syntax Analysis** - Assembles tokens into component structure (using `chumsky`)
 3. **Typed Analysis** - Validates and converts components to strongly-typed
    representations
 4. **Semantic Analysis** - Validates RFC 5545 semantics (required properties,
@@ -46,27 +46,62 @@ single entry point for parsing operations.
 ## Module Structure
 
 ```
-ical
+ical/
 ├── Cargo.toml
-├── CLAUDE.toml
+├── CLAUDE.md
 ├── RFC5545.txt     # If you have questions, check the RFC first and use search—it's very long
 └── src/
-    ├── lib.rs      # Public API exports
-    ├── keyword.rs  # RFC 5545 keyword constants
-    ├── lexer.rs    # Lexical analysis phase
-    ├── syntax.rs   # Syntax analysis phase
-    ├── parser.rs   # Unified parser orchestration
-    └── typed/      # Typed analysis phase
-        ├── mod.rs  # Public API and re-exports
-        ├── analysis.rs   # Main typed analysis coordinator
-        ├── property_spec.rs   # RFC 5545 property specifications
-        ├── parameter_types.rs # Parameter type definitions
-        ├── value.rs      # Value type implementations
-        ├── value_datetime.rs  # Date/time value handling
-        ├── value_duration.rs  # Duration value handling
-        ├── value_numeric.rs   # Numeric value handling
-        └── value_text.rs      # Text value handling
+    ├── lib.rs              # Public API exports
+    ├── keyword.rs          # RFC 5545 keyword constants
+    ├── lexer.rs            # Lexical analysis (tokenization)
+    ├── syntax.rs           # Syntax analysis
+    ├── parser.rs           # Unified parser orchestration
+    ├── semantic.rs         # Semantic module declaration
+    │   ├── analysis.rs     # Main semantic coordinator
+    │   ├── icalendar.rs    # ICalendar root component
+    │   ├── property.rs     # Property definitions
+    │   ├── valarm.rs       # VAlarm component
+    │   ├── vevent.rs       # VEvent component
+    │   ├── vfreebusy.rs    # VFreeBusy component
+    │   ├── vjournal.rs     # VJournal component
+    │   ├── vtimezone.rs    # VTimeZone component
+    │   └── vtodo.rs        # VTodo component
+    └── typed.rs            # Typed module declaration
+        ├── analysis.rs     # Typed analysis coordinator
+        ├── parameter.rs    # Parameter definitions
+        ├── parameter_type.rs   # Parameter type enums
+        ├── property_spec.rs    # Property specifications
+        ├── rrule.rs            # Recurrence rule parsing
+        ├── value.rs            # Value type base
+        ├── value_datetime.rs   # DateTime values
+        ├── value_duration.rs   # Duration values
+        ├── value_numeric.rs    # Numeric values
+        ├── value_period.rs     # Period values
+        └── value_text.rs       # Text values
 ```
+
+**Test Files:**
+
+```
+ical/tests/
+├── lexer.rs    # Lexer tests
+├── syntax.rs   # Syntax tests
+├── typed.rs    # Typed analysis tests
+└── semantic.rs # Semantic tests
+```
+
+## Dependencies
+
+- **logos** - Lexer generation
+- **chumsky** - Parser combinators
+- **lexical** - Numeric parsing
+- **strum** - Enum utilities
+- **thiserror** - Error handling
+- **jiff** (optional) - Timezone validation
+
+**Features:**
+
+- `jiff` (default) - Timezone database integration
 
 ## Design Principles
 

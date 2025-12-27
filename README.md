@@ -81,8 +81,8 @@ nix run . -- --help
 
 ### 📅 Calendar Features
 
-- [x] Listing event and todos
-- [x] Creating and editing event and todo
+- [x] Listing events and todos
+- [x] Creating and editing events and todos
 - [ ] Undo history editing
 - [ ] Full text search (grepping)
 - [ ] Recurring events
@@ -90,9 +90,9 @@ nix run . -- --help
 
 ### 🤖 AI Capabilities
 
-- [ ] AI operation, parse and execute user commands on calendar
+- [ ] AI operations: parse and execute user commands on calendar
 - [ ] Intelligent suggestions
-- [ ] Personalized
+- [ ] Personalized experience
 
 ### 🔌 Integrations
 
@@ -111,9 +111,11 @@ Their work has been a significant inspiration for AIM's design and functionality
 
 ## Contribution
 
-Any help in form of descriptive and friendly [issues](https://github.com/yzx9/aim/issues) or comprehensive pull requests are welcome!
+Any help in the form of descriptive and friendly [issues](https://github.com/yzx9/aim/issues) or comprehensive pull requests are welcome!
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in aim by you, as defined in the [Apache-2.0](www.apache.org/licenses/LICENSE-2.0) license, without any additional terms or conditions.
+Please check out [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in AIM by you, as defined in the [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) license, without any additional terms or conditions.
 
 Thanks goes to these wonderful people:
 

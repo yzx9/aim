@@ -6,15 +6,24 @@ The core module is the foundation of the AIM calendar application, providing all
 
 ```
 core/src/
-├── aim.rs      # Main application interface and core logic
-├── config.rs   # Configuration management and parsing
-├── datetime/   # Date/time handling and manipulation
-├── event.rs    # Event-related data structures and operations
-├── lib.rs      # Library exports and module declarations
-├── localdb/    # SQLite database wrapper (see separate AGENTS.md)
-├── short_id.rs # Short ID generation and mapping
-├── todo.rs     # Todo-related data structures and operations
-└── types.rs    # Common types and enums used throughout the application
+├── lib.rs              # Library exports and module declarations
+├── aim.rs              # Main application interface (Aim struct)
+├── config.rs           # Configuration management (Config struct)
+├── datetime.rs         # DateTime module declaration
+│   ├── anchor.rs       # DateTimeAnchor - date parsing
+│   ├── loose.rs        # LooseDateTime - flexible datetime
+│   └── util.rs         # DateTime utilities
+├── event.rs            # Event trait, EventDraft, EventPatch, EventStatus
+├── todo.rs             # Todo trait, TodoDraft, TodoPatch, TodoStatus
+├── short_id.rs         # Short ID generation and mapping
+├── types.rs            # Common types (Id, Kind, Pager, Priority, SortOrder)
+├── io.rs               # File I/O operations
+└── localdb.rs          # LocalDB module declaration
+    ├── db.rs           # LocalDb struct, connection pooling
+    ├── events.rs       # Event storage operations
+    ├── todos.rs        # Todo storage operations
+    ├── short_ids.rs    # Short ID mapping
+    └── migrations/     # Database migrations
 ```
 
 ## Main Components
@@ -91,10 +100,20 @@ Shared data structures used throughout the application:
 
 ## Dependencies
 
-- **clap**: Command-line argument parsing
-- **colored**: Terminal color support
-- **ratatui**: TUI framework
-- **crossterm**: Cross-platform terminal handling
+- **chrono / chrono-tz** - Date/time handling
+- **sqlx** - Database operations with compile-time SQL validation
+- **icalendar** - iCalendar format parsing (external library)
+- **serde / serde_json** - Serialization
+- **uuid** - Unique identifiers
+- **tokio** - Async runtime
+- **regex** - Pattern matching
+- **bimap** - Bidirectional maps
+- **dirs / xdg** - Platform-specific directories
+
+**Features:**
+
+- `sqlite` (default) - Bundled SQLite
+- `sqlite-unbundled` - System SQLite
 
 ## Code Standards
 
