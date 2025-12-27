@@ -87,8 +87,8 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
     // Collect all properties in a single pass
     let mut props = PropertyCollector::default();
     for prop in &comp.properties {
-        match prop.name {
-            name if name == PropertyKind::Uid.as_str() => {
+        match prop.kind {
+            PropertyKind::Uid => {
                 if props.uid.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -98,7 +98,7 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
                     props.uid = Some(prop);
                 }
             }
-            name if name == PropertyKind::DtStamp.as_str() => {
+            PropertyKind::DtStamp => {
                 if props.dt_stamp.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -108,7 +108,7 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
                     props.dt_stamp = Some(prop);
                 }
             }
-            name if name == PropertyKind::DtStart.as_str() => {
+            PropertyKind::DtStart => {
                 if props.dt_start.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -118,7 +118,7 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
                     props.dt_start = Some(prop);
                 }
             }
-            name if name == PropertyKind::DtEnd.as_str() => {
+            PropertyKind::DtEnd => {
                 if props.dt_end.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -128,7 +128,7 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
                     props.dt_end = Some(prop);
                 }
             }
-            name if name == PropertyKind::Duration.as_str() => {
+            PropertyKind::Duration => {
                 if props.duration.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -138,7 +138,7 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
                     props.duration = Some(prop);
                 }
             }
-            name if name == PropertyKind::Organizer.as_str() => {
+            PropertyKind::Organizer => {
                 if props.organizer.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -148,7 +148,7 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
                     props.organizer = Some(prop);
                 }
             }
-            name if name == PropertyKind::Contact.as_str() => {
+            PropertyKind::Contact => {
                 if props.contact.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -158,7 +158,7 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
                     props.contact = Some(prop);
                 }
             }
-            name if name == PropertyKind::Url.as_str() => {
+            PropertyKind::Url => {
                 if props.url.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -168,7 +168,7 @@ pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticE
                     props.url = Some(prop);
                 }
             }
-            name if name == PropertyKind::FreeBusy.as_str() => {
+            PropertyKind::FreeBusy => {
                 props.freebusy.push(prop);
             }
             // Ignore unknown properties

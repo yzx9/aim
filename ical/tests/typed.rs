@@ -51,8 +51,8 @@ END:VCALENDAR\r
     assert_eq!(components.len(), 1);
     assert_eq!(components[0].name, "VCALENDAR");
     assert_eq!(components[0].properties.len(), 2);
-    assert_eq!(components[0].properties[0].name, "VERSION");
-    assert_eq!(components[0].properties[1].name, "PRODID");
+    assert_eq!(components[0].properties[0].kind.as_str(), "VERSION");
+    assert_eq!(components[0].properties[1].kind.as_str(), "PRODID");
 }
 
 #[test]
@@ -63,7 +63,7 @@ VERSION:2.0\r
 END:VCALENDAR\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "VERSION");
+    assert_eq!(components[0].properties[0].kind.as_str(), "VERSION");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -78,7 +78,7 @@ PRODID:-//Example Corp.//CalDAV Client//EN\r
 END:VCALENDAR\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "PRODID");
+    assert_eq!(components[0].properties[0].kind.as_str(), "PRODID");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -93,7 +93,7 @@ CALSCALE:GREGORIAN\r
 END:VCALENDAR\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "CALSCALE");
+    assert_eq!(components[0].properties[0].kind.as_str(), "CALSCALE");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -132,7 +132,7 @@ DTSTART:20250615T133000Z\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DTSTART");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DTSTART");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::DateTime(_)
@@ -147,7 +147,7 @@ DTEND:20250615T143000Z\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DTEND");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DTEND");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::DateTime(_)
@@ -162,7 +162,7 @@ SUMMARY:Team Meeting\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "SUMMARY");
+    assert_eq!(components[0].properties[0].kind.as_str(), "SUMMARY");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -177,7 +177,7 @@ DESCRIPTION:This is a detailed description\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DESCRIPTION");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DESCRIPTION");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -192,7 +192,7 @@ LOCATION:Conference Room B\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "LOCATION");
+    assert_eq!(components[0].properties[0].kind.as_str(), "LOCATION");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -207,7 +207,7 @@ CLASS:PUBLIC\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "CLASS");
+    assert_eq!(components[0].properties[0].kind.as_str(), "CLASS");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -222,7 +222,7 @@ STATUS:CONFIRMED\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "STATUS");
+    assert_eq!(components[0].properties[0].kind.as_str(), "STATUS");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -237,7 +237,7 @@ TRANSP:OPAQUE\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "TRANSP");
+    assert_eq!(components[0].properties[0].kind.as_str(), "TRANSP");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -252,7 +252,7 @@ PRIORITY:5\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "PRIORITY");
+    assert_eq!(components[0].properties[0].kind.as_str(), "PRIORITY");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Integer(5)
@@ -267,7 +267,7 @@ SEQUENCE:2\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "SEQUENCE");
+    assert_eq!(components[0].properties[0].kind.as_str(), "SEQUENCE");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Integer(2)
@@ -282,7 +282,7 @@ CREATED:20250101T000000Z\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "CREATED");
+    assert_eq!(components[0].properties[0].kind.as_str(), "CREATED");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::DateTime(_)
@@ -297,7 +297,7 @@ LAST-MODIFIED:20250102T120000Z\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "LAST-MODIFIED");
+    assert_eq!(components[0].properties[0].kind.as_str(), "LAST-MODIFIED");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::DateTime(_)
@@ -312,7 +312,7 @@ DTSTART:20250615\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DTSTART");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DTSTART");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Date(_)
@@ -327,7 +327,7 @@ DTEND:20250615\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DTEND");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DTEND");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Date(_)
@@ -342,7 +342,7 @@ DURATION:PT1H30M\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DURATION");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DURATION");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Duration(_)
@@ -359,7 +359,7 @@ RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "RRULE");
+    assert_eq!(components[0].properties[0].kind.as_str(), "RRULE");
     // RRULE values are parsed as RecurrenceRule
     // (the specific value type depends on the typed module implementation)
 }
@@ -372,7 +372,7 @@ EXDATE:20250101T090000,20250108T090000\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "EXDATE");
+    assert_eq!(components[0].properties[0].kind.as_str(), "EXDATE");
     assert_eq!(components[0].properties[0].values.len(), 2);
 }
 
@@ -384,7 +384,7 @@ GEO:37.386013;-122.083932\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "GEO");
+    assert_eq!(components[0].properties[0].kind.as_str(), "GEO");
     // GEO is parsed as TEXT in typed phase; actual float parsing happens in semantic phase
     assert!(matches!(
         &components[0].properties[0].values[0],
@@ -400,7 +400,10 @@ PERCENT-COMPLETE:75\r
 END:VTODO\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "PERCENT-COMPLETE");
+    assert_eq!(
+        components[0].properties[0].kind.as_str(),
+        "PERCENT-COMPLETE"
+    );
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Integer(75)
@@ -569,7 +572,7 @@ SUMMARY:Team会议📅\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "SUMMARY");
+    assert_eq!(components[0].properties[0].kind.as_str(), "SUMMARY");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -584,7 +587,7 @@ DESCRIPTION:Line 1\\nLine 2\\;And semicolon\\,And comma\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DESCRIPTION");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DESCRIPTION");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -657,7 +660,7 @@ END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
     // Property name should be normalized to uppercase
-    assert_eq!(components[0].properties[0].name, "SUMMARY");
+    assert_eq!(components[0].properties[0].kind.as_str(), "SUMMARY");
 }
 
 #[test]
@@ -668,7 +671,7 @@ DTSTART;TZID=America/New_York:20250615T100000\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DTSTART");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DTSTART");
     assert!(!components[0].properties[0].parameters.is_empty());
     // Check that TZID parameter was parsed
     assert!(
@@ -687,7 +690,7 @@ DTSTART;VALUE=DATE:20250615\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DTSTART");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DTSTART");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Date(_)
@@ -702,7 +705,7 @@ DTSTART;VALUE=DATE:20250615\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "DTSTART");
+    assert_eq!(components[0].properties[0].kind.as_str(), "DTSTART");
     // When VALUE=DATE is specified, the value should be parsed as a date
     assert!(matches!(
         &components[0].properties[0].values[0],
@@ -754,7 +757,7 @@ URL:http://example.com/event.html\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "URL");
+    assert_eq!(components[0].properties[0].kind.as_str(), "URL");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -769,7 +772,7 @@ ORGANIZER;CN=John Doe:mailto:john.doe@example.com\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "ORGANIZER");
+    assert_eq!(components[0].properties[0].kind.as_str(), "ORGANIZER");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -784,7 +787,7 @@ ATTENDEE;RSVP=TRUE:mailto:test@example.com\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "ATTENDEE");
+    assert_eq!(components[0].properties[0].kind.as_str(), "ATTENDEE");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -803,7 +806,7 @@ END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
     // This should parse as URI (text) since BINARY requires explicit VALUE=BINARY
-    assert_eq!(components[0].properties[0].name, "ATTACH");
+    assert_eq!(components[0].properties[0].kind.as_str(), "ATTACH");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)
@@ -819,7 +822,7 @@ ATTACH;ENCODING=BASE64;VALUE=BINARY:VGhpcyBpcyBub3QgYSB2YWxpZCBVUkk=\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "ATTACH");
+    assert_eq!(components[0].properties[0].kind.as_str(), "ATTACH");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Binary(_)
@@ -835,7 +838,7 @@ ATTACH:http://example.com/document.pdf\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].name, "ATTACH");
+    assert_eq!(components[0].properties[0].kind.as_str(), "ATTACH");
     assert!(matches!(
         &components[0].properties[0].values[0],
         Value::Text(_)

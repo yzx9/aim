@@ -137,7 +137,7 @@ fn typed_property<'src>(
     }
 
     Ok(TypedProperty {
-        name: spec.name(),
+        kind: prop_kind,
         parameters,
         values,
     })
@@ -157,8 +157,8 @@ pub struct TypedComponent<'src> {
 /// A typed iCalendar property with validated parameters and values.
 #[derive(Debug, Clone)]
 pub struct TypedProperty<'src> {
-    /// Property name (standardized in UPPERCASE)
-    pub name: &'src str,
+    /// Property kind
+    pub kind: PropertyKind,
     /// Property parameters
     pub parameters: Vec<TypedParameter<'src>>,
     /// Property values

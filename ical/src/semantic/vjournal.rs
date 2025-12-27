@@ -116,8 +116,8 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
     // Collect all properties in a single pass
     let mut props = PropertyCollector::default();
     for prop in &comp.properties {
-        match prop.name {
-            name if name == PropertyKind::Uid.as_str() => {
+        match prop.kind {
+            PropertyKind::Uid => {
                 if props.uid.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -127,7 +127,7 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.uid = Some(prop);
                 }
             }
-            name if name == PropertyKind::DtStamp.as_str() => {
+            PropertyKind::DtStamp => {
                 if props.dt_stamp.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -137,7 +137,7 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.dt_stamp = Some(prop);
                 }
             }
-            name if name == PropertyKind::DtStart.as_str() => {
+            PropertyKind::DtStart => {
                 if props.dt_start.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -147,7 +147,7 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.dt_start = Some(prop);
                 }
             }
-            name if name == PropertyKind::Summary.as_str() => {
+            PropertyKind::Summary => {
                 if props.summary.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -157,11 +157,11 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.summary = Some(prop);
                 }
             }
-            name if name == PropertyKind::Description.as_str() => {
+            PropertyKind::Description => {
                 // VJOURNAL allows multiple DESCRIPTION properties
                 props.descriptions.push(prop);
             }
-            name if name == PropertyKind::Organizer.as_str() => {
+            PropertyKind::Organizer => {
                 if props.organizer.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -171,10 +171,10 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.organizer = Some(prop);
                 }
             }
-            name if name == PropertyKind::Attendee.as_str() => {
+            PropertyKind::Attendee => {
                 props.attendees.push(prop);
             }
-            name if name == PropertyKind::LastModified.as_str() => {
+            PropertyKind::LastModified => {
                 if props.last_modified.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -184,7 +184,7 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.last_modified = Some(prop);
                 }
             }
-            name if name == PropertyKind::Status.as_str() => {
+            PropertyKind::Status => {
                 if props.status.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -194,7 +194,7 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.status = Some(prop);
                 }
             }
-            name if name == PropertyKind::Class.as_str() => {
+            PropertyKind::Class => {
                 if props.classification.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -204,7 +204,7 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.classification = Some(prop);
                 }
             }
-            name if name == PropertyKind::Categories.as_str() => {
+            PropertyKind::Categories => {
                 if props.categories.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -214,7 +214,7 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.categories = Some(prop);
                 }
             }
-            name if name == PropertyKind::RRule.as_str() => {
+            PropertyKind::RRule => {
                 if props.rrule.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -224,10 +224,10 @@ pub fn parse_vjournal(comp: &TypedComponent) -> Result<VJournal, Vec<SemanticErr
                     props.rrule = Some(prop);
                 }
             }
-            name if name == PropertyKind::ExDate.as_str() => {
+            PropertyKind::ExDate => {
                 props.ex_dates.push(prop);
             }
-            name if name == PropertyKind::Url.as_str() => {
+            PropertyKind::Url => {
                 if props.url.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",

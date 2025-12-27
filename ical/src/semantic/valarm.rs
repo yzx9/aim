@@ -94,8 +94,8 @@ pub fn parse_valarm(comp: &TypedComponent) -> Result<VAlarm, Vec<SemanticError>>
     // Collect all properties in a single pass
     let mut props = PropertyCollector::default();
     for prop in &comp.properties {
-        match prop.name {
-            name if name == PropertyKind::Action.as_str() => {
+        match prop.kind {
+            PropertyKind::Action => {
                 if props.action.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -105,7 +105,7 @@ pub fn parse_valarm(comp: &TypedComponent) -> Result<VAlarm, Vec<SemanticError>>
                     props.action = Some(prop);
                 }
             }
-            name if name == PropertyKind::Trigger.as_str() => {
+            PropertyKind::Trigger => {
                 if props.trigger.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -115,7 +115,7 @@ pub fn parse_valarm(comp: &TypedComponent) -> Result<VAlarm, Vec<SemanticError>>
                     props.trigger = Some(prop);
                 }
             }
-            name if name == PropertyKind::Duration.as_str() => {
+            PropertyKind::Duration => {
                 if props.duration.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -125,7 +125,7 @@ pub fn parse_valarm(comp: &TypedComponent) -> Result<VAlarm, Vec<SemanticError>>
                     props.duration = Some(prop);
                 }
             }
-            name if name == PropertyKind::Repeat.as_str() => {
+            PropertyKind::Repeat => {
                 if props.repeat.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -135,7 +135,7 @@ pub fn parse_valarm(comp: &TypedComponent) -> Result<VAlarm, Vec<SemanticError>>
                     props.repeat = Some(prop);
                 }
             }
-            name if name == PropertyKind::Description.as_str() => {
+            PropertyKind::Description => {
                 if props.description.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -145,7 +145,7 @@ pub fn parse_valarm(comp: &TypedComponent) -> Result<VAlarm, Vec<SemanticError>>
                     props.description = Some(prop);
                 }
             }
-            name if name == PropertyKind::Summary.as_str() => {
+            PropertyKind::Summary => {
                 if props.summary.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -155,10 +155,10 @@ pub fn parse_valarm(comp: &TypedComponent) -> Result<VAlarm, Vec<SemanticError>>
                     props.summary = Some(prop);
                 }
             }
-            name if name == PropertyKind::Attendee.as_str() => {
+            PropertyKind::Attendee => {
                 props.attendees.push(prop);
             }
-            name if name == PropertyKind::Attach.as_str() => {
+            PropertyKind::Attach => {
                 if props.attach.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",

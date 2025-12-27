@@ -166,8 +166,8 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
     // Collect all properties in a single pass
     let mut props = PropertyCollector::default();
     for prop in &comp.properties {
-        match prop.name {
-            name if name == PropertyKind::Uid.as_str() => {
+        match prop.kind {
+            PropertyKind::Uid => {
                 if props.uid.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -177,7 +177,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.uid = Some(prop);
                 }
             }
-            name if name == PropertyKind::DtStamp.as_str() => {
+            PropertyKind::DtStamp => {
                 if props.dt_stamp.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -187,7 +187,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.dt_stamp = Some(prop);
                 }
             }
-            name if name == PropertyKind::DtStart.as_str() => {
+            PropertyKind::DtStart => {
                 if props.dt_start.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -197,7 +197,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.dt_start = Some(prop);
                 }
             }
-            name if name == PropertyKind::Due.as_str() => {
+            PropertyKind::Due => {
                 if props.due.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -207,7 +207,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.due = Some(prop);
                 }
             }
-            name if name == PropertyKind::Completed.as_str() => {
+            PropertyKind::Completed => {
                 if props.completed.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -217,7 +217,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.completed = Some(prop);
                 }
             }
-            name if name == PropertyKind::Duration.as_str() => {
+            PropertyKind::Duration => {
                 if props.duration.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -227,7 +227,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.duration = Some(prop);
                 }
             }
-            name if name == PropertyKind::Summary.as_str() => {
+            PropertyKind::Summary => {
                 if props.summary.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -237,7 +237,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.summary = Some(prop);
                 }
             }
-            name if name == PropertyKind::Description.as_str() => {
+            PropertyKind::Description => {
                 if props.description.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -247,7 +247,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.description = Some(prop);
                 }
             }
-            name if name == PropertyKind::Location.as_str() => {
+            PropertyKind::Location => {
                 if props.location.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -257,7 +257,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.location = Some(prop);
                 }
             }
-            name if name == PropertyKind::Geo.as_str() => {
+            PropertyKind::Geo => {
                 if props.geo.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -267,7 +267,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.geo = Some(prop);
                 }
             }
-            name if name == PropertyKind::Url.as_str() => {
+            PropertyKind::Url => {
                 if props.url.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -277,7 +277,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.url = Some(prop);
                 }
             }
-            name if name == PropertyKind::Organizer.as_str() => {
+            PropertyKind::Organizer => {
                 if props.organizer.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -287,10 +287,10 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.organizer = Some(prop);
                 }
             }
-            name if name == PropertyKind::Attendee.as_str() => {
+            PropertyKind::Attendee => {
                 props.attendees.push(prop);
             }
-            name if name == PropertyKind::LastModified.as_str() => {
+            PropertyKind::LastModified => {
                 if props.last_modified.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -300,7 +300,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.last_modified = Some(prop);
                 }
             }
-            name if name == PropertyKind::Status.as_str() => {
+            PropertyKind::Status => {
                 if props.status.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -310,7 +310,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.status = Some(prop);
                 }
             }
-            name if name == PropertyKind::Sequence.as_str() => {
+            PropertyKind::Sequence => {
                 if props.sequence.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -320,7 +320,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.sequence = Some(prop);
                 }
             }
-            name if name == PropertyKind::Priority.as_str() => {
+            PropertyKind::Priority => {
                 if props.priority.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -330,7 +330,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.priority = Some(prop);
                 }
             }
-            name if name == PropertyKind::PercentComplete.as_str() => {
+            PropertyKind::PercentComplete => {
                 if props.percent_complete.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -340,7 +340,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.percent_complete = Some(prop);
                 }
             }
-            name if name == PropertyKind::Class.as_str() => {
+            PropertyKind::Class => {
                 if props.classification.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -350,7 +350,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.classification = Some(prop);
                 }
             }
-            name if name == PropertyKind::Resources.as_str() => {
+            PropertyKind::Resources => {
                 if props.resources.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -360,7 +360,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.resources = Some(prop);
                 }
             }
-            name if name == PropertyKind::Categories.as_str() => {
+            PropertyKind::Categories => {
                 if props.categories.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -370,7 +370,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.categories = Some(prop);
                 }
             }
-            name if name == PropertyKind::RRule.as_str() => {
+            PropertyKind::RRule => {
                 if props.rrule.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -380,7 +380,7 @@ pub fn parse_vtodo(comp: TypedComponent) -> Result<VTodo, Vec<SemanticError>> {
                     props.rrule = Some(prop);
                 }
             }
-            name if name == PropertyKind::ExDate.as_str() => {
+            PropertyKind::ExDate => {
                 props.ex_dates.push(prop);
             }
             // Ignore unknown properties

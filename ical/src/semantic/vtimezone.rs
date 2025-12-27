@@ -75,8 +75,8 @@ pub fn parse_vtimezone(comp: &TypedComponent) -> Result<VTimeZone, Vec<SemanticE
     // Collect all properties in a single pass
     let mut props = PropertyCollector::default();
     for prop in &comp.properties {
-        match prop.name {
-            name if name == PropertyKind::TzId.as_str() => {
+        match prop.kind {
+            PropertyKind::TzId => {
                 if props.tz_id.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -86,7 +86,7 @@ pub fn parse_vtimezone(comp: &TypedComponent) -> Result<VTimeZone, Vec<SemanticE
                     props.tz_id = Some(prop);
                 }
             }
-            name if name == PropertyKind::LastModified.as_str() => {
+            PropertyKind::LastModified => {
                 if props.last_modified.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -96,7 +96,7 @@ pub fn parse_vtimezone(comp: &TypedComponent) -> Result<VTimeZone, Vec<SemanticE
                     props.last_modified = Some(prop);
                 }
             }
-            name if name == PropertyKind::TzUrl.as_str() => {
+            PropertyKind::TzUrl => {
                 if props.tz_url.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -238,8 +238,8 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
     // Collect all properties in a single pass
     let mut props = ObservanceCollector::default();
     for prop in &comp.properties {
-        match prop.name {
-            name if name == PropertyKind::DtStart.as_str() => {
+        match prop.kind {
+            PropertyKind::DtStart => {
                 if props.dt_start.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -249,7 +249,7 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                     props.dt_start = Some(prop);
                 }
             }
-            name if name == PropertyKind::TzOffsetFrom.as_str() => {
+            PropertyKind::TzOffsetFrom => {
                 if props.tz_offset_from.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -259,7 +259,7 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                     props.tz_offset_from = Some(prop);
                 }
             }
-            name if name == PropertyKind::TzOffsetTo.as_str() => {
+            PropertyKind::TzOffsetTo => {
                 if props.tz_offset_to.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",
@@ -269,7 +269,7 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                     props.tz_offset_to = Some(prop);
                 }
             }
-            name if name == PropertyKind::TzName.as_str() => {
+            PropertyKind::TzName => {
                 // TZNAME can appear multiple times
                 match get_single_value(prop) {
                     Ok(value) => match value_to_string(value) {
@@ -287,7 +287,7 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                     Err(e) => errors.push(e),
                 }
             }
-            name if name == PropertyKind::RRule.as_str() => {
+            PropertyKind::RRule => {
                 if props.rrule.is_some() {
                     errors.push(SemanticError::InvalidStructure(format!(
                         "Duplicate {} property",

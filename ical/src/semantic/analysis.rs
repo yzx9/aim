@@ -52,7 +52,7 @@ pub fn find_property<'src>(
     properties: &'src [TypedProperty<'src>],
     name: &str,
 ) -> Option<&'src TypedProperty<'src>> {
-    properties.iter().find(|p| p.name == name)
+    properties.iter().find(|p| p.kind.as_str() == name)
 }
 
 /// Extract a parameter value by kind from a property
@@ -71,7 +71,7 @@ pub fn get_single_value<'src>(
         Some(value) => Ok(value),
         None => Err(SemanticError::InvalidStructure(format!(
             "Property '{}' has no values",
-            prop.name
+            prop.kind.as_str()
         ))),
     }
 }
