@@ -4,6 +4,7 @@
 
 //! Typed representation of iCalendar components and properties.
 
+use std::fmt::{Display, Formatter};
 use std::{num::NonZeroU8, str::FromStr};
 
 use crate::keyword::{
@@ -79,6 +80,12 @@ macro_rules! property_kind {
                     }
                 )*
                 Err(())
+            }
+        }
+
+        impl Display for PropertyKind {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                self.as_str().fmt(f)
             }
         }
 

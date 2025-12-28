@@ -332,7 +332,7 @@ impl AsRef<str> for TodoStatus {
 
 impl Display for TodoStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_ref())
+        self.as_ref().fmt(f)
     }
 }
 

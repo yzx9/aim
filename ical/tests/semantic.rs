@@ -7,24 +7,21 @@
 //! These tests validate the semantic analyzer's behavior on realistic iCalendar content
 //! and edge cases.
 
-use aimcal_ical::lexer::{Token, lex_analysis};
+use chumsky::error::Rich;
+
+use aimcal_ical::lexer::lex_analysis;
 use aimcal_ical::semantic::{
-    CalendarComponent, CalendarScaleType, MethodType, VersionType, semantic_analysis,
+    CalendarComponent, CalendarScaleType, ICalendar, MethodType, Period, SemanticError,
+    VersionType, semantic_analysis,
 };
 use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
 
 /// Test helper to parse iCalendar source through semantic phase
-fn parse_semantic(
-    src: &str,
-) -> Result<aimcal_ical::semantic::ICalendar, Vec<aimcal_ical::SemanticError>> {
-    use aimcal_ical::syntax::SyntaxComponent;
-    use chumsky::error::Rich;
-
+fn parse_semantic(src: &str) -> Result<ICalendar, Vec<SemanticError>> {
     let token_stream = lex_analysis(src);
-    let syntax_components: Result<Vec<SyntaxComponent<'_>>, Vec<Rich<'_, Token<'_>>>> =
-        syntax_analysis(src, token_stream);
-    let typed_components = typed_analysis(syntax_components.unwrap()).unwrap();
+    let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
+    let typed_components = typed_analysis(syntax_components).unwrap();
     semantic_analysis(typed_components)
 }
 
@@ -890,8 +887,6 @@ END:VCALENDAR\r
 
 #[test]
 fn semantic_parses_freebusy_with_floating_periods() {
-    use aimcal_ical::semantic::Period;
-
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r

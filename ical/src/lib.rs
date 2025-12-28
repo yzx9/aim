@@ -26,7 +26,7 @@
     clippy::match_bool
 )]
 
-mod keyword;
+pub mod keyword;
 pub mod lexer;
 mod parser;
 pub mod semantic;
@@ -35,12 +35,11 @@ pub mod typed;
 
 pub use crate::parser::{ParseError, parse};
 pub use crate::semantic::{
-    Attachment, AttachmentValue, Attendee, Classification, DateTime, EventStatus, Geo, ICalendar,
-    MethodType, Organizer, Period, ProductId, SemanticError, Text, TimeTransparency,
-    TimeZoneOffset, Trigger, TriggerValue, Uri, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone,
-    VTodo,
+    Attachment, AttachmentValue, Attendee, CalendarComponent, CalendarScaleType, Classification,
+    DateTime, EventStatus, Geo, ICalendar, MethodType, Organizer, Period, ProductId, Text,
+    TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, Uri, VAlarm, VEvent, VFreeBusy,
+    VJournal, VTimeZone, VTodo, VersionType,
 };
 pub use crate::typed::{
-    Day, RecurrenceFrequency, RecurrenceRule, ValueDate, ValueDateTime, ValueDuration, ValuePeriod,
-    ValueText, ValueTime, ValueUtcOffset, WeekDay,
+    Day, RecurrenceFrequency, RecurrenceRule, ValueDuration as Duration, ValueTime as Time, WeekDay,
 };

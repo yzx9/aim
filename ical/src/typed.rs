@@ -31,6 +31,6 @@ pub use crate::typed::rrule::{Day, RecurrenceFrequency, RecurrenceRule, WeekDay}
 pub use crate::typed::value::{Value, ValueExpected};
 pub use crate::typed::value_datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
 pub use crate::typed::value_duration::ValueDuration;
-pub use crate::typed::value_numeric::values_float_semicolon;
+pub(crate) use crate::typed::value_numeric::values_float_semicolon;
 pub use crate::typed::value_period::ValuePeriod;
 pub use crate::typed::value_text::ValueText;

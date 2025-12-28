@@ -4,17 +4,17 @@
 
 //! Free/busy time component (VFREEBUSY) for iCalendar semantic components.
 
+use std::convert::TryFrom;
+
 use crate::keyword::KW_VFREEBUSY;
-use crate::semantic::SemanticError;
-use crate::semantic::analysis::{
-    find_parameter, get_language, get_single_value, get_tzid, parse_organizer_property,
-    value_to_any_date_time, value_to_date_time, value_to_date_time_with_tz, value_to_string,
+use crate::semantic::property_util::{
+    find_parameter, get_language, get_single_value, value_to_floating_date_time, value_to_string,
 };
-use crate::semantic::property::{DateTime, Organizer, Period, Text, Uri};
+use crate::semantic::{DateTime, Organizer, Period, SemanticError, Text, Uri};
 use crate::typed::parameter_type::FreeBusyType;
 use crate::typed::{
     PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
-    ValueDate, ValueDuration, ValuePeriod,
+    ValueDate, ValueDuration,
 };
 
 /// Free/busy time component (VFREEBUSY)
@@ -61,482 +61,259 @@ pub struct VFreeBusy {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'a> {
-    uid:        Option<&'a TypedProperty<'a>>,
-    dt_stamp:   Option<&'a TypedProperty<'a>>,
-    dt_start:   Option<&'a TypedProperty<'a>>,
-    dt_end:     Option<&'a TypedProperty<'a>>,
-    duration:   Option<&'a TypedProperty<'a>>,
-    organizer:  Option<&'a TypedProperty<'a>>,
-    contact:    Option<&'a TypedProperty<'a>>,
-    url:        Option<&'a TypedProperty<'a>>,
+    uid:        Option<String>,
+    dt_stamp:   Option<DateTime>,
+    dt_start:   Option<DateTime>,
+    dt_end:     Option<DateTime>,
+    duration:   Option<ValueDuration>,
+    organizer:  Option<Organizer>,
+    contact:    Option<Text>,
+    url:        Option<Uri>,
     freebusy:   Vec<&'a TypedProperty<'a>>,
 }
 
 /// Parse a `TypedComponent` into a `VFreeBusy`
 #[allow(clippy::too_many_lines)]
-pub fn parse_vfreebusy(comp: &TypedComponent) -> Result<VFreeBusy, Vec<SemanticError>> {
-    if comp.name != KW_VFREEBUSY {
-        return Err(vec![SemanticError::InvalidStructure(format!(
-            "Expected VFREEBUSY component, got '{}'",
-            comp.name
-        ))]);
-    }
+impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
+    type Error = Vec<SemanticError>;
 
-    let mut errors = Vec::new();
-
-    // Collect all properties in a single pass
-    let mut props = PropertyCollector::default();
-    for prop in &comp.properties {
-        match prop.kind {
-            PropertyKind::Uid => {
-                if props.uid.is_some() {
-                    errors.push(SemanticError::InvalidStructure(format!(
-                        "Duplicate {} property",
-                        PropertyKind::Uid.as_str()
-                    )));
-                } else {
-                    props.uid = Some(prop);
-                }
-            }
-            PropertyKind::DtStamp => {
-                if props.dt_stamp.is_some() {
-                    errors.push(SemanticError::InvalidStructure(format!(
-                        "Duplicate {} property",
-                        PropertyKind::DtStamp.as_str()
-                    )));
-                } else {
-                    props.dt_stamp = Some(prop);
-                }
-            }
-            PropertyKind::DtStart => {
-                if props.dt_start.is_some() {
-                    errors.push(SemanticError::InvalidStructure(format!(
-                        "Duplicate {} property",
-                        PropertyKind::DtStart.as_str()
-                    )));
-                } else {
-                    props.dt_start = Some(prop);
-                }
-            }
-            PropertyKind::DtEnd => {
-                if props.dt_end.is_some() {
-                    errors.push(SemanticError::InvalidStructure(format!(
-                        "Duplicate {} property",
-                        PropertyKind::DtEnd.as_str()
-                    )));
-                } else {
-                    props.dt_end = Some(prop);
-                }
-            }
-            PropertyKind::Duration => {
-                if props.duration.is_some() {
-                    errors.push(SemanticError::InvalidStructure(format!(
-                        "Duplicate {} property",
-                        PropertyKind::Duration.as_str()
-                    )));
-                } else {
-                    props.duration = Some(prop);
-                }
-            }
-            PropertyKind::Organizer => {
-                if props.organizer.is_some() {
-                    errors.push(SemanticError::InvalidStructure(format!(
-                        "Duplicate {} property",
-                        PropertyKind::Organizer.as_str()
-                    )));
-                } else {
-                    props.organizer = Some(prop);
-                }
-            }
-            PropertyKind::Contact => {
-                if props.contact.is_some() {
-                    errors.push(SemanticError::InvalidStructure(format!(
-                        "Duplicate {} property",
-                        PropertyKind::Contact.as_str()
-                    )));
-                } else {
-                    props.contact = Some(prop);
-                }
-            }
-            PropertyKind::Url => {
-                if props.url.is_some() {
-                    errors.push(SemanticError::InvalidStructure(format!(
-                        "Duplicate {} property",
-                        PropertyKind::Url.as_str()
-                    )));
-                } else {
-                    props.url = Some(prop);
-                }
-            }
-            PropertyKind::FreeBusy => {
-                props.freebusy.push(prop);
-            }
-            // Ignore unknown properties
-            _ => {}
+    fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
+        if comp.name != KW_VFREEBUSY {
+            return Err(vec![SemanticError::InvalidStructure(format!(
+                "Expected VFREEBUSY component, got '{}'",
+                comp.name
+            ))]);
         }
-    }
 
-    // UID is required
-    let uid = match props.uid {
-        Some(prop) => match get_single_value(prop) {
-            Ok(value) => match value_to_string(value) {
-                Some(v) => v,
-                None => {
-                    errors.push(SemanticError::InvalidValue(
-                        PropertyKind::Uid.as_str().to_string(),
-                        "Expected text value".to_string(),
-                    ));
-                    String::new()
-                }
-            },
-            Err(e) => {
-                errors.push(e);
-                String::new()
-            }
-        },
-        None => {
-            errors.push(SemanticError::MissingProperty(
-                PropertyKind::Uid.as_str().to_string(),
-            ));
-            String::new()
-        }
-    };
+        let mut errors = Vec::new();
 
-    // DTSTAMP is required
-    let dt_stamp = match props.dt_stamp {
-        Some(prop) => match get_single_value(prop) {
-            Ok(value) => match value_to_date_time(value) {
-                Some(v) => v,
-                None => {
-                    errors.push(SemanticError::InvalidValue(
-                        PropertyKind::DtStamp.as_str().to_string(),
-                        "Expected date-time value".to_string(),
-                    ));
-                    DateTime::Date {
-                        date: ValueDate {
-                            year: 0,
-                            month: 1,
-                            day: 1,
-                        },
+        // Collect all properties in a single pass
+        let mut props = PropertyCollector::default();
+        for prop in &comp.properties {
+            match prop.kind {
+                PropertyKind::Uid => {
+                    if props.uid.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Uid));
+                        continue;
                     }
-                }
-            },
-            Err(e) => {
-                errors.push(e);
-                DateTime::Date {
-                    date: ValueDate {
-                        year: 0,
-                        month: 1,
-                        day: 1,
-                    },
-                }
-            }
-        },
-        None => {
-            errors.push(SemanticError::MissingProperty(
-                PropertyKind::DtStamp.as_str().to_string(),
-            ));
-            DateTime::Date {
-                date: ValueDate {
-                    year: 0,
-                    month: 1,
-                    day: 1,
-                },
-            }
-        }
-    };
-
-    // DTSTART is required
-    let dt_start = match props.dt_start {
-        Some(prop) => match get_single_value(prop) {
-            Ok(value) => {
-                let tz_id = get_tzid(&prop.parameters);
-                let result = match &tz_id {
-                    Some(id) => value_to_date_time_with_tz(value, id.clone()),
-                    None => value_to_any_date_time(value),
-                };
-                match result {
-                    Some(v) => v,
-                    None => {
-                        errors.push(SemanticError::InvalidValue(
-                            PropertyKind::DtStart.as_str().to_string(),
-                            "Expected date-time value".to_string(),
-                        ));
-                        DateTime::Date {
-                            date: ValueDate {
-                                year: 0,
-                                month: 1,
-                                day: 1,
-                            },
+                    match get_single_value(prop).ok().and_then(value_to_string) {
+                        Some(v) => props.uid = Some(v),
+                        None => {
+                            errors.push(SemanticError::InvalidValue(
+                                PropertyKind::Uid,
+                                "Expected text value".to_string(),
+                            ));
+                            props.uid = Some(String::new());
                         }
                     }
                 }
-            }
-            Err(e) => {
-                errors.push(e);
-                DateTime::Date {
-                    date: ValueDate {
-                        year: 0,
-                        month: 1,
-                        day: 1,
-                    },
+                PropertyKind::DtStamp => {
+                    if props.dt_stamp.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::DtStamp));
+                        continue;
+                    }
+                    match get_single_value(prop)
+                        .ok()
+                        .and_then(value_to_floating_date_time)
+                    {
+                        Some(v) => props.dt_stamp = Some(v),
+                        None => {
+                            errors.push(SemanticError::InvalidValue(
+                                PropertyKind::DtStamp,
+                                "Expected date-time value".to_string(),
+                            ));
+                            props.dt_stamp = Some(DateTime::Date {
+                                date: ValueDate {
+                                    year: 0,
+                                    month: 1,
+                                    day: 1,
+                                },
+                            });
+                        }
+                    }
                 }
-            }
-        },
-        None => {
-            errors.push(SemanticError::MissingProperty(
-                PropertyKind::DtStart.as_str().to_string(),
-            ));
-            DateTime::Date {
-                date: ValueDate {
-                    year: 0,
-                    month: 1,
-                    day: 1,
-                },
-            }
-        }
-    };
-
-    // DTEND is optional
-    let dt_end = props.dt_end.map(|prop| match get_single_value(prop) {
-        Ok(value) => {
-            let tz_id = get_tzid(&prop.parameters);
-            let result = match &tz_id {
-                Some(id) => value_to_date_time_with_tz(value, id.clone()),
-                None => value_to_any_date_time(value),
-            };
-            match result {
-                Some(v) => v,
-                None => {
-                    errors.push(SemanticError::InvalidValue(
-                        PropertyKind::DtEnd.as_str().to_string(),
-                        "Expected date-time value".to_string(),
-                    ));
-                    DateTime::Date {
-                        date: ValueDate {
-                            year: 0,
-                            month: 1,
-                            day: 1,
+                PropertyKind::DtStart => {
+                    if props.dt_start.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::DtStart));
+                        continue;
+                    }
+                    match DateTime::try_from(prop) {
+                        Ok(v) => props.dt_start = Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            props.dt_start = Some(DateTime::Date {
+                                date: ValueDate {
+                                    year: 0,
+                                    month: 1,
+                                    day: 1,
+                                },
+                            });
+                        }
+                    }
+                }
+                PropertyKind::DtEnd => {
+                    if props.dt_end.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::DtEnd));
+                        continue;
+                    }
+                    match DateTime::try_from(prop) {
+                        Ok(v) => props.dt_end = Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            props.dt_end = Some(DateTime::Date {
+                                date: ValueDate {
+                                    year: 0,
+                                    month: 1,
+                                    day: 1,
+                                },
+                            });
+                        }
+                    }
+                }
+                PropertyKind::Duration => {
+                    if props.duration.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Duration));
+                        continue;
+                    }
+                    match get_single_value(prop) {
+                        Ok(Value::Duration(v)) => props.duration = Some(*v),
+                        _ => {
+                            errors.push(SemanticError::InvalidValue(
+                                PropertyKind::Duration,
+                                "Expected duration value".to_string(),
+                            ));
+                            props.duration = Some(ValueDuration::DateTime {
+                                positive: true,
+                                day: 0,
+                                hour: 0,
+                                minute: 0,
+                                second: 0,
+                            });
+                        }
+                    }
+                }
+                PropertyKind::Organizer => {
+                    if props.organizer.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Organizer));
+                        continue;
+                    }
+                    match Organizer::try_from(prop) {
+                        Ok(v) => props.organizer = Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            props.organizer = Some(Organizer {
+                                cal_address: Uri { uri: String::new() },
+                                cn: None,
+                                dir: None,
+                                sent_by: None,
+                                language: None,
+                            });
+                        }
+                    }
+                }
+                PropertyKind::Contact => {
+                    if props.contact.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Contact));
+                        continue;
+                    }
+                    match get_single_value(prop) {
+                        Ok(value) => match value_to_string(value) {
+                            Some(v) => {
+                                props.contact = Some(Text {
+                                    content: v,
+                                    language: get_language(&prop.parameters),
+                                });
+                            }
+                            None => {
+                                errors.push(SemanticError::InvalidValue(
+                                    PropertyKind::Contact,
+                                    "Expected text value".to_string(),
+                                ));
+                            }
                         },
+                        Err(e) => errors.push(e),
                     }
                 }
-            }
-        }
-        Err(e) => {
-            errors.push(e);
-            DateTime::Date {
-                date: ValueDate {
-                    year: 0,
-                    month: 1,
-                    day: 1,
-                },
-            }
-        }
-    });
-
-    // DURATION is optional
-    let duration = props.duration.map(|prop| match get_single_value(prop) {
-        Ok(Value::Duration(v)) => *v,
-        Ok(_) => {
-            errors.push(SemanticError::InvalidValue(
-                PropertyKind::Duration.as_str().to_string(),
-                "Expected duration value".to_string(),
-            ));
-            ValueDuration::DateTime {
-                positive: true,
-                day: 0,
-                hour: 0,
-                minute: 0,
-                second: 0,
-            }
-        }
-        Err(e) => {
-            errors.push(e);
-            ValueDuration::DateTime {
-                positive: true,
-                day: 0,
-                hour: 0,
-                minute: 0,
-                second: 0,
-            }
-        }
-    });
-
-    // ORGANIZER is required
-    let organizer = match props.organizer {
-        Some(prop) => match parse_organizer_property(prop) {
-            Ok(v) => v,
-            Err(e) => {
-                errors.push(e);
-                // Return a dummy organizer to continue parsing
-                Organizer {
-                    cal_address: Uri { uri: String::new() },
-                    cn: None,
-                    dir: None,
-                    sent_by: None,
-                    language: None,
+                PropertyKind::Url => {
+                    if props.url.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Url));
+                        continue;
+                    }
+                    match Uri::try_from(prop) {
+                        Ok(v) => props.url = Some(v),
+                        Err(e) => errors.push(e),
+                    }
                 }
-            }
-        },
-        None => {
-            errors.push(SemanticError::MissingProperty(
-                PropertyKind::Organizer.as_str().to_string(),
-            ));
-            Organizer {
-                cal_address: Uri { uri: String::new() },
-                cn: None,
-                dir: None,
-                sent_by: None,
-                language: None,
+                PropertyKind::FreeBusy => {
+                    props.freebusy.push(prop);
+                }
+                // Ignore unknown properties
+                _ => {}
             }
         }
-    };
 
-    // CONTACT is optional
-    let contact = props.contact.map(|prop| match get_single_value(prop) {
-        Ok(value) => match value_to_string(value) {
-            Some(v) => {
-                let language = get_language(&prop.parameters);
-                Text {
-                    content: v,
-                    language,
-                }
-            }
-            None => {
-                errors.push(SemanticError::InvalidValue(
-                    PropertyKind::Contact.as_str().to_string(),
-                    "Expected text value".to_string(),
-                ));
-                Text {
-                    content: String::new(),
-                    language: None,
-                }
-            }
-        },
-        Err(e) => {
-            errors.push(e);
-            Text {
-                content: String::new(),
-                language: None,
-            }
+        // Check required fields
+        if props.uid.is_none() {
+            errors.push(SemanticError::MissingProperty(PropertyKind::Uid));
         }
-    });
-
-    // URL is optional
-    let url = props.url.map(|prop| match get_single_value(prop) {
-        Ok(value) => match value_to_string(value) {
-            Some(v) => Uri { uri: v },
-            None => {
-                errors.push(SemanticError::InvalidValue(
-                    PropertyKind::Url.as_str().to_string(),
-                    "Expected URI value".to_string(),
-                ));
-                Uri { uri: String::new() }
-            }
-        },
-        Err(e) => {
-            errors.push(e);
-            Uri { uri: String::new() }
+        if props.dt_stamp.is_none() {
+            errors.push(SemanticError::MissingProperty(PropertyKind::DtStamp));
         }
-    });
-
-    // FREEBUSY can appear multiple times
-    let (mut busy, mut free, mut busy_tentative, mut busy_unavailable) =
-        (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-
-    for prop in props.freebusy {
-        // Get the FBTYPE parameter (default is BUSY)
-        let fb_type = find_parameter(&prop.parameters, TypedParameterKind::FreeBusyType).and_then(
-            |p| match p {
-                TypedParameter::FreeBusyType { value, .. } => Some(*value),
-                _ => None,
-            },
-        );
-
-        // Parse all period values
-        for value in &prop.values {
-            if let Some(period) = value_to_period(value) {
-                match fb_type.unwrap_or(FreeBusyType::Busy) {
-                    FreeBusyType::Free => free.push(period),
-                    FreeBusyType::Busy => busy.push(period),
-                    FreeBusyType::BusyTentative => busy_tentative.push(period),
-                    FreeBusyType::BusyUnavailable => busy_unavailable.push(period),
-                }
-            } else {
-                errors.push(SemanticError::InvalidValue(
-                    PropertyKind::FreeBusy.as_str().to_string(),
-                    "Expected period value".to_string(),
-                ));
-            }
+        if props.dt_start.is_none() {
+            errors.push(SemanticError::MissingProperty(PropertyKind::DtStart));
         }
-    }
+        if props.organizer.is_none() {
+            errors.push(SemanticError::MissingProperty(PropertyKind::Organizer));
+        }
 
-    // If we have errors, return them all
-    if !errors.is_empty() {
-        return Err(errors);
-    }
+        // Parse FREEBUSY properties
+        let (mut busy, mut free, mut busy_tentative, mut busy_unavailable) =
+            (Vec::new(), Vec::new(), Vec::new(), Vec::new());
 
-    Ok(VFreeBusy {
-        uid,
-        dt_stamp,
-        dt_start,
-        dt_end,
-        duration,
-        organizer,
-        contact,
-        url,
-        busy,
-        free,
-        busy_tentative,
-        busy_unavailable,
-    })
-}
+        for prop in props.freebusy {
+            // Get the FBTYPE parameter (default is BUSY)
+            let fb_type = find_parameter(&prop.parameters, TypedParameterKind::FreeBusyType)
+                .and_then(|p| match p {
+                    TypedParameter::FreeBusyType { value, .. } => Some(*value),
+                    _ => None,
+                });
 
-/// Convert a Value to a Period
-fn value_to_period(value: &Value<'_>) -> Option<Period> {
-    match value {
-        Value::Period(value_period) => match value_period {
-            ValuePeriod::Explicit { start, end } => {
-                // Both start and end have the same UTC flag (guaranteed by parser)
-                if start.time.utc {
-                    Some(Period::ExplicitUtc {
-                        start_date: start.date,
-                        start_time: start.time,
-                        end_date: end.date,
-                        end_time: end.time,
-                    })
-                } else {
-                    Some(Period::ExplicitFloating {
-                        start_date: start.date,
-                        start_time: start.time,
-                        end_date: end.date,
-                        end_time: end.time,
-                    })
-                }
-            }
-            ValuePeriod::Duration { start, duration } => {
-                // Only positive durations are valid for periods
-                if matches!(duration, ValueDuration::DateTime { positive: true, .. })
-                    || matches!(duration, ValueDuration::Week { positive: true, .. })
-                {
-                    if start.time.utc {
-                        Some(Period::DurationUtc {
-                            start_date: start.date,
-                            start_time: start.time,
-                            duration: *duration,
-                        })
-                    } else {
-                        Some(Period::DurationFloating {
-                            start_date: start.date,
-                            start_time: start.time,
-                            duration: *duration,
-                        })
+            // Parse all period values
+            for value in &prop.values {
+                if let Ok(period) = Period::try_from(value) {
+                    match fb_type.unwrap_or(FreeBusyType::Busy) {
+                        FreeBusyType::Free => free.push(period),
+                        FreeBusyType::Busy => busy.push(period),
+                        FreeBusyType::BusyTentative => busy_tentative.push(period),
+                        FreeBusyType::BusyUnavailable => busy_unavailable.push(period),
                     }
                 } else {
-                    None
+                    errors.push(SemanticError::InvalidValue(
+                        PropertyKind::FreeBusy,
+                        "Expected period value".to_string(),
+                    ));
                 }
             }
-        },
-        _ => None,
+        }
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        Ok(VFreeBusy {
+            uid: props.uid.unwrap(),           // SAFETY: checked above
+            dt_stamp: props.dt_stamp.unwrap(), // SAFETY: checked above
+            dt_start: props.dt_start.unwrap(), // SAFETY: checked above
+            dt_end: props.dt_end,
+            duration: props.duration,
+            organizer: props.organizer.unwrap(), // SAFETY: checked above
+            contact: props.contact,
+            url: props.url,
+            busy,
+            free,
+            busy_tentative,
+            busy_unavailable,
+        })
     }
 }

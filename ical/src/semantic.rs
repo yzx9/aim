@@ -8,8 +8,12 @@
 //! calendar data without dealing with string parsing and validation.
 
 mod analysis;
-pub mod icalendar;
-mod property;
+mod icalendar;
+mod property_attendee;
+mod property_common;
+mod property_datetime;
+mod property_period;
+mod property_util;
 mod valarm;
 mod vevent;
 mod vfreebusy;
@@ -20,15 +24,18 @@ mod vtodo;
 // Re-export public types from the analysis submodule
 pub use analysis::{SemanticError, semantic_analysis};
 pub use icalendar::{
-    CalendarComponent, CalendarScaleType, ICalendar, MethodType, VersionType, parse_icalendar,
+    CalendarComponent, CalendarScaleType, ICalendar, MethodType, ProductId, VersionType,
 };
-pub use property::{
-    Attachment, AttachmentValue, Attendee, Classification, DateTime, Geo, Organizer, Period,
-    ProductId, Text, TimeZoneOffset, Trigger, TriggerValue, Uri,
+pub use property_attendee::Attendee;
+pub use property_common::{
+    Attachment, AttachmentValue, Classification, Geo, Organizer, Text, Trigger, TriggerValue,
+    Uri,
 };
+pub use property_datetime::DateTime;
+pub use property_period::Period;
 pub use valarm::VAlarm;
 pub use vevent::{EventStatus, TimeTransparency, VEvent};
 pub use vfreebusy::VFreeBusy;
-pub use vjournal::VJournal;
-pub use vtimezone::VTimeZone;
-pub use vtodo::VTodo;
+pub use vjournal::{JournalStatus, VJournal};
+pub use vtimezone::{TimeZoneObservance, TimeZoneOffset, VTimeZone};
+pub use vtodo::{TodoStatus, VTodo};

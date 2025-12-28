@@ -4,6 +4,8 @@
 
 //! Keywords defined in iCalendar RFC 5545.
 
+#![allow(missing_docs)]
+
 // 3.2.  Property Parameters
 pub const KW_ALTREP: &str = "ALTREP";
 pub const KW_CN: &str = "CN";
@@ -147,6 +149,26 @@ pub const KW_RESOURCES: &str = "RESOURCES";
 pub const KW_STATUS: &str = "STATUS";
 pub const KW_SUMMARY: &str = "SUMMARY";
 
+// 3.8.1.11.  Status
+// Status values for a "VEVENT"
+pub const KW_EVENT_STATUS_TENTATIVE: &str = "TENTATIVE";
+pub const KW_EVENT_STATUS_CONFIRMED: &str = "CONFIRMED";
+pub const KW_EVENT_STATUS_CANCELLED: &str = "CANCELLED";
+// Status values for a "VTODO"
+pub const KW_TODO_STATUS_NEEDS_ACTION: &str = "NEEDS-ACTION";
+pub const KW_TODO_STATUS_COMPLETED: &str = "COMPLETED";
+pub const KW_TODO_STATUS_IN_PROCESS: &str = "IN-PROCESS";
+pub const KW_TODO_STATUS_CANCELLED: &str = "CANCELLED";
+// Status values for a "VJOURNAL"
+pub const KW_JOURNAL_STATUS_DRAFT: &str = "DRAFT";
+pub const KW_JOURNAL_STATUS_FINAL: &str = "FINAL";
+pub const KW_JOURNAL_STATUS_CANCELLED: &str = "CANCELLED";
+
+// 3.8.1.3.  Classification values
+pub const KW_CLASS_PUBLIC: &str = "PUBLIC";
+pub const KW_CLASS_PRIVATE: &str = "PRIVATE";
+pub const KW_CLASS_CONFIDENTIAL: &str = "CONFIDENTIAL";
+
 // 3.8.2.  Date and Time Component Properties
 pub const KW_COMPLETED: &str = "COMPLETED";
 pub const KW_DTSTART: &str = "DTSTART";
@@ -155,6 +177,10 @@ pub const KW_DURATION: &str = "DURATION";
 pub const KW_DUE: &str = "DUE";
 pub const KW_FREEBUSY: &str = "FREEBUSY";
 pub const KW_TRANSP: &str = "TRANSP";
+
+// 3.8.2.7.  Time Transparency values
+pub const KW_TRANSP_OPAQUE: &str = "OPAQUE";
+pub const KW_TRANSP_TRANSPARENT: &str = "TRANSPARENT";
 
 // 3.8.3.  Time Zone Component Properties
 pub const KW_TZNAME: &str = "TZNAME";

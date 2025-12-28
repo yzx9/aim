@@ -302,7 +302,7 @@ impl AsRef<str> for EventStatus {
 
 impl Display for EventStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_ref())
+        self.as_ref().fmt(f)
     }
 }
 

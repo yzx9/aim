@@ -4,22 +4,17 @@
 
 //! iCalendar container types.
 
+use std::convert::TryFrom;
+
 use crate::keyword::{
-    KW_CALSCALE, KW_CALSCALE_GREGORIAN, KW_METHOD, KW_METHOD_ADD, KW_METHOD_CANCEL,
-    KW_METHOD_COUNTER, KW_METHOD_DECLINECOUNTER, KW_METHOD_PUBLISH, KW_METHOD_REFRESH,
-    KW_METHOD_REPLY, KW_METHOD_REQUEST, KW_PRODID, KW_VALARM, KW_VCALENDAR, KW_VERSION,
-    KW_VERSION_2_0, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
+    KW_CALSCALE_GREGORIAN, KW_METHOD_ADD, KW_METHOD_CANCEL, KW_METHOD_COUNTER,
+    KW_METHOD_DECLINECOUNTER, KW_METHOD_PUBLISH, KW_METHOD_REFRESH, KW_METHOD_REPLY,
+    KW_METHOD_REQUEST, KW_VALARM, KW_VCALENDAR, KW_VERSION_2_0, KW_VEVENT, KW_VFREEBUSY,
+    KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
-use crate::semantic::ProductId;
-use crate::semantic::analysis::{find_property, get_single_value, value_to_string};
-use crate::semantic::valarm::parse_valarm;
-use crate::semantic::vevent::parse_vevent;
-use crate::semantic::vfreebusy::parse_vfreebusy;
-use crate::semantic::vjournal::parse_vjournal;
-use crate::semantic::vtimezone::parse_vtimezone;
-use crate::semantic::vtodo::parse_vtodo;
-use crate::typed::{TypedComponent, TypedProperty};
-use crate::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
+use crate::semantic::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
+use crate::typed::PropertyKind;
+use crate::typed::{TypedComponent, TypedProperty, Value};
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]
@@ -49,203 +44,146 @@ pub struct ICalendar {
 /// - Required properties (PRODID, VERSION) are missing
 /// - Property values are invalid or malformed
 /// - Child components cannot be parsed
-pub fn parse_icalendar(comp: &TypedComponent<'_>) -> Result<ICalendar, Vec<SemanticError>> {
-    let mut errors = Vec::new();
+impl TryFrom<&TypedComponent<'_>> for ICalendar {
+    type Error = Vec<SemanticError>;
 
-    if comp.name != KW_VCALENDAR {
-        return Err(vec![SemanticError::InvalidStructure(format!(
-            "Expected VCALENDAR component, got '{}'",
-            comp.name
-        ))]);
-    }
+    fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
+        if comp.name != KW_VCALENDAR {
+            return Err(vec![SemanticError::InvalidStructure(format!(
+                "Expected VCALENDAR component, got '{}'",
+                comp.name
+            ))]);
+        }
 
-    // PRODID is required
-    let prod_id = match find_property(&comp.properties, KW_PRODID) {
-        Some(prop) => match parse_product_id(prop) {
+        let mut errors = Vec::new();
+
+        // Collect all properties in a single pass
+        let mut props = PropertyCollector::default();
+        for prop in &comp.properties {
+            match prop.kind {
+                PropertyKind::ProdId => {
+                    if props.prod_id.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::ProdId));
+                        continue;
+                    }
+
+                    match ProductId::try_from(prop) {
+                        Ok(v) => props.prod_id = Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            props.prod_id = Some(ProductId::default());
+                        }
+                    }
+                }
+                PropertyKind::Version => {
+                    if props.version.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Version));
+                        continue;
+                    }
+
+                    match VersionType::try_from(prop) {
+                        Ok(v) => props.version = Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            props.version = Some(VersionType::V2_0);
+                        }
+                    }
+                }
+                PropertyKind::CalScale => {
+                    if props.calscale.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::CalScale));
+                        continue;
+                    }
+
+                    match CalendarScaleType::try_from(prop) {
+                        Ok(v) => props.calscale = Some(v),
+                        Err(e) => errors.push(e),
+                    }
+                }
+                PropertyKind::Method => {
+                    if props.method.is_some() {
+                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Method));
+                        continue;
+                    }
+
+                    match MethodType::try_from(prop) {
+                        Ok(v) => props.method = Some(v),
+                        Err(e) => errors.push(e),
+                    }
+                }
+                // Ignore unknown properties
+                _ => {}
+            }
+        }
+
+        // Check required fields and use defaults if missing
+        if props.prod_id.is_none() {
+            errors.push(SemanticError::MissingProperty(PropertyKind::ProdId));
+        }
+
+        if props.version.is_none() {
+            errors.push(SemanticError::MissingProperty(PropertyKind::Version));
+        }
+
+        // Parse child components
+        let components = match parse_component_children(&comp.children) {
             Ok(v) => v,
             Err(e) => {
-                errors.push(e);
-                ProductId::default()
+                errors.extend(e);
+                Vec::new()
             }
-        },
-        None => {
-            errors.push(SemanticError::MissingProperty(KW_PRODID.to_string()));
-            ProductId::default()
+        };
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
         }
-    };
 
-    // VERSION is required (should be "2.0")
-    let version = match find_property(&comp.properties, KW_VERSION) {
-        Some(prop) => match parse_version(prop) {
-            Ok(v) => v,
-            Err(e) => {
-                errors.push(e);
-                VersionType::V2_0
-            }
-        },
-        None => {
-            errors.push(SemanticError::MissingProperty(KW_VERSION.to_string()));
-            VersionType::V2_0
-        }
-    };
-
-    // CALSCALE is optional
-    let calscale = match find_property(&comp.properties, KW_CALSCALE) {
-        Some(prop) => match parse_calscale(prop) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                errors.push(e);
-                None
-            }
-        },
-        None => None,
-    };
-
-    // METHOD is optional
-    let method = match find_property(&comp.properties, KW_METHOD) {
-        Some(prop) => match parse_method(prop) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                errors.push(e);
-                None
-            }
-        },
-        None => None,
-    };
-
-    // Parse child components
-    let (components, child_errors) = parse_component_children(&comp.children);
-    errors.extend(child_errors);
-
-    if !errors.is_empty() {
-        return Err(errors);
-    }
-
-    Ok(ICalendar {
-        prod_id,
-        version,
-        calscale,
-        method,
-        components,
-    })
-}
-
-/// Parse PRODID property into `ProductId`
-fn parse_product_id(prop: &TypedProperty<'_>) -> Result<ProductId, SemanticError> {
-    let value = get_single_value(prop)?;
-    let text = value_to_string(value).ok_or_else(|| {
-        SemanticError::InvalidValue(KW_PRODID.to_string(), "Expected text value".to_string())
-    })?;
-
-    // PRODID format: company//product//language
-    // e.g., "-//Mozilla.org/NONSGML Mozilla Calendar V1.0//EN"
-    let parts: Vec<&str> = text.split("//").collect();
-    if parts.len() >= 2 {
-        Ok(ProductId {
-            company: parts.first().map(|s| (*s).to_string()).unwrap_or_default(),
-            product: parts.get(1).map(|s| (*s).to_string()).unwrap_or_default(),
-            language: parts.get(2).map(|s| (*s).to_string()),
+        Ok(ICalendar {
+            prod_id: props.prod_id.unwrap(), // SAFETY: checked above
+            version: props.version.unwrap(), // SAFETY: checked above
+            calscale: props.calscale,
+            method: props.method,
+            components,
         })
-    } else {
-        // If not in the expected format, use the whole string as product
-        Ok(ProductId {
-            company: String::new(),
-            product: text,
-            language: None,
-        })
-    }
-}
-
-/// Parse VERSION property into `VersionType`
-fn parse_version(prop: &TypedProperty<'_>) -> Result<VersionType, SemanticError> {
-    let value = get_single_value(prop)?;
-    let text = value_to_string(value).ok_or(SemanticError::InvalidValue(
-        KW_VERSION.to_string(),
-        "Expected text value".to_string(),
-    ))?;
-
-    match text.as_str() {
-        KW_VERSION_2_0 => Ok(VersionType::V2_0),
-        _ => Err(SemanticError::InvalidValue(
-            KW_VERSION.to_string(),
-            format!("Unsupported iCalendar version: {text}"),
-        )),
-    }
-}
-
-/// Parse CALSCALE property into `CalendarScaleType`
-fn parse_calscale(prop: &TypedProperty<'_>) -> Result<CalendarScaleType, SemanticError> {
-    let value = get_single_value(prop)?;
-    let text = value_to_string(value).ok_or_else(|| {
-        SemanticError::InvalidValue(KW_CALSCALE.to_string(), "Expected text value".to_string())
-    })?;
-
-    match text.to_uppercase().as_str() {
-        KW_CALSCALE_GREGORIAN => Ok(CalendarScaleType::Gregorian),
-        _ => Err(SemanticError::InvalidValue(
-            KW_CALSCALE.to_string(),
-            format!("Unsupported calendar scale: {text}"),
-        )),
-    }
-}
-
-/// Parse METHOD property into `MethodType`
-fn parse_method(prop: &TypedProperty<'_>) -> Result<MethodType, SemanticError> {
-    let value = get_single_value(prop)?;
-    let text = value_to_string(value).ok_or_else(|| {
-        SemanticError::InvalidValue(KW_METHOD.to_string(), "Expected text value".to_string())
-    })?;
-
-    match text.to_uppercase().as_str() {
-        KW_METHOD_PUBLISH => Ok(MethodType::Publish),
-        KW_METHOD_REQUEST => Ok(MethodType::Request),
-        KW_METHOD_REPLY => Ok(MethodType::Reply),
-        KW_METHOD_ADD => Ok(MethodType::Add),
-        KW_METHOD_CANCEL => Ok(MethodType::Cancel),
-        KW_METHOD_REFRESH => Ok(MethodType::Refresh),
-        KW_METHOD_COUNTER => Ok(MethodType::Counter),
-        KW_METHOD_DECLINECOUNTER => Ok(MethodType::DeclineCounter),
-        _ => Err(SemanticError::InvalidValue(
-            KW_METHOD.to_string(),
-            format!("Unsupported method type: {text}"),
-        )),
     }
 }
 
 /// Parse component children into `CalendarComponent` enum
 ///
-/// Returns the components and any errors encountered during parsing.
-/// Components with errors are skipped, allowing all valid components
-/// to be collected while reporting all errors.
+/// # Errors
+///
+/// Returns a vector of errors if no components could be parsed successfully.
+/// Individual component parsing errors are collected and included in the result.
 fn parse_component_children(
     children: &[TypedComponent<'_>],
-) -> (Vec<CalendarComponent>, Vec<SemanticError>) {
-    let mut components = Vec::new();
+) -> Result<Vec<CalendarComponent>, Vec<SemanticError>> {
+    let mut components = Vec::with_capacity(children.len());
     let mut errors = Vec::new();
 
     for child in children {
         match child.name {
-            KW_VEVENT => match parse_vevent(child.clone()) {
+            KW_VEVENT => match VEvent::try_from(child) {
                 Ok(v) => components.push(CalendarComponent::Event(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VTODO => match parse_vtodo(child.clone()) {
+            KW_VTODO => match VTodo::try_from(child) {
                 Ok(v) => components.push(CalendarComponent::Todo(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VJOURNAL => match parse_vjournal(child) {
+            KW_VJOURNAL => match VJournal::try_from(child) {
                 Ok(v) => components.push(CalendarComponent::VJournal(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VFREEBUSY => match parse_vfreebusy(child) {
+            KW_VFREEBUSY => match VFreeBusy::try_from(child) {
                 Ok(v) => components.push(CalendarComponent::VFreeBusy(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VTIMEZONE => match parse_vtimezone(child) {
+            KW_VTIMEZONE => match VTimeZone::try_from(child) {
                 Ok(v) => components.push(CalendarComponent::VTimeZone(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VALARM => match parse_valarm(child) {
+            KW_VALARM => match VAlarm::try_from(child) {
                 Ok(v) => components.push(CalendarComponent::VAlarm(v)),
                 Err(e) => errors.extend(e),
             },
@@ -253,7 +191,12 @@ fn parse_component_children(
         }
     }
 
-    (components, errors)
+    // Return error only if no components were parsed successfully
+    if components.is_empty() && !errors.is_empty() {
+        return Err(errors);
+    }
+
+    Ok(components)
 }
 
 /// Calendar components that can appear in an iCalendar object
@@ -293,6 +236,54 @@ pub enum CalendarComponent {
 //     pub children: Vec<CalendarComponent>,
 // }
 
+/// Product identifier that identifies the software that created the iCalendar data
+#[derive(Debug, Clone, Default)]
+pub struct ProductId {
+    /// Company identifier
+    pub company: String,
+
+    /// Product identifier
+    pub product: String,
+
+    /// Language of the text (optional)
+    pub language: Option<String>,
+}
+
+impl TryFrom<&TypedProperty<'_>> for ProductId {
+    type Error = SemanticError;
+
+    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+        let text = prop
+            .values
+            .first()
+            .and_then(|v| match v {
+                Value::Text(t) => Some(t.resolve().to_string()),
+                _ => None,
+            })
+            .ok_or_else(|| {
+                SemanticError::InvalidValue(PropertyKind::ProdId, "Expected text value".to_string())
+            })?;
+
+        // PRODID format: company//product//language
+        // e.g., "-//Mozilla.org/NONSGML Mozilla Calendar V1.0//EN"
+        let parts: Vec<&str> = text.split("//").collect();
+        if parts.len() >= 2 {
+            Ok(ProductId {
+                company: parts.first().map(|s| (*s).to_string()).unwrap_or_default(),
+                product: parts.get(1).map(|s| (*s).to_string()).unwrap_or_default(),
+                language: parts.get(2).map(|s| (*s).to_string()),
+            })
+        } else {
+            // If not in the expected format, use the whole string as product
+            Ok(ProductId {
+                company: String::new(),
+                product: text,
+                language: None,
+            })
+        }
+    }
+}
+
 /// iCalendar version specification
 #[derive(Debug, Clone, Copy)]
 pub enum VersionType {
@@ -300,11 +291,67 @@ pub enum VersionType {
     V2_0,
 }
 
+impl TryFrom<&TypedProperty<'_>> for VersionType {
+    type Error = SemanticError;
+
+    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+        let text = prop
+            .values
+            .first()
+            .and_then(|v| match v {
+                Value::Text(t) => Some(t.resolve().to_string()),
+                _ => None,
+            })
+            .ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::Version,
+                    "Expected text value".to_string(),
+                )
+            })?;
+
+        match text.as_str() {
+            KW_VERSION_2_0 => Ok(VersionType::V2_0),
+            _ => Err(SemanticError::InvalidValue(
+                PropertyKind::Version,
+                format!("Unsupported iCalendar version: {text}"),
+            )),
+        }
+    }
+}
+
 /// Calendar scale specification
 #[derive(Debug, Clone, Copy)]
 pub enum CalendarScaleType {
     /// Gregorian calendar
     Gregorian,
+}
+
+impl TryFrom<&TypedProperty<'_>> for CalendarScaleType {
+    type Error = SemanticError;
+
+    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+        let text = prop
+            .values
+            .first()
+            .and_then(|v| match v {
+                Value::Text(t) => Some(t.resolve().to_string()),
+                _ => None,
+            })
+            .ok_or_else(|| {
+                SemanticError::InvalidValue(
+                    PropertyKind::CalScale,
+                    "Expected text value".to_string(),
+                )
+            })?;
+
+        match text.to_uppercase().as_str() {
+            KW_CALSCALE_GREGORIAN => Ok(CalendarScaleType::Gregorian),
+            _ => Err(SemanticError::InvalidValue(
+                PropertyKind::CalScale,
+                format!("Unsupported calendar scale: {text}"),
+            )),
+        }
+    }
 }
 
 /// Method types for iCalendar objects
@@ -335,4 +382,46 @@ pub enum MethodType {
     DeclineCounter,
     // /// Custom method
     // Custom(String),
+}
+
+impl TryFrom<&TypedProperty<'_>> for MethodType {
+    type Error = SemanticError;
+
+    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+        let text = prop
+            .values
+            .first()
+            .and_then(|v| match v {
+                Value::Text(t) => Some(t.resolve().to_string()),
+                _ => None,
+            })
+            .ok_or_else(|| {
+                SemanticError::InvalidValue(PropertyKind::Method, "Expected text value".to_string())
+            })?;
+
+        match text.to_uppercase().as_str() {
+            KW_METHOD_PUBLISH => Ok(MethodType::Publish),
+            KW_METHOD_REQUEST => Ok(MethodType::Request),
+            KW_METHOD_REPLY => Ok(MethodType::Reply),
+            KW_METHOD_ADD => Ok(MethodType::Add),
+            KW_METHOD_CANCEL => Ok(MethodType::Cancel),
+            KW_METHOD_REFRESH => Ok(MethodType::Refresh),
+            KW_METHOD_COUNTER => Ok(MethodType::Counter),
+            KW_METHOD_DECLINECOUNTER => Ok(MethodType::DeclineCounter),
+            _ => Err(SemanticError::InvalidValue(
+                PropertyKind::Method,
+                format!("Unsupported method type: {text}"),
+            )),
+        }
+    }
+}
+
+/// Helper struct to collect properties during single-pass iteration
+#[rustfmt::skip]
+#[derive(Debug, Default)]
+struct PropertyCollector {
+    prod_id:  Option<ProductId>,
+    version:  Option<VersionType>,
+    calscale: Option<CalendarScaleType>,
+    method:   Option<MethodType>,
 }

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use crate::keyword::{
     KW_BINARY, KW_BOOLEAN, KW_CAL_ADDRESS, KW_CUTYPE, KW_CUTYPE_GROUP, KW_CUTYPE_INDIVIDUAL,
@@ -131,9 +131,9 @@ macro_rules! define_param_enum {
             }
         }
 
-        impl std::fmt::Display for $Name {
+        impl Display for $Name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}", self.as_ref())
+                self.as_ref().fmt(f)
             }
         }
 

@@ -412,7 +412,7 @@ impl<'src> SpannedSegments<'src> {
 impl Display for SpannedSegments<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (seg, _) in &self.segments {
-            write!(f, "{seg}")?;
+            seg.fmt(f)?;
         }
         Ok(())
     }
