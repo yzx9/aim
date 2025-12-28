@@ -23,6 +23,7 @@ pub use crate::typed::analysis::{
 pub use crate::typed::parameter::{TypedParameter, TypedParameterKind};
 pub use crate::typed::parameter_type::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, ParticipationRole, ParticipationStatus,
+    ValueType,
 };
 pub use crate::typed::property_spec::{
     PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality,

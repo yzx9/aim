@@ -13,8 +13,7 @@ use crate::keyword::{
     KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
 use crate::semantic::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
-use crate::typed::PropertyKind;
-use crate::typed::{TypedComponent, TypedProperty, Value};
+use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value, ValueType};
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]
@@ -49,10 +48,10 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
 
     fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
         if comp.name != KW_VCALENDAR {
-            return Err(vec![SemanticError::InvalidStructure(format!(
-                "Expected VCALENDAR component, got '{}'",
-                comp.name
-            ))]);
+            return Err(vec![SemanticError::ExpectedComponent {
+                expected: KW_VCALENDAR,
+                got: comp.name.to_string(),
+            }]);
         }
 
         let mut errors = Vec::new();
@@ -63,7 +62,9 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
             match prop.kind {
                 PropertyKind::ProdId => {
                     if props.prod_id.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::ProdId));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::ProdId,
+                        });
                         continue;
                     }
 
@@ -77,7 +78,9 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
                 }
                 PropertyKind::Version => {
                     if props.version.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Version));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Version,
+                        });
                         continue;
                     }
 
@@ -91,7 +94,9 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
                 }
                 PropertyKind::CalScale => {
                     if props.calscale.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::CalScale));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::CalScale,
+                        });
                         continue;
                     }
 
@@ -102,7 +107,9 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
                 }
                 PropertyKind::Method => {
                     if props.method.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Method));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Method,
+                        });
                         continue;
                     }
 
@@ -118,11 +125,15 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
 
         // Check required fields and use defaults if missing
         if props.prod_id.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::ProdId));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::ProdId,
+            });
         }
 
         if props.version.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::Version));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::Version,
+            });
         }
 
         // Parse child components
@@ -187,7 +198,9 @@ fn parse_component_children(
                 Ok(v) => components.push(CalendarComponent::VAlarm(v)),
                 Err(e) => errors.extend(e),
             },
-            _ => errors.push(SemanticError::UnknownComponent(child.name.to_string())),
+            _ => errors.push(SemanticError::UnknownComponent {
+                component: child.name.to_string(),
+            }),
         }
     }
 
@@ -260,13 +273,14 @@ impl TryFrom<&TypedProperty<'_>> for ProductId {
                 Value::Text(t) => Some(t.resolve().to_string()),
                 _ => None,
             })
-            .ok_or_else(|| {
-                SemanticError::InvalidValue(PropertyKind::ProdId, "Expected text value".to_string())
+            .ok_or(SemanticError::ExpectedType {
+                property: PropertyKind::ProdId,
+                expected: ValueType::Text,
             })?;
 
         // PRODID format: company//product//language
         // e.g., "-//Mozilla.org/NONSGML Mozilla Calendar V1.0//EN"
-        let parts: Vec<&str> = text.split("//").collect();
+        let parts: Vec<_> = text.split("//").collect();
         if parts.len() >= 2 {
             Ok(ProductId {
                 company: parts.first().map(|s| (*s).to_string()).unwrap_or_default(),
@@ -302,19 +316,17 @@ impl TryFrom<&TypedProperty<'_>> for VersionType {
                 Value::Text(t) => Some(t.resolve().to_string()),
                 _ => None,
             })
-            .ok_or_else(|| {
-                SemanticError::InvalidValue(
-                    PropertyKind::Version,
-                    "Expected text value".to_string(),
-                )
+            .ok_or(SemanticError::ExpectedType {
+                property: PropertyKind::Version,
+                expected: ValueType::Text,
             })?;
 
         match text.as_str() {
             KW_VERSION_2_0 => Ok(VersionType::V2_0),
-            _ => Err(SemanticError::InvalidValue(
-                PropertyKind::Version,
-                format!("Unsupported iCalendar version: {text}"),
-            )),
+            _ => Err(SemanticError::InvalidValue {
+                property: PropertyKind::Version,
+                value: format!("Unsupported iCalendar version: {text}"),
+            }),
         }
     }
 }
@@ -337,19 +349,17 @@ impl TryFrom<&TypedProperty<'_>> for CalendarScaleType {
                 Value::Text(t) => Some(t.resolve().to_string()),
                 _ => None,
             })
-            .ok_or_else(|| {
-                SemanticError::InvalidValue(
-                    PropertyKind::CalScale,
-                    "Expected text value".to_string(),
-                )
+            .ok_or(SemanticError::ExpectedType {
+                property: PropertyKind::CalScale,
+                expected: ValueType::Text,
             })?;
 
         match text.to_uppercase().as_str() {
             KW_CALSCALE_GREGORIAN => Ok(CalendarScaleType::Gregorian),
-            _ => Err(SemanticError::InvalidValue(
-                PropertyKind::CalScale,
-                format!("Unsupported calendar scale: {text}"),
-            )),
+            _ => Err(SemanticError::InvalidValue {
+                property: PropertyKind::CalScale,
+                value: format!("Unsupported calendar scale: {text}"),
+            }),
         }
     }
 }
@@ -395,8 +405,9 @@ impl TryFrom<&TypedProperty<'_>> for MethodType {
                 Value::Text(t) => Some(t.resolve().to_string()),
                 _ => None,
             })
-            .ok_or_else(|| {
-                SemanticError::InvalidValue(PropertyKind::Method, "Expected text value".to_string())
+            .ok_or(SemanticError::ExpectedType {
+                property: PropertyKind::Method,
+                expected: ValueType::Text,
             })?;
 
         match text.to_uppercase().as_str() {
@@ -408,10 +419,10 @@ impl TryFrom<&TypedProperty<'_>> for MethodType {
             KW_METHOD_REFRESH => Ok(MethodType::Refresh),
             KW_METHOD_COUNTER => Ok(MethodType::Counter),
             KW_METHOD_DECLINECOUNTER => Ok(MethodType::DeclineCounter),
-            _ => Err(SemanticError::InvalidValue(
-                PropertyKind::Method,
-                format!("Unsupported method type: {text}"),
-            )),
+            _ => Err(SemanticError::InvalidValue {
+                property: PropertyKind::Method,
+                value: format!("Unsupported method type: {text}"),
+            }),
         }
     }
 }

@@ -7,7 +7,7 @@
 use std::convert::TryFrom;
 
 use crate::semantic::{DateTime, SemanticError};
-use crate::typed::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
+use crate::typed::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime, ValueType};
 
 /// Period of time (start-end or start-duration)
 ///
@@ -125,10 +125,10 @@ impl TryFrom<&Value<'_>> for Period {
                     if !matches!(duration, ValueDuration::DateTime { positive: true, .. })
                         && !matches!(duration, ValueDuration::Week { positive: true, .. })
                     {
-                        return Err(SemanticError::InvalidValue(
-                            crate::typed::PropertyKind::FreeBusy,
-                            "Duration must be positive for periods".to_string(),
-                        ));
+                        return Err(SemanticError::InvalidValue {
+                            property: crate::typed::PropertyKind::FreeBusy,
+                            value: "Duration must be positive for periods".to_string(),
+                        });
                     }
 
                     if start.time.utc {
@@ -146,10 +146,10 @@ impl TryFrom<&Value<'_>> for Period {
                     }
                 }
             },
-            _ => Err(SemanticError::InvalidValue(
-                crate::typed::PropertyKind::FreeBusy,
-                format!("Expected period value, got {value:?}"),
-            )),
+            _ => Err(SemanticError::ExpectedType {
+                property: crate::typed::PropertyKind::FreeBusy,
+                expected: ValueType::Period,
+            }),
         }
     }
 }

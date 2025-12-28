@@ -28,8 +28,7 @@ pub use icalendar::{
 };
 pub use property_attendee::Attendee;
 pub use property_common::{
-    Attachment, AttachmentValue, Classification, Geo, Organizer, Text, Trigger, TriggerValue,
-    Uri,
+    Attachment, AttachmentValue, Classification, Geo, Organizer, Text, Trigger, TriggerValue, Uri,
 };
 pub use property_datetime::DateTime;
 pub use property_period::Period;

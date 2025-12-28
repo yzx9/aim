@@ -67,10 +67,9 @@ pub fn get_single_value<'src>(
 ) -> Result<&'src Value<'src>, SemanticError> {
     match prop.values.first() {
         Some(value) => Ok(value),
-        None => Err(SemanticError::InvalidStructure(format!(
-            "Property '{}' has no values",
-            prop.kind.as_str()
-        ))),
+        None => Err(SemanticError::MissingValue {
+            property: prop.kind,
+        }),
     }
 }
 

@@ -14,7 +14,7 @@ use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
 use crate::semantic::{DateTime, SemanticError};
 use crate::typed::{
     AlarmTriggerRelationship, Encoding, PropertyKind, TypedParameter, TypedParameterKind,
-    TypedProperty, Value, ValueDuration, values_float_semicolon,
+    TypedProperty, Value, ValueDuration, ValueType, values_float_semicolon,
 };
 
 /// Geographic position
@@ -31,20 +31,17 @@ impl TryFrom<&TypedProperty<'_>> for Geo {
     type Error = SemanticError;
 
     fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or_else(|| {
-            SemanticError::InvalidStructure(format!(
-                "Property '{}' has no values",
-                prop.kind.as_str()
-            ))
+        let value = prop.values.first().ok_or(SemanticError::MissingValue {
+            property: PropertyKind::Geo,
         })?;
 
         let text = match value {
             Value::Text(t) => t.resolve().to_string(),
             _ => {
-                return Err(SemanticError::InvalidValue(
-                    PropertyKind::Geo,
-                    "Expected text value".to_string(),
-                ));
+                return Err(SemanticError::ExpectedType {
+                    property: PropertyKind::Geo,
+                    expected: ValueType::Text,
+                });
             }
         };
 
@@ -55,20 +52,20 @@ impl TryFrom<&TypedProperty<'_>> for Geo {
         match parser.parse(stream).into_result() {
             Ok(result) => {
                 let (Some(&lat), Some(&lon)) = (result.first(), result.get(1)) else {
-                    return Err(SemanticError::InvalidValue(
-                        PropertyKind::Geo,
-                        format!(
+                    return Err(SemanticError::InvalidValue {
+                        property: PropertyKind::Geo,
+                        value: format!(
                             "Expected exactly 2 float values (lat;long), got {}",
                             result.len()
                         ),
-                    ));
+                    });
                 };
                 Ok(Geo { lat, lon })
             }
-            Err(_) => Err(SemanticError::InvalidValue(
-                PropertyKind::Geo,
-                format!("Expected 'lat;long' format with semicolon separator, got {text}"),
-            )),
+            Err(_) => Err(SemanticError::InvalidValue {
+                property: PropertyKind::Geo,
+                value: format!("Expected 'lat;long' format with semicolon separator, got {text}"),
+            }),
         }
     }
 }
@@ -88,10 +85,10 @@ impl TryFrom<&Value<'_>> for Uri {
             Value::Text(text) => Ok(Uri {
                 uri: text.resolve().to_string(),
             }),
-            _ => Err(SemanticError::InvalidValue(
-                PropertyKind::Url,
-                format!("Expected text value, got {value:?}"),
-            )),
+            _ => Err(SemanticError::InvalidValue {
+                property: PropertyKind::Url,
+                value: format!("Expected text value, got {value:?}"),
+            }),
         }
     }
 }
@@ -100,15 +97,14 @@ impl TryFrom<&TypedProperty<'_>> for Uri {
     type Error = SemanticError;
 
     fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or_else(|| {
-            SemanticError::InvalidStructure(format!(
-                "Property '{}' has no values",
-                prop.kind.as_str()
-            ))
+        let value = prop.values.first().ok_or(SemanticError::MissingValue {
+            property: PropertyKind::Url,
         })?;
 
-        Uri::try_from(value)
-            .map_err(|_| SemanticError::InvalidValue(prop.kind, "Expected text value".to_string()))
+        Uri::try_from(value).map_err(|_| SemanticError::ExpectedType {
+            property: prop.kind,
+            expected: ValueType::Text,
+        })
     }
 }
 
@@ -174,25 +170,24 @@ impl TryFrom<&TypedProperty<'_>> for Classification {
     type Error = SemanticError;
 
     fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or_else(|| {
-            SemanticError::InvalidStructure(format!(
-                "Property '{}' has no values",
-                prop.kind.as_str()
-            ))
+        let value = prop.values.first().ok_or(SemanticError::MissingValue {
+            property: PropertyKind::Class,
         })?;
 
         let text = match value {
             Value::Text(t) => t.resolve().to_string(),
             _ => {
-                return Err(SemanticError::InvalidValue(
-                    PropertyKind::Class,
-                    "Expected text value".to_string(),
-                ));
+                return Err(SemanticError::ExpectedType {
+                    property: PropertyKind::Class,
+                    expected: ValueType::Text,
+                });
             }
         };
 
-        text.parse()
-            .map_err(|e| SemanticError::InvalidValue(PropertyKind::Class, e))
+        text.parse().map_err(|e| SemanticError::InvalidValue {
+            property: PropertyKind::Class,
+            value: e,
+        })
     }
 }
 
@@ -219,18 +214,13 @@ impl TryFrom<&TypedProperty<'_>> for Organizer {
     type Error = SemanticError;
 
     fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or_else(|| {
-            SemanticError::InvalidStructure(format!(
-                "Property '{}' has no values",
-                prop.kind.as_str()
-            ))
+        let value = prop.values.first().ok_or(SemanticError::MissingValue {
+            property: PropertyKind::Organizer,
         })?;
 
-        let cal_address = Uri::try_from(value).map_err(|_| {
-            SemanticError::InvalidValue(
-                PropertyKind::Organizer,
-                "Expected calendar user address".to_string(),
-            )
+        let cal_address = Uri::try_from(value).map_err(|_| SemanticError::InvalidValue {
+            property: PropertyKind::Organizer,
+            value: "Expected calendar user address".to_string(),
         })?;
 
         // Collect all optional parameters in a single pass
@@ -307,11 +297,8 @@ impl TryFrom<&TypedProperty<'_>> for Attachment {
     type Error = SemanticError;
 
     fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or_else(|| {
-            SemanticError::InvalidStructure(format!(
-                "Property '{}' has no values",
-                prop.kind.as_str()
-            ))
+        let value = prop.values.first().ok_or(SemanticError::MissingValue {
+            property: PropertyKind::Attach,
         })?;
 
         // Collect all optional parameters in a single pass
@@ -352,10 +339,10 @@ impl TryFrom<&TypedProperty<'_>> for Attachment {
                     encoding,
                 })
             }
-            _ => Err(SemanticError::InvalidValue(
-                PropertyKind::Attach,
-                "Expected URI or binary value".to_string(),
-            )),
+            _ => Err(SemanticError::InvalidValue {
+                property: PropertyKind::Attach,
+                value: "Expected URI or binary value".to_string(),
+            }),
         }
     }
 }
@@ -388,19 +375,16 @@ impl TryFrom<&TypedProperty<'_>> for Trigger {
         let mut related = None;
 
         for param in &prop.parameters {
-            if param.kind() == TypedParameterKind::AlarmTriggerRelationship {
-                if let TypedParameter::AlarmTriggerRelationship { value, .. } = param {
-                    related = Some(*value);
-                }
+            if param.kind() == TypedParameterKind::AlarmTriggerRelationship
+                && let TypedParameter::AlarmTriggerRelationship { value, .. } = param
+            {
+                related = Some(*value);
             }
             // Ignore unknown parameters
         }
 
-        let value = prop.values.first().ok_or_else(|| {
-            SemanticError::InvalidStructure(format!(
-                "Property '{}' has no values",
-                prop.kind.as_str()
-            ))
+        let value = prop.values.first().ok_or(SemanticError::MissingValue {
+            property: PropertyKind::Trigger,
         })?;
 
         match value {
@@ -415,10 +399,10 @@ impl TryFrom<&TypedProperty<'_>> for Trigger {
                 }),
                 related: None,
             }),
-            _ => Err(SemanticError::InvalidValue(
-                PropertyKind::Trigger,
-                "Expected duration or date-time value".to_string(),
-            )),
+            _ => Err(SemanticError::InvalidValue {
+                property: PropertyKind::Trigger,
+                value: "Expected duration or date-time value".to_string(),
+            }),
         }
     }
 }

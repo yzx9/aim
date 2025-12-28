@@ -11,7 +11,7 @@ use crate::semantic::property_util::{
     find_parameter, get_language, get_single_value, value_to_floating_date_time, value_to_string,
 };
 use crate::semantic::{DateTime, Organizer, Period, SemanticError, Text, Uri};
-use crate::typed::parameter_type::FreeBusyType;
+use crate::typed::parameter_type::{FreeBusyType, ValueType};
 use crate::typed::{
     PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, TypedProperty, Value,
     ValueDate, ValueDuration,
@@ -79,10 +79,10 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
 
     fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
         if comp.name != KW_VFREEBUSY {
-            return Err(vec![SemanticError::InvalidStructure(format!(
-                "Expected VFREEBUSY component, got '{}'",
-                comp.name
-            ))]);
+            return Err(vec![SemanticError::ExpectedComponent {
+                expected: KW_VFREEBUSY,
+                got: comp.name.to_string(),
+            }]);
         }
 
         let mut errors = Vec::new();
@@ -93,23 +93,27 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
             match prop.kind {
                 PropertyKind::Uid => {
                     if props.uid.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Uid));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Uid,
+                        });
                         continue;
                     }
                     match get_single_value(prop).ok().and_then(value_to_string) {
                         Some(v) => props.uid = Some(v),
                         None => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Uid,
-                                "Expected text value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Uid,
+                                expected: ValueType::Text,
+                            });
                             props.uid = Some(String::new());
                         }
                     }
                 }
                 PropertyKind::DtStamp => {
                     if props.dt_stamp.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::DtStamp));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtStamp,
+                        });
                         continue;
                     }
                     match get_single_value(prop)
@@ -118,10 +122,10 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                     {
                         Some(v) => props.dt_stamp = Some(v),
                         None => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::DtStamp,
-                                "Expected date-time value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::DtStamp,
+                                expected: ValueType::DateTime,
+                            });
                             props.dt_stamp = Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
@@ -134,7 +138,9 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                 }
                 PropertyKind::DtStart => {
                     if props.dt_start.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::DtStart));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtStart,
+                        });
                         continue;
                     }
                     match DateTime::try_from(prop) {
@@ -153,7 +159,9 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                 }
                 PropertyKind::DtEnd => {
                     if props.dt_end.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::DtEnd));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtEnd,
+                        });
                         continue;
                     }
                     match DateTime::try_from(prop) {
@@ -172,16 +180,18 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                 }
                 PropertyKind::Duration => {
                     if props.duration.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Duration));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Duration,
+                        });
                         continue;
                     }
                     match get_single_value(prop) {
                         Ok(Value::Duration(v)) => props.duration = Some(*v),
                         _ => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Duration,
-                                "Expected duration value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Duration,
+                                expected: ValueType::Duration,
+                            });
                             props.duration = Some(ValueDuration::DateTime {
                                 positive: true,
                                 day: 0,
@@ -194,7 +204,9 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                 }
                 PropertyKind::Organizer => {
                     if props.organizer.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Organizer));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Organizer,
+                        });
                         continue;
                     }
                     match Organizer::try_from(prop) {
@@ -213,7 +225,9 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                 }
                 PropertyKind::Contact => {
                     if props.contact.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Contact));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Contact,
+                        });
                         continue;
                     }
                     match get_single_value(prop) {
@@ -225,10 +239,10 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                                 });
                             }
                             None => {
-                                errors.push(SemanticError::InvalidValue(
-                                    PropertyKind::Contact,
-                                    "Expected text value".to_string(),
-                                ));
+                                errors.push(SemanticError::ExpectedType {
+                                    property: PropertyKind::Contact,
+                                    expected: ValueType::Text,
+                                });
                             }
                         },
                         Err(e) => errors.push(e),
@@ -236,7 +250,9 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                 }
                 PropertyKind::Url => {
                     if props.url.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Url));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Url,
+                        });
                         continue;
                     }
                     match Uri::try_from(prop) {
@@ -254,16 +270,24 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
 
         // Check required fields
         if props.uid.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::Uid));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::Uid,
+            });
         }
         if props.dt_stamp.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::DtStamp));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::DtStamp,
+            });
         }
         if props.dt_start.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::DtStart));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::DtStart,
+            });
         }
         if props.organizer.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::Organizer));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::Organizer,
+            });
         }
 
         // Parse FREEBUSY properties
@@ -288,10 +312,10 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                         FreeBusyType::BusyUnavailable => busy_unavailable.push(period),
                     }
                 } else {
-                    errors.push(SemanticError::InvalidValue(
-                        PropertyKind::FreeBusy,
-                        "Expected period value".to_string(),
-                    ));
+                    errors.push(SemanticError::ExpectedType {
+                        property: PropertyKind::FreeBusy,
+                        expected: ValueType::Period,
+                    });
                 }
             }
         }

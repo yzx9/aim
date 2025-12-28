@@ -55,19 +55,15 @@ pub struct Attendee {
 impl TryFrom<&TypedProperty<'_>> for Attendee {
     type Error = SemanticError;
 
+    #[allow(clippy::too_many_lines)]
     fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or_else(|| {
-            SemanticError::InvalidStructure(format!(
-                "Property '{}' has no values",
-                prop.kind.as_str()
-            ))
+        let value = prop.values.first().ok_or(SemanticError::MissingValue {
+            property: PropertyKind::Attendee,
         })?;
 
-        let cal_address = Uri::try_from(value).map_err(|_| {
-            SemanticError::InvalidValue(
-                PropertyKind::Attendee,
-                "Expected calendar user address".to_string(),
-            )
+        let cal_address = Uri::try_from(value).map_err(|_| SemanticError::InvalidValue {
+            property: PropertyKind::Attendee,
+            value: "Expected calendar user address".to_string(),
         })?;
 
         // Collect all optional parameters in a single pass
@@ -111,30 +107,30 @@ impl TryFrom<&TypedProperty<'_>> for Attendee {
                     }
                 }
                 TypedParameterKind::GroupOrListMembership => {
-                    if let TypedParameter::GroupOrListMembership { values, .. } = param {
-                        if let Some(v) = values.first() {
-                            member = Some(Uri {
-                                uri: v.resolve().to_string(),
-                            });
-                        }
+                    if let TypedParameter::GroupOrListMembership { values, .. } = param
+                        && let Some(v) = values.first()
+                    {
+                        member = Some(Uri {
+                            uri: v.resolve().to_string(),
+                        });
                     }
                 }
                 TypedParameterKind::Delegatees => {
-                    if let TypedParameter::Delegatees { values, .. } = param {
-                        if let Some(v) = values.first() {
-                            delegated_to = Some(Uri {
-                                uri: v.resolve().to_string(),
-                            });
-                        }
+                    if let TypedParameter::Delegatees { values, .. } = param
+                        && let Some(v) = values.first()
+                    {
+                        delegated_to = Some(Uri {
+                            uri: v.resolve().to_string(),
+                        });
                     }
                 }
                 TypedParameterKind::Delegators => {
-                    if let TypedParameter::Delegators { values, .. } = param {
-                        if let Some(v) = values.first() {
-                            delegated_from = Some(Uri {
-                                uri: v.resolve().to_string(),
-                            });
-                        }
+                    if let TypedParameter::Delegators { values, .. } = param
+                        && let Some(v) = values.first()
+                    {
+                        delegated_from = Some(Uri {
+                            uri: v.resolve().to_string(),
+                        });
                     }
                 }
                 TypedParameterKind::Directory => {

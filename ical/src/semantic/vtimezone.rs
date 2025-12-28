@@ -11,7 +11,7 @@ use crate::semantic::property_util::{
     get_language, get_single_value, value_to_floating_date_time, value_to_string,
 };
 use crate::semantic::{SemanticError, Text, Uri};
-use crate::typed::{PropertyKind, TypedComponent, Value, ValueDate};
+use crate::typed::{PropertyKind, TypedComponent, Value, ValueDate, ValueType};
 use crate::{DateTime, RecurrenceRule};
 
 /// Timezone component (VTIMEZONE)
@@ -40,10 +40,10 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
 
     fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
         if comp.name != KW_VTIMEZONE {
-            return Err(vec![SemanticError::InvalidStructure(format!(
-                "Expected VTIMEZONE component, got '{}'",
-                comp.name
-            ))]);
+            return Err(vec![SemanticError::ExpectedComponent {
+                expected: KW_VTIMEZONE,
+                got: comp.name.to_string(),
+            }]);
         }
 
         let mut errors = Vec::new();
@@ -56,16 +56,18 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
                     match get_single_value(prop).ok().and_then(value_to_string) {
                         Some(v) => props.tz_id = Some(v),
                         None => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::TzId,
-                                "Expected text value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::TzId,
+                                expected: ValueType::Text,
+                            });
                             props.tz_id = Some(String::new());
                         }
                     }
                 }
                 PropertyKind::TzId => {
-                    errors.push(SemanticError::DuplicateProperty(PropertyKind::TzId));
+                    errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::TzId,
+                    });
                 }
                 PropertyKind::LastModified if props.last_modified.is_none() => {
                     match get_single_value(prop)
@@ -74,10 +76,10 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
                     {
                         Some(v) => props.last_modified = Some(v),
                         None => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::LastModified,
-                                "Expected date-time value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::LastModified,
+                                expected: ValueType::DateTime,
+                            });
                             props.last_modified = Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
@@ -89,14 +91,18 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
                     }
                 }
                 PropertyKind::LastModified => {
-                    errors.push(SemanticError::DuplicateProperty(PropertyKind::LastModified));
+                    errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::LastModified,
+                    });
                 }
                 PropertyKind::TzUrl if props.tz_url.is_none() => match Uri::try_from(prop) {
                     Ok(v) => props.tz_url = Some(v),
                     Err(e) => errors.push(e),
                 },
                 PropertyKind::TzUrl => {
-                    errors.push(SemanticError::DuplicateProperty(PropertyKind::TzUrl));
+                    errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::TzUrl,
+                    });
                 }
                 // Ignore unknown properties
                 _ => {}
@@ -105,7 +111,9 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
 
         // Check required fields
         if props.tz_id.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::TzId));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::TzId,
+            });
         }
 
         // Parse child components (STANDARD and DAYLIGHT observances)
@@ -123,7 +131,9 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
                     Err(e) => errors.extend(e),
                 },
                 _ => {
-                    errors.push(SemanticError::UnknownComponent(child.name.to_string()));
+                    errors.push(SemanticError::UnknownComponent {
+                        component: child.name.to_string(),
+                    });
                 }
             }
         }
@@ -178,10 +188,10 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                 {
                     Some(v) => props.dt_start = Some(v),
                     None => {
-                        errors.push(SemanticError::InvalidValue(
-                            PropertyKind::DtStart,
-                            "Expected date-time value".to_string(),
-                        ));
+                        errors.push(SemanticError::InvalidValue {
+                            property: PropertyKind::DtStart,
+                            value: "Expected date-time value".to_string(),
+                        });
                         props.dt_start = Some(DateTime::Date {
                             date: ValueDate {
                                 year: 0,
@@ -193,7 +203,9 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                 }
             }
             PropertyKind::DtStart => {
-                errors.push(SemanticError::DuplicateProperty(PropertyKind::DtStart));
+                errors.push(SemanticError::DuplicateProperty {
+                    property: PropertyKind::DtStart,
+                });
             }
             PropertyKind::TzOffsetFrom if props.tz_offset_from.is_none() => {
                 match get_single_value(prop) {
@@ -219,7 +231,9 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                 }
             }
             PropertyKind::TzOffsetFrom => {
-                errors.push(SemanticError::DuplicateProperty(PropertyKind::TzOffsetFrom));
+                errors.push(SemanticError::DuplicateProperty {
+                    property: PropertyKind::TzOffsetFrom,
+                });
             }
             PropertyKind::TzOffsetTo if props.tz_offset_to.is_none() => {
                 match get_single_value(prop) {
@@ -245,7 +259,9 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                 }
             }
             PropertyKind::TzOffsetTo => {
-                errors.push(SemanticError::DuplicateProperty(PropertyKind::TzOffsetTo));
+                errors.push(SemanticError::DuplicateProperty {
+                    property: PropertyKind::TzOffsetTo,
+                });
             }
             PropertyKind::TzName => {
                 // TZNAME can appear multiple times
@@ -256,10 +272,10 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                             language: get_language(&prop.parameters),
                         }),
                         None => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::TzName,
-                                "Expected text value".to_string(),
-                            ));
+                            errors.push(SemanticError::InvalidValue {
+                                property: PropertyKind::TzName,
+                                value: "Expected text value".to_string(),
+                            });
                         }
                     },
                     Err(e) => errors.push(e),
@@ -270,16 +286,18 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                 match get_single_value(prop) {
                     Ok(Value::Text(_)) => {}
                     Ok(_) => {
-                        errors.push(SemanticError::InvalidValue(
-                            PropertyKind::RRule,
-                            "Expected text value".to_string(),
-                        ));
+                        errors.push(SemanticError::InvalidValue {
+                            property: PropertyKind::RRule,
+                            value: "Expected text value".to_string(),
+                        });
                     }
                     Err(e) => errors.push(e),
                 }
             }
             PropertyKind::RRule => {
-                errors.push(SemanticError::DuplicateProperty(PropertyKind::RRule));
+                errors.push(SemanticError::DuplicateProperty {
+                    property: PropertyKind::RRule,
+                });
             }
             // Ignore unknown properties
             _ => {}
@@ -288,13 +306,19 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
 
     // Check required fields
     if props.dt_start.is_none() {
-        errors.push(SemanticError::MissingProperty(PropertyKind::DtStart));
+        errors.push(SemanticError::MissingProperty {
+            property: PropertyKind::DtStart,
+        });
     }
     if props.tz_offset_from.is_none() {
-        errors.push(SemanticError::MissingProperty(PropertyKind::TzOffsetFrom));
+        errors.push(SemanticError::MissingProperty {
+            property: PropertyKind::TzOffsetFrom,
+        });
     }
     if props.tz_offset_to.is_none() {
-        errors.push(SemanticError::MissingProperty(PropertyKind::TzOffsetTo));
+        errors.push(SemanticError::MissingProperty {
+            property: PropertyKind::TzOffsetTo,
+        });
     }
 
     // Return all errors if any occurred
@@ -339,10 +363,10 @@ impl TimeZoneOffset {
                 #[allow(clippy::cast_sign_loss)]
                 minutes: offset.minute as u8,
             }),
-            _ => Err(SemanticError::InvalidValue(
-                kind,
-                format!("Expected UTC offset value, got {value:?}"),
-            )),
+            _ => Err(SemanticError::InvalidValue {
+                property: kind,
+                value: format!("Expected UTC offset value, got {value:?}"),
+            }),
         }
     }
 }
@@ -359,10 +383,10 @@ impl TryFrom<&Value<'_>> for TimeZoneOffset {
                 #[allow(clippy::cast_sign_loss)]
                 minutes: offset.minute as u8,
             }),
-            _ => Err(SemanticError::InvalidValue(
-                PropertyKind::TzOffsetFrom, // Default fallback
-                format!("Expected UTC offset value, got {value:?}"),
-            )),
+            _ => Err(SemanticError::InvalidValue {
+                property: PropertyKind::TzOffsetFrom, // Default fallback
+                value: format!("Expected UTC offset value, got {value:?}"),
+            }),
         }
     }
 }

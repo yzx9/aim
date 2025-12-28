@@ -133,11 +133,8 @@ impl TryFrom<&TypedProperty<'_>> for DateTime {
     type Error = SemanticError;
 
     fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or_else(|| {
-            SemanticError::InvalidStructure(format!(
-                "Property '{}' has no values",
-                prop.kind.as_str()
-            ))
+        let value = prop.values.first().ok_or(SemanticError::MissingValue {
+            property: prop.kind,
         })?;
 
         // Get TZID parameter
@@ -164,10 +161,10 @@ impl TryFrom<&TypedProperty<'_>> for DateTime {
                     tz_jiff: tz.clone(),
                 }),
 
-                _ => Err(SemanticError::InvalidValue(
-                    prop.kind,
-                    "Expected date-time value".to_string(),
-                )),
+                _ => Err(SemanticError::InvalidValue {
+                    property: prop.kind,
+                    value: "Expected date-time value".to_string(),
+                }),
             },
 
             _ => match value {
@@ -180,10 +177,10 @@ impl TryFrom<&TypedProperty<'_>> for DateTime {
                     date: dt.date,
                     time: dt.time,
                 }),
-                _ => Err(SemanticError::InvalidValue(
-                    crate::typed::PropertyKind::DtStart, // Default fallback
-                    format!("Expected date or date-time value, got {value:?}"),
-                )),
+                _ => Err(SemanticError::InvalidValue {
+                    property: crate::typed::PropertyKind::DtStart, // Default fallback
+                    value: format!("Expected date or date-time value, got {value:?}"),
+                }),
             },
         }
     }

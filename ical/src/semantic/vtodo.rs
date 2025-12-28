@@ -20,7 +20,9 @@ use crate::semantic::property_util::{
 use crate::semantic::{
     Attendee, Classification, DateTime, Geo, Organizer, Period, SemanticError, Text, Uri, VAlarm,
 };
-use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value, ValueDate, ValueDuration};
+use crate::typed::{
+    PropertyKind, TypedComponent, TypedProperty, Value, ValueDate, ValueDuration, ValueType,
+};
 
 /// To-do component (VTODO)
 #[derive(Debug, Clone)]
@@ -113,10 +115,10 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
 
     fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
         if comp.name != KW_VTODO {
-            return Err(vec![SemanticError::InvalidStructure(format!(
-                "Expected VTODO component, got '{}'",
-                comp.name
-            ))]);
+            return Err(vec![SemanticError::ExpectedComponent {
+                expected: KW_VTODO,
+                got: comp.name.to_string(),
+            }]);
         }
 
         let mut errors = Vec::new();
@@ -127,7 +129,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
             match prop.kind {
                 PropertyKind::Uid => {
                     if props.uid.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Uid));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Uid,
+                        });
                         continue;
                     }
 
@@ -135,16 +139,18 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                         .ok()
                         .and_then(value_to_string)
                         .or_else(|| {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Uid,
-                                "Expected text value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Uid,
+                                expected: ValueType::Text,
+                            });
                             Some(String::new())
                         });
                 }
                 PropertyKind::DtStamp => {
                     if props.dt_stamp.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::DtStamp));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtStamp,
+                        });
                         continue;
                     }
 
@@ -152,10 +158,10 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                         .ok()
                         .and_then(value_to_floating_date_time)
                         .or_else(|| {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::DtStamp,
-                                "Expected date-time value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::DtStamp,
+                                expected: ValueType::DateTime,
+                            });
 
                             Some(DateTime::Date {
                                 date: ValueDate {
@@ -168,7 +174,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::DtStart => {
                     if props.dt_start.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::DtStart));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtStart,
+                        });
                         continue;
                     }
 
@@ -188,7 +196,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Due => {
                     if props.due.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Due));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Due,
+                        });
                         continue;
                     }
                     match DateTime::try_from(prop) {
@@ -207,7 +217,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Completed => {
                     if props.completed.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Completed));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Completed,
+                        });
                         continue;
                     }
                     match get_single_value(prop)
@@ -216,10 +228,10 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                     {
                         Some(v) => props.completed = Some(v),
                         None => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Completed,
-                                "Expected date-time value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Completed,
+                                expected: ValueType::DateTime,
+                            });
                             props.completed = Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
@@ -232,16 +244,18 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Duration => {
                     if props.duration.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Duration));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Duration,
+                        });
                         continue;
                     }
                     match get_single_value(prop) {
                         Ok(Value::Duration(v)) => props.duration = Some(*v),
                         _ => {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Duration,
-                                "Expected duration value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Duration,
+                                expected: ValueType::Duration,
+                            });
                             props.duration = Some(ValueDuration::DateTime {
                                 positive: true,
                                 day: 0,
@@ -254,7 +268,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Summary => {
                     if props.summary.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Summary));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Summary,
+                        });
                         continue;
                     }
                     match get_single_value(prop) {
@@ -265,17 +281,19 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                                     language: get_language(&prop.parameters),
                                 });
                             }
-                            None => errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Summary,
-                                "Expected text value".to_string(),
-                            )),
+                            None => errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Summary,
+                                expected: ValueType::Text,
+                            }),
                         },
                         Err(e) => errors.push(e),
                     }
                 }
                 PropertyKind::Description => {
                     if props.description.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Description));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Description,
+                        });
                         continue;
                     }
 
@@ -287,17 +305,19 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                                     language: get_language(&prop.parameters),
                                 });
                             }
-                            None => errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Description,
-                                "Expected text value".to_string(),
-                            )),
+                            None => errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Description,
+                                expected: ValueType::Text,
+                            }),
                         },
                         Err(e) => errors.push(e),
                     }
                 }
                 PropertyKind::Location => {
                     if props.location.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Location));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Location,
+                        });
                         continue;
                     }
                     match get_single_value(prop) {
@@ -308,17 +328,19 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                                     language: get_language(&prop.parameters),
                                 });
                             }
-                            None => errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Location,
-                                "Expected text value".to_string(),
-                            )),
+                            None => errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Location,
+                                expected: ValueType::Text,
+                            }),
                         },
                         Err(e) => errors.push(e),
                     }
                 }
                 PropertyKind::Geo => {
                     if props.geo.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Geo));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Geo,
+                        });
                         continue;
                     }
                     match Geo::try_from(prop) {
@@ -331,7 +353,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Url => {
                     if props.url.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Url));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Url,
+                        });
                         continue;
                     }
                     match Uri::try_from(prop) {
@@ -341,7 +365,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Organizer => {
                     if props.organizer.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Organizer));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Organizer,
+                        });
                         continue;
                     }
                     match Organizer::try_from(prop) {
@@ -354,7 +380,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::LastModified => {
                     if props.last_modified.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::LastModified));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::LastModified,
+                        });
                         continue;
                     }
 
@@ -362,10 +390,10 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                         .ok()
                         .and_then(value_to_floating_date_time)
                         .or_else(|| {
-                            errors.push(SemanticError::InvalidValue(
-                                PropertyKind::LastModified,
-                                "Expected date-time value".to_string(),
-                            ));
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::LastModified,
+                                expected: ValueType::DateTime,
+                            });
                             Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
@@ -377,7 +405,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Status => {
                     if props.status.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Status));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Status,
+                        });
                         continue;
                     }
 
@@ -385,30 +415,34 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                         Ok(value) => match value_to_string(value) {
                             Some(text) => match text.parse() {
                                 Ok(v) => props.status = Some(v),
-                                Err(e) => errors
-                                    .push(SemanticError::InvalidValue(PropertyKind::Status, e)),
+                                Err(e) => errors.push(SemanticError::InvalidValue {
+                                    property: PropertyKind::Status,
+                                    value: e,
+                                }),
                             },
-                            None => errors.push(SemanticError::InvalidValue(
-                                PropertyKind::Status,
-                                "Expected text value".to_string(),
-                            )),
+                            None => errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::Status,
+                                expected: ValueType::Text,
+                            }),
                         },
                         Err(e) => errors.push(e),
                     }
                 }
                 PropertyKind::Sequence => {
                     if props.sequence.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Sequence));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Sequence,
+                        });
                         continue;
                     }
                     match get_single_value(prop) {
                         Ok(value) => match value_to_int::<u32>(value) {
                             Some(v) => props.sequence = Some(v),
                             None => {
-                                errors.push(SemanticError::InvalidValue(
-                                    PropertyKind::Sequence,
-                                    "Expected integer value".to_string(),
-                                ));
+                                errors.push(SemanticError::ExpectedType {
+                                    property: PropertyKind::Sequence,
+                                    expected: ValueType::Integer,
+                                });
                             }
                         },
                         Err(e) => errors.push(e),
@@ -416,17 +450,19 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Priority => {
                     if props.priority.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Priority));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Priority,
+                        });
                         continue;
                     }
                     match get_single_value(prop) {
                         Ok(value) => match value_to_int::<u8>(value) {
                             Some(v) => props.priority = Some(v),
                             None => {
-                                errors.push(SemanticError::InvalidValue(
-                                    PropertyKind::Priority,
-                                    "Expected integer value".to_string(),
-                                ));
+                                errors.push(SemanticError::ExpectedType {
+                                    property: PropertyKind::Priority,
+                                    expected: ValueType::Integer,
+                                });
                             }
                         },
                         Err(e) => errors.push(e),
@@ -434,19 +470,19 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::PercentComplete => {
                     if props.percent_complete.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(
-                            PropertyKind::PercentComplete,
-                        ));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::PercentComplete,
+                        });
                         continue;
                     }
                     match get_single_value(prop) {
                         Ok(value) => match value_to_int::<u8>(value) {
                             Some(v) => props.percent_complete = Some(v),
                             None => {
-                                errors.push(SemanticError::InvalidValue(
-                                    PropertyKind::PercentComplete,
-                                    "Expected integer value".to_string(),
-                                ));
+                                errors.push(SemanticError::ExpectedType {
+                                    property: PropertyKind::PercentComplete,
+                                    expected: ValueType::Integer,
+                                });
                             }
                         },
                         Err(e) => errors.push(e),
@@ -454,7 +490,9 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Class => {
                     if props.classification.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Class));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Class,
+                        });
                         continue;
                     }
                     match Classification::try_from(prop) {
@@ -464,30 +502,36 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
                 }
                 PropertyKind::Resources => {
                     if props.resources.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Resources));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Resources,
+                        });
                         continue;
                     }
                     props.resources = Some(parse_multi_text_property(prop));
                 }
                 PropertyKind::Categories => {
                     if props.categories.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::Categories));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Categories,
+                        });
                         continue;
                     }
                     props.categories = Some(parse_multi_text_property(prop));
                 }
                 PropertyKind::RRule => {
                     if props.rrule.is_some() {
-                        errors.push(SemanticError::DuplicateProperty(PropertyKind::RRule));
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::RRule,
+                        });
                         continue;
                     }
                     // TODO: Parse RRULE from text format
                     match get_single_value(prop) {
                         Ok(Value::Text(_)) => {}
-                        Ok(_) => errors.push(SemanticError::InvalidValue(
-                            PropertyKind::RRule,
-                            "Expected text value".to_string(),
-                        )),
+                        Ok(_) => errors.push(SemanticError::ExpectedType {
+                            property: PropertyKind::RRule,
+                            expected: ValueType::Text,
+                        }),
                         Err(e) => errors.push(e),
                     }
                 }
@@ -501,10 +545,14 @@ impl TryFrom<&TypedComponent<'_>> for VTodo {
 
         // Check required fields
         if props.uid.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::Uid));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::Uid,
+            });
         }
         if props.dt_stamp.is_none() {
-            errors.push(SemanticError::MissingProperty(PropertyKind::DtStamp));
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::DtStamp,
+            });
         }
 
         // Parse multi-value properties
