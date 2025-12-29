@@ -7,38 +7,37 @@
 use std::convert::TryFrom;
 
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
-use crate::semantic::property_util::{
-    get_language, get_single_value, value_to_floating_date_time, value_to_string,
+use crate::semantic::property_common::{
+    take_single_value, take_single_value_floating_date_time, take_single_value_text,
 };
-use crate::semantic::{SemanticError, Text, Uri};
-use crate::typed::{PropertyKind, TypedComponent, Value, ValueDate, ValueType};
-use crate::{DateTime, RecurrenceRule};
+use crate::semantic::{DateTime, SemanticError, Text};
+use crate::typed::{PropertyKind, RecurrenceRule, TypedComponent, Value, ValueDate, ValueText};
 
 /// Timezone component (VTIMEZONE)
 #[derive(Debug, Clone)]
-pub struct VTimeZone {
+pub struct VTimeZone<'src> {
     /// Timezone identifier
-    pub tz_id: String,
+    pub tz_id: ValueText<'src>,
 
     /// Last modification date/time
-    pub last_modified: Option<DateTime>,
+    pub last_modified: Option<DateTime<'src>>,
 
     /// Timezone URL
-    pub tz_url: Option<Uri>,
+    pub tz_url: Option<ValueText<'src>>,
 
     /// Standard time observances
-    pub standard: Vec<TimeZoneObservance>,
+    pub standard: Vec<TimeZoneObservance<'src>>,
 
     /// Daylight saving time observances
-    pub daylight: Vec<TimeZoneObservance>,
+    pub daylight: Vec<TimeZoneObservance<'src>>,
 }
 
 /// Parse a `TypedComponent` into a `VTimeZone`
 #[allow(clippy::too_many_lines)]
-impl TryFrom<TypedComponent<'_>> for VTimeZone {
+impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
     type Error = Vec<SemanticError>;
 
-    fn try_from(comp: TypedComponent<'_>) -> Result<Self, Self::Error> {
+    fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VTIMEZONE {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VTIMEZONE,
@@ -52,57 +51,60 @@ impl TryFrom<TypedComponent<'_>> for VTimeZone {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop.kind {
-                PropertyKind::TzId if props.tz_id.is_none() => {
-                    match get_single_value(&prop).ok().and_then(value_to_string) {
-                        Some(v) => props.tz_id = Some(v),
-                        None => {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::TzId,
-                                expected: ValueType::Text,
-                            });
-                            props.tz_id = Some(String::new());
-                        }
-                    }
-                }
                 PropertyKind::TzId => {
-                    errors.push(SemanticError::DuplicateProperty {
-                        property: PropertyKind::TzId,
-                    });
-                }
-                PropertyKind::LastModified if props.last_modified.is_none() => {
-                    match get_single_value(&prop)
-                        .ok()
-                        .and_then(value_to_floating_date_time)
-                    {
-                        Some(v) => props.last_modified = Some(v),
-                        None => {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::LastModified,
-                                expected: ValueType::DateTime,
-                            });
-                            props.last_modified = Some(DateTime::Date {
-                                date: ValueDate {
-                                    year: 0,
-                                    month: 1,
-                                    day: 1,
-                                },
-                            });
+                    if props.tz_id.is_some() {
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::TzId,
+                        });
+                        continue;
+                    }
+
+                    props.tz_id = match take_single_value_text(prop.kind, prop.values) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            Some(ValueText::default())
                         }
                     }
                 }
                 PropertyKind::LastModified => {
-                    errors.push(SemanticError::DuplicateProperty {
-                        property: PropertyKind::LastModified,
-                    });
+                    if props.last_modified.is_some() {
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::LastModified,
+                        });
+                        continue;
+                    }
+
+                    props.last_modified =
+                        match take_single_value_floating_date_time(prop.kind, prop.values) {
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                errors.push(e);
+                                Some(DateTime::Date {
+                                    date: ValueDate {
+                                        year: 0,
+                                        month: 1,
+                                        day: 1,
+                                    },
+                                })
+                            }
+                        }
                 }
-                PropertyKind::TzUrl if props.tz_url.is_none() => match Uri::try_from(prop) {
-                    Ok(v) => props.tz_url = Some(v),
-                    Err(e) => errors.push(e),
-                },
                 PropertyKind::TzUrl => {
-                    errors.push(SemanticError::DuplicateProperty {
-                        property: PropertyKind::TzUrl,
-                    });
+                    if props.tz_url.is_some() {
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::TzUrl,
+                        });
+                        continue;
+                    }
+
+                    props.tz_url = match take_single_value_text(prop.kind, prop.values) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            Some(ValueText::default())
+                        }
+                    }
                 }
                 // Ignore unknown properties
                 _ => {}
@@ -122,19 +124,17 @@ impl TryFrom<TypedComponent<'_>> for VTimeZone {
 
         for child in comp.children {
             match child.name {
-                KW_STANDARD => match parse_observance(child) {
+                KW_STANDARD => match child.try_into() {
                     Ok(v) => standard.push(v),
                     Err(e) => errors.extend(e),
                 },
-                KW_DAYLIGHT => match parse_observance(child) {
+                KW_DAYLIGHT => match child.try_into() {
                     Ok(v) => daylight.push(v),
                     Err(e) => errors.extend(e),
                 },
-                _ => {
-                    errors.push(SemanticError::UnknownComponent {
-                        component: child.name.to_string(),
-                    });
-                }
+                _ => errors.push(SemanticError::UnknownComponent {
+                    component: child.name.to_string(),
+                }),
             }
         }
 
@@ -155,9 +155,9 @@ impl TryFrom<TypedComponent<'_>> for VTimeZone {
 
 /// Timezone observance (standard or daylight)
 #[derive(Debug, Clone)]
-pub struct TimeZoneObservance {
+pub struct TimeZoneObservance<'src> {
     /// Start date/time for this observance
-    pub dt_start: DateTime,
+    pub dt_start: DateTime<'src>,
 
     /// Offset from UTC for this observance
     pub tz_offset_from: TimeZoneOffset,
@@ -166,173 +166,166 @@ pub struct TimeZoneObservance {
     pub tz_offset_to: TimeZoneOffset,
 
     /// Timezone names
-    pub tz_name: Vec<Text>,
+    pub tz_name: Vec<Text<'src>>,
 
     /// Recurrence rule for this observance
     pub rrule: Option<RecurrenceRule>,
 }
 
-/// Parse a timezone observance (STANDARD or DAYLIGHT) component
-#[allow(clippy::too_many_lines)]
-fn parse_observance(comp: TypedComponent) -> Result<TimeZoneObservance, Vec<SemanticError>> {
-    let mut errors = Vec::new();
+impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
+    type Error = Vec<SemanticError>;
 
-    // Collect all properties in a single pass
-    let mut props = ObservanceCollector::default();
-    for prop in comp.properties {
-        match prop.kind {
-            PropertyKind::DtStart if props.dt_start.is_none() => {
-                match get_single_value(&prop)
-                    .ok()
-                    .and_then(value_to_floating_date_time)
-                {
-                    Some(v) => props.dt_start = Some(v),
-                    None => {
-                        errors.push(SemanticError::InvalidValue {
+    /// Parse a timezone observance (STANDARD or DAYLIGHT) component
+    #[allow(clippy::too_many_lines)]
+    fn try_from(
+        comp: TypedComponent<'src>,
+    ) -> Result<TimeZoneObservance<'src>, Vec<SemanticError>> {
+        let mut errors = Vec::new();
+
+        // Collect all properties in a single pass
+        let mut props = ObservanceCollector::default();
+        for prop in comp.properties {
+            match prop.kind {
+                PropertyKind::DtStart => {
+                    if props.dt_start.is_some() {
+                        errors.push(SemanticError::DuplicateProperty {
                             property: PropertyKind::DtStart,
-                            value: "Expected date-time value".to_string(),
                         });
-                        props.dt_start = Some(DateTime::Date {
-                            date: ValueDate {
-                                year: 0,
-                                month: 1,
-                                day: 1,
-                            },
-                        });
+                        continue;
                     }
+
+                    props.dt_start =
+                        match take_single_value_floating_date_time(prop.kind, prop.values) {
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                errors.push(e);
+                                Some(DateTime::Date {
+                                    date: ValueDate {
+                                        year: 0,
+                                        month: 1,
+                                        day: 1,
+                                    },
+                                })
+                            }
+                        }
                 }
-            }
-            PropertyKind::DtStart => {
-                errors.push(SemanticError::DuplicateProperty {
-                    property: PropertyKind::DtStart,
-                });
-            }
-            PropertyKind::TzOffsetFrom if props.tz_offset_from.is_none() => {
-                match get_single_value(&prop) {
-                    Ok(value) => match TimeZoneOffset::try_from(value) {
-                        Ok(v) => props.tz_offset_from = Some(v),
+                PropertyKind::TzOffsetFrom => {
+                    if props.tz_offset_from.is_some() {
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::TzOffsetFrom,
+                        });
+                        continue;
+                    }
+
+                    props.tz_offset_from = match take_single_value(prop.kind, prop.values) {
+                        Ok(value) => match value.try_into() {
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                errors.push(e);
+                                Some(TimeZoneOffset {
+                                    positive: true,
+                                    hours: 0,
+                                    minutes: 0,
+                                })
+                            }
+                        },
                         Err(e) => {
                             errors.push(e);
-                            props.tz_offset_from = Some(TimeZoneOffset {
+                            Some(TimeZoneOffset {
                                 positive: true,
                                 hours: 0,
                                 minutes: 0,
-                            });
+                            })
                         }
-                    },
-                    Err(e) => {
-                        errors.push(e);
-                        props.tz_offset_from = Some(TimeZoneOffset {
-                            positive: true,
-                            hours: 0,
-                            minutes: 0,
-                        });
                     }
                 }
-            }
-            PropertyKind::TzOffsetFrom => {
-                errors.push(SemanticError::DuplicateProperty {
-                    property: PropertyKind::TzOffsetFrom,
-                });
-            }
-            PropertyKind::TzOffsetTo if props.tz_offset_to.is_none() => {
-                match get_single_value(&prop) {
-                    Ok(value) => match TimeZoneOffset::try_from(value) {
-                        Ok(v) => props.tz_offset_to = Some(v),
+                PropertyKind::TzOffsetTo => {
+                    if props.tz_offset_to.is_some() {
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::TzOffsetTo,
+                        });
+                        continue;
+                    }
+
+                    props.tz_offset_to = match take_single_value(prop.kind, prop.values) {
+                        Ok(value) => match TimeZoneOffset::try_from(value) {
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                errors.push(e);
+                                Some(TimeZoneOffset {
+                                    positive: true,
+                                    hours: 0,
+                                    minutes: 0,
+                                })
+                            }
+                        },
                         Err(e) => {
                             errors.push(e);
-                            props.tz_offset_to = Some(TimeZoneOffset {
+                            Some(TimeZoneOffset {
                                 positive: true,
                                 hours: 0,
                                 minutes: 0,
-                            });
+                            })
                         }
-                    },
-                    Err(e) => {
-                        errors.push(e);
-                        props.tz_offset_to = Some(TimeZoneOffset {
-                            positive: true,
-                            hours: 0,
-                            minutes: 0,
-                        });
                     }
                 }
-            }
-            PropertyKind::TzOffsetTo => {
-                errors.push(SemanticError::DuplicateProperty {
-                    property: PropertyKind::TzOffsetTo,
-                });
-            }
-            PropertyKind::TzName => {
-                // TZNAME can appear multiple times
-                match get_single_value(&prop) {
-                    Ok(value) => match value_to_string(value) {
-                        Some(v) => props.tz_name.push(Text {
-                            content: v,
-                            language: get_language(&prop.parameters),
-                        }),
-                        None => {
-                            errors.push(SemanticError::InvalidValue {
-                                property: PropertyKind::TzName,
-                                value: "Expected text value".to_string(),
-                            });
-                        }
-                    },
+                PropertyKind::TzName => match Text::try_from(prop) {
+                    // TZNAME can appear multiple times
+                    Ok(text) => props.tz_name.push(text),
                     Err(e) => errors.push(e),
-                }
-            }
-            PropertyKind::RRule if props.rrule.is_none() => {
-                // TODO: Parse RRULE from text format
-                match get_single_value(&prop) {
-                    Ok(Value::Text(_)) => {}
-                    Ok(_) => {
-                        errors.push(SemanticError::InvalidValue {
+                },
+                PropertyKind::RRule => {
+                    if props.rrule.is_some() {
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::RRule,
+                        });
+                        continue;
+                    }
+
+                    match take_single_value(prop.kind, prop.values) {
+                        Ok(Value::Text(_)) => {} // TODO: Parse RRULE
+                        Ok(_) => errors.push(SemanticError::InvalidValue {
                             property: PropertyKind::RRule,
                             value: "Expected text value".to_string(),
-                        });
+                        }),
+                        Err(e) => errors.push(e),
                     }
-                    Err(e) => errors.push(e),
                 }
+                // Ignore unknown properties
+                _ => {}
             }
-            PropertyKind::RRule => {
-                errors.push(SemanticError::DuplicateProperty {
-                    property: PropertyKind::RRule,
-                });
-            }
-            // Ignore unknown properties
-            _ => {}
         }
-    }
 
-    // Check required fields
-    if props.dt_start.is_none() {
-        errors.push(SemanticError::MissingProperty {
-            property: PropertyKind::DtStart,
-        });
-    }
-    if props.tz_offset_from.is_none() {
-        errors.push(SemanticError::MissingProperty {
-            property: PropertyKind::TzOffsetFrom,
-        });
-    }
-    if props.tz_offset_to.is_none() {
-        errors.push(SemanticError::MissingProperty {
-            property: PropertyKind::TzOffsetTo,
-        });
-    }
+        // Check required fields
+        if props.dt_start.is_none() {
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::DtStart,
+            });
+        }
+        if props.tz_offset_from.is_none() {
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::TzOffsetFrom,
+            });
+        }
+        if props.tz_offset_to.is_none() {
+            errors.push(SemanticError::MissingProperty {
+                property: PropertyKind::TzOffsetTo,
+            });
+        }
 
-    // Return all errors if any occurred
-    if !errors.is_empty() {
-        return Err(errors);
-    }
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
+        }
 
-    Ok(TimeZoneObservance {
-        dt_start: props.dt_start.unwrap(), // SAFETY: checked above
-        tz_offset_from: props.tz_offset_from.unwrap(), // SAFETY: checked above
-        tz_offset_to: props.tz_offset_to.unwrap(), // SAFETY: checked above
-        tz_name: props.tz_name,
-        rrule: props.rrule,
-    })
+        Ok(TimeZoneObservance {
+            dt_start: props.dt_start.unwrap(), // SAFETY: checked above
+            tz_offset_from: props.tz_offset_from.unwrap(), // SAFETY: checked above
+            tz_offset_to: props.tz_offset_to.unwrap(), // SAFETY: checked above
+            tz_name: props.tz_name,
+            rrule: props.rrule,
+        })
+    }
 }
 
 /// Timezone offset
@@ -371,10 +364,10 @@ impl TimeZoneOffset {
     }
 }
 
-impl TryFrom<&Value<'_>> for TimeZoneOffset {
+impl TryFrom<Value<'_>> for TimeZoneOffset {
     type Error = SemanticError;
 
-    fn try_from(value: &Value<'_>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value<'_>) -> Result<Self, Self::Error> {
         match value {
             Value::UtcOffset(offset) => Ok(TimeZoneOffset {
                 positive: offset.positive,
@@ -393,18 +386,18 @@ impl TryFrom<&Value<'_>> for TimeZoneOffset {
 
 /// Helper struct to collect properties during single-pass iteration
 #[derive(Debug, Default)]
-struct PropertyCollector {
-    tz_id: Option<String>,
-    last_modified: Option<DateTime>,
-    tz_url: Option<Uri>,
+struct PropertyCollector<'src> {
+    tz_id: Option<ValueText<'src>>,
+    last_modified: Option<DateTime<'src>>,
+    tz_url: Option<ValueText<'src>>,
 }
 
 /// Helper struct to collect observance properties during single-pass iteration
 #[derive(Debug, Default)]
-struct ObservanceCollector {
-    dt_start: Option<DateTime>,
+struct ObservanceCollector<'src> {
+    dt_start: Option<DateTime<'src>>,
     tz_offset_from: Option<TimeZoneOffset>,
     tz_offset_to: Option<TimeZoneOffset>,
-    tz_name: Vec<Text>,
+    tz_name: Vec<Text<'src>>,
     rrule: Option<RecurrenceRule>,
 }

@@ -35,9 +35,9 @@ pub mod typed;
 
 pub use crate::parser::{ParseError, parse};
 pub use crate::semantic::{
-    Attachment, AttachmentValue, Attendee, CalendarComponent, CalendarScale, Classification,
-    DateTime, EventStatus, Geo, ICalendar, Method, Organizer, Period, ProductId, Text,
-    TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, Uri, VAlarm, VEvent, VFreeBusy,
+    Action, Attachment, AttachmentValue, Attendee, CalendarComponent, CalendarScale,
+    Classification, DateTime, EventStatus, Geo, ICalendar, Method, Organizer, Period, ProductId,
+    Text, TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, VAlarm, VEvent, VFreeBusy,
     VJournal, VTimeZone, VTodo, Version,
 };
 pub use crate::typed::{

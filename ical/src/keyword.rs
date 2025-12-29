@@ -107,12 +107,6 @@ pub const KW_VALARM: &str = "VALARM";
 pub const KW_STANDARD: &str = "STANDARD";
 pub const KW_DAYLIGHT: &str = "DAYLIGHT";
 
-// 3.8.6.  Alarm Component Properties - ACTION values
-pub const KW_ACTION_AUDIO: &str = "AUDIO";
-pub const KW_ACTION_DISPLAY: &str = "DISPLAY";
-pub const KW_ACTION_EMAIL: &str = "EMAIL";
-pub const KW_ACTION_PROCEDURE: &str = "PROCEDURE";
-
 // 3.7.  Calendar Properties
 pub const KW_CALSCALE: &str = "CALSCALE";
 pub const KW_METHOD: &str = "METHOD";
@@ -206,6 +200,12 @@ pub const KW_RRULE: &str = "RRULE";
 pub const KW_ACTION: &str = "ACTION";
 pub const KW_REPEAT: &str = "REPEAT";
 pub const KW_TRIGGER: &str = "TRIGGER";
+
+// 3.8.6.1.  Action
+pub const KW_ACTION_AUDIO: &str = "AUDIO";
+pub const KW_ACTION_DISPLAY: &str = "DISPLAY";
+pub const KW_ACTION_EMAIL: &str = "EMAIL";
+pub const KW_ACTION_PROCEDURE: &str = "PROCEDURE";
 
 // 3.8.7.  Change Management Component Properties
 pub const KW_CREATED: &str = "CREATED";

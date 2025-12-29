@@ -17,7 +17,7 @@ use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value, ValueType
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]
-pub struct ICalendar {
+pub struct ICalendar<'src> {
     /// Product identifier that generated the iCalendar data
     pub prod_id: ProductId,
 
@@ -31,7 +31,7 @@ pub struct ICalendar {
     pub method: Option<Method>,
 
     /// All calendar components (events, todos, journals, etc.)
-    pub components: Vec<CalendarComponent>,
+    pub components: Vec<CalendarComponent<'src>>,
 }
 
 /// Parse a `TypedComponent` into typed `ICalendar`
@@ -43,10 +43,10 @@ pub struct ICalendar {
 /// - Required properties (PRODID, VERSION) are missing
 /// - Property values are invalid or malformed
 /// - Child components cannot be parsed
-impl TryFrom<TypedComponent<'_>> for ICalendar {
+impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
     type Error = Vec<SemanticError>;
 
-    fn try_from(comp: TypedComponent<'_>) -> Result<Self, Self::Error> {
+    fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VCALENDAR {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VCALENDAR,
@@ -168,33 +168,33 @@ impl TryFrom<TypedComponent<'_>> for ICalendar {
 /// Individual component parsing errors are collected and included in the result.
 fn parse_component_children(
     children: Vec<TypedComponent<'_>>,
-) -> Result<Vec<CalendarComponent>, Vec<SemanticError>> {
+) -> Result<Vec<CalendarComponent<'_>>, Vec<SemanticError>> {
     let mut components = Vec::with_capacity(children.len());
     let mut errors = Vec::new();
 
     for child in children {
         match child.name {
-            KW_VEVENT => match VEvent::try_from(child) {
+            KW_VEVENT => match child.try_into() {
                 Ok(v) => components.push(CalendarComponent::Event(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VTODO => match VTodo::try_from(child) {
+            KW_VTODO => match child.try_into() {
                 Ok(v) => components.push(CalendarComponent::Todo(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VJOURNAL => match VJournal::try_from(child) {
+            KW_VJOURNAL => match child.try_into() {
                 Ok(v) => components.push(CalendarComponent::VJournal(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VFREEBUSY => match VFreeBusy::try_from(child) {
+            KW_VFREEBUSY => match child.try_into() {
                 Ok(v) => components.push(CalendarComponent::VFreeBusy(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VTIMEZONE => match VTimeZone::try_from(child) {
+            KW_VTIMEZONE => match child.try_into() {
                 Ok(v) => components.push(CalendarComponent::VTimeZone(v)),
                 Err(e) => errors.extend(e),
             },
-            KW_VALARM => match VAlarm::try_from(child) {
+            KW_VALARM => match child.try_into() {
                 Ok(v) => components.push(CalendarComponent::VAlarm(v)),
                 Err(e) => errors.extend(e),
             },
@@ -214,39 +214,39 @@ fn parse_component_children(
 
 /// Calendar components that can appear in an iCalendar object
 #[derive(Debug, Clone)]
-pub enum CalendarComponent {
+pub enum CalendarComponent<'src> {
     /// Event component
-    Event(VEvent),
+    Event(VEvent<'src>),
 
     /// To-do component
-    Todo(VTodo),
+    Todo(VTodo<'src>),
 
     /// Journal entry component
-    VJournal(VJournal),
+    VJournal(VJournal<'src>),
 
     /// Free/busy time component
-    VFreeBusy(VFreeBusy),
+    VFreeBusy(VFreeBusy<'src>),
 
     /// Timezone definition component
-    VTimeZone(VTimeZone),
+    VTimeZone(VTimeZone<'src>),
 
     /// Alarm component
-    VAlarm(VAlarm),
+    VAlarm(VAlarm<'src>),
     // /// Custom component
-    // Custom(String, CustomComponent),
+    // Custom(CustomComponent),
 }
 
 // /// Custom component for unknown component types
 // #[derive(Debug, Clone)]
-// pub struct CustomComponent {
+// pub struct CustomComponent<'src> {
 //     /// Component name
-//     pub name: String,
+//     pub name: SpannedSegments<'src>,
 //
 //     /// Properties
-//     pub properties: HashMap<String, Vec<String>>,
+//     pub properties: Vec<TypedProperty<'src>>,
 //
 //     /// Nested components
-//     pub children: Vec<CalendarComponent>,
+//     pub children: Vec<CalendarComponent<'src>>,
 // }
 
 /// Product identifier that identifies the software that created the iCalendar data

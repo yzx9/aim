@@ -21,7 +21,7 @@ use crate::typed::{PropertyKind, TypedComponent, ValueType};
 #[allow(clippy::missing_panics_doc)]
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
-) -> Result<Vec<ICalendar>, Vec<SemanticError>> {
+) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError>> {
     // Return error only if no calendars
     if typed_components.is_empty() {
         return Err(vec![SemanticError::ConstraintViolation {

@@ -12,41 +12,39 @@ use crate::RecurrenceRule;
 use crate::keyword::{
     KW_JOURNAL_STATUS_CANCELLED, KW_JOURNAL_STATUS_DRAFT, KW_JOURNAL_STATUS_FINAL, KW_VJOURNAL,
 };
-use crate::semantic::property_util::{
-    get_language, get_single_value, parse_multi_text_property, value_to_floating_date_time,
-    value_to_string,
+use crate::semantic::property_common::{
+    parse_multi_text_property, take_single_value, take_single_value_floating_date_time,
+    take_single_value_string, take_single_value_text, value_to_floating_date_time,
 };
-use crate::semantic::{
-    Attendee, Classification, DateTime, Organizer, Period, SemanticError, Text, Uri,
-};
-use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value, ValueDate, ValueType};
+use crate::semantic::{Attendee, Classification, DateTime, Organizer, Period, SemanticError, Text};
+use crate::typed::{PropertyKind, TypedComponent, Value, ValueDate, ValueText, ValueType};
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]
-pub struct VJournal {
+pub struct VJournal<'src> {
     /// Unique identifier for the journal entry
-    pub uid: String,
+    pub uid: ValueText<'src>,
 
     /// Date/time the journal entry was created
-    pub dt_stamp: DateTime,
+    pub dt_stamp: DateTime<'src>,
 
     /// Date/time of the journal entry
-    pub dt_start: DateTime,
+    pub dt_start: DateTime<'src>,
 
     /// Summary/title of the journal entry
-    pub summary: Option<Text>,
+    pub summary: Option<Text<'src>>,
 
     /// Description of the journal entry (can appear multiple times)
-    pub descriptions: Vec<Text>,
+    pub descriptions: Vec<Text<'src>>,
 
     /// Organizer of the journal entry
-    pub organizer: Option<Organizer>,
+    pub organizer: Option<Organizer<'src>>,
 
     /// Attendees of the journal entry
-    pub attendees: Vec<Attendee>,
+    pub attendees: Vec<Attendee<'src>>,
 
     /// Last modification date/time
-    pub last_modified: Option<DateTime>,
+    pub last_modified: Option<DateTime<'src>>,
 
     /// Status of the journal entry
     pub status: Option<JournalStatus>,
@@ -55,29 +53,29 @@ pub struct VJournal {
     pub classification: Option<Classification>,
 
     /// Categories
-    pub categories: Vec<Text>,
+    pub categories: Vec<Text<'src>>,
 
     /// Recurrence rule
     pub rrule: Option<RecurrenceRule>,
 
     /// Recurrence dates
-    pub rdate: Vec<Period>,
+    pub rdate: Vec<Period<'src>>,
 
     /// Exception dates
-    pub ex_date: Vec<DateTime>,
+    pub ex_date: Vec<DateTime<'src>>,
 
     /// URL associated with the journal entry
-    pub url: Option<Uri>,
+    pub url: Option<ValueText<'src>>,
     // /// Custom properties
     // pub custom_properties: HashMap<String, Vec<String>>,
 }
 
 /// Parse a `TypedComponent` into a `VJournal`
 #[allow(clippy::too_many_lines)]
-impl TryFrom<TypedComponent<'_>> for VJournal {
+impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
     type Error = Vec<SemanticError>;
 
-    fn try_from(comp: TypedComponent<'_>) -> Result<Self, Self::Error> {
+    fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VJOURNAL {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VJOURNAL,
@@ -98,14 +96,12 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                         });
                         continue;
                     }
-                    match get_single_value(&prop).ok().and_then(value_to_string) {
-                        Some(v) => props.uid = Some(v),
-                        None => {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::Uid,
-                                expected: ValueType::Text,
-                            });
-                            props.uid = Some(String::new());
+
+                    match take_single_value_text(prop.kind, prop.values) {
+                        Ok(v) => props.uid = Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            props.uid = Some(ValueText::default());
                         }
                     }
                 }
@@ -116,25 +112,21 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                         });
                         continue;
                     }
-                    match get_single_value(&prop)
-                        .ok()
-                        .and_then(value_to_floating_date_time)
-                    {
-                        Some(v) => props.dt_stamp = Some(v),
-                        None => {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::DtStamp,
-                                expected: ValueType::DateTime,
-                            });
-                            props.dt_stamp = Some(DateTime::Date {
-                                date: ValueDate {
-                                    year: 0,
-                                    month: 1,
-                                    day: 1,
-                                },
-                            });
+
+                    props.dt_stamp =
+                        match take_single_value_floating_date_time(prop.kind, prop.values) {
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                errors.push(e);
+                                Some(DateTime::Date {
+                                    date: ValueDate {
+                                        year: 0,
+                                        month: 1,
+                                        day: 1,
+                                    },
+                                })
+                            }
                         }
-                    }
                 }
                 PropertyKind::DtStart => {
                     if props.dt_start.is_some() {
@@ -164,39 +156,15 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_string(value) {
-                            Some(v) => {
-                                props.summary = Some(Text {
-                                    content: v,
-                                    language: get_language(&prop.parameters),
-                                });
-                            }
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Summary,
-                                    expected: ValueType::Text,
-                                });
-                            }
-                        },
+                    match Text::try_from(prop) {
+                        Ok(text) => props.summary = Some(text),
                         Err(e) => errors.push(e),
                     }
                 }
                 PropertyKind::Description => {
                     // VJOURNAL allows multiple DESCRIPTION properties
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_string(value) {
-                            Some(v) => props.descriptions.push(Text {
-                                content: v,
-                                language: get_language(&prop.parameters),
-                            }),
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Description,
-                                    expected: ValueType::Text,
-                                });
-                            }
-                        },
+                    match Text::try_from(prop) {
+                        Ok(text) => props.descriptions.push(text),
                         Err(e) => errors.push(e),
                     }
                 }
@@ -212,9 +180,10 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                         Err(e) => errors.push(e),
                     }
                 }
-                PropertyKind::Attendee => {
-                    props.attendees.push(prop);
-                }
+                PropertyKind::Attendee => match Attendee::try_from(prop) {
+                    Ok(v) => props.attendees.push(v),
+                    Err(e) => errors.push(e),
+                },
                 PropertyKind::LastModified => {
                     if props.last_modified.is_some() {
                         errors.push(SemanticError::DuplicateProperty {
@@ -222,16 +191,10 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                         });
                         continue;
                     }
-                    match get_single_value(&prop)
-                        .ok()
-                        .and_then(value_to_floating_date_time)
-                    {
-                        Some(v) => props.last_modified = Some(v),
-                        None => {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::LastModified,
-                                expected: ValueType::DateTime,
-                            });
+                    match take_single_value_floating_date_time(prop.kind, prop.values) {
+                        Ok(v) => props.last_modified = Some(v),
+                        Err(e) => {
+                            errors.push(e);
                             props.last_modified = Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
@@ -249,21 +212,13 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_string(value) {
-                            Some(text) => match text.parse() {
-                                Ok(v) => props.status = Some(v),
-                                Err(e) => errors.push(SemanticError::InvalidValue {
-                                    property: PropertyKind::Status,
-                                    value: e,
-                                }),
-                            },
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Status,
-                                    expected: ValueType::Text,
-                                });
-                            }
+                    match take_single_value_string(prop.kind, prop.values) {
+                        Ok(text) => match text.parse() {
+                            Ok(v) => props.status = Some(v),
+                            Err(e) => errors.push(SemanticError::InvalidValue {
+                                property: PropertyKind::Status,
+                                value: e,
+                            }),
                         },
                         Err(e) => errors.push(e),
                     }
@@ -297,7 +252,7 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                         continue;
                     }
                     // TODO: Parse RRULE from text format
-                    match get_single_value(&prop) {
+                    match take_single_value(prop.kind, prop.values) {
                         Ok(Value::Text(_)) => {}
                         Ok(_) => {
                             errors.push(SemanticError::ExpectedType {
@@ -309,7 +264,16 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                     }
                 }
                 PropertyKind::ExDate => {
-                    props.ex_dates.push(prop);
+                    for value in prop.values {
+                        if let Some(dt) = value_to_floating_date_time(&value) {
+                            props.ex_dates.push(dt);
+                        } else {
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::ExDate,
+                                expected: ValueType::DateTime,
+                            });
+                        }
+                    }
                 }
                 PropertyKind::Url => {
                     if props.url.is_some() {
@@ -318,7 +282,8 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
                         });
                         continue;
                     }
-                    match Uri::try_from(prop) {
+
+                    match take_single_value_text(prop.kind, prop.values) {
                         Ok(v) => props.url = Some(v),
                         Err(e) => errors.push(e),
                     }
@@ -345,30 +310,6 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
             });
         }
 
-        // Parse multi-value properties
-        let attendees = props
-            .attendees
-            .into_iter()
-            .filter_map(|prop| match Attendee::try_from(prop) {
-                Ok(v) => Some(v),
-                Err(e) => {
-                    errors.push(e);
-                    None
-                }
-            })
-            .collect();
-
-        let ex_date = props
-            .ex_dates
-            .into_iter()
-            .flat_map(|p| {
-                p.values
-                    .iter()
-                    .filter_map(value_to_floating_date_time)
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-
         // Return all errors if any occurred
         if !errors.is_empty() {
             return Err(errors);
@@ -381,14 +322,14 @@ impl TryFrom<TypedComponent<'_>> for VJournal {
             summary: props.summary,
             descriptions: props.descriptions,
             organizer: props.organizer,
-            attendees,
+            attendees: props.attendees,
             last_modified: props.last_modified,
             status: props.status,
             classification: props.classification,
             categories: props.categories.unwrap_or_default(),
             rrule: props.rrule,
             rdate: vec![], // TODO: implement RDATE parsing
-            ex_date,
+            ex_date: props.ex_dates,
             url: props.url,
         })
     }
@@ -443,19 +384,19 @@ impl AsRef<str> for JournalStatus {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'a> {
-    uid:            Option<String>,
-    dt_stamp:       Option<DateTime>,
-    dt_start:       Option<DateTime>,
-    summary:        Option<Text>,
-    descriptions:   Vec<Text>,
-    organizer:      Option<Organizer>,
-    attendees:      Vec<TypedProperty<'a>>,
-    last_modified:  Option<DateTime>,
+struct PropertyCollector<'src> {
+    uid:            Option<ValueText<'src>>,
+    dt_stamp:       Option<DateTime<'src>>,
+    dt_start:       Option<DateTime<'src>>,
+    summary:        Option<Text<'src>>,
+    descriptions:   Vec<Text<'src>>,
+    organizer:      Option<Organizer<'src>>,
+    attendees:      Vec<Attendee<'src>>,
+    last_modified:  Option<DateTime<'src>>,
     status:         Option<JournalStatus>,
     classification: Option<Classification>,
-    categories:     Option<Vec<Text>>,
+    categories:     Option<Vec<Text<'src>>>,
     rrule:          Option<RecurrenceRule>,
-    ex_dates:       Vec<TypedProperty<'a>>,
-    url:            Option<Uri>,
+    ex_dates:       Vec<DateTime<'src>>,
+    url:            Option<ValueText<'src>>,
 }

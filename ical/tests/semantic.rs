@@ -18,7 +18,7 @@ use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
 
 /// Test helper to parse iCalendar source through semantic phase
-fn parse_semantic(src: &str) -> Result<Vec<ICalendar>, Vec<SemanticError>> {
+fn parse_semantic(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError>> {
     let token_stream = lex_analysis(src);
     let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
     let typed_components = typed_analysis(syntax_components).unwrap();
@@ -733,7 +733,10 @@ END:VCALENDAR\r
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
             let summary = event.summary.as_ref().unwrap();
-            assert!(summary.content.contains("会议") || summary.content.contains("📅"));
+            assert!(
+                summary.content.resolve().contains("会议")
+                    || summary.content.resolve().contains("📅")
+            );
         }
         _ => panic!("Expected Event component"),
     }

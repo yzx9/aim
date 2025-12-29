@@ -7,6 +7,7 @@
 use std::convert::TryFrom;
 
 use crate::semantic::{DateTime, SemanticError};
+use crate::syntax::SpannedSegments;
 use crate::typed::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime, ValueType};
 
 /// Period of time (start-end or start-duration)
@@ -18,7 +19,7 @@ use crate::typed::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime, Valu
 /// - Explicit: start and end date-times
 /// - Duration: start date-time and duration
 #[derive(Debug, Clone)]
-pub enum Period {
+pub enum Period<'src> {
     /// Start and end date/time in UTC
     ExplicitUtc {
         /// Start date
@@ -54,7 +55,7 @@ pub enum Period {
         /// End time
         end_time: ValueTime,
         /// Timezone ID (same for both start and end)
-        tz_id: String,
+        tz_id: SpannedSegments<'src>,
         /// Cached parsed timezone (available with jiff feature)
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
@@ -89,113 +90,17 @@ pub enum Period {
         /// Duration from the start
         duration: ValueDuration,
         /// Start timezone ID
-        tz_id: String,
+        tz_id: SpannedSegments<'src>,
         /// Cached parsed timezone (available with jiff feature)
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
     },
 }
 
-impl TryFrom<&Value<'_>> for Period {
-    type Error = SemanticError;
-
-    fn try_from(value: &Value<'_>) -> Result<Self, Self::Error> {
-        match value {
-            Value::Period(value_period) => match value_period {
-                ValuePeriod::Explicit { start, end } => {
-                    // Both start and end have the same UTC flag (guaranteed by parser)
-                    if start.time.utc {
-                        Ok(Period::ExplicitUtc {
-                            start_date: start.date,
-                            start_time: start.time,
-                            end_date: end.date,
-                            end_time: end.time,
-                        })
-                    } else {
-                        Ok(Period::ExplicitFloating {
-                            start_date: start.date,
-                            start_time: start.time,
-                            end_date: end.date,
-                            end_time: end.time,
-                        })
-                    }
-                }
-                ValuePeriod::Duration { start, duration } => {
-                    // Only positive durations are valid for periods
-                    if !matches!(duration, ValueDuration::DateTime { positive: true, .. })
-                        && !matches!(duration, ValueDuration::Week { positive: true, .. })
-                    {
-                        return Err(SemanticError::InvalidValue {
-                            property: crate::typed::PropertyKind::FreeBusy,
-                            value: "Duration must be positive for periods".to_string(),
-                        });
-                    }
-
-                    if start.time.utc {
-                        Ok(Period::DurationUtc {
-                            start_date: start.date,
-                            start_time: start.time,
-                            duration: *duration,
-                        })
-                    } else {
-                        Ok(Period::DurationFloating {
-                            start_date: start.date,
-                            start_time: start.time,
-                            duration: *duration,
-                        })
-                    }
-                }
-            },
-            _ => Err(SemanticError::ExpectedType {
-                property: crate::typed::PropertyKind::FreeBusy,
-                expected: ValueType::Period,
-            }),
-        }
-    }
-}
-
-#[cfg(feature = "jiff")]
-fn apply_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff::civil::DateTime {
-    match duration {
-        ValueDuration::DateTime {
-            positive,
-            day,
-            hour,
-            minute,
-            second,
-        } => {
-            let span = jiff::Span::new()
-                .try_days(i64::from(*day))
-                .unwrap()
-                .try_hours(i64::from(*hour))
-                .unwrap()
-                .try_minutes(i64::from(*minute))
-                .unwrap()
-                .try_seconds(i64::from(*second))
-                .unwrap();
-
-            if *positive {
-                start.checked_add(span).unwrap()
-            } else {
-                start.checked_sub(span).unwrap()
-            }
-        }
-        ValueDuration::Week { positive, week } => {
-            let span = jiff::Span::new().try_weeks(i64::from(*week)).unwrap();
-
-            if *positive {
-                start.checked_add(span).unwrap()
-            } else {
-                start.checked_sub(span).unwrap()
-            }
-        }
-    }
-}
-
-impl Period {
+impl<'src> Period<'src> {
     /// Get the timezone ID if this is a zoned period
     #[must_use]
-    pub fn tz_id(&self) -> Option<&str> {
+    pub fn tz_id(&self) -> Option<&SpannedSegments<'src>> {
         match self {
             Period::ExplicitZoned { tz_id, .. } | Period::DurationZoned { tz_id, .. } => {
                 Some(tz_id)
@@ -218,7 +123,7 @@ impl Period {
     /// Get the start as a `DateTime` (when jiff feature is enabled).
     #[cfg(feature = "jiff")]
     #[must_use]
-    pub fn start(&self) -> DateTime {
+    pub fn start(&self) -> DateTime<'src> {
         match self {
             Period::ExplicitUtc {
                 start_date,
@@ -273,7 +178,7 @@ impl Period {
     /// For duration-based periods, calculates the end by adding the duration to the start.
     #[cfg(feature = "jiff")]
     #[must_use]
-    pub fn end(&self) -> DateTime {
+    pub fn end(&self) -> DateTime<'src> {
         match self {
             Period::ExplicitUtc {
                 end_date, end_time, ..
@@ -412,5 +317,101 @@ impl Period {
     #[must_use]
     pub fn end_civil(&self) -> jiff::civil::DateTime {
         self.start().civil_date_time().unwrap_or_default() // SAFETY: start() never returns Date-only
+    }
+}
+
+impl<'src> TryFrom<&Value<'src>> for Period<'src> {
+    type Error = SemanticError;
+
+    fn try_from(value: &Value<'src>) -> Result<Self, Self::Error> {
+        match value {
+            Value::Period(value_period) => match value_period {
+                ValuePeriod::Explicit { start, end } => {
+                    // Both start and end have the same UTC flag (guaranteed by parser)
+                    if start.time.utc {
+                        Ok(Period::ExplicitUtc {
+                            start_date: start.date,
+                            start_time: start.time,
+                            end_date: end.date,
+                            end_time: end.time,
+                        })
+                    } else {
+                        Ok(Period::ExplicitFloating {
+                            start_date: start.date,
+                            start_time: start.time,
+                            end_date: end.date,
+                            end_time: end.time,
+                        })
+                    }
+                }
+                ValuePeriod::Duration { start, duration } => {
+                    // Only positive durations are valid for periods
+                    if !matches!(duration, ValueDuration::DateTime { positive: true, .. })
+                        && !matches!(duration, ValueDuration::Week { positive: true, .. })
+                    {
+                        return Err(SemanticError::InvalidValue {
+                            property: crate::typed::PropertyKind::FreeBusy,
+                            value: "Duration must be positive for periods".to_string(),
+                        });
+                    }
+
+                    if start.time.utc {
+                        Ok(Period::DurationUtc {
+                            start_date: start.date,
+                            start_time: start.time,
+                            duration: *duration,
+                        })
+                    } else {
+                        Ok(Period::DurationFloating {
+                            start_date: start.date,
+                            start_time: start.time,
+                            duration: *duration,
+                        })
+                    }
+                }
+            },
+            _ => Err(SemanticError::ExpectedType {
+                property: crate::typed::PropertyKind::FreeBusy,
+                expected: ValueType::Period,
+            }),
+        }
+    }
+}
+
+#[cfg(feature = "jiff")]
+fn apply_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff::civil::DateTime {
+    match duration {
+        ValueDuration::DateTime {
+            positive,
+            day,
+            hour,
+            minute,
+            second,
+        } => {
+            let span = jiff::Span::new()
+                .try_days(i64::from(*day))
+                .unwrap()
+                .try_hours(i64::from(*hour))
+                .unwrap()
+                .try_minutes(i64::from(*minute))
+                .unwrap()
+                .try_seconds(i64::from(*second))
+                .unwrap();
+
+            if *positive {
+                start.checked_add(span).unwrap()
+            } else {
+                start.checked_sub(span).unwrap()
+            }
+        }
+        ValueDuration::Week { positive, week } => {
+            let span = jiff::Span::new().try_weeks(i64::from(*week)).unwrap();
+
+            if *positive {
+                start.checked_add(span).unwrap()
+            } else {
+                start.checked_sub(span).unwrap()
+            }
+        }
     }
 }

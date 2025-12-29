@@ -12,9 +12,10 @@ use chumsky::{Parser, error::Rich, extra, input::Stream};
 
 use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
 use crate::semantic::{DateTime, SemanticError};
+use crate::syntax::SpannedSegments;
 use crate::typed::{
     AlarmTriggerRelationship, Encoding, PropertyKind, TypedParameter, TypedParameterKind,
-    TypedProperty, Value, ValueDuration, ValueType, values_float_semicolon,
+    TypedProperty, Value, ValueDuration, ValueText, ValueType, values_float_semicolon,
 };
 
 /// Geographic position
@@ -36,7 +37,7 @@ impl TryFrom<TypedProperty<'_>> for Geo {
         })?;
 
         let text = match value {
-            Value::Text(t) => t.resolve().to_string(),
+            Value::Text(t) => t.resolve().to_string(), // TODO: avoid allocation
             _ => {
                 return Err(SemanticError::ExpectedType {
                     property: PropertyKind::Geo,
@@ -70,52 +71,98 @@ impl TryFrom<TypedProperty<'_>> for Geo {
     }
 }
 
-/// URI representation
+/// Text with language and alternate representation information
 #[derive(Debug, Clone)]
-pub struct Uri {
-    /// The URI string
-    pub uri: String,
+pub struct Text<'src> {
+    /// The actual text content
+    pub content: ValueText<'src>,
+
+    /// Language code (optional)
+    pub language: Option<SpannedSegments<'src>>,
+
+    /// Alternate text representation URI (optional)
+    ///
+    /// Per RFC 5545, this parameter is not applicable to TZNAME and CATEGORIES
+    /// properties, but may be present in other text properties like DESCRIPTION,
+    /// SUMMARY, LOCATION, CONTACT, and RESOURCES.
+    pub altrep: Option<SpannedSegments<'src>>,
 }
 
-impl TryFrom<&Value<'_>> for Uri {
+impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
     type Error = SemanticError;
 
-    fn try_from(value: &Value<'_>) -> Result<Self, Self::Error> {
-        match value {
-            Value::Text(text) => Ok(Uri {
-                uri: text.resolve().to_string(),
-            }),
-            _ => Err(SemanticError::InvalidValue {
-                property: PropertyKind::Url,
-                value: format!("Expected text value, got {value:?}"),
-            }),
-        }
-    }
-}
-
-impl TryFrom<TypedProperty<'_>> for Uri {
-    type Error = SemanticError;
-
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: PropertyKind::Url,
+            property: prop.kind,
         })?;
 
-        Uri::try_from(value).map_err(|_| SemanticError::ExpectedType {
-            property: prop.kind,
-            expected: ValueType::Text,
+        let content = match value {
+            Value::Text(text) => text.clone(),
+            _ => {
+                return Err(SemanticError::ExpectedType {
+                    property: prop.kind,
+                    expected: ValueType::Text,
+                });
+            }
+        };
+
+        // Extract language and altrep parameters
+        let mut language = None;
+        let mut altrep = None;
+
+        for param in prop.parameters {
+            match param.kind() {
+                TypedParameterKind::Language => {
+                    if let TypedParameter::Language { value, .. } = param {
+                        language = Some(value);
+                    }
+                }
+                TypedParameterKind::AlternateText => {
+                    if let TypedParameter::AlternateText { value, .. } = param {
+                        altrep = Some(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Self {
+            content,
+            language,
+            altrep,
         })
     }
 }
 
-/// Text with language and encoding information
-#[derive(Debug, Clone)]
-pub struct Text {
-    /// The actual text content
-    pub content: String,
+/// Parse multi-valued text properties (CATEGORIES, RESOURCES)
+///
+/// This helper function parses properties that can have multiple text values
+/// (like CATEGORIES or RESOURCES) and returns them as a Vec<Text>.
+///
+/// Note: Per RFC 5545, ALTREP is not applicable to CATEGORIES, so only the
+/// language parameter is extracted.
+pub fn parse_multi_text_property(prop: TypedProperty<'_>) -> Vec<Text<'_>> {
+    // Get language parameter (shared by all values)
+    let language = prop
+        .parameters
+        .iter()
+        .find(|p| p.kind() == TypedParameterKind::Language)
+        .and_then(|p| match p {
+            TypedParameter::Language { value, .. } => Some(value.clone()),
+            _ => None,
+        });
 
-    /// Language code (optional)
-    pub language: Option<String>,
+    prop.values
+        .into_iter()
+        .filter_map(|v| match v {
+            Value::Text(content) => Some(Text {
+                content,
+                language: language.clone(),
+                altrep: None, // ALTREP not applicable to multi-valued text properties
+            }),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Classification of calendar data
@@ -147,16 +194,6 @@ impl FromStr for Classification {
     }
 }
 
-impl Display for Classification {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Public => KW_CLASS_PUBLIC.fmt(f),
-            Self::Private => KW_CLASS_PRIVATE.fmt(f),
-            Self::Confidential => KW_CLASS_CONFIDENTIAL.fmt(f),
-        }
-    }
-}
-
 impl AsRef<str> for Classification {
     fn as_ref(&self) -> &str {
         match self {
@@ -164,6 +201,12 @@ impl AsRef<str> for Classification {
             Self::Private => KW_CLASS_PRIVATE,
             Self::Confidential => KW_CLASS_CONFIDENTIAL,
         }
+    }
+}
+
+impl Display for Classification {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.as_ref().fmt(f)
     }
 }
 
@@ -194,72 +237,61 @@ impl TryFrom<TypedProperty<'_>> for Classification {
 
 /// Organizer information
 #[derive(Debug, Clone)]
-pub struct Organizer {
+pub struct Organizer<'src> {
     /// Calendar user address (mailto: or other URI)
-    pub cal_address: Uri,
+    pub cal_address: ValueText<'src>, // TODO: parse mailto:
 
     /// Common name (optional)
-    pub cn: Option<String>,
+    pub cn: Option<SpannedSegments<'src>>,
 
     /// Directory entry reference (optional)
-    pub dir: Option<Uri>,
+    pub dir: Option<SpannedSegments<'src>>,
 
     /// Sent by (optional)
-    pub sent_by: Option<Uri>,
+    pub sent_by: Option<SpannedSegments<'src>>,
 
     /// Language (optional)
-    pub language: Option<String>,
+    pub language: Option<SpannedSegments<'src>>,
 }
 
-impl TryFrom<TypedProperty<'_>> for Organizer {
+impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
     type Error = SemanticError;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: PropertyKind::Organizer,
-        })?;
-
-        let cal_address = Uri::try_from(value).map_err(|_| SemanticError::InvalidValue {
-            property: PropertyKind::Organizer,
-            value: "Expected calendar user address".to_string(),
-        })?;
-
+    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
         // Collect all optional parameters in a single pass
         let mut cn = None;
         let mut dir = None;
         let mut sent_by = None;
         let mut language = None;
 
-        for param in &prop.parameters {
+        for param in prop.parameters {
             match param.kind() {
                 TypedParameterKind::CommonName => {
                     if let TypedParameter::CommonName { value, .. } = param {
-                        cn = Some(value.resolve().to_string());
+                        cn = Some(value);
                     }
                 }
                 TypedParameterKind::Directory => {
                     if let TypedParameter::Directory { value, .. } = param {
-                        dir = Some(Uri {
-                            uri: value.resolve().to_string(),
-                        });
+                        dir = Some(value);
                     }
                 }
                 TypedParameterKind::SendBy => {
                     if let TypedParameter::SendBy { value, .. } = param {
-                        sent_by = Some(Uri {
-                            uri: value.resolve().to_string(),
-                        });
+                        sent_by = Some(value);
                     }
                 }
                 TypedParameterKind::Language => {
                     if let TypedParameter::Language { value, .. } = param {
-                        language = Some(value.resolve().to_string());
+                        language = Some(value);
                     }
                 }
                 // Ignore unknown parameters
                 _ => {}
             }
         }
+
+        let cal_address = take_single_value_text(prop.kind, prop.values)?;
 
         Ok(Organizer {
             cal_address,
@@ -273,12 +305,12 @@ impl TryFrom<TypedProperty<'_>> for Organizer {
 
 /// Attachment information
 #[derive(Debug, Clone)]
-pub struct Attachment {
+pub struct Attachment<'src> {
     /// URI or binary data
-    pub value: AttachmentValue,
+    pub value: AttachmentValue<'src>,
 
     /// Format type (optional)
-    pub fmt_type: Option<String>,
+    pub fmt_type: Option<SpannedSegments<'src>>,
 
     /// Encoding (optional)
     pub encoding: Option<Encoding>,
@@ -286,22 +318,18 @@ pub struct Attachment {
 
 /// Attachment value (URI or binary)
 #[derive(Debug, Clone)]
-pub enum AttachmentValue {
+pub enum AttachmentValue<'src> {
     /// URI reference
-    Uri(Uri),
+    Uri(ValueText<'src>),
 
     /// Binary data
-    Binary(Vec<u8>),
+    Binary(SpannedSegments<'src>),
 }
 
-impl TryFrom<TypedProperty<'_>> for Attachment {
+impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
     type Error = SemanticError;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: PropertyKind::Attach,
-        })?;
-
+    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
         // Collect all optional parameters in a single pass
         let mut fmt_type = None;
         let mut encoding = None;
@@ -310,7 +338,7 @@ impl TryFrom<TypedProperty<'_>> for Attachment {
             match param.kind() {
                 TypedParameterKind::FormatType => {
                     if let TypedParameter::FormatType { value, .. } = param {
-                        fmt_type = Some(value.resolve().to_string());
+                        fmt_type = Some(value.clone());
                     }
                 }
                 TypedParameterKind::Encoding => {
@@ -323,23 +351,18 @@ impl TryFrom<TypedProperty<'_>> for Attachment {
             }
         }
 
+        let value = take_single_value(prop.kind, prop.values)?;
         match value {
             Value::Text(uri) => Ok(Attachment {
-                value: AttachmentValue::Uri(Uri {
-                    uri: uri.resolve().to_string(),
-                }),
+                value: AttachmentValue::Uri(uri),
                 fmt_type,
                 encoding,
             }),
-            Value::Binary(data) => {
-                // Convert SpannedSegments to String, then to Vec<u8>
-                let data_str = data.resolve().to_string();
-                Ok(Attachment {
-                    value: AttachmentValue::Binary(data_str.into_bytes()),
-                    fmt_type,
-                    encoding,
-                })
-            }
+            Value::Binary(data) => Ok(Attachment {
+                value: AttachmentValue::Binary(data),
+                fmt_type,
+                encoding,
+            }),
             _ => Err(SemanticError::InvalidValue {
                 property: PropertyKind::Attach,
                 value: "Expected URI or binary value".to_string(),
@@ -350,9 +373,9 @@ impl TryFrom<TypedProperty<'_>> for Attachment {
 
 /// Trigger for alarms
 #[derive(Debug, Clone)]
-pub struct Trigger {
+pub struct Trigger<'src> {
     /// When to trigger (relative or absolute)
-    pub value: TriggerValue,
+    pub value: TriggerValue<'src>,
 
     /// Related parameter for relative triggers
     pub related: Option<AlarmTriggerRelationship>,
@@ -360,15 +383,15 @@ pub struct Trigger {
 
 /// Trigger value (relative duration or absolute date/time)
 #[derive(Debug, Clone)]
-pub enum TriggerValue {
+pub enum TriggerValue<'src> {
     /// Relative duration before/after the event
     Duration(ValueDuration),
 
     /// Absolute date/time
-    DateTime(DateTime),
+    DateTime(DateTime<'src>),
 }
 
-impl TryFrom<TypedProperty<'_>> for Trigger {
+impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
     type Error = SemanticError;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
@@ -405,5 +428,102 @@ impl TryFrom<TypedProperty<'_>> for Trigger {
                 value: "Expected duration or date-time value".to_string(),
             }),
         }
+    }
+}
+
+/// Get the first value from a property, or return an error
+pub fn take_single_value(
+    kind: PropertyKind,
+    mut values: Vec<Value<'_>>,
+) -> Result<Value<'_>, SemanticError> {
+    let len = values.len();
+    if len > 1 {
+        // TODO: better error reporting
+        return Err(SemanticError::ConstraintViolation {
+            message: format!("Property {kind:?} expected to have a single value, but has {len}",),
+        });
+    }
+
+    match values.pop() {
+        Some(value) => Ok(value),
+        None => Err(SemanticError::MissingValue { property: kind }),
+    }
+}
+
+pub fn take_single_value_text(
+    kind: PropertyKind,
+    values: Vec<Value<'_>>,
+) -> Result<ValueText<'_>, SemanticError> {
+    match take_single_value(kind, values) {
+        Ok(Value::Text(text)) => Ok(text),
+        Ok(_) => Err(SemanticError::ExpectedType {
+            property: PropertyKind::Url,
+            expected: ValueType::Text,
+        }),
+        Err(e) => Err(e),
+    }
+}
+
+/// Get a single floating date-time value from a property
+pub fn take_single_value_floating_date_time(
+    kind: PropertyKind,
+    values: Vec<Value<'_>>,
+) -> Result<DateTime<'_>, SemanticError> {
+    match take_single_value(kind, values) {
+        Ok(Value::DateTime(dt)) => Ok(DateTime::Floating {
+            date: dt.date,
+            time: dt.time,
+        }),
+        Ok(_) => Err(SemanticError::ExpectedType {
+            property: kind,
+            expected: ValueType::DateTime,
+        }),
+        Err(e) => Err(e),
+    }
+}
+
+/// Get a single string value from a property
+pub fn take_single_value_string(
+    kind: PropertyKind,
+    values: Vec<Value<'_>>,
+) -> Result<String, SemanticError> {
+    match take_single_value(kind, values) {
+        Ok(Value::Text(v)) => Ok(v.resolve().to_string()),
+        Ok(_) => Err(SemanticError::ExpectedType {
+            property: kind,
+            expected: ValueType::Text,
+        }),
+        Err(e) => Err(e),
+    }
+}
+
+/// Get a single integer value from a property
+pub fn take_single_value_int<T: TryFrom<i32>>(
+    kind: PropertyKind,
+    values: Vec<Value<'_>>,
+) -> Result<T, SemanticError> {
+    match take_single_value(kind, values) {
+        Ok(value) => match value {
+            Value::Integer(i) => T::try_from(i).map_err(|_| SemanticError::ExpectedType {
+                property: kind,
+                expected: ValueType::Integer,
+            }),
+            _ => Err(SemanticError::ExpectedType {
+                property: kind,
+                expected: ValueType::Integer,
+            }),
+        },
+        Err(e) => Err(e),
+    }
+}
+
+/// Convert a date-time value to semantic `DateTime` (floating)
+pub fn value_to_floating_date_time<'src>(value: &Value<'src>) -> Option<DateTime<'src>> {
+    match value {
+        Value::DateTime(dt) => Some(DateTime::Floating {
+            date: dt.date,
+            time: dt.time,
+        }),
+        _ => None,
     }
 }

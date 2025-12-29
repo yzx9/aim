@@ -13,7 +13,6 @@ mod property_attendee;
 mod property_common;
 mod property_datetime;
 mod property_period;
-mod property_util;
 mod valarm;
 mod vevent;
 mod vfreebusy;
@@ -26,11 +25,11 @@ pub use analysis::{SemanticError, semantic_analysis};
 pub use icalendar::{CalendarComponent, CalendarScale, ICalendar, Method, ProductId, Version};
 pub use property_attendee::Attendee;
 pub use property_common::{
-    Attachment, AttachmentValue, Classification, Geo, Organizer, Text, Trigger, TriggerValue, Uri,
+    Attachment, AttachmentValue, Classification, Geo, Organizer, Text, Trigger, TriggerValue,
 };
 pub use property_datetime::DateTime;
 pub use property_period::Period;
-pub use valarm::VAlarm;
+pub use valarm::{Action, VAlarm};
 pub use vevent::{EventStatus, TimeTransparency, VEvent};
 pub use vfreebusy::VFreeBusy;
 pub use vjournal::{JournalStatus, VJournal};

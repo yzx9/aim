@@ -7,14 +7,14 @@
 use std::convert::TryFrom;
 
 use crate::semantic::SemanticError;
-use crate::semantic::property_util::find_parameter;
+use crate::syntax::SpannedSegments;
 use crate::typed::{
     TypedParameter, TypedParameterKind, TypedProperty, Value, ValueDate, ValueTime,
 };
 
 /// Date and time representation
 #[derive(Debug, Clone)]
-pub enum DateTime {
+pub enum DateTime<'src> {
     /// Date and time without timezone (floating time)
     Floating {
         /// Date part
@@ -30,7 +30,7 @@ pub enum DateTime {
         /// Time part
         time: ValueTime,
         /// Timezone identifier
-        tz_id: String,
+        tz_id: SpannedSegments<'src>,
         /// Cached parsed timezone (available with jiff feature)
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
@@ -51,7 +51,7 @@ pub enum DateTime {
     },
 }
 
-impl DateTime {
+impl<'src> DateTime<'src> {
     /// Get the date part of this `DateTime`
     #[must_use]
     pub fn date(&self) -> ValueDate {
@@ -76,7 +76,7 @@ impl DateTime {
 
     /// Get the timezone ID if this is a zoned value
     #[must_use]
-    pub fn tz_id(&self) -> Option<&str> {
+    pub fn tz_id(&self) -> Option<&SpannedSegments<'src>> {
         match self {
             DateTime::Zoned { tz_id, .. } => Some(tz_id),
             _ => None,
@@ -129,25 +129,40 @@ impl DateTime {
     }
 }
 
-impl TryFrom<TypedProperty<'_>> for DateTime {
+impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
     type Error = SemanticError;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
             property: prop.kind,
         })?;
 
         // Get TZID parameter
-        let tz = find_parameter(&prop.parameters, TypedParameterKind::TimeZoneIdentifier);
+        let mut tz_id = None;
+        #[cfg(feature = "jiff")]
+        let mut tz_jiff = None;
+        for param in &prop.parameters {
+            if matches!(param.kind(), TypedParameterKind::TimeZoneIdentifier) {
+                if let TypedParameter::TimeZoneIdentifier {
+                    value,
+                    #[cfg(feature = "jiff")]
+                    tz,
+                    ..
+                } = param
+                {
+                    tz_id = Some(value.clone());
+                    #[cfg(feature = "jiff")]
+                    {
+                        tz_jiff = Some(tz.clone());
+                    }
+                }
+                break;
+            }
+        }
 
         // Try with timezone if available, otherwise fallback to basic conversion
-        match tz {
-            Some(TypedParameter::TimeZoneIdentifier {
-                value: tz_id,
-                #[cfg(feature = "jiff")]
-                tz,
-                ..
-            }) => match value {
+        if let Some(tz_id_value) = tz_id {
+            match value {
                 Value::DateTime(dt) if dt.time.utc => Ok(DateTime::Utc {
                     date: dt.date,
                     time: dt.time,
@@ -156,18 +171,18 @@ impl TryFrom<TypedProperty<'_>> for DateTime {
                 Value::DateTime(dt) => Ok(DateTime::Zoned {
                     date: dt.date,
                     time: dt.time,
-                    tz_id: tz_id.to_string(),
+                    tz_id: tz_id_value,
                     #[cfg(feature = "jiff")]
-                    tz_jiff: tz.clone(),
+                    tz_jiff: tz_jiff.unwrap(), // SAFETY: set above
                 }),
 
                 _ => Err(SemanticError::InvalidValue {
                     property: prop.kind,
                     value: "Expected date-time value".to_string(),
                 }),
-            },
-
-            _ => match value {
+            }
+        } else {
+            match value {
                 Value::Date(date) => Ok(DateTime::Date { date: *date }),
                 Value::DateTime(dt) if dt.time.utc => Ok(DateTime::Utc {
                     date: dt.date,
@@ -181,7 +196,7 @@ impl TryFrom<TypedProperty<'_>> for DateTime {
                     property: crate::typed::PropertyKind::DtStart, // Default fallback
                     value: format!("Expected date or date-time value, got {value:?}"),
                 }),
-            },
+            }
         }
     }
 }

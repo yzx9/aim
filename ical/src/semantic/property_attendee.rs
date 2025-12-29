@@ -6,20 +6,22 @@
 
 use std::convert::TryFrom;
 
-use crate::semantic::{SemanticError, Uri};
+use crate::semantic::SemanticError;
+use crate::semantic::property_common::take_single_value;
+use crate::syntax::SpannedSegments;
 use crate::typed::{
     CalendarUserType, ParticipationRole, ParticipationStatus, PropertyKind, TypedParameter,
-    TypedParameterKind, TypedProperty,
+    TypedParameterKind, TypedProperty, Value, ValueText,
 };
 
 /// Attendee information
 #[derive(Debug, Clone)]
-pub struct Attendee {
+pub struct Attendee<'src> {
     /// Calendar user address (mailto: or other URI)
-    pub cal_address: Uri,
+    pub cal_address: ValueText<'src>,
 
     /// Common name (optional)
-    pub cn: Option<String>,
+    pub cn: Option<SpannedSegments<'src>>,
 
     /// Participation role
     pub role: ParticipationRole,
@@ -34,38 +36,29 @@ pub struct Attendee {
     pub cutype: CalendarUserType,
 
     /// Member of a group (optional)
-    pub member: Option<Uri>,
+    pub member: Option<SpannedSegments<'src>>,
 
     /// Delegated to (optional)
-    pub delegated_to: Option<Uri>,
+    pub delegated_to: Option<SpannedSegments<'src>>,
 
     /// Delegated from (optional)
-    pub delegated_from: Option<Uri>,
+    pub delegated_from: Option<SpannedSegments<'src>>,
 
     /// Directory entry reference (optional)
-    pub dir: Option<Uri>,
+    pub dir: Option<SpannedSegments<'src>>,
 
     /// Sent by (optional)
-    pub sent_by: Option<Uri>,
+    pub sent_by: Option<SpannedSegments<'src>>,
 
     /// Language (optional)
-    pub language: Option<String>,
+    pub language: Option<SpannedSegments<'src>>,
 }
 
-impl TryFrom<TypedProperty<'_>> for Attendee {
+impl<'src> TryFrom<TypedProperty<'src>> for Attendee<'src> {
     type Error = SemanticError;
 
     #[allow(clippy::too_many_lines)]
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: PropertyKind::Attendee,
-        })?;
-
-        let cal_address = Uri::try_from(value).map_err(|_| SemanticError::InvalidValue {
-            property: PropertyKind::Attendee,
-            value: "Expected calendar user address".to_string(),
-        })?;
-
+    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
         // Collect all optional parameters in a single pass
         let mut cn = None;
         let mut role = None;
@@ -79,77 +72,67 @@ impl TryFrom<TypedProperty<'_>> for Attendee {
         let mut sent_by = None;
         let mut language = None;
 
-        for param in &prop.parameters {
+        for param in prop.parameters {
             match param.kind() {
                 TypedParameterKind::CommonName => {
                     if let TypedParameter::CommonName { value, .. } = param {
-                        cn = Some(value.resolve().to_string());
+                        cn = Some(value);
                     }
                 }
                 TypedParameterKind::ParticipationRole => {
                     if let TypedParameter::ParticipationRole { value, .. } = param {
-                        role = Some(*value);
+                        role = Some(value);
                     }
                 }
                 TypedParameterKind::ParticipationStatus => {
                     if let TypedParameter::ParticipationStatus { value, .. } = param {
-                        part_stat = Some(*value);
+                        part_stat = Some(value);
                     }
                 }
                 TypedParameterKind::RsvpExpectation => {
                     if let TypedParameter::RsvpExpectation { value, .. } = param {
-                        rsvp = Some(*value);
+                        rsvp = Some(value);
                     }
                 }
                 TypedParameterKind::CalendarUserType => {
                     if let TypedParameter::CalendarUserType { value, .. } = param {
-                        cutype = Some(*value);
+                        cutype = Some(value);
                     }
                 }
                 TypedParameterKind::GroupOrListMembership => {
                     if let TypedParameter::GroupOrListMembership { values, .. } = param
                         && let Some(v) = values.first()
                     {
-                        member = Some(Uri {
-                            uri: v.resolve().to_string(),
-                        });
+                        member = Some(v.clone()); // PERF: avoid allocation
                     }
                 }
                 TypedParameterKind::Delegatees => {
                     if let TypedParameter::Delegatees { values, .. } = param
                         && let Some(v) = values.first()
                     {
-                        delegated_to = Some(Uri {
-                            uri: v.resolve().to_string(),
-                        });
+                        delegated_to = Some(v.clone()); // PERF: avoid allocation
                     }
                 }
                 TypedParameterKind::Delegators => {
                     if let TypedParameter::Delegators { values, .. } = param
                         && let Some(v) = values.first()
                     {
-                        delegated_from = Some(Uri {
-                            uri: v.resolve().to_string(),
-                        });
+                        delegated_from = Some(v.clone()); // PERF: avoid allocation
                     }
                 }
                 TypedParameterKind::Directory => {
                     if let TypedParameter::Directory { value, .. } = param {
-                        dir = Some(Uri {
-                            uri: value.resolve().to_string(),
-                        });
+                        dir = Some(value);
                     }
                 }
                 TypedParameterKind::SendBy => {
                     if let TypedParameter::SendBy { value, .. } = param {
-                        sent_by = Some(Uri {
-                            uri: value.resolve().to_string(),
-                        });
+                        sent_by = Some(value);
                     }
                 }
                 TypedParameterKind::Language => {
                     if let TypedParameter::Language { value, .. } = param {
-                        language = Some(value.resolve().to_string());
+                        language = Some(value);
                     }
                 }
                 // Ignore unknown parameters
@@ -161,6 +144,13 @@ impl TryFrom<TypedProperty<'_>> for Attendee {
         let role = role.unwrap_or(ParticipationRole::ReqParticipant);
         let part_stat = part_stat.unwrap_or(ParticipationStatus::NeedsAction);
         let cutype = cutype.unwrap_or(CalendarUserType::Individual);
+
+        let Ok(Value::Text(cal_address)) = take_single_value(prop.kind, prop.values) else {
+            return Err(SemanticError::InvalidValue {
+                property: PropertyKind::Attendee,
+                value: "Expected calendar user address".to_string(),
+            });
+        };
 
         Ok(Attendee {
             cal_address,

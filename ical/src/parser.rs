@@ -97,7 +97,7 @@ use crate::typed::{TypedAnalysisError, typed_analysis};
 ///   report.eprint(Source::from(invalid_ical_src));
 /// }
 /// ```
-pub fn parse(src: &'_ str) -> Result<Vec<ICalendar>, Vec<ParseError<'_>>> {
+pub fn parse(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<ParseError<'_>>> {
     let token_stream = lex_analysis(src);
 
     let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream)

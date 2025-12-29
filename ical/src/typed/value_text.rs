@@ -14,7 +14,7 @@ use chumsky::prelude::*;
 use crate::syntax::SpannedSegments;
 
 /// Text value type defined in RFC 5545 Section 3.3.11.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct ValueText<'src> {
     tokens: Vec<ValueTextToken<'src>>,
 }
@@ -47,6 +47,25 @@ impl ValueText<'_> {
             }
         }
         Cow::Owned(s)
+    }
+}
+
+// PERF: implement PartialEq manually to avoid extra allocations
+impl PartialEq for ValueText<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.resolve() == other.resolve()
+    }
+}
+
+impl PartialEq<&str> for ValueText<'_> {
+    fn eq(&self, other: &&str) -> bool {
+        &self.resolve()[..] == *other
+    }
+}
+
+impl<'src> PartialEq<ValueText<'src>> for &str {
+    fn eq(&self, other: &ValueText<'src>) -> bool {
+        *self == &other.resolve()[..]
     }
 }
 

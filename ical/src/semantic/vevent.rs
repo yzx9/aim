@@ -13,58 +13,59 @@ use crate::keyword::{
     KW_EVENT_STATUS_CANCELLED, KW_EVENT_STATUS_CONFIRMED, KW_EVENT_STATUS_TENTATIVE,
     KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT, KW_VALARM, KW_VEVENT,
 };
-use crate::semantic::property_util::{
-    get_language, get_single_value, get_tzid, parse_multi_text_property,
-    value_to_floating_date_time, value_to_int, value_to_string,
+use crate::semantic::property_common::{
+    parse_multi_text_property, take_single_value, take_single_value_floating_date_time,
+    take_single_value_int, take_single_value_string, take_single_value_text,
+    value_to_floating_date_time,
 };
 use crate::semantic::{
-    Attendee, Classification, DateTime, Geo, Organizer, Period, SemanticError, Text, Uri, VAlarm,
+    Attendee, Classification, DateTime, Geo, Organizer, Period, SemanticError, Text, VAlarm,
 };
 use crate::typed::{
-    PropertyKind, TypedComponent, TypedProperty, Value, ValueDate, ValueDuration, ValueType,
+    PropertyKind, TypedComponent, Value, ValueDate, ValueDuration, ValueText, ValueType,
 };
 
 /// Event component (VEVENT)
 #[derive(Debug, Clone)]
-pub struct VEvent {
+pub struct VEvent<'src> {
     /// Unique identifier for the event
-    pub uid: String,
+    pub uid: ValueText<'src>,
 
     /// Date/time the event was created
-    pub dt_stamp: DateTime,
+    pub dt_stamp: DateTime<'src>,
 
     /// Date/time the event starts
-    pub dt_start: DateTime,
+    pub dt_start: DateTime<'src>,
 
     /// Date/time the event ends
-    pub dt_end: Option<DateTime>,
+    pub dt_end: Option<DateTime<'src>>,
 
     /// Duration of the event (alternative to `dt_end`)
     pub duration: Option<ValueDuration>,
 
     /// Summary/title of the event
-    pub summary: Option<Text>,
+    pub summary: Option<Text<'src>>,
 
     /// Description of the event
-    pub description: Option<Text>,
+    pub description: Option<Text<'src>>,
 
     /// Location of the event
-    pub location: Option<Text>,
+    pub location: Option<Text<'src>>,
 
     /// Geographic position
     pub geo: Option<Geo>,
 
     /// URL associated with the event
-    pub url: Option<Uri>,
+    pub url: Option<ValueText<'src>>,
 
     /// Organizer of the event
-    pub organizer: Option<Organizer>,
+    pub organizer: Option<Organizer<'src>>,
 
     /// Attendees of the event
-    pub attendees: Vec<Attendee>,
+    pub attendees: Vec<Attendee<'src>>,
 
     /// Last modification date/time
-    pub last_modified: Option<DateTime>,
+    pub last_modified: Option<DateTime<'src>>,
 
     /// Status of the event
     pub status: Option<EventStatus>,
@@ -82,35 +83,32 @@ pub struct VEvent {
     pub classification: Option<Classification>,
 
     /// Resources
-    pub resources: Vec<Text>,
+    pub resources: Vec<Text<'src>>,
 
     /// Categories
-    pub categories: Vec<Text>,
+    pub categories: Vec<Text<'src>>,
 
     /// Recurrence rule
     pub rrule: Option<RecurrenceRule>,
 
     /// Recurrence dates
-    pub rdate: Vec<Period>,
+    pub rdate: Vec<Period<'src>>,
 
     /// Exception dates
-    pub ex_date: Vec<DateTime>,
-
-    /// Timezone identifier
-    pub tz_id: Option<String>,
+    pub ex_date: Vec<DateTime<'src>>,
 
     // /// Custom properties
     // pub custom_properties: HashMap<String, Vec<String>>,
     /// Sub-components (like alarms)
-    pub alarms: Vec<VAlarm>,
+    pub alarms: Vec<VAlarm<'src>>,
 }
 
 /// Parse a `TypedComponent` into a `VEvent`
 #[allow(clippy::too_many_lines)]
-impl TryFrom<TypedComponent<'_>> for VEvent {
+impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
     type Error = Vec<SemanticError>;
 
-    fn try_from(comp: TypedComponent<'_>) -> Result<Self, Self::Error> {
+    fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VEVENT {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VEVENT,
@@ -119,13 +117,6 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
         }
 
         let mut errors = Vec::new();
-
-        // Get tz_id from dt_start property before consuming properties
-        let tz_id = comp
-            .properties
-            .iter()
-            .find(|p| p.kind == PropertyKind::DtStart)
-            .and_then(|p| get_tzid(&p.parameters));
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
@@ -138,16 +129,11 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    props.uid = get_single_value(&prop)
-                        .ok()
-                        .and_then(value_to_string)
-                        .or_else(|| {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::Uid,
-                                expected: ValueType::Text,
-                            });
-                            Some(String::default())
-                        });
+                    let uid = take_single_value_text(prop.kind, prop.values).unwrap_or_else(|e| {
+                        errors.push(e);
+                        ValueText::default()
+                    });
+                    props.uid = Some(uid);
                 }
                 PropertyKind::DtStamp => {
                     if props.dt_stamp.is_some() {
@@ -156,16 +142,10 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop)
-                        .ok()
-                        .and_then(value_to_floating_date_time)
-                    {
-                        Some(v) => props.dt_stamp = Some(v),
-                        None => {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::DtStamp,
-                                expected: ValueType::DateTime,
-                            });
+                    match take_single_value_floating_date_time(prop.kind, prop.values) {
+                        Ok(v) => props.dt_stamp = Some(v),
+                        Err(e) => {
+                            errors.push(e);
                             props.dt_stamp = Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
@@ -225,8 +205,8 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(Value::Duration(v)) => props.duration = Some(*v),
+                    match take_single_value(prop.kind, prop.values) {
+                        Ok(Value::Duration(v)) => props.duration = Some(v),
                         _ => {
                             errors.push(SemanticError::ExpectedType {
                                 property: PropertyKind::Duration,
@@ -249,21 +229,8 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_string(value) {
-                            Some(v) => {
-                                props.summary = Some(Text {
-                                    content: v,
-                                    language: get_language(&prop.parameters),
-                                });
-                            }
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Summary,
-                                    expected: ValueType::Text,
-                                });
-                            }
-                        },
+                    match Text::try_from(prop) {
+                        Ok(text) => props.summary = Some(text),
                         Err(e) => errors.push(e),
                     }
                 }
@@ -274,21 +241,8 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_string(value) {
-                            Some(v) => {
-                                props.description = Some(Text {
-                                    content: v,
-                                    language: get_language(&prop.parameters),
-                                });
-                            }
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Description,
-                                    expected: ValueType::Text,
-                                });
-                            }
-                        },
+                    match Text::try_from(prop) {
+                        Ok(text) => props.description = Some(text),
                         Err(e) => errors.push(e),
                     }
                 }
@@ -299,21 +253,8 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_string(value) {
-                            Some(v) => {
-                                props.location = Some(Text {
-                                    content: v,
-                                    language: get_language(&prop.parameters),
-                                });
-                            }
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Location,
-                                    expected: ValueType::Text,
-                                });
-                            }
-                        },
+                    match Text::try_from(prop) {
+                        Ok(text) => props.location = Some(text),
                         Err(e) => errors.push(e),
                     }
                 }
@@ -339,7 +280,7 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match Uri::try_from(prop) {
+                    match take_single_value_text(prop.kind, prop.values) {
                         Ok(v) => props.url = Some(v),
                         Err(e) => errors.push(e),
                     }
@@ -356,9 +297,10 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         Err(e) => errors.push(e),
                     }
                 }
-                PropertyKind::Attendee => {
-                    props.attendees.push(prop);
-                }
+                PropertyKind::Attendee => match Attendee::try_from(prop) {
+                    Ok(v) => props.attendees.push(v),
+                    Err(e) => errors.push(e),
+                },
                 PropertyKind::LastModified => {
                     if props.last_modified.is_some() {
                         errors.push(SemanticError::DuplicateProperty {
@@ -366,16 +308,10 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop)
-                        .ok()
-                        .and_then(value_to_floating_date_time)
-                    {
-                        Some(v) => props.last_modified = Some(v),
-                        None => {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::LastModified,
-                                expected: ValueType::DateTime,
-                            });
+                    match take_single_value_floating_date_time(prop.kind, prop.values) {
+                        Ok(v) => props.last_modified = Some(v),
+                        Err(e) => {
+                            errors.push(e);
                             props.last_modified = Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
@@ -393,21 +329,13 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_string(value) {
-                            Some(text) => match text.parse() {
-                                Ok(v) => props.status = Some(v),
-                                Err(e) => errors.push(SemanticError::InvalidValue {
-                                    property: PropertyKind::Status,
-                                    value: e,
-                                }),
-                            },
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Status,
-                                    expected: ValueType::Text,
-                                });
-                            }
+                    match take_single_value_string(prop.kind, prop.values) {
+                        Ok(text) => match text.parse() {
+                            Ok(v) => props.status = Some(v),
+                            Err(e) => errors.push(SemanticError::InvalidValue {
+                                property: PropertyKind::Status,
+                                value: e,
+                            }),
                         },
                         Err(e) => errors.push(e),
                     }
@@ -419,21 +347,13 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_string(value) {
-                            Some(text) => match text.parse() {
-                                Ok(v) => props.transparency = Some(v),
-                                Err(e) => errors.push(SemanticError::InvalidValue {
-                                    property: PropertyKind::Transp,
-                                    value: e,
-                                }),
-                            },
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Transp,
-                                    expected: ValueType::Text,
-                                });
-                            }
+                    match take_single_value_string(prop.kind, prop.values) {
+                        Ok(text) => match text.parse() {
+                            Ok(v) => props.transparency = Some(v),
+                            Err(e) => errors.push(SemanticError::InvalidValue {
+                                property: PropertyKind::Transp,
+                                value: e,
+                            }),
                         },
                         Err(e) => errors.push(e),
                     }
@@ -445,16 +365,8 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_int::<u32>(value) {
-                            Some(v) => props.sequence = Some(v),
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Sequence,
-                                    expected: ValueType::Integer,
-                                });
-                            }
-                        },
+                    match take_single_value_int(prop.kind, prop.values) {
+                        Ok(v) => props.sequence = Some(v),
                         Err(e) => errors.push(e),
                     }
                 }
@@ -465,16 +377,8 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         });
                         continue;
                     }
-                    match get_single_value(&prop) {
-                        Ok(value) => match value_to_int::<u8>(value) {
-                            Some(v) => props.priority = Some(v),
-                            None => {
-                                errors.push(SemanticError::ExpectedType {
-                                    property: PropertyKind::Priority,
-                                    expected: ValueType::Integer,
-                                });
-                            }
-                        },
+                    match take_single_value_int(prop.kind, prop.values) {
+                        Ok(v) => props.priority = Some(v),
                         Err(e) => errors.push(e),
                     }
                 }
@@ -516,7 +420,7 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                         continue;
                     }
                     // TODO: Parse RRULE from text format
-                    match get_single_value(&prop) {
+                    match take_single_value(prop.kind, prop.values) {
                         Ok(Value::Text(_)) => {}
                         Ok(_) => {
                             errors.push(SemanticError::ExpectedType {
@@ -528,7 +432,16 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                     }
                 }
                 PropertyKind::ExDate => {
-                    props.ex_dates.push(prop);
+                    for value in prop.values {
+                        if let Some(dt) = value_to_floating_date_time(&value) {
+                            props.ex_dates.push(dt);
+                        } else {
+                            errors.push(SemanticError::ExpectedType {
+                                property: PropertyKind::ExDate,
+                                expected: ValueType::DateTime,
+                            });
+                        }
+                    }
                 }
                 // Ignore unknown properties
                 _ => {}
@@ -551,30 +464,6 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
                 property: PropertyKind::DtStart,
             });
         }
-
-        // Parse multi-value properties
-        let attendees = props
-            .attendees
-            .into_iter()
-            .filter_map(|prop| match Attendee::try_from(prop) {
-                Ok(v) => Some(v),
-                Err(e) => {
-                    errors.push(e);
-                    None
-                }
-            })
-            .collect();
-
-        let ex_date = props
-            .ex_dates
-            .into_iter()
-            .flat_map(|p| {
-                p.values
-                    .iter()
-                    .filter_map(value_to_floating_date_time)
-                    .collect::<Vec<_>>()
-            })
-            .collect();
 
         // Parse sub-components (alarms)
         let alarms = comp
@@ -613,7 +502,7 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
             geo: props.geo,
             url: props.url,
             organizer: props.organizer,
-            attendees,
+            attendees: props.attendees,
             last_modified: props.last_modified,
             status: props.status,
             transparency: props.transparency,
@@ -624,8 +513,7 @@ impl TryFrom<TypedComponent<'_>> for VEvent {
             categories: props.categories.unwrap_or_default(),
             rrule: props.rrule,
             rdate: vec![], // TODO: implement RDATE parsing
-            ex_date,
-            tz_id,
+            ex_date: props.ex_dates,
             alarms,
         })
     }
@@ -725,27 +613,27 @@ impl AsRef<str> for TimeTransparency {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'a> {
-    uid:            Option<String>,
-    dt_stamp:       Option<DateTime>,
-    dt_start:       Option<DateTime>,
-    dt_end:         Option<DateTime>,
+struct PropertyCollector<'src> {
+    uid:            Option<ValueText<'src>>,
+    dt_stamp:       Option<DateTime<'src>>,
+    dt_start:       Option<DateTime<'src>>,
+    dt_end:         Option<DateTime<'src>>,
     duration:       Option<ValueDuration>,
-    summary:        Option<Text>,
-    description:    Option<Text>,
-    location:       Option<Text>,
+    summary:        Option<Text<'src>>,
+    description:    Option<Text<'src>>,
+    location:       Option<Text<'src>>,
     geo:            Option<Geo>,
-    url:            Option<Uri>,
-    organizer:      Option<Organizer>,
-    attendees:      Vec<TypedProperty<'a>>,
-    last_modified:  Option<DateTime>,
+    url:            Option<ValueText<'src>>,
+    organizer:      Option<Organizer<'src>>,
+    attendees:      Vec<Attendee<'src>>,
+    last_modified:  Option<DateTime<'src>>,
     status:         Option<EventStatus>,
     transparency:   Option<TimeTransparency>,
     sequence:       Option<u32>,
     priority:       Option<u8>,
     classification: Option<Classification>,
-    resources:      Option<Vec<Text>>,
-    categories:     Option<Vec<Text>>,
+    resources:      Option<Vec<Text<'src>>>,
+    categories:     Option<Vec<Text<'src>>>,
     rrule:          Option<RecurrenceRule>,
-    ex_dates:       Vec<TypedProperty<'a>>,
+    ex_dates:       Vec<DateTime<'src>>,
 }
