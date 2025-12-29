@@ -41,13 +41,14 @@ pub fn value_to_int<T: TryFrom<i32>>(value: &Value<'_>) -> Option<T> {
 ///
 /// This helper function parses properties that can have multiple text values
 /// (like CATEGORIES or RESOURCES) and returns them as a Vec<Text>.
-pub fn parse_multi_text_property(prop: &TypedProperty<'_>) -> Vec<Text> {
+pub fn parse_multi_text_property(prop: TypedProperty<'_>) -> Vec<Text> {
+    let language = get_language(&prop.parameters);
     prop.values
-        .iter()
+        .into_iter()
         .filter_map(|v| {
-            value_to_string(v).map(|s| Text {
+            value_to_string(&v).map(|s| Text {
                 content: s,
-                language: get_language(&prop.parameters),
+                language: language.clone(),
             })
         })
         .collect()

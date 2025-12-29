@@ -52,11 +52,11 @@ pub struct Attendee {
     pub language: Option<String>,
 }
 
-impl TryFrom<&TypedProperty<'_>> for Attendee {
+impl TryFrom<TypedProperty<'_>> for Attendee {
     type Error = SemanticError;
 
     #[allow(clippy::too_many_lines)]
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
             property: PropertyKind::Attendee,
         })?;

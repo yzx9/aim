@@ -43,10 +43,10 @@ pub struct ICalendar {
 /// - Required properties (PRODID, VERSION) are missing
 /// - Property values are invalid or malformed
 /// - Child components cannot be parsed
-impl TryFrom<&TypedComponent<'_>> for ICalendar {
+impl TryFrom<TypedComponent<'_>> for ICalendar {
     type Error = Vec<SemanticError>;
 
-    fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
+    fn try_from(comp: TypedComponent<'_>) -> Result<Self, Self::Error> {
         if comp.name != KW_VCALENDAR {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VCALENDAR,
@@ -58,7 +58,7 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
-        for prop in &comp.properties {
+        for prop in comp.properties {
             match prop.kind {
                 PropertyKind::ProdId => {
                     if props.prod_id.is_some() {
@@ -137,7 +137,7 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
         }
 
         // Parse child components
-        let components = match parse_component_children(&comp.children) {
+        let components = match parse_component_children(comp.children) {
             Ok(v) => v,
             Err(e) => {
                 errors.extend(e);
@@ -167,7 +167,7 @@ impl TryFrom<&TypedComponent<'_>> for ICalendar {
 /// Returns a vector of errors if no components could be parsed successfully.
 /// Individual component parsing errors are collected and included in the result.
 fn parse_component_children(
-    children: &[TypedComponent<'_>],
+    children: Vec<TypedComponent<'_>>,
 ) -> Result<Vec<CalendarComponent>, Vec<SemanticError>> {
     let mut components = Vec::with_capacity(children.len());
     let mut errors = Vec::new();
@@ -262,10 +262,10 @@ pub struct ProductId {
     pub language: Option<String>,
 }
 
-impl TryFrom<&TypedProperty<'_>> for ProductId {
+impl TryFrom<TypedProperty<'_>> for ProductId {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let text = prop
             .values
             .first()
@@ -305,10 +305,10 @@ pub enum VersionType {
     V2_0,
 }
 
-impl TryFrom<&TypedProperty<'_>> for VersionType {
+impl TryFrom<TypedProperty<'_>> for VersionType {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let text = prop
             .values
             .first()
@@ -338,10 +338,10 @@ pub enum CalendarScaleType {
     Gregorian,
 }
 
-impl TryFrom<&TypedProperty<'_>> for CalendarScaleType {
+impl TryFrom<TypedProperty<'_>> for CalendarScaleType {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let text = prop
             .values
             .first()
@@ -394,10 +394,10 @@ pub enum MethodType {
     // Custom(String),
 }
 
-impl TryFrom<&TypedProperty<'_>> for MethodType {
+impl TryFrom<TypedProperty<'_>> for MethodType {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let text = prop
             .values
             .first()

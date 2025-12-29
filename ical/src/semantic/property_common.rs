@@ -27,10 +27,10 @@ pub struct Geo {
     pub lon: f64,
 }
 
-impl TryFrom<&TypedProperty<'_>> for Geo {
+impl TryFrom<TypedProperty<'_>> for Geo {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
             property: PropertyKind::Geo,
         })?;
@@ -93,10 +93,10 @@ impl TryFrom<&Value<'_>> for Uri {
     }
 }
 
-impl TryFrom<&TypedProperty<'_>> for Uri {
+impl TryFrom<TypedProperty<'_>> for Uri {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
             property: PropertyKind::Url,
         })?;
@@ -166,10 +166,10 @@ impl AsRef<str> for Classification {
     }
 }
 
-impl TryFrom<&TypedProperty<'_>> for Classification {
+impl TryFrom<TypedProperty<'_>> for Classification {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
             property: PropertyKind::Class,
         })?;
@@ -210,10 +210,10 @@ pub struct Organizer {
     pub language: Option<String>,
 }
 
-impl TryFrom<&TypedProperty<'_>> for Organizer {
+impl TryFrom<TypedProperty<'_>> for Organizer {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
             property: PropertyKind::Organizer,
         })?;
@@ -293,10 +293,10 @@ pub enum AttachmentValue {
     Binary(Vec<u8>),
 }
 
-impl TryFrom<&TypedProperty<'_>> for Attachment {
+impl TryFrom<TypedProperty<'_>> for Attachment {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
             property: PropertyKind::Attach,
         })?;
@@ -367,10 +367,10 @@ pub enum TriggerValue {
     DateTime(DateTime),
 }
 
-impl TryFrom<&TypedProperty<'_>> for Trigger {
+impl TryFrom<TypedProperty<'_>> for Trigger {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         // Collect the RELATED parameter (optional, default is START)
         let mut related = None;
 

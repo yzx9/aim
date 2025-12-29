@@ -129,10 +129,10 @@ impl DateTime {
     }
 }
 
-impl TryFrom<&TypedProperty<'_>> for DateTime {
+impl TryFrom<TypedProperty<'_>> for DateTime {
     type Error = SemanticError;
 
-    fn try_from(prop: &TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let value = prop.values.first().ok_or(SemanticError::MissingValue {
             property: prop.kind,
         })?;

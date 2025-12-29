@@ -33,7 +33,7 @@ pub fn semantic_analysis(
     let mut all_errors = Vec::new();
 
     for component in typed_components {
-        match ICalendar::try_from(&component) {
+        match ICalendar::try_from(component) {
             Ok(calendar) => calendars.push(calendar),
             Err(errors) => all_errors.extend(errors),
         }

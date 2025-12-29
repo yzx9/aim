@@ -47,10 +47,10 @@ pub struct VAlarm {
 
 /// Parse a `TypedComponent` into a `VAlarm`
 #[allow(clippy::too_many_lines)]
-impl TryFrom<&TypedComponent<'_>> for VAlarm {
+impl TryFrom<TypedComponent<'_>> for VAlarm {
     type Error = Vec<SemanticError>;
 
-    fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
+    fn try_from(comp: TypedComponent<'_>) -> Result<Self, Self::Error> {
         if comp.name != KW_VALARM {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VALARM,
@@ -62,9 +62,9 @@ impl TryFrom<&TypedComponent<'_>> for VAlarm {
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
-        for prop in &comp.properties {
+        for prop in comp.properties {
             match prop.kind {
-                PropertyKind::Action if props.action.is_none() => match get_single_value(prop) {
+                PropertyKind::Action if props.action.is_none() => match get_single_value(&prop) {
                     Ok(value) => match value_to_string(value) {
                         Some(text) => match text.to_uppercase().as_str() {
                             KW_ACTION_AUDIO => props.action = Some(AlarmActionType::Audio),
@@ -119,7 +119,7 @@ impl TryFrom<&TypedComponent<'_>> for VAlarm {
                     });
                 }
                 PropertyKind::Duration if props.duration.is_none() => {
-                    match get_single_value(prop) {
+                    match get_single_value(&prop) {
                         Ok(Value::Duration(v)) => props.duration = Some(*v),
                         Ok(_) => {
                             errors.push(SemanticError::ExpectedType {
@@ -151,7 +151,7 @@ impl TryFrom<&TypedComponent<'_>> for VAlarm {
                         property: PropertyKind::Duration,
                     });
                 }
-                PropertyKind::Repeat if props.repeat.is_none() => match get_single_value(prop) {
+                PropertyKind::Repeat if props.repeat.is_none() => match get_single_value(&prop) {
                     Ok(value) => match value_to_int::<u32>(value) {
                         Some(v) => props.repeat = Some(v),
                         None => {
@@ -173,7 +173,7 @@ impl TryFrom<&TypedComponent<'_>> for VAlarm {
                     });
                 }
                 PropertyKind::Description if props.description.is_none() => {
-                    match get_single_value(prop) {
+                    match get_single_value(&prop) {
                         Ok(value) => match value_to_string(value) {
                             Some(v) => {
                                 props.description = Some(Text {
@@ -196,7 +196,7 @@ impl TryFrom<&TypedComponent<'_>> for VAlarm {
                         property: PropertyKind::Description,
                     });
                 }
-                PropertyKind::Summary if props.summary.is_none() => match get_single_value(prop) {
+                PropertyKind::Summary if props.summary.is_none() => match get_single_value(&prop) {
                     Ok(value) => match value_to_string(value) {
                         Some(v) => {
                             props.summary = Some(Text {
@@ -350,6 +350,6 @@ struct PropertyCollector<'a> {
     repeat:     Option<u32>,
     description: Option<Text>,
     summary:    Option<Text>,
-    attendees:  Vec<&'a TypedProperty<'a>>,
+    attendees:  Vec<TypedProperty<'a>>,
     attach:     Option<Attachment>,
 }

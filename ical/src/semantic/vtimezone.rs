@@ -35,10 +35,10 @@ pub struct VTimeZone {
 
 /// Parse a `TypedComponent` into a `VTimeZone`
 #[allow(clippy::too_many_lines)]
-impl TryFrom<&TypedComponent<'_>> for VTimeZone {
+impl TryFrom<TypedComponent<'_>> for VTimeZone {
     type Error = Vec<SemanticError>;
 
-    fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
+    fn try_from(comp: TypedComponent<'_>) -> Result<Self, Self::Error> {
         if comp.name != KW_VTIMEZONE {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VTIMEZONE,
@@ -50,10 +50,10 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
-        for prop in &comp.properties {
+        for prop in comp.properties {
             match prop.kind {
                 PropertyKind::TzId if props.tz_id.is_none() => {
-                    match get_single_value(prop).ok().and_then(value_to_string) {
+                    match get_single_value(&prop).ok().and_then(value_to_string) {
                         Some(v) => props.tz_id = Some(v),
                         None => {
                             errors.push(SemanticError::ExpectedType {
@@ -70,7 +70,7 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
                     });
                 }
                 PropertyKind::LastModified if props.last_modified.is_none() => {
-                    match get_single_value(prop)
+                    match get_single_value(&prop)
                         .ok()
                         .and_then(value_to_floating_date_time)
                     {
@@ -120,7 +120,7 @@ impl TryFrom<&TypedComponent<'_>> for VTimeZone {
         let mut standard = Vec::new();
         let mut daylight = Vec::new();
 
-        for child in &comp.children {
+        for child in comp.children {
             match child.name {
                 KW_STANDARD => match parse_observance(child) {
                     Ok(v) => standard.push(v),
@@ -174,15 +174,15 @@ pub struct TimeZoneObservance {
 
 /// Parse a timezone observance (STANDARD or DAYLIGHT) component
 #[allow(clippy::too_many_lines)]
-fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<SemanticError>> {
+fn parse_observance(comp: TypedComponent) -> Result<TimeZoneObservance, Vec<SemanticError>> {
     let mut errors = Vec::new();
 
     // Collect all properties in a single pass
     let mut props = ObservanceCollector::default();
-    for prop in &comp.properties {
+    for prop in comp.properties {
         match prop.kind {
             PropertyKind::DtStart if props.dt_start.is_none() => {
-                match get_single_value(prop)
+                match get_single_value(&prop)
                     .ok()
                     .and_then(value_to_floating_date_time)
                 {
@@ -208,7 +208,7 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                 });
             }
             PropertyKind::TzOffsetFrom if props.tz_offset_from.is_none() => {
-                match get_single_value(prop) {
+                match get_single_value(&prop) {
                     Ok(value) => match TimeZoneOffset::try_from(value) {
                         Ok(v) => props.tz_offset_from = Some(v),
                         Err(e) => {
@@ -236,7 +236,7 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
                 });
             }
             PropertyKind::TzOffsetTo if props.tz_offset_to.is_none() => {
-                match get_single_value(prop) {
+                match get_single_value(&prop) {
                     Ok(value) => match TimeZoneOffset::try_from(value) {
                         Ok(v) => props.tz_offset_to = Some(v),
                         Err(e) => {
@@ -265,7 +265,7 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
             }
             PropertyKind::TzName => {
                 // TZNAME can appear multiple times
-                match get_single_value(prop) {
+                match get_single_value(&prop) {
                     Ok(value) => match value_to_string(value) {
                         Some(v) => props.tz_name.push(Text {
                             content: v,
@@ -283,7 +283,7 @@ fn parse_observance(comp: &TypedComponent) -> Result<TimeZoneObservance, Vec<Sem
             }
             PropertyKind::RRule if props.rrule.is_none() => {
                 // TODO: Parse RRULE from text format
-                match get_single_value(prop) {
+                match get_single_value(&prop) {
                     Ok(Value::Text(_)) => {}
                     Ok(_) => {
                         errors.push(SemanticError::InvalidValue {

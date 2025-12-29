@@ -69,15 +69,15 @@ struct PropertyCollector<'a> {
     organizer:  Option<Organizer>,
     contact:    Option<Text>,
     url:        Option<Uri>,
-    freebusy:   Vec<&'a TypedProperty<'a>>,
+    freebusy:   Vec<TypedProperty<'a>>,
 }
 
 /// Parse a `TypedComponent` into a `VFreeBusy`
 #[allow(clippy::too_many_lines)]
-impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
+impl TryFrom<TypedComponent<'_>> for VFreeBusy {
     type Error = Vec<SemanticError>;
 
-    fn try_from(comp: &TypedComponent<'_>) -> Result<Self, Self::Error> {
+    fn try_from(comp: TypedComponent<'_>) -> Result<Self, Self::Error> {
         if comp.name != KW_VFREEBUSY {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VFREEBUSY,
@@ -89,7 +89,7 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
-        for prop in &comp.properties {
+        for prop in comp.properties {
             match prop.kind {
                 PropertyKind::Uid => {
                     if props.uid.is_some() {
@@ -98,7 +98,7 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                         });
                         continue;
                     }
-                    match get_single_value(prop).ok().and_then(value_to_string) {
+                    match get_single_value(&prop).ok().and_then(value_to_string) {
                         Some(v) => props.uid = Some(v),
                         None => {
                             errors.push(SemanticError::ExpectedType {
@@ -116,7 +116,7 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                         });
                         continue;
                     }
-                    match get_single_value(prop)
+                    match get_single_value(&prop)
                         .ok()
                         .and_then(value_to_floating_date_time)
                     {
@@ -185,7 +185,7 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                         });
                         continue;
                     }
-                    match get_single_value(prop) {
+                    match get_single_value(&prop) {
                         Ok(Value::Duration(v)) => props.duration = Some(*v),
                         _ => {
                             errors.push(SemanticError::ExpectedType {
@@ -230,7 +230,7 @@ impl TryFrom<&TypedComponent<'_>> for VFreeBusy {
                         });
                         continue;
                     }
-                    match get_single_value(prop) {
+                    match get_single_value(&prop) {
                         Ok(value) => match value_to_string(value) {
                             Some(v) => {
                                 props.contact = Some(Text {
