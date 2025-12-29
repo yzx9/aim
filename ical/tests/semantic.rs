@@ -18,7 +18,7 @@ use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
 
 /// Test helper to parse iCalendar source through semantic phase
-fn parse_semantic(src: &str) -> Result<ICalendar, Vec<SemanticError>> {
+fn parse_semantic(src: &str) -> Result<Vec<ICalendar>, Vec<SemanticError>> {
     let token_stream = lex_analysis(src);
     let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
     let typed_components = typed_analysis(syntax_components).unwrap();
@@ -44,11 +44,12 @@ VERSION:2.0\r
 PRODID:-//Example Corp.//CalDAV Client//EN\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert!(matches!(calendar.version, VersionType::V2_0));
     assert_eq!(calendar.prod_id.company, "-");
     assert_eq!(calendar.prod_id.product, "Example Corp.");
-    assert_eq!(calendar.prod_id.language.unwrap(), "CalDAV Client");
+    assert_eq!(calendar.prod_id.language.as_ref().unwrap(), "CalDAV Client");
     assert!(calendar.calscale.is_none());
     assert!(calendar.method.is_none());
     assert!(calendar.components.is_empty());
@@ -63,7 +64,8 @@ PRODID:-//Example Corp.//CalDAV Client//EN\r
 CALSCALE:GREGORIAN\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert!(calendar.calscale.is_some());
     assert!(matches!(
         calendar.calscale.as_ref().unwrap(),
@@ -85,7 +87,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
@@ -113,7 +116,8 @@ PRIORITY:5\r
 END:VTODO\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
@@ -138,7 +142,8 @@ SUMMARY:Daily Journal Entry\r
 END:VJOURNAL\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
@@ -167,7 +172,8 @@ ORGANIZER:mailto:user@example.com\r
 END:VFREEBUSY\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
@@ -199,7 +205,8 @@ END:VALARM\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
@@ -230,7 +237,8 @@ SUMMARY:Event 2\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 2);
 }
 
@@ -249,7 +257,8 @@ SUMMARY:One hour meeting\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -275,7 +284,8 @@ SUMMARY:One hour meeting\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -301,7 +311,8 @@ SUMMARY:Team Meeting\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -329,7 +340,8 @@ SUMMARY:Team Meeting\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -357,7 +369,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -385,7 +398,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -410,7 +424,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -435,7 +450,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -460,7 +476,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -485,7 +502,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -509,7 +527,8 @@ SUMMARY:Daily Journal Entry\r
 END:VJOURNAL\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 }
 
@@ -531,7 +550,8 @@ END:VALARM\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 }
 
@@ -550,7 +570,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 }
 
@@ -569,7 +590,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 }
 
@@ -588,7 +610,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 }
 
@@ -607,7 +630,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -633,7 +657,8 @@ SUMMARY:Task\r
 END:VTODO\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Todo(todo) => {
@@ -664,7 +689,8 @@ SUMMARY:Task\r
 END:VTODO\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 2);
 }
 
@@ -682,7 +708,8 @@ SUMMARY:Test Event\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 }
 
@@ -700,7 +727,8 @@ SUMMARY:Team会议📅\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
@@ -742,7 +770,8 @@ PRODID:-//Example Corp.//CalDAV Client//EN\r
 METHOD:PUBLISH\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert!(calendar.method.is_some());
     assert!(matches!(
         calendar.method.as_ref().unwrap(),
@@ -773,7 +802,8 @@ SEQUENCE:0\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
     assert!(calendar.calscale.is_some());
 }
@@ -794,7 +824,8 @@ END:STANDARD\r
 END:VTIMEZONE\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
@@ -823,7 +854,8 @@ FREEBUSY;FBTYPE=BUSY:20250615T090000Z/20250615T120000Z,20250615T130000Z/PT2H\r
 END:VFREEBUSY\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
@@ -901,7 +933,8 @@ FREEBUSY;FBTYPE=BUSY:20250615T090000/20250615T120000\r
 END:VFREEBUSY\r
 END:VCALENDAR\r
 ";
-    let calendar = parse_semantic(src).unwrap();
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
@@ -929,4 +962,79 @@ END:VCALENDAR\r
         }
         _ => panic!("Expected VFreeBusy component"),
     }
+}
+
+#[test]
+fn semantic_parses_multiple_vcalendar_objects() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VEVENT\r
+UID:1\r
+DTSTAMP:20250101T000000Z\r
+DTSTART:20250615T100000Z\r
+SUMMARY:Event 1\r
+END:VEVENT\r
+END:VCALENDAR\r
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Another Corp.//CalDAV Client//EN\r
+BEGIN:VEVENT\r
+UID:2\r
+DTSTAMP:20250101T000000Z\r
+DTSTART:20250616T100000Z\r
+SUMMARY:Event 2\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+    let calendars = parse_semantic(src).unwrap();
+    assert_eq!(calendars.len(), 2);
+
+    // First calendar
+    let calendar1 = &calendars[0];
+    assert_eq!(calendar1.prod_id.company, "-");
+    assert_eq!(calendar1.prod_id.product, "Example Corp.");
+    assert_eq!(calendar1.components.len(), 1);
+    match &calendar1.components[0] {
+        CalendarComponent::Event(event) => {
+            assert_eq!(event.summary.as_ref().unwrap().content, "Event 1");
+        }
+        _ => panic!("Expected Event component"),
+    }
+
+    // Second calendar
+    let calendar2 = &calendars[1];
+    assert_eq!(calendar2.prod_id.company, "-");
+    assert_eq!(calendar2.prod_id.product, "Another Corp.");
+    assert_eq!(calendar2.components.len(), 1);
+    match &calendar2.components[0] {
+        CalendarComponent::Event(event) => {
+            assert_eq!(event.summary.as_ref().unwrap().content, "Event 2");
+        }
+        _ => panic!("Expected Event component"),
+    }
+}
+
+#[test]
+fn semantic_parses_three_vcalendar_objects() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Corp1//Client//EN\r
+END:VCALENDAR\r
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Corp2//Client//EN\r
+END:VCALENDAR\r
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Corp3//Client//EN\r
+END:VCALENDAR\r
+";
+    let calendars = parse_semantic(src).unwrap();
+    assert_eq!(calendars.len(), 3);
+    assert_eq!(calendars[0].prod_id.product, "Corp1");
+    assert_eq!(calendars[1].prod_id.product, "Corp2");
+    assert_eq!(calendars[2].prod_id.product, "Corp3");
 }

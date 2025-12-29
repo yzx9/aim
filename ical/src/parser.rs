@@ -39,8 +39,8 @@ use crate::typed::{TypedAnalysisError, typed_analysis};
 /// END:VEVENT\r\n\
 /// END:VCALENDAR\r\n\
 /// ";
-/// let calendar = parse(ical_src).unwrap();
-/// println!("Calendar: {}", calendar.prod_id.product);
+/// let calendars = parse(ical_src).unwrap();
+/// println!("Calendar: {}", calendars[0].prod_id.product);
 /// ```
 ///
 /// Parsing invalid iCalendar source will return error reports:
@@ -97,7 +97,7 @@ use crate::typed::{TypedAnalysisError, typed_analysis};
 ///   report.eprint(Source::from(invalid_ical_src));
 /// }
 /// ```
-pub fn parse(src: &'_ str) -> Result<ICalendar, Vec<ParseError<'_>>> {
+pub fn parse(src: &'_ str) -> Result<Vec<ICalendar>, Vec<ParseError<'_>>> {
     let token_stream = lex_analysis(src);
 
     let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream)
@@ -106,13 +106,13 @@ pub fn parse(src: &'_ str) -> Result<ICalendar, Vec<ParseError<'_>>> {
     let typed_components = typed_analysis(syntax_components)
         .map_err(|errs| errs.into_iter().map(ParseError::Typed).collect::<Vec<_>>())?;
 
-    let icalendar = semantic_analysis(typed_components).map_err(|errs| {
+    let icalendars = semantic_analysis(typed_components).map_err(|errs| {
         errs.into_iter()
             .map(ParseError::Semantic)
             .collect::<Vec<_>>()
     })?;
 
-    Ok(icalendar)
+    Ok(icalendars)
 }
 
 /// Errors that can occur during parsing

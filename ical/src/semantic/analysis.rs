@@ -16,26 +16,34 @@ use crate::typed::{PropertyKind, TypedComponent, ValueType};
 /// # Errors
 ///
 /// Returns a vector of errors if:
-/// - The root component structure is invalid (not exactly one VCALENDAR)
-/// - The component is not a valid VCALENDAR
-/// - Required properties are missing
-/// - Property values are invalid
+/// - No VCALENDAR components are found
+/// - Any components failed to parse
 #[allow(clippy::missing_panics_doc)]
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
-) -> Result<ICalendar, Vec<SemanticError>> {
-    // Expect exactly one VCALENDAR component at the root
-    if typed_components.len() != 1 {
+) -> Result<Vec<ICalendar>, Vec<SemanticError>> {
+    // Return error only if no calendars
+    if typed_components.is_empty() {
         return Err(vec![SemanticError::ConstraintViolation {
-            message: format!(
-                "Expected 1 root {KW_VCALENDAR} component, found {}",
-                typed_components.len()
-            ),
+            message: format!("No {KW_VCALENDAR} components found"),
         }]);
     }
 
-    let root_component = typed_components.into_iter().next().unwrap(); // SAFETY: length checked
-    ICalendar::try_from(&root_component)
+    let mut calendars = Vec::with_capacity(typed_components.len());
+    let mut all_errors = Vec::new();
+
+    for component in typed_components {
+        match ICalendar::try_from(&component) {
+            Ok(calendar) => calendars.push(calendar),
+            Err(errors) => all_errors.extend(errors),
+        }
+    }
+
+    if all_errors.is_empty() {
+        Ok(calendars)
+    } else {
+        Err(all_errors)
+    }
 }
 
 /// Error type for parsing operations

@@ -43,6 +43,10 @@ business rules and constraints defined in the specification.
 Coordinates all phases, aggregates errors from each phase, and provides a
 single entry point for parsing operations.
 
+The main `parse()` function returns `Result<Vec<ICalendar>, Vec<ParseError>>`,
+where the vector contains all successfully parsed VCALENDAR objects from the
+input stream.
+
 ## Module Structure
 
 ```
@@ -59,7 +63,11 @@ ical/
     ├── semantic.rs         # Semantic module declaration
     │   ├── analysis.rs     # Main semantic coordinator
     │   ├── icalendar.rs    # ICalendar root component
-    │   ├── property.rs     # Property definitions
+    │   ├── property_attendee.rs   # Attendee property parsing
+    │   ├── property_common.rs     # Common property definitions
+    │   ├── property_datetime.rs   # DateTime property parsing
+    │   ├── property_period.rs     # Period value type parsing
+    │   ├── property_util.rs       # Property parsing utilities
     │   ├── valarm.rs       # VAlarm component
     │   ├── vevent.rs       # VEvent component
     │   ├── vfreebusy.rs    # VFreeBusy component
