@@ -119,9 +119,10 @@ pub struct Text {
 }
 
 /// Classification of calendar data
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Classification {
     /// Public classification
+    #[default]
     Public,
 
     /// Private classification

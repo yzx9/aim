@@ -35,10 +35,10 @@ pub mod typed;
 
 pub use crate::parser::{ParseError, parse};
 pub use crate::semantic::{
-    Attachment, AttachmentValue, Attendee, CalendarComponent, CalendarScaleType, Classification,
-    DateTime, EventStatus, Geo, ICalendar, MethodType, Organizer, Period, ProductId, Text,
+    Attachment, AttachmentValue, Attendee, CalendarComponent, CalendarScale, Classification,
+    DateTime, EventStatus, Geo, ICalendar, Method, Organizer, Period, ProductId, Text,
     TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, Uri, VAlarm, VEvent, VFreeBusy,
-    VJournal, VTimeZone, VTodo, VersionType,
+    VJournal, VTimeZone, VTodo, Version,
 };
 pub use crate::typed::{
     Day, RecurrenceFrequency, RecurrenceRule, ValueDuration as Duration, ValueTime as Time, WeekDay,

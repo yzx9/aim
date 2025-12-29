@@ -680,9 +680,10 @@ impl AsRef<str> for EventStatus {
 }
 
 /// Time transparency for events
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TimeTransparency {
     /// Event blocks time
+    #[default]
     Opaque,
 
     /// Event does not block time

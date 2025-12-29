@@ -11,8 +11,8 @@ use chumsky::error::Rich;
 
 use aimcal_ical::lexer::lex_analysis;
 use aimcal_ical::semantic::{
-    CalendarComponent, CalendarScaleType, ICalendar, MethodType, Period, SemanticError,
-    VersionType, semantic_analysis,
+    CalendarComponent, CalendarScale, ICalendar, Method, Period, SemanticError, Version,
+    semantic_analysis,
 };
 use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
@@ -46,7 +46,7 @@ END:VCALENDAR\r
 ";
     let calendars = parse_semantic(src).unwrap();
     let calendar = &calendars[0];
-    assert!(matches!(calendar.version, VersionType::V2_0));
+    assert!(matches!(calendar.version, Version::V2_0));
     assert_eq!(calendar.prod_id.company, "-");
     assert_eq!(calendar.prod_id.product, "Example Corp.");
     assert_eq!(calendar.prod_id.language.as_ref().unwrap(), "CalDAV Client");
@@ -69,7 +69,7 @@ END:VCALENDAR\r
     assert!(calendar.calscale.is_some());
     assert!(matches!(
         calendar.calscale.as_ref().unwrap(),
-        CalendarScaleType::Gregorian
+        CalendarScale::Gregorian
     ));
 }
 
@@ -773,10 +773,7 @@ END:VCALENDAR\r
     let calendars = parse_semantic(src).unwrap();
     let calendar = &calendars[0];
     assert!(calendar.method.is_some());
-    assert!(matches!(
-        calendar.method.as_ref().unwrap(),
-        MethodType::Publish
-    ));
+    assert!(matches!(calendar.method.as_ref().unwrap(), Method::Publish));
 }
 
 #[test]

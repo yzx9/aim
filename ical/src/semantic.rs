@@ -23,9 +23,7 @@ mod vtodo;
 
 // Re-export public types from the analysis submodule
 pub use analysis::{SemanticError, semantic_analysis};
-pub use icalendar::{
-    CalendarComponent, CalendarScaleType, ICalendar, MethodType, ProductId, VersionType,
-};
+pub use icalendar::{CalendarComponent, CalendarScale, ICalendar, Method, ProductId, Version};
 pub use property_attendee::Attendee;
 pub use property_common::{
     Attachment, AttachmentValue, Classification, Geo, Organizer, Text, Trigger, TriggerValue, Uri,

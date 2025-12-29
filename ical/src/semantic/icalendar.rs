@@ -22,13 +22,13 @@ pub struct ICalendar {
     pub prod_id: ProductId,
 
     /// Version of iCalendar specification
-    pub version: VersionType,
+    pub version: Version,
 
     /// Calendar scale (usually GREGORIAN)
-    pub calscale: Option<CalendarScaleType>,
+    pub calscale: Option<CalendarScale>,
 
     /// Method for the iCalendar object (e.g., PUBLISH, REQUEST)
-    pub method: Option<MethodType>,
+    pub method: Option<Method>,
 
     /// All calendar components (events, todos, journals, etc.)
     pub components: Vec<CalendarComponent>,
@@ -84,11 +84,11 @@ impl TryFrom<TypedComponent<'_>> for ICalendar {
                         continue;
                     }
 
-                    match VersionType::try_from(prop) {
+                    match Version::try_from(prop) {
                         Ok(v) => props.version = Some(v),
                         Err(e) => {
                             errors.push(e);
-                            props.version = Some(VersionType::V2_0);
+                            props.version = Some(Version::V2_0);
                         }
                     }
                 }
@@ -100,7 +100,7 @@ impl TryFrom<TypedComponent<'_>> for ICalendar {
                         continue;
                     }
 
-                    match CalendarScaleType::try_from(prop) {
+                    match CalendarScale::try_from(prop) {
                         Ok(v) => props.calscale = Some(v),
                         Err(e) => errors.push(e),
                     }
@@ -113,7 +113,7 @@ impl TryFrom<TypedComponent<'_>> for ICalendar {
                         continue;
                     }
 
-                    match MethodType::try_from(prop) {
+                    match Method::try_from(prop) {
                         Ok(v) => props.method = Some(v),
                         Err(e) => errors.push(e),
                     }
@@ -300,12 +300,12 @@ impl TryFrom<TypedProperty<'_>> for ProductId {
 
 /// iCalendar version specification
 #[derive(Debug, Clone, Copy)]
-pub enum VersionType {
+pub enum Version {
     /// Version 2.0 (most common)
     V2_0,
 }
 
-impl TryFrom<TypedProperty<'_>> for VersionType {
+impl TryFrom<TypedProperty<'_>> for Version {
     type Error = SemanticError;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
@@ -322,7 +322,7 @@ impl TryFrom<TypedProperty<'_>> for VersionType {
             })?;
 
         match text.as_str() {
-            KW_VERSION_2_0 => Ok(VersionType::V2_0),
+            KW_VERSION_2_0 => Ok(Version::V2_0),
             _ => Err(SemanticError::InvalidValue {
                 property: PropertyKind::Version,
                 value: format!("Unsupported iCalendar version: {text}"),
@@ -332,13 +332,14 @@ impl TryFrom<TypedProperty<'_>> for VersionType {
 }
 
 /// Calendar scale specification
-#[derive(Debug, Clone, Copy)]
-pub enum CalendarScaleType {
+#[derive(Debug, Clone, Copy, Default)]
+pub enum CalendarScale {
     /// Gregorian calendar
+    #[default]
     Gregorian,
 }
 
-impl TryFrom<TypedProperty<'_>> for CalendarScaleType {
+impl TryFrom<TypedProperty<'_>> for CalendarScale {
     type Error = SemanticError;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
@@ -355,7 +356,7 @@ impl TryFrom<TypedProperty<'_>> for CalendarScaleType {
             })?;
 
         match text.to_uppercase().as_str() {
-            KW_CALSCALE_GREGORIAN => Ok(CalendarScaleType::Gregorian),
+            KW_CALSCALE_GREGORIAN => Ok(CalendarScale::Gregorian),
             _ => Err(SemanticError::InvalidValue {
                 property: PropertyKind::CalScale,
                 value: format!("Unsupported calendar scale: {text}"),
@@ -366,7 +367,7 @@ impl TryFrom<TypedProperty<'_>> for CalendarScaleType {
 
 /// Method types for iCalendar objects
 #[derive(Debug, Clone, Copy)]
-pub enum MethodType {
+pub enum Method {
     /// Publish an event
     Publish,
 
@@ -394,7 +395,7 @@ pub enum MethodType {
     // Custom(String),
 }
 
-impl TryFrom<TypedProperty<'_>> for MethodType {
+impl TryFrom<TypedProperty<'_>> for Method {
     type Error = SemanticError;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
@@ -411,14 +412,14 @@ impl TryFrom<TypedProperty<'_>> for MethodType {
             })?;
 
         match text.to_uppercase().as_str() {
-            KW_METHOD_PUBLISH => Ok(MethodType::Publish),
-            KW_METHOD_REQUEST => Ok(MethodType::Request),
-            KW_METHOD_REPLY => Ok(MethodType::Reply),
-            KW_METHOD_ADD => Ok(MethodType::Add),
-            KW_METHOD_CANCEL => Ok(MethodType::Cancel),
-            KW_METHOD_REFRESH => Ok(MethodType::Refresh),
-            KW_METHOD_COUNTER => Ok(MethodType::Counter),
-            KW_METHOD_DECLINECOUNTER => Ok(MethodType::DeclineCounter),
+            KW_METHOD_PUBLISH => Ok(Method::Publish),
+            KW_METHOD_REQUEST => Ok(Method::Request),
+            KW_METHOD_REPLY => Ok(Method::Reply),
+            KW_METHOD_ADD => Ok(Method::Add),
+            KW_METHOD_CANCEL => Ok(Method::Cancel),
+            KW_METHOD_REFRESH => Ok(Method::Refresh),
+            KW_METHOD_COUNTER => Ok(Method::Counter),
+            KW_METHOD_DECLINECOUNTER => Ok(Method::DeclineCounter),
             _ => Err(SemanticError::InvalidValue {
                 property: PropertyKind::Method,
                 value: format!("Unsupported method type: {text}"),
@@ -432,7 +433,7 @@ impl TryFrom<TypedProperty<'_>> for MethodType {
 #[derive(Debug, Default)]
 struct PropertyCollector {
     prod_id:  Option<ProductId>,
-    version:  Option<VersionType>,
-    calscale: Option<CalendarScaleType>,
-    method:   Option<MethodType>,
+    version:  Option<Version>,
+    calscale: Option<CalendarScale>,
+    method:   Option<Method>,
 }
