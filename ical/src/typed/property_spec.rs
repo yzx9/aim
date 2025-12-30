@@ -5,7 +5,8 @@
 //! Typed representation of iCalendar components and properties.
 
 use std::fmt::{Display, Formatter};
-use std::{num::NonZeroU8, str::FromStr};
+use std::num::NonZeroUsize;
+use std::str::FromStr;
 
 use crate::keyword::{
     KW_ACTION, KW_ATTACH, KW_ATTENDEE, KW_CALSCALE, KW_CATEGORIES, KW_CLASS, KW_COMMENT,
@@ -526,16 +527,16 @@ impl PropertySpec<'_> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueCardinality {
     /// Exactly N values are required in this property instance
-    Exactly(NonZeroU8),
+    Exactly(NonZeroUsize),
     /// At least N values are allowed in this property instance (comma-separated)
-    AtLeast(NonZeroU8),
+    AtLeast(NonZeroUsize),
 }
 
 impl ValueCardinality {
     /// Create a variant that requires exactly N values.
     #[must_use]
-    const fn exactly(n: u8) -> Self {
-        match NonZeroU8::new(n) {
+    const fn exactly(n: usize) -> Self {
+        match NonZeroUsize::new(n) {
             Some(n) => ValueCardinality::Exactly(n),
             None => panic!("exactly requires a non-zero value"),
         }
@@ -543,8 +544,8 @@ impl ValueCardinality {
 
     /// Create a variant that allows at least N values.
     #[must_use]
-    const fn at_least(n: u8) -> Self {
-        match NonZeroU8::new(n) {
+    const fn at_least(n: usize) -> Self {
+        match NonZeroUsize::new(n) {
             Some(n) => ValueCardinality::AtLeast(n),
             None => panic!("at_least requires a non-zero value"),
         }

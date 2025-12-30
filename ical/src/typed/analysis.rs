@@ -113,8 +113,7 @@ fn typed_property<'src>(
     // Validate value count based on ValueCardinality specification
     match &spec.value_cardinality {
         ValueCardinality::Exactly(n) => {
-            let expected = n.get() as usize;
-            if values.len() != expected {
+            if values.len() != n.get() {
                 return Err(vec![TypedAnalysisError::PropertyInvalidValueCount {
                     property: spec.name(),
                     expected: n.get(),
@@ -124,8 +123,7 @@ fn typed_property<'src>(
             }
         }
         ValueCardinality::AtLeast(n) => {
-            let min = n.get() as usize;
-            if values.len() < min {
+            if values.len() < n.get() {
                 return Err(vec![TypedAnalysisError::PropertyInsufficientValues {
                     property: spec.name(),
                     min: n.get(),
@@ -193,7 +191,7 @@ pub enum TypedAnalysisError<'src> {
         /// The property name
         property: &'src str,
         /// Expected number of values
-        expected: u8,
+        expected: usize,
         /// Actual number of values found
         found: usize,
         /// The span of the error
@@ -206,7 +204,7 @@ pub enum TypedAnalysisError<'src> {
         /// The property name
         property: &'src str,
         /// Minimum required number of values
-        min: u8,
+        min: usize,
         /// Actual number of values found
         found: usize,
         /// The span of the error
