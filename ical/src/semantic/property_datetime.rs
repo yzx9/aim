@@ -133,6 +133,8 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
     type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         let Some(value) = prop.values.first() else {
             return Err(vec![SemanticError::MissingValue {
                 property: prop.kind,
@@ -143,23 +145,33 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
         let mut tz_id = None;
         #[cfg(feature = "jiff")]
         let mut tz_jiff = None;
-        for param in &prop.parameters {
-            if matches!(param.kind(), TypedParameterKind::TimeZoneIdentifier) {
-                if let TypedParameter::TimeZoneIdentifier {
+        for param in prop.parameters {
+            #[allow(clippy::single_match)]
+            match param {
+                TypedParameter::TimeZoneIdentifier {
                     value,
                     #[cfg(feature = "jiff")]
                     tz,
                     ..
-                } = param
-                {
-                    tz_id = Some(value.clone());
-                    #[cfg(feature = "jiff")]
-                    {
-                        tz_jiff = Some(tz.clone());
+                } => match tz_id {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::TimeZoneIdentifier,
+                    }),
+                    None => {
+                        tz_id = Some(value);
+                        #[cfg(feature = "jiff")]
+                        {
+                            tz_jiff = Some(tz);
+                        }
                     }
-                }
-                break;
+                },
+                _ => {}
             }
+        }
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
         }
 
         // Try with timezone if available, otherwise fallback to basic conversion

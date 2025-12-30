@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
 use crate::semantic::property_common::{
-    take_single_value, take_single_value_floating_date_time, take_single_value_text,
+    take_single_floating_date_time, take_single_text, take_single_value,
 };
 use crate::semantic::{DateTime, SemanticError, Text};
 use crate::typed::{PropertyKind, RecurrenceRule, TypedComponent, Value, ValueDate, ValueText};
@@ -59,7 +59,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                         continue;
                     }
 
-                    props.tz_id = match take_single_value_text(prop.kind, prop.values) {
+                    props.tz_id = match take_single_text(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -76,7 +76,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                     }
 
                     props.last_modified =
-                        match take_single_value_floating_date_time(prop.kind, prop.values) {
+                        match take_single_floating_date_time(prop.kind, prop.values) {
                             Ok(v) => Some(v),
                             Err(e) => {
                                 errors.push(e);
@@ -98,7 +98,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                         continue;
                     }
 
-                    props.tz_url = match take_single_value_text(prop.kind, prop.values) {
+                    props.tz_url = match take_single_text(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -187,7 +187,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
         for prop in comp.properties {
             match prop.kind {
                 PropertyKind::DtStart => {
-                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
+                    let value = match take_single_floating_date_time(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);

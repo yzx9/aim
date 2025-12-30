@@ -10,7 +10,7 @@ use crate::keyword::{
     KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE, KW_VALARM,
 };
 use crate::semantic::property_common::{
-    take_single_value, take_single_value_int, take_single_value_string,
+    take_single_int, take_single_value, take_single_value_string,
 };
 use crate::semantic::{Attachment, Attendee, SemanticError, Text, Trigger, TriggerValue};
 use crate::typed::ValueDuration;
@@ -117,7 +117,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
                     let value = match take_single_value(prop.kind, prop.values) {
                         Ok(Value::Duration(v)) => Some(v),
                         Ok(_) => {
-                            errors.push(SemanticError::ExpectedType {
+                            errors.push(SemanticError::UnexpectedType {
                                 property: PropertyKind::Duration,
                                 expected: ValueType::Duration,
                             });
@@ -149,7 +149,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
                     }
                 }
                 PropertyKind::Repeat => {
-                    let value = match take_single_value_int(prop.kind, prop.values) {
+                    let value = match take_single_int(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);

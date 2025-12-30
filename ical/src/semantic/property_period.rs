@@ -370,7 +370,7 @@ impl<'src> TryFrom<&Value<'src>> for Period<'src> {
                     }
                 }
             },
-            _ => Err(SemanticError::ExpectedType {
+            _ => Err(SemanticError::UnexpectedType {
                 property: crate::typed::PropertyKind::FreeBusy,
                 expected: ValueType::Period,
             }),

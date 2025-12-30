@@ -12,8 +12,8 @@ use crate::keyword::{
     KW_JOURNAL_STATUS_CANCELLED, KW_JOURNAL_STATUS_DRAFT, KW_JOURNAL_STATUS_FINAL, KW_VJOURNAL,
 };
 use crate::semantic::property_common::{
-    parse_multi_text_property, take_single_value, take_single_value_floating_date_time,
-    take_single_value_string, take_single_value_text, value_to_floating_date_time,
+    parse_multi_text_property, take_single_floating_date_time, take_single_text, take_single_value,
+    take_single_value_string, value_to_floating_date_time,
 };
 use crate::semantic::{Attendee, Classification, DateTime, Organizer, Period, SemanticError, Text};
 use crate::typed::{
@@ -91,7 +91,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
         for prop in comp.properties {
             match prop.kind {
                 PropertyKind::Uid => {
-                    let value = match take_single_value_text(prop.kind, prop.values) {
+                    let value = match take_single_text(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -107,7 +107,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     }
                 }
                 PropertyKind::DtStamp => {
-                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
+                    let value = match take_single_floating_date_time(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -194,7 +194,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     Err(e) => errors.extend(e),
                 },
                 PropertyKind::LastModified => {
-                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
+                    let value = match take_single_floating_date_time(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -271,7 +271,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     let has_duplicate = match take_single_value(prop.kind, prop.values) {
                         Ok(Value::Text(_)) => props.rrule.is_some(),
                         Ok(_) => {
-                            errors.push(SemanticError::ExpectedType {
+                            errors.push(SemanticError::UnexpectedType {
                                 property: PropertyKind::RRule,
                                 expected: ValueType::Text,
                             });
@@ -294,7 +294,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                         if let Some(dt) = value_to_floating_date_time(&value) {
                             props.ex_dates.push(dt);
                         } else {
-                            errors.push(SemanticError::ExpectedType {
+                            errors.push(SemanticError::UnexpectedType {
                                 property: PropertyKind::ExDate,
                                 expected: ValueType::DateTime,
                             });
@@ -302,7 +302,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     }
                 }
                 PropertyKind::Url => {
-                    let value = match take_single_value_text(prop.kind, prop.values) {
+                    let value = match take_single_text(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);

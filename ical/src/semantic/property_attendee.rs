@@ -59,6 +59,8 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attendee<'src> {
 
     #[allow(clippy::too_many_lines)]
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         // Collect all optional parameters in a single pass
         let mut cn = None;
         let mut role = None;
@@ -73,84 +75,142 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attendee<'src> {
         let mut language = None;
 
         for param in prop.parameters {
-            match param.kind() {
-                TypedParameterKind::CommonName => {
-                    if let TypedParameter::CommonName { value, .. } = param {
-                        cn = Some(value);
+            match param {
+                TypedParameter::CommonName { value, .. } => match cn {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::CommonName,
+                    }),
+                    None => cn = Some(value),
+                },
+                TypedParameter::ParticipationRole { value, .. } => match role {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::ParticipationRole,
+                    }),
+                    None => role = Some(value),
+                },
+                TypedParameter::ParticipationStatus { value, .. } => match part_stat {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::ParticipationStatus,
+                    }),
+                    None => part_stat = Some(value),
+                },
+                TypedParameter::RsvpExpectation { value, .. } => match rsvp {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::RsvpExpectation,
+                    }),
+                    None => rsvp = Some(value),
+                },
+                TypedParameter::CalendarUserType { value, .. } => match cutype {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::CalendarUserType,
+                    }),
+                    None => cutype = Some(value),
+                },
+                TypedParameter::GroupOrListMembership { mut values, .. } => match member {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::GroupOrListMembership,
+                    }),
+                    None => {
+                        // RFC 5545: MEMBER parameter is single-valued for Attendee
+                        if values.len() == 1 {
+                            member = values.pop();
+                        } else {
+                            errors.push(SemanticError::InvalidValue {
+                                property: PropertyKind::Attendee,
+                                value: format!(
+                                    "MEMBER parameter expects 1 value, got {}",
+                                    values.len()
+                                ),
+                            });
+                        }
                     }
-                }
-                TypedParameterKind::ParticipationRole => {
-                    if let TypedParameter::ParticipationRole { value, .. } = param {
-                        role = Some(value);
+                },
+                TypedParameter::Delegatees { mut values, .. } => match delegated_to {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::Delegatees,
+                    }),
+                    None => {
+                        // RFC 5545: DELEGATED-TO parameter is single-valued for Attendee
+                        if values.len() == 1 {
+                            delegated_to = values.pop();
+                        } else {
+                            errors.push(SemanticError::InvalidValue {
+                                property: PropertyKind::Attendee,
+                                value: format!(
+                                    "DELEGATED-TO parameter expects 1 value, got {}",
+                                    values.len()
+                                ),
+                            });
+                        }
                     }
-                }
-                TypedParameterKind::ParticipationStatus => {
-                    if let TypedParameter::ParticipationStatus { value, .. } = param {
-                        part_stat = Some(value);
+                },
+                TypedParameter::Delegators { mut values, .. } => match delegated_from {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::Delegators,
+                    }),
+                    None => {
+                        // RFC 5545: DELEGATED-FROM parameter is single-valued for Attendee
+                        if values.len() == 1 {
+                            delegated_from = values.pop();
+                        } else {
+                            errors.push(SemanticError::InvalidValue {
+                                property: PropertyKind::Attendee,
+                                value: format!(
+                                    "DELEGATED-FROM parameter expects 1 value, got {}",
+                                    values.len()
+                                ),
+                            });
+                        }
                     }
-                }
-                TypedParameterKind::RsvpExpectation => {
-                    if let TypedParameter::RsvpExpectation { value, .. } = param {
-                        rsvp = Some(value);
-                    }
-                }
-                TypedParameterKind::CalendarUserType => {
-                    if let TypedParameter::CalendarUserType { value, .. } = param {
-                        cutype = Some(value);
-                    }
-                }
-                TypedParameterKind::GroupOrListMembership => {
-                    if let TypedParameter::GroupOrListMembership { values, .. } = param
-                        && let Some(v) = values.first()
-                    {
-                        member = Some(v.clone()); // PERF: avoid allocation
-                    }
-                }
-                TypedParameterKind::Delegatees => {
-                    if let TypedParameter::Delegatees { values, .. } = param
-                        && let Some(v) = values.first()
-                    {
-                        delegated_to = Some(v.clone()); // PERF: avoid allocation
-                    }
-                }
-                TypedParameterKind::Delegators => {
-                    if let TypedParameter::Delegators { values, .. } = param
-                        && let Some(v) = values.first()
-                    {
-                        delegated_from = Some(v.clone()); // PERF: avoid allocation
-                    }
-                }
-                TypedParameterKind::Directory => {
-                    if let TypedParameter::Directory { value, .. } = param {
-                        dir = Some(value);
-                    }
-                }
-                TypedParameterKind::SendBy => {
-                    if let TypedParameter::SendBy { value, .. } = param {
-                        sent_by = Some(value);
-                    }
-                }
-                TypedParameterKind::Language => {
-                    if let TypedParameter::Language { value, .. } = param {
-                        language = Some(value);
-                    }
-                }
+                },
+                TypedParameter::Directory { value, .. } => match dir {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::Directory,
+                    }),
+                    None => dir = Some(value),
+                },
+                TypedParameter::SendBy { value, .. } => match sent_by {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::SendBy,
+                    }),
+                    None => sent_by = Some(value),
+                },
+                TypedParameter::Language { value, .. } => match language {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::Language,
+                    }),
+                    None => language = Some(value),
+                },
                 // Ignore unknown parameters
                 _ => {}
             }
+        }
+
+        // Get cal_address value
+        let cal_address = match take_single_value(prop.kind, prop.values) {
+            Ok(Value::Text(text)) => text,
+            Ok(_) => {
+                errors.push(SemanticError::InvalidValue {
+                    property: PropertyKind::Attendee,
+                    value: "Expected calendar user address".to_string(),
+                });
+                return Err(errors);
+            }
+            Err(e) => {
+                errors.push(e);
+                return Err(errors);
+            }
+        };
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
         }
 
         // Apply defaults as per RFC 5545
         let role = role.unwrap_or(ParticipationRole::ReqParticipant);
         let part_stat = part_stat.unwrap_or(ParticipationStatus::NeedsAction);
         let cutype = cutype.unwrap_or(CalendarUserType::Individual);
-
-        let Ok(Value::Text(cal_address)) = take_single_value(prop.kind, prop.values) else {
-            return Err(vec![SemanticError::InvalidValue {
-                property: PropertyKind::Attendee,
-                value: "Expected calendar user address".to_string(),
-            }]);
-        };
 
         Ok(Attendee {
             cal_address,

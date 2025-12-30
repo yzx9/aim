@@ -280,7 +280,7 @@ impl TryFrom<TypedProperty<'_>> for ProductId {
                 _ => None,
             })
             .ok_or_else(|| {
-                vec![SemanticError::ExpectedType {
+                vec![SemanticError::UnexpectedType {
                     property: PropertyKind::ProdId,
                     expected: ValueType::Text,
                 }]
@@ -325,7 +325,7 @@ impl TryFrom<TypedProperty<'_>> for Version {
                 _ => None,
             })
             .ok_or_else(|| {
-                vec![SemanticError::ExpectedType {
+                vec![SemanticError::UnexpectedType {
                     property: PropertyKind::Version,
                     expected: ValueType::Text,
                 }]
@@ -361,7 +361,7 @@ impl TryFrom<TypedProperty<'_>> for CalendarScale {
                 _ => None,
             })
             .ok_or_else(|| {
-                vec![SemanticError::ExpectedType {
+                vec![SemanticError::UnexpectedType {
                     property: PropertyKind::CalScale,
                     expected: ValueType::Text,
                 }]
@@ -419,7 +419,7 @@ impl TryFrom<TypedProperty<'_>> for Method {
                 _ => None,
             })
             .ok_or_else(|| {
-                vec![SemanticError::ExpectedType {
+                vec![SemanticError::UnexpectedType {
                     property: PropertyKind::Method,
                     expected: ValueType::Text,
                 }]

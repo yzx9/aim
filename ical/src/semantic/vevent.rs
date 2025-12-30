@@ -13,9 +13,8 @@ use crate::keyword::{
     KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT, KW_VALARM, KW_VEVENT,
 };
 use crate::semantic::property_common::{
-    parse_multi_text_property, take_single_value, take_single_value_floating_date_time,
-    take_single_value_int, take_single_value_string, take_single_value_text,
-    value_to_floating_date_time,
+    parse_multi_text_property, take_single_floating_date_time, take_single_int, take_single_text,
+    take_single_value, take_single_value_string, value_to_floating_date_time,
 };
 use crate::semantic::{
     Attendee, Classification, DateTime, Geo, Organizer, Period, SemanticError, Text, VAlarm,
@@ -123,7 +122,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
         for prop in comp.properties {
             match prop.kind {
                 PropertyKind::Uid => {
-                    let uid = take_single_value_text(prop.kind, prop.values).unwrap_or_else(|e| {
+                    let uid = take_single_text(prop.kind, prop.values).unwrap_or_else(|e| {
                         errors.push(e);
                         ValueText::default()
                     });
@@ -136,7 +135,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                     }
                 }
                 PropertyKind::DtStamp => {
-                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
+                    let value = match take_single_floating_date_time(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -205,7 +204,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                     let value = match take_single_value(prop.kind, prop.values) {
                         Ok(Value::Duration(v)) => Some(v),
                         _ => {
-                            errors.push(SemanticError::ExpectedType {
+                            errors.push(SemanticError::UnexpectedType {
                                 property: PropertyKind::Duration,
                                 expected: ValueType::Duration,
                             });
@@ -291,7 +290,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                     }
                 }
                 PropertyKind::Url => {
-                    let value = match take_single_value_text(prop.kind, prop.values) {
+                    let value = match take_single_text(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -327,7 +326,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                     Err(e) => errors.extend(e),
                 },
                 PropertyKind::LastModified => {
-                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
+                    let value = match take_single_floating_date_time(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -399,7 +398,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                     }
                 }
                 PropertyKind::Sequence => {
-                    let value = match take_single_value_int(prop.kind, prop.values) {
+                    let value = match take_single_int(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -415,7 +414,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                     }
                 }
                 PropertyKind::Priority => {
-                    let value = match take_single_value_int(prop.kind, prop.values) {
+                    let value = match take_single_int(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -471,7 +470,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                     match take_single_value(prop.kind, prop.values) {
                         Ok(Value::Text(_)) => {}
                         Ok(_) => {
-                            errors.push(SemanticError::ExpectedType {
+                            errors.push(SemanticError::UnexpectedType {
                                 property: PropertyKind::RRule,
                                 expected: ValueType::Text,
                             });
@@ -484,7 +483,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                         if let Some(dt) = value_to_floating_date_time(&value) {
                             props.ex_dates.push(dt);
                         } else {
-                            errors.push(SemanticError::ExpectedType {
+                            errors.push(SemanticError::UnexpectedType {
                                 property: PropertyKind::ExDate,
                                 expected: ValueType::DateTime,
                             });

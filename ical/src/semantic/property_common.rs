@@ -32,16 +32,15 @@ impl TryFrom<TypedProperty<'_>> for Geo {
     type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let Some(value) = prop.values.first() else {
-            return Err(vec![SemanticError::MissingValue {
-                property: PropertyKind::Geo,
-            }]);
+        let value = match take_single_value(prop.kind, prop.values) {
+            Ok(v) => v,
+            Err(e) => return Err(vec![e]),
         };
 
         let text = match value {
             Value::Text(t) => t.resolve().to_string(), // TODO: avoid allocation
             _ => {
-                return Err(vec![SemanticError::ExpectedType {
+                return Err(vec![SemanticError::UnexpectedType {
                     property: PropertyKind::Geo,
                     expected: ValueType::Text,
                 }]);
@@ -53,21 +52,19 @@ impl TryFrom<TypedProperty<'_>> for Geo {
         let parser = values_float_semicolon::<_, extra::Err<Rich<char, _>>>();
 
         match parser.parse(stream).into_result() {
-            Ok(result) => {
-                let (Some(&lat), Some(&lon)) = (result.first(), result.get(1)) else {
-                    return Err(vec![SemanticError::InvalidValue {
-                        property: PropertyKind::Geo,
-                        value: format!(
-                            "Expected exactly 2 float values (lat;long), got {}",
-                            result.len()
-                        ),
-                    }]);
-                };
-                Ok(Geo { lat, lon })
-            }
+            Ok(result) => match (result.first(), result.get(1)) {
+                (Some(&lat), Some(&lon)) => Ok(Geo { lat, lon }),
+                (_, _) => Err(vec![SemanticError::InvalidValue {
+                    property: PropertyKind::Geo,
+                    value: format!(
+                        "Expected exactly 2 float values (lat;long), got {}",
+                        result.len()
+                    ),
+                }]),
+            },
             Err(_) => Err(vec![SemanticError::InvalidValue {
                 property: PropertyKind::Geo,
-                value: format!("Expected 'lat;long' format with semicolon separator, got {text}"),
+                value: format!("Expected 'lat;long' format with semicolon separator, got {text}",),
             }]),
         }
     }
@@ -94,6 +91,8 @@ impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
     type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         let Some(value) = prop.values.first() else {
             return Err(vec![SemanticError::MissingValue {
                 property: prop.kind,
@@ -103,7 +102,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
         let content = match value {
             Value::Text(text) => text.clone(),
             _ => {
-                return Err(vec![SemanticError::ExpectedType {
+                return Err(vec![SemanticError::UnexpectedType {
                     property: prop.kind,
                     expected: ValueType::Text,
                 }]);
@@ -115,19 +114,26 @@ impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
         let mut altrep = None;
 
         for param in prop.parameters {
-            match param.kind() {
-                TypedParameterKind::Language => {
-                    if let TypedParameter::Language { value, .. } = param {
-                        language = Some(value);
-                    }
-                }
-                TypedParameterKind::AlternateText => {
-                    if let TypedParameter::AlternateText { value, .. } = param {
-                        altrep = Some(value);
-                    }
-                }
+            match param {
+                TypedParameter::Language { value, .. } => match language {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::Language,
+                    }),
+                    None => language = Some(value),
+                },
+                TypedParameter::AlternateText { value, .. } => match altrep {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::AlternateText,
+                    }),
+                    None => altrep = Some(value),
+                },
                 _ => {}
             }
+        }
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
         }
 
         Ok(Self {
@@ -149,10 +155,10 @@ pub fn parse_multi_text_property(prop: TypedProperty<'_>) -> Vec<Text<'_>> {
     // Get language parameter (shared by all values)
     let language = prop
         .parameters
-        .iter()
+        .into_iter()
         .find(|p| p.kind() == TypedParameterKind::Language)
         .and_then(|p| match p {
-            TypedParameter::Language { value, .. } => Some(value.clone()),
+            TypedParameter::Language { value, .. } => Some(value),
             _ => None,
         });
 
@@ -227,7 +233,7 @@ impl TryFrom<TypedProperty<'_>> for Classification {
         let text = match value {
             Value::Text(t) => t.resolve().to_string(),
             _ => {
-                return Err(vec![SemanticError::ExpectedType {
+                return Err(vec![SemanticError::UnexpectedType {
                     property: PropertyKind::Class,
                     expected: ValueType::Text,
                 }]);
@@ -266,6 +272,8 @@ impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
     type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         // Collect all optional parameters in a single pass
         let mut cn = None;
         let mut dir = None;
@@ -273,33 +281,49 @@ impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
         let mut language = None;
 
         for param in prop.parameters {
-            match param.kind() {
-                TypedParameterKind::CommonName => {
-                    if let TypedParameter::CommonName { value, .. } = param {
-                        cn = Some(value);
-                    }
-                }
-                TypedParameterKind::Directory => {
-                    if let TypedParameter::Directory { value, .. } = param {
-                        dir = Some(value);
-                    }
-                }
-                TypedParameterKind::SendBy => {
-                    if let TypedParameter::SendBy { value, .. } = param {
-                        sent_by = Some(value);
-                    }
-                }
-                TypedParameterKind::Language => {
-                    if let TypedParameter::Language { value, .. } = param {
-                        language = Some(value);
-                    }
-                }
+            match param {
+                TypedParameter::CommonName { value, .. } => match cn {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::CommonName,
+                    }),
+                    None => cn = Some(value),
+                },
+                TypedParameter::Directory { value, .. } => match dir {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::Directory,
+                    }),
+                    None => dir = Some(value),
+                },
+                TypedParameter::SendBy { value, .. } => match sent_by {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::SendBy,
+                    }),
+                    None => sent_by = Some(value),
+                },
+                TypedParameter::Language { value, .. } => match language {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::Language,
+                    }),
+                    None => language = Some(value),
+                },
                 // Ignore unknown parameters
                 _ => {}
             }
         }
 
-        let cal_address = take_single_value_text(prop.kind, prop.values).map_err(|e| vec![e])?;
+        // Get cal_address value
+        let cal_address = match take_single_text(prop.kind, prop.values) {
+            Ok(v) => v,
+            Err(e) => {
+                errors.push(e);
+                return Err(errors);
+            }
+        };
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
+        }
 
         Ok(Organizer {
             cal_address,
@@ -338,28 +362,45 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
     type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         // Collect all optional parameters in a single pass
         let mut fmt_type = None;
         let mut encoding = None;
 
-        for param in &prop.parameters {
-            match param.kind() {
-                TypedParameterKind::FormatType => {
-                    if let TypedParameter::FormatType { value, .. } = param {
-                        fmt_type = Some(value.clone());
-                    }
-                }
-                TypedParameterKind::Encoding => {
-                    if let TypedParameter::Encoding { value, .. } = param {
-                        encoding = Some(*value);
-                    }
-                }
+        for param in prop.parameters {
+            match param {
+                TypedParameter::FormatType { value, .. } => match fmt_type {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::FormatType,
+                    }),
+                    None => fmt_type = Some(value),
+                },
+                TypedParameter::Encoding { value, .. } => match encoding {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::Encoding,
+                    }),
+                    None => encoding = Some(value),
+                },
                 // Ignore unknown parameters
                 _ => {}
             }
         }
 
-        let value = take_single_value(prop.kind, prop.values).map_err(|e| vec![e])?;
+        // Get value
+        let value = match take_single_value(prop.kind, prop.values) {
+            Ok(v) => v,
+            Err(e) => {
+                errors.push(e);
+                return Err(errors);
+            }
+        };
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
         match value {
             Value::Text(uri) => Ok(Attachment {
                 value: AttachmentValue::Uri(uri),
@@ -403,16 +444,23 @@ impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
     type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         // Collect the RELATED parameter (optional, default is START)
         let mut related = None;
 
         for param in &prop.parameters {
-            if param.kind() == TypedParameterKind::AlarmTriggerRelationship
-                && let TypedParameter::AlarmTriggerRelationship { value, .. } = param
-            {
-                related = Some(*value);
+            #[allow(clippy::single_match)]
+            match param {
+                TypedParameter::AlarmTriggerRelationship { value, .. } => match related {
+                    Some(_) => errors.push(SemanticError::DuplicateParameter {
+                        parameter: TypedParameterKind::AlarmTriggerRelationship,
+                    }),
+                    None => related = Some(*value),
+                },
+                // Ignore unknown parameters
+                _ => {}
             }
-            // Ignore unknown parameters
         }
 
         let Some(value) = prop.values.first() else {
@@ -420,6 +468,11 @@ impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
                 property: PropertyKind::Trigger,
             }]);
         };
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
+        }
 
         match value {
             Value::Duration(dur) => Ok(Trigger {
@@ -460,13 +513,13 @@ pub fn take_single_value(
     }
 }
 
-pub fn take_single_value_text(
+pub fn take_single_text(
     kind: PropertyKind,
     values: Vec<Value<'_>>,
 ) -> Result<ValueText<'_>, SemanticError> {
     match take_single_value(kind, values) {
         Ok(Value::Text(text)) => Ok(text),
-        Ok(_) => Err(SemanticError::ExpectedType {
+        Ok(_) => Err(SemanticError::UnexpectedType {
             property: PropertyKind::Url,
             expected: ValueType::Text,
         }),
@@ -475,7 +528,7 @@ pub fn take_single_value_text(
 }
 
 /// Get a single floating date-time value from a property
-pub fn take_single_value_floating_date_time(
+pub fn take_single_floating_date_time(
     kind: PropertyKind,
     values: Vec<Value<'_>>,
 ) -> Result<DateTime<'_>, SemanticError> {
@@ -484,7 +537,7 @@ pub fn take_single_value_floating_date_time(
             date: dt.date,
             time: dt.time,
         }),
-        Ok(_) => Err(SemanticError::ExpectedType {
+        Ok(_) => Err(SemanticError::UnexpectedType {
             property: kind,
             expected: ValueType::DateTime,
         }),
@@ -499,7 +552,7 @@ pub fn take_single_value_string(
 ) -> Result<String, SemanticError> {
     match take_single_value(kind, values) {
         Ok(Value::Text(v)) => Ok(v.resolve().to_string()),
-        Ok(_) => Err(SemanticError::ExpectedType {
+        Ok(_) => Err(SemanticError::UnexpectedType {
             property: kind,
             expected: ValueType::Text,
         }),
@@ -508,17 +561,17 @@ pub fn take_single_value_string(
 }
 
 /// Get a single integer value from a property
-pub fn take_single_value_int<T: TryFrom<i32>>(
+pub fn take_single_int<T: TryFrom<i32>>(
     kind: PropertyKind,
     values: Vec<Value<'_>>,
 ) -> Result<T, SemanticError> {
     match take_single_value(kind, values) {
         Ok(value) => match value {
-            Value::Integer(i) => T::try_from(i).map_err(|_| SemanticError::ExpectedType {
+            Value::Integer(i) => T::try_from(i).map_err(|_| SemanticError::UnexpectedType {
                 property: kind,
                 expected: ValueType::Integer,
             }),
-            _ => Err(SemanticError::ExpectedType {
+            _ => Err(SemanticError::UnexpectedType {
                 property: kind,
                 expected: ValueType::Integer,
             }),

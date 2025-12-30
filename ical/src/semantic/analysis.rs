@@ -9,7 +9,7 @@
 
 use crate::keyword::KW_VCALENDAR;
 use crate::semantic::ICalendar;
-use crate::typed::{PropertyKind, TypedComponent, ValueType};
+use crate::typed::{PropertyKind, TypedComponent, TypedParameterKind, ValueType};
 
 /// Perform semantic analysis on typed components.
 ///
@@ -50,11 +50,48 @@ pub fn semantic_analysis(
 #[non_exhaustive]
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum SemanticError {
+    /// Unknown component type
+    #[error("Unknown component type: {component}")]
+    UnknownComponent {
+        /// The unknown component name
+        component: String,
+    },
+
+    /// Expected a different component type
+    #[error("Expected '{expected}' component, got '{got}'")]
+    ExpectedComponent {
+        /// The expected component name
+        expected: &'static str,
+        /// The actual component name that was found
+        got: String,
+    },
+
+    /// Unknown property
+    #[error("Unknown property '{property}'")]
+    UnknownProperty {
+        /// The unknown property name
+        property: String,
+    },
+
+    /// Duplicate property
+    #[error("Duplicate property '{property} '")]
+    DuplicateProperty {
+        /// The property that is duplicated
+        property: PropertyKind,
+    },
+
     /// Missing required property
-    #[error("Missing required property: {property}")]
+    #[error("Missing required property '{property}'")]
     MissingProperty {
         /// The property that is missing
         property: PropertyKind,
+    },
+
+    /// Duplicate parameter
+    #[error("Duplicate property '{parameter}'")]
+    DuplicateParameter {
+        /// The duplicated parameter
+        parameter: TypedParameterKind,
     },
 
     /// Property has no values
@@ -62,6 +99,15 @@ pub enum SemanticError {
     MissingValue {
         /// The property that has no values
         property: PropertyKind,
+    },
+
+    /// Expected a different value type
+    #[error("Expected {expected} value for property: {property}")]
+    UnexpectedType {
+        /// The property that has the wrong type
+        property: PropertyKind,
+        /// The expected value type
+        expected: ValueType,
     },
 
     /// Invalid property value
@@ -73,49 +119,10 @@ pub enum SemanticError {
         value: String,
     },
 
-    /// Expected a different value type
-    #[error("Expected {expected} value for property: {property}")]
-    ExpectedType {
-        /// The property that has the wrong type
-        property: PropertyKind,
-        /// The expected value type
-        expected: ValueType,
-    },
-
-    /// Duplicate property
-    #[error("Duplicate {property} property")]
-    DuplicateProperty {
-        /// The property that is duplicated
-        property: PropertyKind,
-    },
-
     /// Business rule constraint violation
     #[error("Constraint violation: {message}")]
     ConstraintViolation {
         /// Error message describing the constraint violation
         message: String,
-    },
-
-    /// Expected a different component type
-    #[error("Expected {expected} component, got '{got}'")]
-    ExpectedComponent {
-        /// The expected component name
-        expected: &'static str,
-        /// The actual component name that was found
-        got: String,
-    },
-
-    /// Unknown component type
-    #[error("Unknown component type: {component}")]
-    UnknownComponent {
-        /// The unknown component name
-        component: String,
-    },
-
-    /// Unknown property
-    #[error("Unknown property: {property}")]
-    UnknownProperty {
-        /// The unknown property name
-        property: String,
     },
 }

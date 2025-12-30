@@ -463,9 +463,9 @@ impl SpanCollector {
     pub fn build(self, src: &'_ str) -> SpannedSegments<'_> {
         let mut segments = Vec::with_capacity(self.0.len());
         let mut len = 0;
-        for s in &self.0 {
+        for s in self.0 {
             let segment_str = &src[s.clone()];
-            segments.push((segment_str, s.clone()));
+            segments.push((segment_str, s));
             len += segment_str.len();
         }
         SpannedSegments { segments, len }

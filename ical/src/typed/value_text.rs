@@ -5,6 +5,7 @@
 //! Parsers for property values as defined in RFC 5545 Section 3.3.
 
 use std::borrow::Cow;
+use std::fmt::{self, Display};
 
 use chumsky::Parser;
 use chumsky::container::Container;
@@ -31,22 +32,7 @@ impl ValueText<'_> {
             return Cow::Borrowed(parts[0]);
         }
 
-        let mut s = String::new();
-        for token in &self.tokens {
-            match token {
-                ValueTextToken::Str(parts) => {
-                    s.reserve(parts.iter().map(|p| p.len()).sum());
-                    for part in parts {
-                        s.push_str(part);
-                    }
-                }
-                ValueTextToken::Escape(ValueTextEscape::Backslash) => s.push('\\'),
-                ValueTextToken::Escape(ValueTextEscape::Semicolon) => s.push(';'),
-                ValueTextToken::Escape(ValueTextEscape::Comma) => s.push(','),
-                ValueTextToken::Escape(ValueTextEscape::Newline) => s.push('\n'),
-            }
-        }
-        Cow::Owned(s)
+        Cow::Owned(self.to_string())
     }
 }
 
@@ -66,6 +52,26 @@ impl PartialEq<&str> for ValueText<'_> {
 impl<'src> PartialEq<ValueText<'src>> for &str {
     fn eq(&self, other: &ValueText<'src>) -> bool {
         *self == &other.resolve()[..]
+    }
+}
+
+impl Display for ValueText<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for token in &self.tokens {
+            #[allow(clippy::write_with_newline)]
+            match token {
+                ValueTextToken::Str(parts) => {
+                    for part in parts {
+                        write!(f, "{part}")?;
+                    }
+                }
+                ValueTextToken::Escape(ValueTextEscape::Backslash) => write!(f, "\\")?,
+                ValueTextToken::Escape(ValueTextEscape::Semicolon) => write!(f, ";")?,
+                ValueTextToken::Escape(ValueTextEscape::Comma) => write!(f, ",")?,
+                ValueTextToken::Escape(ValueTextEscape::Newline) => write!(f, "\n")?,
+            }
+        }
+        Ok(())
     }
 }
 

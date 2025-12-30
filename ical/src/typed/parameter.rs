@@ -406,40 +406,23 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
     }
 }
 
-/// Simple enum for `TypedParameter` types that maps parameter type to keyword
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[allow(missing_docs)]
-pub enum TypedParameterKind {
-    AlternateText,
-    CommonName,
-    CalendarUserType,
-    Delegators,
-    Delegatees,
-    Directory,
-    Encoding,
-    FormatType,
-    FreeBusyType,
-    Language,
-    GroupOrListMembership,
-    ParticipationStatus,
-    RecurrenceIdRange,
-    AlarmTriggerRelationship,
-    RelationshipType,
-    ParticipationRole,
-    SendBy,
-    RsvpExpectation,
-    TimeZoneIdentifier,
-    ValueType,
-}
-
 macro_rules! impl_typed_parameter_kind_mapping {
     (
-        impl $ty:ident {
+        $(#[$attr:meta])*
+        enum $ty:ident {
             $(
                 $variant:ident => $kw:ident
             ),+ $(,)?
         }
     ) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        $(#[$attr])*
+        pub enum $ty {
+            $(
+            $variant,
+            )+
+        }
+
         impl $ty {
             /// Returns the name keyword for the parameter type
             pub const fn name(self) -> &'static str {
@@ -463,11 +446,19 @@ macro_rules! impl_typed_parameter_kind_mapping {
                 }
             }
         }
+
+        impl std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.name().fmt(f)
+            }
+        }
     };
 }
 
 impl_typed_parameter_kind_mapping! {
-    impl TypedParameterKind {
+    /// Simple enum for `TypedParameter` types that maps parameter type to keyword
+    #[allow(missing_docs)]
+    enum TypedParameterKind {
         AlternateText       => KW_ALTREP,
         CommonName          => KW_CN,
         CalendarUserType    => KW_CUTYPE,

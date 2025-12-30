@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 
 use crate::keyword::KW_VFREEBUSY;
 use crate::semantic::property_common::{
-    take_single_value, take_single_value_floating_date_time, take_single_value_text,
+    take_single_floating_date_time, take_single_text, take_single_value,
 };
 use crate::semantic::{DateTime, Organizer, Period, SemanticError, Text};
 use crate::typed::parameter_type::{FreeBusyType, ValueType};
@@ -77,7 +77,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
         for prop in comp.properties {
             match prop.kind {
                 PropertyKind::Uid => {
-                    let value = match take_single_value_text(prop.kind, prop.values) {
+                    let value = match take_single_text(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -93,7 +93,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                     }
                 }
                 PropertyKind::DtStamp => {
-                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
+                    let value = match take_single_floating_date_time(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -162,7 +162,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                     let value = match take_single_value(prop.kind, prop.values) {
                         Ok(Value::Duration(v)) => Some(v),
                         _ => {
-                            errors.push(SemanticError::ExpectedType {
+                            errors.push(SemanticError::UnexpectedType {
                                 property: PropertyKind::Duration,
                                 expected: ValueType::Duration,
                             });
@@ -222,7 +222,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                     }
                 }
                 PropertyKind::Url => {
-                    let value = match take_single_value_text(prop.kind, prop.values) {
+                    let value = match take_single_text(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -240,31 +240,31 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                 PropertyKind::FreeBusy => {
                     // Get the FBTYPE parameter
                     let mut fb_type = None;
-                    for param in &prop.parameters {
-                        if matches!(param.kind(), TypedParameterKind::FreeBusyType) {
-                            if let TypedParameter::FreeBusyType { value, .. } = param {
-                                fb_type = Some(*value);
-                            }
-                            break;
+                    for param in prop.parameters {
+                        #[allow(clippy::single_match)]
+                        match param {
+                            TypedParameter::FreeBusyType { value, .. } => match fb_type {
+                                Some(_) => errors.push(SemanticError::DuplicateParameter {
+                                    parameter: TypedParameterKind::FreeBusyType,
+                                }),
+                                None => fb_type = Some(value),
+                            },
+                            _ => {}
                         }
                     }
 
                     // Parse all period values
                     for value in &prop.values {
-                        if let Ok(period) = Period::try_from(value) {
-                            match fb_type.unwrap_or_default() {
+                        match Period::try_from(value) {
+                            Ok(period) => match fb_type.unwrap_or_default() {
                                 FreeBusyType::Free => props.free.push(period),
                                 FreeBusyType::Busy => props.busy.push(period),
                                 FreeBusyType::BusyTentative => props.busy_tentative.push(period),
                                 FreeBusyType::BusyUnavailable => {
                                     props.busy_unavailable.push(period);
                                 }
-                            }
-                        } else {
-                            errors.push(SemanticError::ExpectedType {
-                                property: PropertyKind::FreeBusy,
-                                expected: ValueType::Period,
-                            });
+                            },
+                            Err(e) => errors.push(e),
                         }
                     }
                 }
