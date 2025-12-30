@@ -77,51 +77,23 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
         for prop in comp.properties {
             match prop.kind {
                 PropertyKind::Uid => {
-                    if props.uid.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Uid,
-                        });
-                        continue;
-                    }
-                    props.uid = match take_single_value_text(prop.kind, prop.values) {
+                    let value = match take_single_value_text(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
                             Some(ValueText::default())
                         }
+                    };
+
+                    match props.uid {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Uid,
+                        }),
+                        None => props.uid = value,
                     }
                 }
                 PropertyKind::DtStamp => {
-                    if props.dt_stamp.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::DtStamp,
-                        });
-                        continue;
-                    }
-
-                    props.dt_stamp =
-                        match take_single_value_floating_date_time(prop.kind, prop.values) {
-                            Ok(v) => Some(v),
-                            Err(e) => {
-                                errors.push(e);
-                                Some(DateTime::Date {
-                                    date: ValueDate {
-                                        year: 0,
-                                        month: 1,
-                                        day: 1,
-                                    },
-                                })
-                            }
-                        }
-                }
-                PropertyKind::DtStart => {
-                    if props.dt_start.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::DtStart,
-                        });
-                        continue;
-                    }
-                    props.dt_start = match DateTime::try_from(prop) {
+                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
@@ -133,20 +105,42 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                                 },
                             })
                         }
+                    };
+
+                    match props.dt_stamp {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtStamp,
+                        }),
+                        None => props.dt_stamp = value,
+                    }
+                }
+                PropertyKind::DtStart => {
+                    let value = match DateTime::try_from(prop) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.extend(e);
+                            Some(DateTime::Date {
+                                date: ValueDate {
+                                    year: 0,
+                                    month: 1,
+                                    day: 1,
+                                },
+                            })
+                        }
+                    };
+
+                    match props.dt_start {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtStart,
+                        }),
+                        None => props.dt_start = value,
                     }
                 }
                 PropertyKind::DtEnd => {
-                    if props.dt_end.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::DtEnd,
-                        });
-                        continue;
-                    }
-
-                    props.dt_end = match DateTime::try_from(prop) {
+                    let value = match DateTime::try_from(prop) {
                         Ok(v) => Some(v),
                         Err(e) => {
-                            errors.push(e);
+                            errors.extend(e);
                             Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
@@ -155,16 +149,17 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                                 },
                             })
                         }
+                    };
+
+                    match props.dt_end {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtEnd,
+                        }),
+                        None => props.dt_end = value,
                     }
                 }
                 PropertyKind::Duration => {
-                    if props.duration.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Duration,
-                        });
-                        continue;
-                    }
-                    props.duration = match take_single_value(prop.kind, prop.values) {
+                    let value = match take_single_value(prop.kind, prop.values) {
                         Ok(Value::Duration(v)) => Some(v),
                         _ => {
                             errors.push(SemanticError::ExpectedType {
@@ -179,20 +174,20 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                                 second: 0,
                             })
                         }
+                    };
+
+                    match props.duration {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Duration,
+                        }),
+                        None => props.duration = value,
                     }
                 }
                 PropertyKind::Organizer => {
-                    if props.organizer.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Organizer,
-                        });
-                        continue;
-                    }
-
-                    props.organizer = match Organizer::try_from(prop) {
+                    let value = match Organizer::try_from(prop) {
                         Ok(v) => Some(v),
                         Err(e) => {
-                            errors.push(e);
+                            errors.extend(e);
                             Some(Organizer {
                                 cal_address: ValueText::default(),
                                 cn: None,
@@ -201,31 +196,45 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                                 language: None,
                             })
                         }
+                    };
+
+                    match props.organizer {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Organizer,
+                        }),
+                        None => props.organizer = value,
                     }
                 }
                 PropertyKind::Contact => {
-                    if props.contact.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
+                    let value = match Text::try_from(prop) {
+                        Ok(text) => Some(text),
+                        Err(e) => {
+                            errors.extend(e);
+                            None
+                        }
+                    };
+
+                    match props.contact {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
                             property: PropertyKind::Contact,
-                        });
-                        continue;
-                    }
-                    match Text::try_from(prop) {
-                        Ok(text) => props.contact = Some(text),
-                        Err(e) => errors.push(e),
+                        }),
+                        None => props.contact = value,
                     }
                 }
                 PropertyKind::Url => {
-                    if props.url.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Url,
-                        });
-                        continue;
-                    }
+                    let value = match take_single_value_text(prop.kind, prop.values) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            None
+                        }
+                    };
 
-                    match take_single_value_text(prop.kind, prop.values) {
-                        Ok(v) => props.url = Some(v),
-                        Err(e) => errors.push(e),
+                    match props.url {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Url,
+                        }),
+                        None => props.url = value,
                     }
                 }
                 PropertyKind::FreeBusy => {

@@ -7,8 +7,8 @@
 //! This module provides utility functions for converting `TypedComponent`
 //! and `TypedProperty` into semantic types.
 
-use crate::ICalendar;
 use crate::keyword::KW_VCALENDAR;
+use crate::semantic::ICalendar;
 use crate::typed::{PropertyKind, TypedComponent, ValueType};
 
 /// Perform semantic analysis on typed components.

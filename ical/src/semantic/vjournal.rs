@@ -8,7 +8,6 @@ use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
-use crate::RecurrenceRule;
 use crate::keyword::{
     KW_JOURNAL_STATUS_CANCELLED, KW_JOURNAL_STATUS_DRAFT, KW_JOURNAL_STATUS_FINAL, KW_VJOURNAL,
 };
@@ -17,7 +16,9 @@ use crate::semantic::property_common::{
     take_single_value_string, take_single_value_text, value_to_floating_date_time,
 };
 use crate::semantic::{Attendee, Classification, DateTime, Organizer, Period, SemanticError, Text};
-use crate::typed::{PropertyKind, TypedComponent, Value, ValueDate, ValueText, ValueType};
+use crate::typed::{
+    PropertyKind, RecurrenceRule, TypedComponent, Value, ValueDate, ValueText, ValueType,
+};
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]
@@ -90,177 +91,202 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
         for prop in comp.properties {
             match prop.kind {
                 PropertyKind::Uid => {
-                    if props.uid.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Uid,
-                        });
-                        continue;
-                    }
-
-                    match take_single_value_text(prop.kind, prop.values) {
-                        Ok(v) => props.uid = Some(v),
+                    let value = match take_single_value_text(prop.kind, prop.values) {
+                        Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
-                            props.uid = Some(ValueText::default());
+                            Some(ValueText::default())
                         }
+                    };
+
+                    match props.uid {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Uid,
+                        }),
+                        None => props.uid = value,
                     }
                 }
                 PropertyKind::DtStamp => {
-                    if props.dt_stamp.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::DtStamp,
-                        });
-                        continue;
-                    }
-
-                    props.dt_stamp =
-                        match take_single_value_floating_date_time(prop.kind, prop.values) {
-                            Ok(v) => Some(v),
-                            Err(e) => {
-                                errors.push(e);
-                                Some(DateTime::Date {
-                                    date: ValueDate {
-                                        year: 0,
-                                        month: 1,
-                                        day: 1,
-                                    },
-                                })
-                            }
-                        }
-                }
-                PropertyKind::DtStart => {
-                    if props.dt_start.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::DtStart,
-                        });
-                        continue;
-                    }
-                    match DateTime::try_from(prop) {
-                        Ok(v) => props.dt_start = Some(v),
+                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
+                        Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
-                            props.dt_start = Some(DateTime::Date {
+                            Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
                                     month: 1,
                                     day: 1,
                                 },
-                            });
+                            })
                         }
+                    };
+
+                    match props.dt_stamp {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtStamp,
+                        }),
+                        None => props.dt_stamp = value,
+                    }
+                }
+                PropertyKind::DtStart => {
+                    let value = match DateTime::try_from(prop) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.extend(e);
+                            Some(DateTime::Date {
+                                date: ValueDate {
+                                    year: 0,
+                                    month: 1,
+                                    day: 1,
+                                },
+                            })
+                        }
+                    };
+
+                    match props.dt_start {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::DtStart,
+                        }),
+                        None => props.dt_start = value,
                     }
                 }
                 PropertyKind::Summary => {
-                    if props.summary.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
+                    let value = match Text::try_from(prop) {
+                        Ok(text) => Some(text),
+                        Err(e) => {
+                            errors.extend(e);
+                            None
+                        }
+                    };
+
+                    match props.summary {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
                             property: PropertyKind::Summary,
-                        });
-                        continue;
-                    }
-                    match Text::try_from(prop) {
-                        Ok(text) => props.summary = Some(text),
-                        Err(e) => errors.push(e),
+                        }),
+                        None => props.summary = value,
                     }
                 }
                 PropertyKind::Description => {
                     // VJOURNAL allows multiple DESCRIPTION properties
                     match Text::try_from(prop) {
                         Ok(text) => props.descriptions.push(text),
-                        Err(e) => errors.push(e),
+                        Err(e) => errors.extend(e),
                     }
                 }
                 PropertyKind::Organizer => {
-                    if props.organizer.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
+                    let value = match Organizer::try_from(prop) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.extend(e);
+                            None
+                        }
+                    };
+
+                    match props.organizer {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
                             property: PropertyKind::Organizer,
-                        });
-                        continue;
-                    }
-                    match Organizer::try_from(prop) {
-                        Ok(v) => props.organizer = Some(v),
-                        Err(e) => errors.push(e),
+                        }),
+                        None => props.organizer = value,
                     }
                 }
                 PropertyKind::Attendee => match Attendee::try_from(prop) {
                     Ok(v) => props.attendees.push(v),
-                    Err(e) => errors.push(e),
+                    Err(e) => errors.extend(e),
                 },
                 PropertyKind::LastModified => {
-                    if props.last_modified.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::LastModified,
-                        });
-                        continue;
-                    }
-                    match take_single_value_floating_date_time(prop.kind, prop.values) {
-                        Ok(v) => props.last_modified = Some(v),
+                    let value = match take_single_value_floating_date_time(prop.kind, prop.values) {
+                        Ok(v) => Some(v),
                         Err(e) => {
                             errors.push(e);
-                            props.last_modified = Some(DateTime::Date {
+                            Some(DateTime::Date {
                                 date: ValueDate {
                                     year: 0,
                                     month: 1,
                                     day: 1,
                                 },
-                            });
+                            })
                         }
+                    };
+
+                    match props.last_modified {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::LastModified,
+                        }),
+                        None => props.last_modified = value,
                     }
                 }
                 PropertyKind::Status => {
-                    if props.status.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Status,
-                        });
-                        continue;
-                    }
-                    match take_single_value_string(prop.kind, prop.values) {
+                    let value = match take_single_value_string(prop.kind, prop.values) {
                         Ok(text) => match text.parse() {
-                            Ok(v) => props.status = Some(v),
-                            Err(e) => errors.push(SemanticError::InvalidValue {
-                                property: PropertyKind::Status,
-                                value: e,
-                            }),
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                errors.push(SemanticError::InvalidValue {
+                                    property: PropertyKind::Status,
+                                    value: e,
+                                });
+                                None
+                            }
                         },
-                        Err(e) => errors.push(e),
+                        Err(e) => {
+                            errors.push(e);
+                            None
+                        }
+                    };
+
+                    match props.status {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Status,
+                        }),
+                        None => props.status = value,
                     }
                 }
                 PropertyKind::Class => {
-                    if props.classification.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
+                    let value = match Classification::try_from(prop) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.extend(e);
+                            None
+                        }
+                    };
+
+                    match props.classification {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
                             property: PropertyKind::Class,
-                        });
-                        continue;
-                    }
-                    match Classification::try_from(prop) {
-                        Ok(v) => props.classification = Some(v),
-                        Err(e) => errors.push(e),
+                        }),
+                        None => props.classification = value,
                     }
                 }
                 PropertyKind::Categories => {
-                    if props.categories.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
+                    let value = Some(parse_multi_text_property(prop));
+
+                    match props.categories {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
                             property: PropertyKind::Categories,
-                        });
-                        continue;
+                        }),
+                        None => props.categories = value,
                     }
-                    props.categories = Some(parse_multi_text_property(prop));
                 }
                 PropertyKind::RRule => {
-                    if props.rrule.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::RRule,
-                        });
-                        continue;
-                    }
                     // TODO: Parse RRULE from text format
-                    match take_single_value(prop.kind, prop.values) {
-                        Ok(Value::Text(_)) => {}
+                    let has_duplicate = match take_single_value(prop.kind, prop.values) {
+                        Ok(Value::Text(_)) => props.rrule.is_some(),
                         Ok(_) => {
                             errors.push(SemanticError::ExpectedType {
                                 property: PropertyKind::RRule,
                                 expected: ValueType::Text,
                             });
+                            props.rrule.is_some()
                         }
-                        Err(e) => errors.push(e),
+                        Err(e) => {
+                            errors.push(e);
+                            props.rrule.is_some()
+                        }
+                    };
+
+                    if has_duplicate {
+                        errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::RRule,
+                        });
                     }
                 }
                 PropertyKind::ExDate => {
@@ -276,16 +302,19 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     }
                 }
                 PropertyKind::Url => {
-                    if props.url.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Url,
-                        });
-                        continue;
-                    }
+                    let value = match take_single_value_text(prop.kind, prop.values) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            None
+                        }
+                    };
 
-                    match take_single_value_text(prop.kind, prop.values) {
-                        Ok(v) => props.url = Some(v),
-                        Err(e) => errors.push(e),
+                    match props.url {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Url,
+                        }),
+                        None => props.url = value,
                     }
                 }
                 // Ignore unknown properties

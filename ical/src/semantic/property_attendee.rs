@@ -55,7 +55,7 @@ pub struct Attendee<'src> {
 }
 
 impl<'src> TryFrom<TypedProperty<'src>> for Attendee<'src> {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     #[allow(clippy::too_many_lines)]
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
@@ -146,10 +146,10 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attendee<'src> {
         let cutype = cutype.unwrap_or(CalendarUserType::Individual);
 
         let Ok(Value::Text(cal_address)) = take_single_value(prop.kind, prop.values) else {
-            return Err(SemanticError::InvalidValue {
+            return Err(vec![SemanticError::InvalidValue {
                 property: PropertyKind::Attendee,
                 value: "Expected calendar user address".to_string(),
-            });
+            }]);
         };
 
         Ok(Attendee {

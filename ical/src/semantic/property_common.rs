@@ -29,20 +29,22 @@ pub struct Geo {
 }
 
 impl TryFrom<TypedProperty<'_>> for Geo {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: PropertyKind::Geo,
-        })?;
+        let Some(value) = prop.values.first() else {
+            return Err(vec![SemanticError::MissingValue {
+                property: PropertyKind::Geo,
+            }]);
+        };
 
         let text = match value {
             Value::Text(t) => t.resolve().to_string(), // TODO: avoid allocation
             _ => {
-                return Err(SemanticError::ExpectedType {
+                return Err(vec![SemanticError::ExpectedType {
                     property: PropertyKind::Geo,
                     expected: ValueType::Text,
-                });
+                }]);
             }
         };
 
@@ -53,20 +55,20 @@ impl TryFrom<TypedProperty<'_>> for Geo {
         match parser.parse(stream).into_result() {
             Ok(result) => {
                 let (Some(&lat), Some(&lon)) = (result.first(), result.get(1)) else {
-                    return Err(SemanticError::InvalidValue {
+                    return Err(vec![SemanticError::InvalidValue {
                         property: PropertyKind::Geo,
                         value: format!(
                             "Expected exactly 2 float values (lat;long), got {}",
                             result.len()
                         ),
-                    });
+                    }]);
                 };
                 Ok(Geo { lat, lon })
             }
-            Err(_) => Err(SemanticError::InvalidValue {
+            Err(_) => Err(vec![SemanticError::InvalidValue {
                 property: PropertyKind::Geo,
                 value: format!("Expected 'lat;long' format with semicolon separator, got {text}"),
-            }),
+            }]),
         }
     }
 }
@@ -89,20 +91,22 @@ pub struct Text<'src> {
 }
 
 impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: prop.kind,
-        })?;
+        let Some(value) = prop.values.first() else {
+            return Err(vec![SemanticError::MissingValue {
+                property: prop.kind,
+            }]);
+        };
 
         let content = match value {
             Value::Text(text) => text.clone(),
             _ => {
-                return Err(SemanticError::ExpectedType {
+                return Err(vec![SemanticError::ExpectedType {
                     property: prop.kind,
                     expected: ValueType::Text,
-                });
+                }]);
             }
         };
 
@@ -211,26 +215,30 @@ impl Display for Classification {
 }
 
 impl TryFrom<TypedProperty<'_>> for Classification {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: PropertyKind::Class,
-        })?;
+        let Some(value) = prop.values.first() else {
+            return Err(vec![SemanticError::MissingValue {
+                property: PropertyKind::Class,
+            }]);
+        };
 
         let text = match value {
             Value::Text(t) => t.resolve().to_string(),
             _ => {
-                return Err(SemanticError::ExpectedType {
+                return Err(vec![SemanticError::ExpectedType {
                     property: PropertyKind::Class,
                     expected: ValueType::Text,
-                });
+                }]);
             }
         };
 
-        text.parse().map_err(|e| SemanticError::InvalidValue {
-            property: PropertyKind::Class,
-            value: e,
+        text.parse().map_err(|e| {
+            vec![SemanticError::InvalidValue {
+                property: PropertyKind::Class,
+                value: e,
+            }]
         })
     }
 }
@@ -255,7 +263,7 @@ pub struct Organizer<'src> {
 }
 
 impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
         // Collect all optional parameters in a single pass
@@ -291,7 +299,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
             }
         }
 
-        let cal_address = take_single_value_text(prop.kind, prop.values)?;
+        let cal_address = take_single_value_text(prop.kind, prop.values).map_err(|e| vec![e])?;
 
         Ok(Organizer {
             cal_address,
@@ -327,7 +335,7 @@ pub enum AttachmentValue<'src> {
 }
 
 impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
         // Collect all optional parameters in a single pass
@@ -351,7 +359,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
             }
         }
 
-        let value = take_single_value(prop.kind, prop.values)?;
+        let value = take_single_value(prop.kind, prop.values).map_err(|e| vec![e])?;
         match value {
             Value::Text(uri) => Ok(Attachment {
                 value: AttachmentValue::Uri(uri),
@@ -363,10 +371,10 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
                 fmt_type,
                 encoding,
             }),
-            _ => Err(SemanticError::InvalidValue {
+            _ => Err(vec![SemanticError::InvalidValue {
                 property: PropertyKind::Attach,
                 value: "Expected URI or binary value".to_string(),
-            }),
+            }]),
         }
     }
 }
@@ -392,7 +400,7 @@ pub enum TriggerValue<'src> {
 }
 
 impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         // Collect the RELATED parameter (optional, default is START)
@@ -407,9 +415,11 @@ impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
             // Ignore unknown parameters
         }
 
-        let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: PropertyKind::Trigger,
-        })?;
+        let Some(value) = prop.values.first() else {
+            return Err(vec![SemanticError::MissingValue {
+                property: PropertyKind::Trigger,
+            }]);
+        };
 
         match value {
             Value::Duration(dur) => Ok(Trigger {
@@ -423,10 +433,10 @@ impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
                 }),
                 related: None,
             }),
-            _ => Err(SemanticError::InvalidValue {
+            _ => Err(vec![SemanticError::InvalidValue {
                 property: PropertyKind::Trigger,
                 value: "Expected duration or date-time value".to_string(),
-            }),
+            }]),
         }
     }
 }

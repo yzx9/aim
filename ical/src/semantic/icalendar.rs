@@ -61,61 +61,67 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
         for prop in comp.properties {
             match prop.kind {
                 PropertyKind::ProdId => {
-                    if props.prod_id.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::ProdId,
-                        });
-                        continue;
-                    }
-
-                    match ProductId::try_from(prop) {
-                        Ok(v) => props.prod_id = Some(v),
+                    let value = match ProductId::try_from(prop) {
+                        Ok(v) => Some(v),
                         Err(e) => {
-                            errors.push(e);
-                            props.prod_id = Some(ProductId::default());
+                            errors.extend(e);
+                            Some(ProductId::default())
                         }
+                    };
+
+                    match props.prod_id {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::ProdId,
+                        }),
+                        None => props.prod_id = value,
                     }
                 }
                 PropertyKind::Version => {
-                    if props.version.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Version,
-                        });
-                        continue;
-                    }
-
-                    match Version::try_from(prop) {
-                        Ok(v) => props.version = Some(v),
+                    let value = match Version::try_from(prop) {
+                        Ok(v) => Some(v),
                         Err(e) => {
-                            errors.push(e);
-                            props.version = Some(Version::V2_0);
+                            errors.extend(e);
+                            Some(Version::V2_0)
                         }
+                    };
+
+                    match props.version {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Version,
+                        }),
+                        None => props.version = value,
                     }
                 }
                 PropertyKind::CalScale => {
-                    if props.calscale.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::CalScale,
-                        });
-                        continue;
-                    }
+                    let value = match CalendarScale::try_from(prop) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.extend(e);
+                            None
+                        }
+                    };
 
-                    match CalendarScale::try_from(prop) {
-                        Ok(v) => props.calscale = Some(v),
-                        Err(e) => errors.push(e),
+                    match props.calscale {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::CalScale,
+                        }),
+                        None => props.calscale = value,
                     }
                 }
                 PropertyKind::Method => {
-                    if props.method.is_some() {
-                        errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Method,
-                        });
-                        continue;
-                    }
+                    let value = match Method::try_from(prop) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.extend(e);
+                            None
+                        }
+                    };
 
-                    match Method::try_from(prop) {
-                        Ok(v) => props.method = Some(v),
-                        Err(e) => errors.push(e),
+                    match props.method {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Method,
+                        }),
+                        None => props.method = value,
                     }
                 }
                 // Ignore unknown properties
@@ -263,7 +269,7 @@ pub struct ProductId {
 }
 
 impl TryFrom<TypedProperty<'_>> for ProductId {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let text = prop
@@ -273,9 +279,11 @@ impl TryFrom<TypedProperty<'_>> for ProductId {
                 Value::Text(t) => Some(t.resolve().to_string()),
                 _ => None,
             })
-            .ok_or(SemanticError::ExpectedType {
-                property: PropertyKind::ProdId,
-                expected: ValueType::Text,
+            .ok_or_else(|| {
+                vec![SemanticError::ExpectedType {
+                    property: PropertyKind::ProdId,
+                    expected: ValueType::Text,
+                }]
             })?;
 
         // PRODID format: company//product//language
@@ -306,7 +314,7 @@ pub enum Version {
 }
 
 impl TryFrom<TypedProperty<'_>> for Version {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let text = prop
@@ -316,17 +324,19 @@ impl TryFrom<TypedProperty<'_>> for Version {
                 Value::Text(t) => Some(t.resolve().to_string()),
                 _ => None,
             })
-            .ok_or(SemanticError::ExpectedType {
-                property: PropertyKind::Version,
-                expected: ValueType::Text,
+            .ok_or_else(|| {
+                vec![SemanticError::ExpectedType {
+                    property: PropertyKind::Version,
+                    expected: ValueType::Text,
+                }]
             })?;
 
         match text.as_str() {
             KW_VERSION_2_0 => Ok(Version::V2_0),
-            _ => Err(SemanticError::InvalidValue {
+            _ => Err(vec![SemanticError::InvalidValue {
                 property: PropertyKind::Version,
                 value: format!("Unsupported iCalendar version: {text}"),
-            }),
+            }]),
         }
     }
 }
@@ -340,7 +350,7 @@ pub enum CalendarScale {
 }
 
 impl TryFrom<TypedProperty<'_>> for CalendarScale {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let text = prop
@@ -350,17 +360,19 @@ impl TryFrom<TypedProperty<'_>> for CalendarScale {
                 Value::Text(t) => Some(t.resolve().to_string()),
                 _ => None,
             })
-            .ok_or(SemanticError::ExpectedType {
-                property: PropertyKind::CalScale,
-                expected: ValueType::Text,
+            .ok_or_else(|| {
+                vec![SemanticError::ExpectedType {
+                    property: PropertyKind::CalScale,
+                    expected: ValueType::Text,
+                }]
             })?;
 
         match text.to_uppercase().as_str() {
             KW_CALSCALE_GREGORIAN => Ok(CalendarScale::Gregorian),
-            _ => Err(SemanticError::InvalidValue {
+            _ => Err(vec![SemanticError::InvalidValue {
                 property: PropertyKind::CalScale,
                 value: format!("Unsupported calendar scale: {text}"),
-            }),
+            }]),
         }
     }
 }
@@ -396,7 +408,7 @@ pub enum Method {
 }
 
 impl TryFrom<TypedProperty<'_>> for Method {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
         let text = prop
@@ -406,9 +418,11 @@ impl TryFrom<TypedProperty<'_>> for Method {
                 Value::Text(t) => Some(t.resolve().to_string()),
                 _ => None,
             })
-            .ok_or(SemanticError::ExpectedType {
-                property: PropertyKind::Method,
-                expected: ValueType::Text,
+            .ok_or_else(|| {
+                vec![SemanticError::ExpectedType {
+                    property: PropertyKind::Method,
+                    expected: ValueType::Text,
+                }]
             })?;
 
         match text.to_uppercase().as_str() {
@@ -420,10 +434,10 @@ impl TryFrom<TypedProperty<'_>> for Method {
             KW_METHOD_REFRESH => Ok(Method::Refresh),
             KW_METHOD_COUNTER => Ok(Method::Counter),
             KW_METHOD_DECLINECOUNTER => Ok(Method::DeclineCounter),
-            _ => Err(SemanticError::InvalidValue {
+            _ => Err(vec![SemanticError::InvalidValue {
                 property: PropertyKind::Method,
                 value: format!("Unsupported method type: {text}"),
-            }),
+            }]),
         }
     }
 }

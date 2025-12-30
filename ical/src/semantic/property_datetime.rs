@@ -130,12 +130,14 @@ impl<'src> DateTime<'src> {
 }
 
 impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
-    type Error = SemanticError;
+    type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
-        let value = prop.values.first().ok_or(SemanticError::MissingValue {
-            property: prop.kind,
-        })?;
+        let Some(value) = prop.values.first() else {
+            return Err(vec![SemanticError::MissingValue {
+                property: prop.kind,
+            }]);
+        };
 
         // Get TZID parameter
         let mut tz_id = None;
@@ -176,10 +178,10 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
                     tz_jiff: tz_jiff.unwrap(), // SAFETY: set above
                 }),
 
-                _ => Err(SemanticError::InvalidValue {
+                _ => Err(vec![SemanticError::InvalidValue {
                     property: prop.kind,
                     value: "Expected date-time value".to_string(),
-                }),
+                }]),
             }
         } else {
             match value {
@@ -192,10 +194,10 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
                     date: dt.date,
                     time: dt.time,
                 }),
-                _ => Err(SemanticError::InvalidValue {
+                _ => Err(vec![SemanticError::InvalidValue {
                     property: crate::typed::PropertyKind::DtStart, // Default fallback
                     value: format!("Expected date or date-time value, got {value:?}"),
-                }),
+                }]),
             }
         }
     }
