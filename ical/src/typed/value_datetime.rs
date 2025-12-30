@@ -4,8 +4,6 @@
 
 //! Parsers for property values as defined in RFC 5545 Section 3.3.
 
-use std::cmp::min;
-
 use chumsky::Parser;
 use chumsky::extra::ParserExtra;
 use chumsky::label::LabelError;
@@ -137,24 +135,20 @@ where
     value_date()
         .then_ignore(just('T'))
         .then(value_time())
-        .map(|(date, time)| {
+        .map(|(date, time)| ValueDateTime {
+            date,
+            time,
             #[cfg(feature = "jiff")]
-            {
-                let jiff = jiff::civil::datetime(
-                    date.year,
-                    date.month,
-                    date.day,
-                    time.hour,
-                    time.minute,
-                    min(time.second, 59), // NOTE: We contract leap second 60 to 59 for simplicity
-                    0,
-                );
-                ValueDateTime { date, time, jiff }
-            }
-            #[cfg(not(feature = "jiff"))]
-            {
-                ValueDateTime { date, time }
-            }
+            #[allow(clippy::cast_possible_wrap)]
+            jiff: jiff::civil::datetime(
+                date.year,
+                date.month,
+                date.day,
+                time.hour as i8,
+                time.minute as i8,
+                time.second.min(59) as i8, // NOTE: We contract leap second 60 to 59 for simplicity
+                0,
+            ),
         })
 }
 
@@ -175,43 +169,35 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValueTime {
     /// Hour component, 0-23.
-    pub hour: i8,
+    pub hour: u8,
 
     /// Minute component, 0-59.
-    pub minute: i8,
+    pub minute: u8,
 
     /// Second component, 0-60 (60 for leap second).
-    pub second: i8,
+    pub second: u8,
 
     /// Whether the time is in UTC (indicated by a trailing 'Z').
     pub utc: bool,
 
     /// Cached parsed civil time (available with jiff feature)
     #[cfg(feature = "jiff")]
-    jiff: jiff::civil::Time,
+    pub(crate) jiff: jiff::civil::Time,
 }
 
 impl ValueTime {
     /// Create a new `ValueTime` from components.
     #[must_use]
-    pub fn new(hour: i8, minute: i8, second: i8, utc: bool) -> Self {
-        #[cfg(feature = "jiff")]
+    pub fn new(hour: u8, minute: u8, second: u8, utc: bool) -> Self {
         {
             Self {
                 hour,
                 minute,
                 second,
                 utc,
-                jiff: jiff::civil::time(hour, minute, min(second, 59), 0),
-            }
-        }
-        #[cfg(not(feature = "jiff"))]
-        {
-            Self {
-                hour,
-                minute,
-                second,
-                utc,
+                #[cfg(feature = "jiff")]
+                #[allow(clippy::cast_possible_wrap)]
+                jiff: jiff::civil::time(hour as i8, minute as i8, second.min(59) as i8, 0),
             }
         }
     }
@@ -243,29 +229,16 @@ where
 {
     time_hour()
         .then(time_minute())
-        .then(time_second_with_leap())
+        .then(time_second())
         .then(just('Z').or_not())
-        .map(|(((hour, minute), second), utc)| {
+        .map(|(((hour, minute), second), utc)| ValueTime {
+            hour,
+            minute,
+            second,
+            utc: utc.is_some(),
             #[cfg(feature = "jiff")]
-            {
-                let jiff = jiff::civil::time(hour, minute, min(second, 59), 0);
-                ValueTime {
-                    hour,
-                    minute,
-                    second,
-                    utc: utc.is_some(),
-                    jiff,
-                }
-            }
-            #[cfg(not(feature = "jiff"))]
-            {
-                ValueTime {
-                    hour,
-                    minute,
-                    second,
-                    utc: utc.is_some(),
-                }
-            }
+            #[allow(clippy::cast_possible_wrap)]
+            jiff: jiff::civil::time(hour as i8, minute as i8, second.min(59) as i8, 0),
         })
 }
 
@@ -288,13 +261,13 @@ pub struct ValueUtcOffset {
     pub positive: bool,
 
     /// Hour, 0-23
-    pub hour: i8,
+    pub hour: u8,
 
     /// Minute, 0-59
-    pub minute: i8,
+    pub minute: u8,
 
     /// Second, 0-60, optional
-    pub second: i8,
+    pub second: Option<u8>,
 }
 
 /// Format Definition:  This value type is defined by the following notation:
@@ -312,56 +285,48 @@ where
     select! { c @ ('+' | '-') => c }
         .then(time_hour())
         .then(time_minute())
-        .then(time_second_with_leap().or_not())
+        .then(time_second().or_not())
         .map(|(((sign, hour), minute), second)| ValueUtcOffset {
             positive: !matches!(sign, '-'),
             hour,
             minute,
-            second: second.unwrap_or(0),
+            second,
         })
 }
 
-fn time_hour<'src, I, E>() -> impl Parser<'src, I, i8, E> + Copy
+fn time_hour<'src, I, E>() -> impl Parser<'src, I, u8, E> + Copy
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
     choice((
-        i8_0_1().then(i8_0_9()).map(|(a, b)| 10 * a + b),
-        just('2').ignore_then(i8_0_3()).map(|b| 20 + b),
+        u8_0_1().then(u8_0_9()).map(|(a, b)| 10 * a + b),
+        just('2').ignore_then(u8_0_3()).map(|b| 20 + b),
     ))
 }
 
-fn time_minute<'src, I, E>() -> impl Parser<'src, I, i8, E> + Copy
+fn time_minute<'src, I, E>() -> impl Parser<'src, I, u8, E> + Copy
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
-    i8_0_5().then(i8_0_9()).map(|(a, b)| 10 * a + b)
+    u8_0_5().then(u8_0_9()).map(|(a, b)| 10 * a + b)
 }
 
-fn time_second<'src, I, E>() -> impl Parser<'src, I, i8, E> + Copy
-where
-    I: Input<'src, Token = char, Span = SimpleSpan>,
-    E: ParserExtra<'src, I>,
-{
-    i8_0_5().then(i8_0_9()).map(|(a, b)| 10 * a + b)
-}
-
-fn time_second_with_leap<'src, I, E>() -> impl Parser<'src, I, i8, E> + Copy
+fn time_second<'src, I, E>() -> impl Parser<'src, I, u8, E> + Copy
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
 {
     choice((
-        time_second(),
-        just('6').ignore_then(just('0').ignored().to(60)),
+        u8_0_5().then(u8_0_9()).map(|(a, b)| 10 * a + b),
+        just('6').ignore_then(just('0').ignored().to(60)), // leap second
     ))
 }
 
 macro_rules! define_digit_select {
     ($fname:ident : $ty:ty => { $($ch:literal),+ $(,)? }) => {
-        #[allow(clippy::cast_lossless, clippy::char_lit_as_u8, clippy::cast_possible_wrap)]
+        #[allow(trivial_numeric_casts, clippy::cast_lossless, clippy::char_lit_as_u8, clippy::cast_possible_wrap)]
         const fn $fname<'src, I, E>() -> impl Parser<'src, I, $ty, E> + Copy
         where
             I: Input<'src, Token = char, Span = SimpleSpan>,
@@ -376,10 +341,12 @@ macro_rules! define_digit_select {
     };
 }
 
+define_digit_select!(u8_0_1 : u8 => { '0', '1' });
+define_digit_select!(u8_0_3 : u8 => { '0', '1', '2', '3' });
+define_digit_select!(u8_0_5 : u8 => { '0', '1', '2', '3', '4', '5' });
+define_digit_select!(u8_0_9 : u8 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
 define_digit_select!(i8_0_1 : i8 => { '0', '1' });
 define_digit_select!(i8_0_2 : i8 => { '0', '1', '2' });
-define_digit_select!(i8_0_3 : i8 => { '0', '1', '2', '3' });
-define_digit_select!(i8_0_5 : i8 => { '0', '1', '2', '3', '4', '5' });
 define_digit_select!(i8_0_9 : i8 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
 define_digit_select!(i8_1_2 : i8 => { '1', '2' });
 define_digit_select!(i8_1_9 : i8 => { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
@@ -450,11 +417,11 @@ mod tests {
         #[rustfmt::skip]
         let success_cases = [
             // examples from RFC 5545 Section 3.3.5
-            ("19980118T230000", (ValueDate { year: 1998, month: 1, day: 18 }, ValueTime::new(23, 0, 0, false))),
+            ("19980118T230000",  (ValueDate { year: 1998, month: 1, day: 18 }, ValueTime::new(23, 0, 0, false))),
             ("19980119T070000Z", (ValueDate { year: 1998, month: 1, day: 19 }, ValueTime::new(7, 0, 0, true))),
-            ("19980119T020000", (ValueDate { year: 1998, month: 1, day: 19 }, ValueTime::new(2, 0, 0, false))), // ignore: TZID=America/New_York:19980119T020000
+            ("19980119T020000",  (ValueDate { year: 1998, month: 1, day: 19 }, ValueTime::new(2, 0, 0, false))), // ignore: TZID=America/New_York:19980119T020000
             ("19970630T235960Z", (ValueDate { year: 1997, month: 6, day: 30 }, ValueTime::new(23, 59, 60, true))),
-            ("19970714T133000", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(13, 30, 0, false))), // Local time
+            ("19970714T133000",  (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(13, 30, 0, false))), // Local time
             ("19970714T173000Z", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(17, 30, 0, true))), // UTC time
             // ignore: TZID=America/New_York:19970714T133000
             //
@@ -467,23 +434,24 @@ mod tests {
             assert_eq!(result.date, expected_date, "Failed for {src}");
             assert_eq!(result.time, expected_time, "Failed for {src}");
             #[cfg(feature = "jiff")]
+            #[allow(clippy::cast_possible_wrap)]
             {
                 // Verify civil field is correctly computed
                 let expected_civil = jiff::civil::datetime(
                     expected_date.year,
                     expected_date.month,
                     expected_date.day,
-                    expected_time.hour,
-                    expected_time.minute,
-                    expected_time.second.min(59),
+                    expected_time.hour as i8,
+                    expected_time.minute as i8,
+                    expected_time.second.min(59) as i8,
                     0,
                 );
                 assert_eq!(result.jiff, expected_civil, "Failed for {src}");
                 // Verify civil_time returns correct value
                 let expected_time_civil = jiff::civil::time(
-                    expected_time.hour,
-                    expected_time.minute,
-                    expected_time.second.min(59),
+                    expected_time.hour as i8,
+                    expected_time.minute as i8,
+                    expected_time.second.min(59) as i8,
                     0,
                 );
                 assert_eq!(
@@ -534,8 +502,13 @@ mod tests {
             #[cfg(feature = "jiff")]
             {
                 // Verify civil_time returns correct value
-                let expected_jiff =
-                    jiff::civil::time(expected.hour, expected.minute, min(expected.second, 59), 0);
+                #[allow(clippy::cast_possible_wrap)]
+                let expected_jiff = jiff::civil::time(
+                    expected.hour as i8,
+                    expected.minute as i8,
+                    expected.second.min(59) as i8,
+                    0,
+                );
                 assert_eq!(result.civil_time(), expected_jiff, "Failed for {src}");
             }
         }
@@ -567,11 +540,11 @@ mod tests {
         #[rustfmt::skip]
         let success_cases = [
             // examples from RFC 5545 Section 3.3.14
-            (  "-0500", ValueUtcOffset{positive: false, hour: 5, minute:  0, second:  0}),
-            (  "+0100", ValueUtcOffset{positive:  true, hour: 1, minute:  0, second:  0}),
+            (  "-0500", ValueUtcOffset{positive: false, hour: 5, minute:  0, second: None}),
+            (  "+0100", ValueUtcOffset{positive:  true, hour: 1, minute:  0, second: None}),
             // extra tests
-            (  "+0000", ValueUtcOffset{positive:  true, hour: 0, minute:  0, second:  0}),
-            ("-123456", ValueUtcOffset{positive: false, hour:12, minute: 34, second: 56}),
+            (  "+0000", ValueUtcOffset{positive:  true, hour: 0, minute:  0, second: None}),
+            ("-123456", ValueUtcOffset{positive: false, hour:12, minute: 34, second: Some(56)}),
         ];
         for (src, expected) in success_cases {
             assert_eq!(parse(src).unwrap(), expected);

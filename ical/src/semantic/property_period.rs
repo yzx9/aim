@@ -6,9 +6,9 @@
 
 use std::convert::TryFrom;
 
-use crate::semantic::{DateTime, SemanticError};
+use crate::semantic::{DateTime, SemanticError, Time};
 use crate::syntax::SpannedSegments;
-use crate::typed::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime, ValueType};
+use crate::typed::{Value, ValueDate, ValueDuration, ValuePeriod, ValueType};
 
 /// Period of time (start-end or start-duration)
 ///
@@ -25,11 +25,11 @@ pub enum Period<'src> {
         /// Start date
         start_date: ValueDate,
         /// Start time
-        start_time: ValueTime,
+        start_time: Time,
         /// End date
         end_date: ValueDate,
         /// End time
-        end_time: ValueTime,
+        end_time: Time,
     },
 
     /// Start and end date/time in floating time (no timezone)
@@ -37,11 +37,11 @@ pub enum Period<'src> {
         /// Start date
         start_date: ValueDate,
         /// Start time
-        start_time: ValueTime,
+        start_time: Time,
         /// End date
         end_date: ValueDate,
         /// End time
-        end_time: ValueTime,
+        end_time: Time,
     },
 
     /// Start and end date/time with timezone reference
@@ -49,11 +49,11 @@ pub enum Period<'src> {
         /// Start date
         start_date: ValueDate,
         /// Start time
-        start_time: ValueTime,
+        start_time: Time,
         /// End date
         end_date: ValueDate,
         /// End time
-        end_time: ValueTime,
+        end_time: Time,
         /// Timezone ID (same for both start and end)
         tz_id: SpannedSegments<'src>,
         /// Cached parsed timezone (available with jiff feature)
@@ -66,7 +66,7 @@ pub enum Period<'src> {
         /// Start date
         start_date: ValueDate,
         /// Start time
-        start_time: ValueTime,
+        start_time: Time,
         /// Duration from the start
         duration: ValueDuration,
     },
@@ -76,7 +76,7 @@ pub enum Period<'src> {
         /// Start date
         start_date: ValueDate,
         /// Start time
-        start_time: ValueTime,
+        start_time: Time,
         /// Duration from the start
         duration: ValueDuration,
     },
@@ -86,7 +86,7 @@ pub enum Period<'src> {
         /// Start date
         start_date: ValueDate,
         /// Start time
-        start_time: ValueTime,
+        start_time: Time,
         /// Duration from the start
         duration: ValueDuration,
         /// Start timezone ID
@@ -112,7 +112,7 @@ impl<'src> Period<'src> {
     /// Get the timezone if this is a zoned period (when jiff feature is enabled)
     #[cfg(feature = "jiff")]
     #[must_use]
-    pub fn timezone(&self) -> Option<&jiff::tz::TimeZone> {
+    pub fn jiff_timezone(&self) -> Option<&jiff::tz::TimeZone> {
         match self {
             Period::ExplicitZoned { tz_jiff: tz, .. }
             | Period::DurationZoned { tz_jiff: tz, .. } => Some(tz),
@@ -120,8 +120,8 @@ impl<'src> Period<'src> {
         }
     }
 
-    /// Get the start as a `DateTime` (when jiff feature is enabled).
-    #[cfg(feature = "jiff")]
+    /// Get the start as a `DateTime`.
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn start(&self) -> DateTime<'src> {
         match self {
@@ -155,6 +155,7 @@ impl<'src> Period<'src> {
                 start_date,
                 start_time,
                 tz_id,
+                #[cfg(feature = "jiff")]
                 tz_jiff,
                 ..
             }
@@ -162,12 +163,14 @@ impl<'src> Period<'src> {
                 start_date,
                 start_time,
                 tz_id,
+                #[cfg(feature = "jiff")]
                 tz_jiff,
                 ..
             } => DateTime::Zoned {
                 date: *start_date,
                 time: *start_time,
                 tz_id: tz_id.clone(),
+                #[cfg(feature = "jiff")]
                 tz_jiff: tz_jiff.clone(),
             },
         }
@@ -177,6 +180,7 @@ impl<'src> Period<'src> {
     ///
     /// For duration-based periods, calculates the end by adding the duration to the start.
     #[cfg(feature = "jiff")]
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn end(&self) -> DateTime<'src> {
         match self {
@@ -214,14 +218,17 @@ impl<'src> Period<'src> {
                     start_date.civil_date(),
                     start_time.civil_time(),
                 );
-                let end = apply_duration(start, duration);
+                let end = add_duration(start, duration);
                 DateTime::Utc {
                     date: ValueDate {
                         year: end.year(),
                         month: end.month(),
                         day: end.day(),
                     },
-                    time: ValueTime::new(end.hour(), end.minute(), end.second(), true),
+                    #[allow(clippy::cast_sign_loss)]
+                    time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
+                        .map_err(|e| format!("invalid time: {e}"))
+                        .unwrap(), // SAFETY: hour, minute, second are within valid ranges
                 }
             }
             Period::DurationFloating {
@@ -234,14 +241,17 @@ impl<'src> Period<'src> {
                     start_date.civil_date(),
                     start_time.civil_time(),
                 );
-                let end = apply_duration(start, duration);
+                let end = add_duration(start, duration);
                 DateTime::Floating {
                     date: ValueDate {
                         year: end.year(),
                         month: end.month(),
                         day: end.day(),
                     },
-                    time: ValueTime::new(end.hour(), end.minute(), end.second(), false),
+                    #[allow(clippy::cast_sign_loss)]
+                    time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
+                        .map_err(|e| format!("invalid time: {e}"))
+                        .unwrap(), // SAFETY: hour, minute, second are within valid ranges
                 }
             }
             Period::DurationZoned {
@@ -255,14 +265,16 @@ impl<'src> Period<'src> {
                     start_date.civil_date(),
                     start_time.civil_time(),
                 );
-                let end = apply_duration(start, duration);
+                let end = add_duration(start, duration);
                 DateTime::Zoned {
                     date: ValueDate {
                         year: end.year(),
                         month: end.month(),
                         day: end.day(),
                     },
-                    time: ValueTime::new(end.hour(), end.minute(), end.second(), false),
+                    #[allow(clippy::cast_sign_loss)]
+                    time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
+                        .expect("invalid time"),
                     tz_id: tz_id.clone(),
                     tz_jiff: tz_jiff.clone(),
                 }
@@ -331,16 +343,16 @@ impl<'src> TryFrom<&Value<'src>> for Period<'src> {
                     if start.time.utc {
                         Ok(Period::ExplicitUtc {
                             start_date: start.date,
-                            start_time: start.time,
+                            start_time: start.time.into(),
                             end_date: end.date,
-                            end_time: end.time,
+                            end_time: end.time.into(),
                         })
                     } else {
                         Ok(Period::ExplicitFloating {
                             start_date: start.date,
-                            start_time: start.time,
+                            start_time: start.time.into(),
                             end_date: end.date,
-                            end_time: end.time,
+                            end_time: end.time.into(),
                         })
                     }
                 }
@@ -358,13 +370,13 @@ impl<'src> TryFrom<&Value<'src>> for Period<'src> {
                     if start.time.utc {
                         Ok(Period::DurationUtc {
                             start_date: start.date,
-                            start_time: start.time,
+                            start_time: start.time.into(),
                             duration: *duration,
                         })
                     } else {
                         Ok(Period::DurationFloating {
                             start_date: start.date,
-                            start_time: start.time,
+                            start_time: start.time.into(),
                             duration: *duration,
                         })
                     }
@@ -379,7 +391,7 @@ impl<'src> TryFrom<&Value<'src>> for Period<'src> {
 }
 
 #[cfg(feature = "jiff")]
-fn apply_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff::civil::DateTime {
+fn add_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff::civil::DateTime {
     match duration {
         ValueDuration::DateTime {
             positive,

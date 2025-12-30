@@ -353,10 +353,8 @@ impl TimeZoneOffset {
         match value {
             Value::UtcOffset(offset) => Ok(TimeZoneOffset {
                 positive: offset.positive,
-                #[allow(clippy::cast_sign_loss)]
-                hours: offset.hour as u8,
-                #[allow(clippy::cast_sign_loss)]
-                minutes: offset.minute as u8,
+                hours: offset.hour,
+                minutes: offset.minute,
             }),
             _ => Err(SemanticError::InvalidValue {
                 property: kind,
@@ -373,10 +371,8 @@ impl TryFrom<Value<'_>> for TimeZoneOffset {
         match value {
             Value::UtcOffset(offset) => Ok(TimeZoneOffset {
                 positive: offset.positive,
-                #[allow(clippy::cast_sign_loss)]
-                hours: offset.hour as u8,
-                #[allow(clippy::cast_sign_loss)]
-                minutes: offset.minute as u8,
+                hours: offset.hour,
+                minutes: offset.minute,
             }),
             _ => Err(SemanticError::InvalidValue {
                 property: PropertyKind::TzOffsetFrom, // Default fallback

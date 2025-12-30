@@ -954,7 +954,6 @@ END:VCALENDAR\r
                     assert_eq!(start_date.day, 15);
                     assert_eq!(start_time.hour, 9);
                     assert_eq!(start_time.minute, 0);
-                    assert!(!start_time.utc);
                     assert_eq!(end_time.hour, 12);
                 }
                 _ => panic!("Expected ExplicitFloating period"),

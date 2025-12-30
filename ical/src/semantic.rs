@@ -27,7 +27,7 @@ pub use property_attendee::Attendee;
 pub use property_common::{
     Attachment, AttachmentValue, Classification, Geo, Organizer, Text, Trigger, TriggerValue,
 };
-pub use property_datetime::DateTime;
+pub use property_datetime::{DateTime, Time};
 pub use property_period::Period;
 pub use valarm::{Action, VAlarm};
 pub use vevent::{EventStatus, TimeTransparency, VEvent};

@@ -482,7 +482,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
             Value::DateTime(dt) => Ok(Trigger {
                 value: TriggerValue::DateTime(DateTime::Floating {
                     date: dt.date,
-                    time: dt.time,
+                    time: dt.time.into(),
                 }),
                 related: None,
             }),
@@ -535,7 +535,7 @@ pub fn take_single_floating_date_time(
     match take_single_value(kind, values) {
         Ok(Value::DateTime(dt)) => Ok(DateTime::Floating {
             date: dt.date,
-            time: dt.time,
+            time: dt.time.into(),
         }),
         Ok(_) => Err(SemanticError::UnexpectedType {
             property: kind,
@@ -585,7 +585,7 @@ pub fn value_to_floating_date_time<'src>(value: &Value<'src>) -> Option<DateTime
     match value {
         Value::DateTime(dt) => Some(DateTime::Floating {
             date: dt.date,
-            time: dt.time,
+            time: dt.time.into(),
         }),
         _ => None,
     }

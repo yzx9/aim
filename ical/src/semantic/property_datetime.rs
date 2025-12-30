@@ -20,7 +20,7 @@ pub enum DateTime<'src> {
         /// Date part
         date: ValueDate,
         /// Time part
-        time: ValueTime,
+        time: Time,
     },
 
     /// Date and time with specific timezone
@@ -28,7 +28,7 @@ pub enum DateTime<'src> {
         /// Date part
         date: ValueDate,
         /// Time part
-        time: ValueTime,
+        time: Time,
         /// Timezone identifier
         tz_id: SpannedSegments<'src>,
         /// Cached parsed timezone (available with jiff feature)
@@ -41,7 +41,7 @@ pub enum DateTime<'src> {
         /// Date part
         date: ValueDate,
         /// Time part
-        time: ValueTime,
+        time: Time,
     },
 
     /// Date-only value
@@ -65,7 +65,7 @@ impl<'src> DateTime<'src> {
 
     /// Get the time part if this is not a date-only value
     #[must_use]
-    pub fn time(&self) -> Option<ValueTime> {
+    pub fn time(&self) -> Option<Time> {
         match self {
             DateTime::Floating { time, .. }
             | DateTime::Zoned { time, .. }
@@ -179,12 +179,12 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
             match value {
                 Value::DateTime(dt) if dt.time.utc => Ok(DateTime::Utc {
                     date: dt.date,
-                    time: dt.time,
+                    time: dt.time.into(),
                 }),
 
                 Value::DateTime(dt) => Ok(DateTime::Zoned {
                     date: dt.date,
-                    time: dt.time,
+                    time: dt.time.into(),
                     tz_id: tz_id_value,
                     #[cfg(feature = "jiff")]
                     tz_jiff: tz_jiff.unwrap(), // SAFETY: set above
@@ -200,17 +200,76 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
                 Value::Date(date) => Ok(DateTime::Date { date: *date }),
                 Value::DateTime(dt) if dt.time.utc => Ok(DateTime::Utc {
                     date: dt.date,
-                    time: dt.time,
+                    time: dt.time.into(),
                 }),
                 Value::DateTime(dt) => Ok(DateTime::Floating {
                     date: dt.date,
-                    time: dt.time,
+                    time: dt.time.into(),
                 }),
                 _ => Err(vec![SemanticError::InvalidValue {
                     property: crate::typed::PropertyKind::DtStart, // Default fallback
                     value: format!("Expected date or date-time value, got {value:?}"),
                 }]),
             }
+        }
+    }
+}
+
+/// Time representation
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Time {
+    /// Hour component (0-23)
+    pub hour: u8,
+
+    /// Minute component (0-59)
+    pub minute: u8,
+
+    /// Second component (0-60)
+    pub second: u8,
+
+    /// Cached `jiff::civil::Time` representation
+    #[cfg(feature = "jiff")]
+    pub(crate) jiff: jiff::civil::Time,
+}
+
+impl Time {
+    /// Create a new `Time` instance.
+    ///
+    /// # Errors
+    /// If hour, minute, or second are out of valid ranges.
+    #[allow(clippy::cast_possible_wrap)]
+    pub fn new(hour: u8, minute: u8, second: u8) -> Result<Self, String> {
+        Ok(Time {
+            hour,
+            minute,
+            second,
+            #[cfg(feature = "jiff")]
+            jiff: jiff::civil::Time::new(
+                hour as i8,
+                minute as i8,
+                second.min(59) as i8, // NOTE: we clamp second to 59 here because jiff does not support leap seconds
+                0,
+            )
+            .map_err(|e| e.to_string())?,
+        })
+    }
+
+    /// Get reference to cached `jiff::civil::Time`.
+    #[cfg(feature = "jiff")]
+    #[must_use]
+    pub const fn civil_time(&self) -> jiff::civil::Time {
+        self.jiff
+    }
+}
+
+impl From<ValueTime> for Time {
+    fn from(value: ValueTime) -> Self {
+        Time {
+            hour: value.hour,
+            minute: value.minute,
+            second: value.second,
+            #[cfg(feature = "jiff")]
+            jiff: value.jiff,
         }
     }
 }
