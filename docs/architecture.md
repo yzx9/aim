@@ -13,8 +13,7 @@ logic, data persistence, and user interface.
 
 ```
 aim/
-├── .github/            # GitHub configurations
-│   └── workflows/      # CI/CD workflows
+├── .github/            # GitHub configurations, including CI/CD workflows and dependabot
 ├── aimcal/             # Public API facade
 ├── core/               # Core business logic
 ├── cli/                # Command-line interface
