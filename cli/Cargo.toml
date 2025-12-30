@@ -36,7 +36,7 @@ toml = "0.9.10"
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
 unicode-segmentation = "1.12.0"
-unicode-width = "0.2.0"
+unicode-width = "0.2.2"
 uuid = "1.19.0"
 
 [target.'cfg(unix)'.dependencies]
