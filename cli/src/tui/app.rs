@@ -81,25 +81,26 @@ macro_rules! run_editor {
         fn $fn(aim: &mut Aim, store: $store) -> Result<$store, Box<dyn Error>> {
             let store = Rc::new(RefCell::new(store));
 
-            let mut terminal = ratatui::init();
             let result = {
                 let mut dispatcher = Dispatcher::new();
                 $store::register_to(store.clone(), &mut dispatcher);
-                let mut app = App::new($view(), dispatcher, &store, &mut terminal);
 
-                loop {
-                    if let Err(e) = app.darw(&store, &mut terminal) {
-                        break Err(e);
-                    }
+                ratatui::run(|mut terminal| {
+                    let mut app = App::new($view(), dispatcher, &store, &mut terminal);
 
-                    match app.read_event(&store) {
-                        Err(e) => break Err(e),
-                        Ok(Some(Message::Exit)) => break Ok(()),
-                        Ok(_) => {} // Continue the loop to render the next frame
+                    loop {
+                        if let Err(e) = app.draw(&store, &mut terminal) {
+                            break Err(e.into());
+                        }
+
+                        match app.read_event(&store) {
+                            Err(e) => break Err(e),
+                            Ok(Some(Message::Exit)) => break Ok(()),
+                            Ok(_) => {} // Continue the loop to render the next frame
+                        }
                     }
-                }
+                })
             }; // release dispatcher and view here to avoid borrow conflicts
-            ratatui::restore();
             aim.refresh_now(); // Ensure the current time is updated
             result?;
 
@@ -147,11 +148,11 @@ impl<S, C: Component<S>> App<S, C> {
         }
     }
 
-    pub fn darw<B: Backend>(
+    pub fn draw<B: Backend>(
         &mut self,
         store: &RefCell<S>,
         terminal: &mut Terminal<B>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), B::Error> {
         terminal.draw(|frame| {
             self.area = frame.area();
             self.view.render(store, frame.area(), frame.buffer_mut());
