@@ -7,7 +7,8 @@
 use std::convert::TryFrom;
 
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
-use crate::semantic::property_common::{
+use crate::property::TimeZoneOffset;
+use crate::semantic::property_util::{
     take_single_floating_date_time, take_single_text, take_single_value,
 };
 use crate::semantic::{DateTime, SemanticError, Text};
@@ -328,58 +329,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
             tz_name: props.tz_name,
             rrule: props.rrule,
         })
-    }
-}
-
-/// Timezone offset
-#[derive(Debug, Clone, Copy)]
-pub struct TimeZoneOffset {
-    /// Whether the offset is positive
-    pub positive: bool,
-
-    /// Hours
-    pub hours: u8,
-
-    /// Minutes
-    pub minutes: u8,
-}
-
-impl TimeZoneOffset {
-    /// Try to convert from a Value with `PropertyKind` context
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err` if the value is not a `UtcOffset`
-    pub fn try_from_value(value: &Value<'_>, kind: PropertyKind) -> Result<Self, SemanticError> {
-        match value {
-            Value::UtcOffset(offset) => Ok(TimeZoneOffset {
-                positive: offset.positive,
-                hours: offset.hour,
-                minutes: offset.minute,
-            }),
-            _ => Err(SemanticError::InvalidValue {
-                property: kind,
-                value: format!("Expected UTC offset value, got {value:?}"),
-            }),
-        }
-    }
-}
-
-impl TryFrom<Value<'_>> for TimeZoneOffset {
-    type Error = SemanticError;
-
-    fn try_from(value: Value<'_>) -> Result<Self, Self::Error> {
-        match value {
-            Value::UtcOffset(offset) => Ok(TimeZoneOffset {
-                positive: offset.positive,
-                hours: offset.hour,
-                minutes: offset.minute,
-            }),
-            _ => Err(SemanticError::InvalidValue {
-                property: PropertyKind::TzOffsetFrom, // Default fallback
-                value: format!("Expected UTC offset value, got {value:?}"),
-            }),
-        }
     }
 }
 

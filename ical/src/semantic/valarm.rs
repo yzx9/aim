@@ -4,16 +4,15 @@
 
 //! Alarm component (VALARM) for iCalendar semantic components.
 
-use std::{convert::TryFrom, fmt::Display, str::FromStr};
+use std::convert::TryFrom;
 
-use crate::keyword::{
-    KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE, KW_VALARM,
-};
-use crate::semantic::property_common::{
+use crate::keyword::KW_VALARM;
+use crate::parameter::ValueType;
+use crate::property::Action;
+use crate::semantic::property_util::{
     take_single_int, take_single_value, take_single_value_string,
 };
 use crate::semantic::{Attachment, Attendee, SemanticError, Text, Trigger, TriggerValue};
-use crate::parameter::ValueType;
 use crate::typed::{PropertyKind, TypedComponent, Value};
 use crate::value::ValueDuration;
 
@@ -282,49 +281,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
             attendees: props.attendees,
             attach: props.attach,
         })
-    }
-}
-
-/// Alarm action
-#[derive(Debug, Clone, Copy)]
-pub enum Action {
-    /// Audio alarm
-    Audio,
-
-    /// Display alarm
-    Display,
-
-    /// Email alarm
-    Email,
-}
-
-impl FromStr for Action {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_ACTION_AUDIO => Ok(Self::Audio),
-            KW_ACTION_DISPLAY => Ok(Self::Display),
-            KW_ACTION_EMAIL => Ok(Self::Email),
-            KW_ACTION_PROCEDURE => Err("PROCEDURE action has been deprecated".to_string()),
-            _ => Err(format!("Invalid alarm action: {s}")),
-        }
-    }
-}
-
-impl AsRef<str> for Action {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Audio => KW_ACTION_AUDIO,
-            Self::Display => KW_ACTION_DISPLAY,
-            Self::Email => KW_ACTION_EMAIL,
-        }
-    }
-}
-
-impl Display for Action {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_ref().fmt(f)
     }
 }
 

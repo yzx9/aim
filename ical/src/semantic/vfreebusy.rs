@@ -7,14 +7,12 @@
 use std::convert::TryFrom;
 
 use crate::keyword::KW_VFREEBUSY;
-use crate::semantic::property_common::{
+use crate::parameter::{FreeBusyType, ValueType};
+use crate::semantic::property_util::{
     take_single_floating_date_time, take_single_text, take_single_value,
 };
 use crate::semantic::{DateTime, Organizer, Period, SemanticError, Text};
-use crate::parameter::{FreeBusyType, ValueType};
-use crate::typed::{
-    PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, Value,
-};
+use crate::typed::{PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, Value};
 use crate::value::{ValueDate, ValueDuration, ValueText};
 
 /// Free/busy time component (VFREEBUSY)

@@ -5,23 +5,18 @@
 //! Event component (VEVENT) for iCalendar semantic components.
 
 use std::convert::TryFrom;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
 
-use crate::keyword::{
-    KW_EVENT_STATUS_CANCELLED, KW_EVENT_STATUS_CONFIRMED, KW_EVENT_STATUS_TENTATIVE,
-    KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT, KW_VALARM, KW_VEVENT,
-};
-use crate::semantic::property_common::{
-    parse_multi_text_property, take_single_floating_date_time, take_single_int, take_single_text,
-    take_single_value, take_single_value_string, value_to_floating_date_time,
+use crate::keyword::{KW_VALARM, KW_VEVENT};
+use crate::property::parse_multi_text_property;
+use crate::property::{EventStatus, TimeTransparency};
+use crate::semantic::property_util::{
+    take_single_floating_date_time, take_single_int, take_single_text, take_single_value,
+    take_single_value_string, value_to_floating_date_time,
 };
 use crate::semantic::{
     Attendee, Classification, DateTime, Geo, Organizer, Period, SemanticError, Text, VAlarm,
 };
-use crate::typed::{
-    PropertyKind, TypedComponent, Value, ValueType,
-};
+use crate::typed::{PropertyKind, TypedComponent, Value, ValueType};
 use crate::value::{RecurrenceRule, ValueDate, ValueDuration, ValueText};
 
 /// Event component (VEVENT)
@@ -563,97 +558,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
             ex_date: props.ex_dates,
             alarms,
         })
-    }
-}
-
-/// Event status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EventStatus {
-    /// Event is tentative
-    Tentative,
-
-    /// Event is confirmed
-    Confirmed,
-
-    /// Event is cancelled
-    Cancelled,
-    // /// Custom status
-    // Custom(String),
-}
-
-impl FromStr for EventStatus {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_EVENT_STATUS_TENTATIVE => Ok(Self::Tentative),
-            KW_EVENT_STATUS_CONFIRMED => Ok(Self::Confirmed),
-            KW_EVENT_STATUS_CANCELLED => Ok(Self::Cancelled),
-            _ => Err(format!("Invalid event status: {s}")),
-        }
-    }
-}
-
-impl Display for EventStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Tentative => KW_EVENT_STATUS_TENTATIVE.fmt(f),
-            Self::Confirmed => KW_EVENT_STATUS_CONFIRMED.fmt(f),
-            Self::Cancelled => KW_EVENT_STATUS_CANCELLED.fmt(f),
-        }
-    }
-}
-
-impl AsRef<str> for EventStatus {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Tentative => KW_EVENT_STATUS_TENTATIVE,
-            Self::Confirmed => KW_EVENT_STATUS_CONFIRMED,
-            Self::Cancelled => KW_EVENT_STATUS_CANCELLED,
-        }
-    }
-}
-
-/// Time transparency for events
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum TimeTransparency {
-    /// Event blocks time
-    #[default]
-    Opaque,
-
-    /// Event does not block time
-    Transparent,
-    // /// Custom transparency
-    // Custom(String),
-}
-
-impl FromStr for TimeTransparency {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_TRANSP_OPAQUE => Ok(Self::Opaque),
-            KW_TRANSP_TRANSPARENT => Ok(Self::Transparent),
-            _ => Err(format!("Invalid time transparency: {s}")),
-        }
-    }
-}
-
-impl Display for TimeTransparency {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Opaque => KW_TRANSP_OPAQUE.fmt(f),
-            Self::Transparent => KW_TRANSP_TRANSPARENT.fmt(f),
-        }
-    }
-}
-
-impl AsRef<str> for TimeTransparency {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Opaque => KW_TRANSP_OPAQUE,
-            Self::Transparent => KW_TRANSP_TRANSPARENT,
-        }
     }
 }
 

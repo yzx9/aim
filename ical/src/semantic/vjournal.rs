@@ -5,20 +5,16 @@
 //! Journal entry component (VJOURNAL) for iCalendar semantic components.
 
 use std::convert::TryFrom;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
 
-use crate::keyword::{
-    KW_JOURNAL_STATUS_CANCELLED, KW_JOURNAL_STATUS_DRAFT, KW_JOURNAL_STATUS_FINAL, KW_VJOURNAL,
-};
-use crate::semantic::property_common::{
-    parse_multi_text_property, take_single_floating_date_time, take_single_text, take_single_value,
-    take_single_value_string, value_to_floating_date_time,
+use crate::keyword::KW_VJOURNAL;
+use crate::property::JournalStatus;
+use crate::property::parse_multi_text_property;
+use crate::semantic::property_util::{
+    take_single_floating_date_time, take_single_text, take_single_value, take_single_value_string,
+    value_to_floating_date_time,
 };
 use crate::semantic::{Attendee, Classification, DateTime, Organizer, Period, SemanticError, Text};
-use crate::typed::{
-    PropertyKind, TypedComponent, Value, ValueType,
-};
+use crate::typed::{PropertyKind, TypedComponent, Value, ValueType};
 use crate::value::{RecurrenceRule, ValueDate, ValueText};
 
 /// Journal entry component (VJOURNAL)
@@ -362,52 +358,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
             ex_date: props.ex_dates,
             url: props.url,
         })
-    }
-}
-
-/// Journal status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum JournalStatus {
-    /// Journal entry is draft
-    Draft,
-
-    /// Journal entry is final
-    Final,
-
-    /// Journal entry is cancelled
-    Cancelled,
-}
-
-impl FromStr for JournalStatus {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_JOURNAL_STATUS_DRAFT => Ok(Self::Draft),
-            KW_JOURNAL_STATUS_FINAL => Ok(Self::Final),
-            KW_JOURNAL_STATUS_CANCELLED => Ok(Self::Cancelled),
-            _ => Err(format!("Invalid journal status: {s}")),
-        }
-    }
-}
-
-impl Display for JournalStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Draft => KW_JOURNAL_STATUS_DRAFT.fmt(f),
-            Self::Final => KW_JOURNAL_STATUS_FINAL.fmt(f),
-            Self::Cancelled => KW_JOURNAL_STATUS_CANCELLED.fmt(f),
-        }
-    }
-}
-
-impl AsRef<str> for JournalStatus {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Draft => KW_JOURNAL_STATUS_DRAFT,
-            Self::Final => KW_JOURNAL_STATUS_FINAL,
-            Self::Cancelled => KW_JOURNAL_STATUS_CANCELLED,
-        }
     }
 }
 

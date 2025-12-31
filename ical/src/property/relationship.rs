@@ -2,18 +2,24 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-//! Attendee property for iCalendar semantic components.
+//! Component Relationship Properties (RFC 5545 Section 3.8.4)
+//!
+//! This module contains property types for the "Component Relationship Properties"
+//! section of RFC 5545, including:
+//! - 3.8.4.1 Attendee
+//! - 3.8.4.3 Organizer
 
 use std::convert::TryFrom;
 
-use crate::semantic::SemanticError;
-use crate::semantic::property_common::take_single_value;
+use crate::parameter::{
+    CalendarUserType, ParticipationRole, ParticipationStatus, TypedParameter, TypedParameterKind,
+};
+use crate::semantic::{SemanticError, take_single_value};
 use crate::syntax::SpannedSegments;
-use crate::parameter::{CalendarUserType, ParticipationRole, ParticipationStatus, TypedParameter, TypedParameterKind};
 use crate::typed::{PropertyKind, TypedProperty, Value};
 use crate::value::ValueText;
 
-/// Attendee information
+/// Attendee information (RFC 5545 Section 3.8.4.1)
 #[derive(Debug, Clone)]
 pub struct Attendee<'src> {
     /// Calendar user address (mailto: or other URI)

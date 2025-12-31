@@ -2,7 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-//! Typed representation of iCalendar components and properties.
+//! Property specifications and metadata for iCalendar properties.
+//!
+//! This module defines the `PropertyKind` enum and `PropertySpec` structures
+//! that provide metadata about all standard iCalendar properties as defined in
+//! RFC 5545. Each property includes:
+//! - Property cardinality (how many times it can appear)
+//! - Allowed parameter types
+//! - Allowed value types
+//! - Value cardinality (how many values per property)
+//!
+//! The actual property type definitions (e.g., `Attendee`, `DateTime`, `Geo`)
+//! are organized in separate modules by RFC 5545 section.
 
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroUsize;
@@ -17,8 +28,8 @@ use crate::keyword::{
     KW_SUMMARY, KW_TRANSP, KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZOFFSETFROM, KW_TZOFFSETTO,
     KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
-use crate::syntax::SpannedSegments;
 use crate::parameter::{TypedParameterKind, ValueType};
+use crate::syntax::SpannedSegments;
 
 /// Macro to define `PropertyKind` with all associated metadata.
 ///

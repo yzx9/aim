@@ -16,7 +16,7 @@ The parser follows a **four-phase pipeline**:
    representations through three sub-passes:
    - **Parameter Pass** - Parses and validates iCalendar parameters (RFC 5545 Section 3.2)
    - **Value Pass** - Parses and validates property value types (RFC 5545 Section 3.3)
-   - **Property Pass** - (TODO) Validates property-specific constraints and relationships
+   - **Property Pass** - (TODO) Validates property-specific constraints
 4. **Semantic Analysis** - Validates RFC 5545 semantics (required properties,
    constraints, relationships)
 
@@ -51,6 +51,10 @@ Validates all components against RFC 5545 specifications through three sub-passe
    - Will handle property cardinality and multiplicity rules
    - Will validate inter-property dependencies
 
+**Note**: Property type definitions (e.g., `Attendee`, `DateTime`, `Geo`) are organized
+in the `property/` module by RFC 5545 sections for better code organization and
+maintainability.
+
 ### Semantic Analysis Phase
 
 Performs RFC 5545 semantic validation to ensure iCalendar data is logically
@@ -73,49 +77,49 @@ ical/
 ├── Cargo.toml
 ├── CLAUDE.md
 ├── RFC5545.txt     # If you have questions, check the RFC first and use search—it's very long
-└── src/
-    ├── lib.rs              # Public API exports
-    ├── keyword.rs          # RFC 5545 keyword constants
-    ├── lexer.rs            # Lexical analysis (tokenization)
-    ├── syntax.rs           # Syntax analysis
-    ├── parser.rs           # Unified parser orchestration
-    ├── typed.rs            # Typed module entry point
-    ├── parameter/          # Parameter pass implementation
-    │   ├── ast.rs          # Parameter definitions and parsing
-    │   └── definition.rs   # Parameter type enums
-    ├── property/           # Property pass implementation
-    │   └── spec.rs         # Property specifications
-    ├── value/              # Value pass implementation
-    │   ├── ast.rs          # Value enum and parsing
-    │   ├── datetime.rs     # Date/time value types
-    │   ├── duration.rs     # Duration value type
-    │   ├── numeric.rs      # Numeric value types
-    │   ├── period.rs       # Period value type
-    │   ├── rrule.rs        # Recurrence rule type
-    │   └── text.rs         # Text value type
-    └── semantic/           # Semantic module declaration
-        ├── analysis.rs     # Main semantic coordinator
-        ├── icalendar.rs    # ICalendar root component
-        ├── property_attendee.rs   # Attendee property parsing
-        ├── property_common.rs     # Common property definitions
-        ├── property_datetime.rs   # DateTime property parsing
-        ├── property_period.rs     # Period value type parsing
-        ├── valarm.rs       # VAlarm component
-        ├── vevent.rs       # VEvent component
-        ├── vfreebusy.rs    # VFreeBusy component
-        ├── vjournal.rs     # VJournal component
-        ├── vtimezone.rs    # VTimeZone component
-        └── vtodo.rs        # VTodo component
-```
-
-**Test Files:**
-
-```
-ical/tests/
-├── lexer.rs    # Lexer tests
-├── syntax.rs   # Syntax tests
-├── typed.rs    # Typed analysis tests
-└── semantic.rs # Semantic tests
+├── src/
+│   ├── lib.rs              # Public API exports
+│   ├── keyword.rs          # RFC 5545 keyword constants
+│   ├── lexer.rs            # Lexical analysis (tokenization)
+│   ├── syntax.rs           # Syntax analysis
+│   ├── parser.rs           # Unified parser orchestration
+│   ├── typed.rs            # Typed module entry point
+│   ├── parameter/          # Parameter pass implementation
+│   │   ├── ast.rs          # Parameter definitions and parsing
+│   │   └── definition.rs   # Parameter type enums
+│   ├── property/           # Property types organized by RFC 5545 sections
+│   │   ├── spec.rs         # Property specifications (PropertyKind, PropertySpec)
+│   │   ├── alarm.rs        # Section 3.8.6 - Alarm properties (Action, Trigger)
+│   │   ├── cal.rs          # Section 3.7 - Calendar properties (CalendarScale, Method, etc.)
+│   │   ├── datetime.rs     # Section 3.8.2 - Date/time properties (DateTime, Period, Time)
+│   │   ├── descriptive.rs  # Section 3.8.1 - Descriptive properties (Attachment, Geo, etc.)
+│   │   ├── relationship.rs # Section 3.8.4 - Relationship properties (Attendee, Organizer)
+│   │   ├── status.rs       # Section 3.8.1.11 - Status properties (EventStatus, etc.)
+│   │   ├── timezone.rs     # Section 3.8.3 - Time zone properties (TimeZoneOffset)
+│   │   └── transp.rs       # Section 3.8.2.7 - Time transparency property
+│   ├── value/              # Value pass implementation
+│   │   ├── ast.rs          # Value enum and parsing
+│   │   ├── datetime.rs     # Date/time value types
+│   │   ├── duration.rs     # Duration value type
+│   │   ├── numeric.rs      # Numeric value types
+│   │   ├── period.rs       # Period value type
+│   │   ├── rrule.rs        # Recurrence rule type
+│   │   └── text.rs         # Text value type
+│   └── semantic/           # Semantic module declaration
+│       ├── analysis.rs     # Main semantic coordinator
+│       ├── icalendar.rs    # ICalendar root component
+│       ├── property_util.rs    # Property parsing helper functions
+│       ├── valarm.rs       # VAlarm component
+│       ├── vevent.rs       # VEvent component
+│       ├── vfreebusy.rs    # VFreeBusy component
+│       ├── vjournal.rs     # VJournal component
+│       ├── vtimezone.rs    # VTimeZone component
+│       └── vtodo.rs        # VTodo component
+└── tests/
+    ├── lexer.rs    # Lexer tests
+    ├── syntax.rs   # Syntax tests
+    ├── typed.rs    # Typed analysis tests
+    └── semantic.rs # Semantic tests
 ```
 
 ## Dependencies
@@ -125,11 +129,11 @@ ical/tests/
 - **lexical** - Numeric parsing
 - **strum** - Enum utilities
 - **thiserror** - Error handling
-- **jiff** (optional) - Timezone validation
+- **jiff** (optional) - Datetime and timezone validation
 
 **Features:**
 
-- `jiff` (default) - Timezone database integration
+- `jiff` (default) - Datetime integration
 
 ## Design Principles
 

@@ -5,23 +5,17 @@
 //! To-do component (VTODO) for iCalendar semantic components.
 
 use std::convert::TryFrom;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
 
-use crate::keyword::{
-    KW_TODO_STATUS_CANCELLED, KW_TODO_STATUS_COMPLETED, KW_TODO_STATUS_IN_PROCESS,
-    KW_TODO_STATUS_NEEDS_ACTION, KW_VALARM, KW_VTODO,
-};
-use crate::semantic::property_common::{
-    parse_multi_text_property, take_single_floating_date_time, take_single_int, take_single_text,
-    take_single_value, take_single_value_string, value_to_floating_date_time,
+use crate::keyword::{KW_VALARM, KW_VTODO};
+use crate::property::{TodoStatus, parse_multi_text_property};
+use crate::semantic::property_util::{
+    take_single_floating_date_time, take_single_int, take_single_text, take_single_value,
+    take_single_value_string, value_to_floating_date_time,
 };
 use crate::semantic::{
     Attendee, Classification, DateTime, Geo, Organizer, Period, SemanticError, Text, VAlarm,
 };
-use crate::typed::{
-    PropertyKind, TypedComponent, Value, ValueType,
-};
+use crate::typed::{PropertyKind, TypedComponent, Value, ValueType};
 use crate::value::{RecurrenceRule, ValueDate, ValueDuration, ValueText};
 
 /// To-do component (VTODO)
@@ -589,60 +583,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
             ex_date: props.ex_dates,
             alarms,
         })
-    }
-}
-
-/// To-do status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TodoStatus {
-    /// To-do needs action
-    NeedsAction,
-
-    /// To-do is completed
-    Completed,
-
-    /// To-do is in process
-    InProcess,
-
-    /// To-do is cancelled
-    Cancelled,
-    // /// Custom status
-    // Custom(String),
-}
-
-impl FromStr for TodoStatus {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_TODO_STATUS_NEEDS_ACTION => Ok(Self::NeedsAction),
-            KW_TODO_STATUS_COMPLETED => Ok(Self::Completed),
-            KW_TODO_STATUS_IN_PROCESS => Ok(Self::InProcess),
-            KW_TODO_STATUS_CANCELLED => Ok(Self::Cancelled),
-            _ => Err(format!("Invalid todo status: {s}")),
-        }
-    }
-}
-
-impl Display for TodoStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NeedsAction => KW_TODO_STATUS_NEEDS_ACTION.fmt(f),
-            Self::Completed => KW_TODO_STATUS_COMPLETED.fmt(f),
-            Self::InProcess => KW_TODO_STATUS_IN_PROCESS.fmt(f),
-            Self::Cancelled => KW_TODO_STATUS_CANCELLED.fmt(f),
-        }
-    }
-}
-
-impl AsRef<str> for TodoStatus {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::NeedsAction => KW_TODO_STATUS_NEEDS_ACTION,
-            Self::Completed => KW_TODO_STATUS_COMPLETED,
-            Self::InProcess => KW_TODO_STATUS_IN_PROCESS,
-            Self::Cancelled => KW_TODO_STATUS_CANCELLED,
-        }
     }
 }
 

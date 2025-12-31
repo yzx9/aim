@@ -2,22 +2,29 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-//! Property and value types for iCalendar semantic components.
+//! Descriptive Component Properties (RFC 5545 Section 3.8.1)
+//!
+//! This module contains property types for the "Descriptive Component Properties"
+//! section of RFC 5545, including:
+//! - 3.8.1.1 Attachment
+//! - 3.8.1.3 Classification
+//! - 3.8.1.6 Geographic Position
+//! - Text helpers for properties like Description, Summary, Location, Contact
 
 use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
+use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
+use crate::parameter::{Encoding, TypedParameter, TypedParameterKind, ValueType};
+use crate::semantic::SemanticError;
+use crate::syntax::SpannedSegments;
+use crate::typed::{PropertyKind, TypedProperty, Value};
+use crate::value::{ValueText, values_float_semicolon};
+
 use chumsky::{Parser, error::Rich, extra, input::Stream};
 
-use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
-use crate::semantic::{DateTime, SemanticError};
-use crate::syntax::SpannedSegments;
-use crate::parameter::{AlarmTriggerRelationship, Encoding, TypedParameter, TypedParameterKind, ValueType};
-use crate::typed::{PropertyKind, TypedProperty, Value};
-use crate::value::{ValueDuration, ValueText, values_float_semicolon};
-
-/// Geographic position
+/// Geographic position (RFC 5545 Section 3.8.1.6)
 #[derive(Debug, Clone, Copy)]
 pub struct Geo {
     /// Latitude
@@ -31,7 +38,7 @@ impl TryFrom<TypedProperty<'_>> for Geo {
     type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = match take_single_value(prop.kind, prop.values) {
+        let value = match crate::semantic::take_single_value(prop.kind, prop.values) {
             Ok(v) => v,
             Err(e) => return Err(vec![e]),
         };
@@ -70,6 +77,13 @@ impl TryFrom<TypedProperty<'_>> for Geo {
 }
 
 /// Text with language and alternate representation information
+///
+/// This is a helper type used by many text properties like:
+/// - 3.8.1.5:`Description`
+/// - 3.8.1.12: `Summary`
+/// - 3.8.1.7: `Location`
+/// - 3.8.4.2: `Contact`
+/// - 3.8.3.2: `TzName`
 #[derive(Debug, Clone)]
 pub struct Text<'src> {
     /// The actual text content
@@ -174,7 +188,7 @@ pub fn parse_multi_text_property(prop: TypedProperty<'_>) -> Vec<Text<'_>> {
         .collect()
 }
 
-/// Classification of calendar data
+/// Classification of calendar data (RFC 5545 Section 3.8.1.3)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Classification {
     /// Public classification
@@ -248,7 +262,7 @@ impl TryFrom<TypedProperty<'_>> for Classification {
     }
 }
 
-/// Organizer information
+/// Organizer information (RFC 5545 Section 3.8.4.3)
 #[derive(Debug, Clone)]
 pub struct Organizer<'src> {
     /// Calendar user address (mailto: or other URI)
@@ -311,7 +325,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
         }
 
         // Get cal_address value
-        let cal_address = match take_single_text(prop.kind, prop.values) {
+        let cal_address = match crate::semantic::take_single_text(prop.kind, prop.values) {
             Ok(v) => v,
             Err(e) => {
                 errors.push(e);
@@ -334,7 +348,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
     }
 }
 
-/// Attachment information
+/// Attachment information (RFC 5545 Section 3.8.1.1)
 #[derive(Debug, Clone)]
 pub struct Attachment<'src> {
     /// URI or binary data
@@ -387,7 +401,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
         }
 
         // Get value
-        let value = match take_single_value(prop.kind, prop.values) {
+        let value = match crate::semantic::take_single_value(prop.kind, prop.values) {
             Ok(v) => v,
             Err(e) => {
                 errors.push(e);
@@ -416,176 +430,5 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
                 value: "Expected URI or binary value".to_string(),
             }]),
         }
-    }
-}
-
-/// Trigger for alarms
-#[derive(Debug, Clone)]
-pub struct Trigger<'src> {
-    /// When to trigger (relative or absolute)
-    pub value: TriggerValue<'src>,
-
-    /// Related parameter for relative triggers
-    pub related: Option<AlarmTriggerRelationship>,
-}
-
-/// Trigger value (relative duration or absolute date/time)
-#[derive(Debug, Clone)]
-pub enum TriggerValue<'src> {
-    /// Relative duration before/after the event
-    Duration(ValueDuration),
-
-    /// Absolute date/time
-    DateTime(DateTime<'src>),
-}
-
-impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
-    type Error = Vec<SemanticError>;
-
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let mut errors = Vec::new();
-
-        // Collect the RELATED parameter (optional, default is START)
-        let mut related = None;
-
-        for param in &prop.parameters {
-            #[allow(clippy::single_match)]
-            match param {
-                TypedParameter::AlarmTriggerRelationship { value, .. } => match related {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::AlarmTriggerRelationship,
-                    }),
-                    None => related = Some(*value),
-                },
-                // Ignore unknown parameters
-                _ => {}
-            }
-        }
-
-        let Some(value) = prop.values.first() else {
-            return Err(vec![SemanticError::MissingValue {
-                property: PropertyKind::Trigger,
-            }]);
-        };
-
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-
-        match value {
-            Value::Duration(dur) => Ok(Trigger {
-                value: TriggerValue::Duration(*dur),
-                related: Some(related.unwrap_or(AlarmTriggerRelationship::Start)),
-            }),
-            Value::DateTime(dt) => Ok(Trigger {
-                value: TriggerValue::DateTime(DateTime::Floating {
-                    date: dt.date,
-                    time: dt.time.into(),
-                }),
-                related: None,
-            }),
-            _ => Err(vec![SemanticError::InvalidValue {
-                property: PropertyKind::Trigger,
-                value: "Expected duration or date-time value".to_string(),
-            }]),
-        }
-    }
-}
-
-/// Get the first value from a property, or return an error
-pub fn take_single_value(
-    kind: PropertyKind,
-    mut values: Vec<Value<'_>>,
-) -> Result<Value<'_>, SemanticError> {
-    let len = values.len();
-    if len > 1 {
-        // TODO: better error reporting
-        return Err(SemanticError::ConstraintViolation {
-            message: format!("Property {kind:?} expected to have a single value, but has {len}",),
-        });
-    }
-
-    match values.pop() {
-        Some(value) => Ok(value),
-        None => Err(SemanticError::MissingValue { property: kind }),
-    }
-}
-
-pub fn take_single_text(
-    kind: PropertyKind,
-    values: Vec<Value<'_>>,
-) -> Result<ValueText<'_>, SemanticError> {
-    match take_single_value(kind, values) {
-        Ok(Value::Text(text)) => Ok(text),
-        Ok(_) => Err(SemanticError::UnexpectedType {
-            property: PropertyKind::Url,
-            expected: ValueType::Text,
-        }),
-        Err(e) => Err(e),
-    }
-}
-
-/// Get a single floating date-time value from a property
-pub fn take_single_floating_date_time(
-    kind: PropertyKind,
-    values: Vec<Value<'_>>,
-) -> Result<DateTime<'_>, SemanticError> {
-    match take_single_value(kind, values) {
-        Ok(Value::DateTime(dt)) => Ok(DateTime::Floating {
-            date: dt.date,
-            time: dt.time.into(),
-        }),
-        Ok(_) => Err(SemanticError::UnexpectedType {
-            property: kind,
-            expected: ValueType::DateTime,
-        }),
-        Err(e) => Err(e),
-    }
-}
-
-/// Get a single string value from a property
-pub fn take_single_value_string(
-    kind: PropertyKind,
-    values: Vec<Value<'_>>,
-) -> Result<String, SemanticError> {
-    match take_single_value(kind, values) {
-        Ok(Value::Text(v)) => Ok(v.resolve().to_string()),
-        Ok(_) => Err(SemanticError::UnexpectedType {
-            property: kind,
-            expected: ValueType::Text,
-        }),
-        Err(e) => Err(e),
-    }
-}
-
-/// Get a single integer value from a property
-pub fn take_single_int<T: TryFrom<i32>>(
-    kind: PropertyKind,
-    values: Vec<Value<'_>>,
-) -> Result<T, SemanticError> {
-    match take_single_value(kind, values) {
-        Ok(value) => match value {
-            Value::Integer(i) => T::try_from(i).map_err(|_| SemanticError::UnexpectedType {
-                property: kind,
-                expected: ValueType::Integer,
-            }),
-            _ => Err(SemanticError::UnexpectedType {
-                property: kind,
-                expected: ValueType::Integer,
-            }),
-        },
-        Err(e) => Err(e),
-    }
-}
-
-/// Convert a date-time value to semantic `DateTime` (floating)
-pub fn value_to_floating_date_time<'src>(value: &Value<'src>) -> Option<DateTime<'src>> {
-    match value {
-        Value::DateTime(dt) => Some(DateTime::Floating {
-            date: dt.date,
-            time: dt.time.into(),
-        }),
-        _ => None,
     }
 }
