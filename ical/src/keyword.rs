@@ -145,18 +145,16 @@ pub const KW_SUMMARY: &str = "SUMMARY";
 
 // 3.8.1.11.  Status
 // Status values for a "VEVENT"
-pub const KW_EVENT_STATUS_TENTATIVE: &str = "TENTATIVE";
-pub const KW_EVENT_STATUS_CONFIRMED: &str = "CONFIRMED";
-pub const KW_EVENT_STATUS_CANCELLED: &str = "CANCELLED";
+pub const KW_STATUS_TENTATIVE: &str = "TENTATIVE";
+pub const KW_STATUS_CONFIRMED: &str = "CONFIRMED";
+pub const KW_STATUS_CANCELLED: &str = "CANCELLED";
 // Status values for a "VTODO"
-pub const KW_TODO_STATUS_NEEDS_ACTION: &str = "NEEDS-ACTION";
-pub const KW_TODO_STATUS_COMPLETED: &str = "COMPLETED";
-pub const KW_TODO_STATUS_IN_PROCESS: &str = "IN-PROCESS";
-pub const KW_TODO_STATUS_CANCELLED: &str = "CANCELLED";
+pub const KW_STATUS_NEEDS_ACTION: &str = "NEEDS-ACTION";
+pub const KW_STATUS_COMPLETED: &str = "COMPLETED";
+pub const KW_STATUS_IN_PROCESS: &str = "IN-PROCESS";
 // Status values for a "VJOURNAL"
-pub const KW_JOURNAL_STATUS_DRAFT: &str = "DRAFT";
-pub const KW_JOURNAL_STATUS_FINAL: &str = "FINAL";
-pub const KW_JOURNAL_STATUS_CANCELLED: &str = "CANCELLED";
+pub const KW_STATUS_DRAFT: &str = "DRAFT";
+pub const KW_STATUS_FINAL: &str = "FINAL";
 
 // 3.8.1.3.  Classification values
 pub const KW_CLASS_PUBLIC: &str = "PUBLIC";

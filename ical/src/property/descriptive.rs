@@ -17,6 +17,7 @@ use std::str::FromStr;
 
 use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
 use crate::parameter::{Encoding, TypedParameter, TypedParameterKind, ValueType};
+use crate::property::util::{take_single_text, take_single_value};
 use crate::semantic::SemanticError;
 use crate::syntax::SpannedSegments;
 use crate::typed::{PropertyKind, TypedProperty, Value};
@@ -38,7 +39,7 @@ impl TryFrom<TypedProperty<'_>> for Geo {
     type Error = Vec<SemanticError>;
 
     fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = match crate::semantic::take_single_value(prop.kind, prop.values) {
+        let value = match take_single_value(prop.kind, prop.values) {
             Ok(v) => v,
             Err(e) => return Err(vec![e]),
         };
@@ -164,6 +165,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
 ///
 /// Note: Per RFC 5545, ALTREP is not applicable to CATEGORIES, so only the
 /// language parameter is extracted.
+#[must_use]
 pub fn parse_multi_text_property(prop: TypedProperty<'_>) -> Vec<Text<'_>> {
     // Get language parameter (shared by all values)
     let language = prop
@@ -325,7 +327,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
         }
 
         // Get cal_address value
-        let cal_address = match crate::semantic::take_single_text(prop.kind, prop.values) {
+        let cal_address = match take_single_text(prop.kind, prop.values) {
             Ok(v) => v,
             Err(e) => {
                 errors.push(e);
@@ -401,7 +403,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
         }
 
         // Get value
-        let value = match crate::semantic::take_single_value(prop.kind, prop.values) {
+        let value = match take_single_value(prop.kind, prop.values) {
             Ok(v) => v,
             Err(e) => {
                 errors.push(e);

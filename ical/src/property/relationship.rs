@@ -14,7 +14,8 @@ use std::convert::TryFrom;
 use crate::parameter::{
     CalendarUserType, ParticipationRole, ParticipationStatus, TypedParameter, TypedParameterKind,
 };
-use crate::semantic::{SemanticError, take_single_value};
+use crate::property::util::take_single_value;
+use crate::semantic::SemanticError;
 use crate::syntax::SpannedSegments;
 use crate::typed::{PropertyKind, TypedProperty, Value};
 use crate::value::ValueText;

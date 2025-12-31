@@ -13,8 +13,9 @@ use std::{convert::TryFrom, fmt::Display, str::FromStr};
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
 use crate::parameter::{AlarmTriggerRelationship, TypedParameter, TypedParameterKind};
-use crate::semantic::{DateTime, SemanticError};
-use crate::typed::{PropertyKind, TypedProperty, Value};
+use crate::property::DateTime;
+use crate::semantic::SemanticError;
+use crate::typed::{PropertyKind, TypedProperty, Value, ValueType};
 use crate::value::ValueDuration;
 
 /// Alarm action (RFC 5545 Section 3.8.6.1)
@@ -57,6 +58,33 @@ impl AsRef<str> for Action {
 impl Display for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.as_ref().fmt(f)
+    }
+}
+
+impl<'src> TryFrom<TypedProperty<'src>> for Action {
+    type Error = Vec<SemanticError>;
+
+    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = prop
+            .values
+            .first()
+            .and_then(|v| match v {
+                Value::Text(t) => Some(t.resolve().to_string()),
+                _ => None,
+            })
+            .ok_or_else(|| {
+                vec![SemanticError::UnexpectedType {
+                    property: PropertyKind::Action,
+                    expected: ValueType::Text,
+                }]
+            })?;
+
+        text.parse().map_err(|e| {
+            vec![SemanticError::InvalidValue {
+                property: PropertyKind::Action,
+                value: e,
+            }]
+        })
     }
 }
 

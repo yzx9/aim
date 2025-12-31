@@ -7,13 +7,10 @@
 use std::convert::TryFrom;
 
 use crate::keyword::KW_VALARM;
-use crate::parameter::ValueType;
-use crate::property::Action;
-use crate::semantic::property_util::{
-    take_single_int, take_single_value, take_single_value_string,
-};
-use crate::semantic::{Attachment, Attendee, SemanticError, Text, Trigger, TriggerValue};
-use crate::typed::{PropertyKind, TypedComponent, Value};
+use crate::property::Property;
+use crate::property::{Action, Attachment, Attendee, Text, Trigger};
+use crate::semantic::SemanticError;
+use crate::typed::{PropertyKind, TypedComponent};
 use crate::value::ValueDuration;
 
 /// Alarm component (VALARM)
@@ -62,162 +59,67 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            match prop.kind {
-                PropertyKind::Action => {
-                    let value = match take_single_value_string(prop.kind, prop.values) {
-                        Ok(text) => match text.to_uppercase().parse() {
-                            Ok(v) => Some(v),
-                            Err(e) => {
-                                errors.push(SemanticError::InvalidValue {
-                                    property: PropertyKind::Action,
-                                    value: e,
-                                });
-                                Some(Action::Audio)
-                            }
+            match Property::try_from(prop) {
+                Ok(property) => {
+                    match property {
+                        Property::Action(action) => match props.action {
+                            Some(_) => errors.push(SemanticError::DuplicateProperty {
+                                property: PropertyKind::Action,
+                            }),
+                            None => props.action = Some(action),
                         },
-                        Err(e) => {
-                            errors.push(e);
-                            Some(Action::Audio)
-                        }
-                    };
-
-                    match props.action {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Action,
-                        }),
-                        None => props.action = value,
-                    }
-                }
-                PropertyKind::Trigger => {
-                    let value = match Trigger::try_from(prop) {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            errors.extend(e);
-                            Some(Trigger {
-                                value: TriggerValue::Duration(ValueDuration::DateTime {
-                                    positive: true,
-                                    day: 0,
-                                    hour: 0,
-                                    minute: 0,
-                                    second: 0,
-                                }),
-                                related: None,
-                            })
-                        }
-                    };
-
-                    match props.trigger {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Trigger,
-                        }),
-                        None => props.trigger = value,
-                    }
-                }
-                PropertyKind::Duration => {
-                    let value = match take_single_value(prop.kind, prop.values) {
-                        Ok(Value::Duration(v)) => Some(v),
-                        Ok(_) => {
-                            errors.push(SemanticError::UnexpectedType {
+                        Property::Trigger(trigger) => match props.trigger {
+                            Some(_) => errors.push(SemanticError::DuplicateProperty {
+                                property: PropertyKind::Trigger,
+                            }),
+                            None => props.trigger = Some(trigger),
+                        },
+                        Property::Duration(duration) => match props.duration {
+                            Some(_) => errors.push(SemanticError::DuplicateProperty {
                                 property: PropertyKind::Duration,
-                                expected: ValueType::Duration,
-                            });
-                            Some(ValueDuration::DateTime {
-                                positive: true,
-                                day: 0,
-                                hour: 0,
-                                minute: 0,
-                                second: 0,
-                            })
+                            }),
+                            None => props.duration = Some(duration),
+                        },
+                        Property::Repeat(repeat) => match props.repeat {
+                            Some(_) => errors.push(SemanticError::DuplicateProperty {
+                                property: PropertyKind::Repeat,
+                            }),
+                            None => match u32::try_from(repeat) {
+                                Ok(v) => props.repeat = Some(v),
+                                Err(_) => {
+                                    errors.push(SemanticError::InvalidValue {
+                                        property: PropertyKind::Repeat,
+                                        value: "Repeat must be non-negative".to_string(),
+                                    });
+                                }
+                            },
+                        },
+                        Property::Description(text) => match props.description {
+                            Some(_) => errors.push(SemanticError::DuplicateProperty {
+                                property: PropertyKind::Description,
+                            }),
+                            None => props.description = Some(text),
+                        },
+                        Property::Summary(text) => match props.summary {
+                            Some(_) => errors.push(SemanticError::DuplicateProperty {
+                                property: PropertyKind::Summary,
+                            }),
+                            None => props.summary = Some(text),
+                        },
+                        Property::Attendee(attendee) => {
+                            props.attendees.push(attendee);
                         }
-                        Err(e) => {
-                            errors.push(e);
-                            Some(ValueDuration::DateTime {
-                                positive: true,
-                                day: 0,
-                                hour: 0,
-                                minute: 0,
-                                second: 0,
-                            })
-                        }
-                    };
-
-                    match props.duration {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Duration,
-                        }),
-                        None => props.duration = value,
+                        Property::Attach(attach) => match props.attach {
+                            Some(_) => errors.push(SemanticError::DuplicateProperty {
+                                property: PropertyKind::Attach,
+                            }),
+                            None => props.attach = Some(attach),
+                        },
+                        // Ignore other properties not used by VAlarm
+                        _ => {}
                     }
                 }
-                PropertyKind::Repeat => {
-                    let value = match take_single_int(prop.kind, prop.values) {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            errors.push(e);
-                            Some(0)
-                        }
-                    };
-
-                    match props.repeat {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Repeat,
-                        }),
-                        None => props.repeat = value,
-                    }
-                }
-                PropertyKind::Description => {
-                    let value = match Text::try_from(prop) {
-                        Ok(text) => Some(text),
-                        Err(e) => {
-                            errors.extend(e);
-                            None
-                        }
-                    };
-
-                    match props.description {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Description,
-                        }),
-                        None => props.description = value,
-                    }
-                }
-                PropertyKind::Summary => {
-                    let value = match Text::try_from(prop) {
-                        Ok(text) => Some(text),
-                        Err(e) => {
-                            errors.extend(e);
-                            None
-                        }
-                    };
-
-                    match props.summary {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Summary,
-                        }),
-                        None => props.summary = value,
-                    }
-                }
-                PropertyKind::Attendee => match Attendee::try_from(prop) {
-                    Ok(v) => props.attendees.push(v),
-                    Err(e) => errors.extend(e),
-                },
-                PropertyKind::Attach => {
-                    let value = match Attachment::try_from(prop) {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            errors.extend(e);
-                            None
-                        }
-                    };
-
-                    match props.attach {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Attach,
-                        }),
-                        None => props.attach = value,
-                    }
-                }
-                // Ignore unknown properties
-                _ => {}
+                Err(e) => errors.extend(e),
             }
         }
 

@@ -10,7 +10,8 @@
 use std::convert::TryFrom;
 
 use crate::parameter::ValueType;
-use crate::semantic::{DateTime, SemanticError};
+use crate::property::DateTime;
+use crate::semantic::SemanticError;
 use crate::typed::{PropertyKind, Value};
 use crate::value::ValueText;
 

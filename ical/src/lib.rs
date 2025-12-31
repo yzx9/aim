@@ -28,21 +28,21 @@
 
 pub mod keyword;
 pub mod lexer;
-mod parameter;
+pub mod parameter;
 mod parser;
-mod property;
+pub mod property;
 pub mod semantic;
 pub mod syntax;
 pub mod typed;
-mod value;
+pub mod value;
 
 pub use crate::parser::{ParseError, parse};
-pub use crate::semantic::{
-    Action, Attachment, AttachmentValue, Attendee, CalendarComponent, CalendarScale,
-    Classification, DateTime, EventStatus, Geo, ICalendar, Method, Organizer, Period, ProductId,
-    Text, Time, TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, VAlarm, VEvent, VFreeBusy,
-    VJournal, VTimeZone, VTodo, Version,
+pub use crate::property::{
+    Action, Attachment, AttachmentValue, Attendee, CalendarScale, Classification, DateTime,
+    ExDateValue, Geo, Method, Organizer, Period, ProductId, Property, RDateValue, Status, Text,
+    Time, TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, Version,
 };
+pub use crate::semantic::{CalendarComponent, ICalendar, VEvent, VFreeBusy, VJournal, VTodo};
 pub use crate::value::{
     Day, RecurrenceFrequency, RecurrenceRule, ValueDuration as Duration, WeekDay,
 };

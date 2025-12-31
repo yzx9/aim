@@ -16,7 +16,7 @@ use std::convert::TryFrom;
 use crate::parameter::{TypedParameter, TypedParameterKind, ValueType};
 use crate::semantic::SemanticError;
 use crate::syntax::SpannedSegments;
-use crate::typed::Value;
+use crate::typed::{PropertyKind, TypedProperty, Value, ValueTime};
 use crate::value::{ValueDate, ValueDuration, ValuePeriod};
 
 /// Date and time representation
@@ -136,10 +136,10 @@ impl<'src> DateTime<'src> {
     }
 }
 
-impl<'src> TryFrom<crate::typed::TypedProperty<'src>> for DateTime<'src> {
+impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
     type Error = Vec<SemanticError>;
 
-    fn try_from(prop: crate::typed::TypedProperty<'src>) -> Result<Self, Self::Error> {
+    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
         let Some(value) = prop.values.first() else {
@@ -214,7 +214,7 @@ impl<'src> TryFrom<crate::typed::TypedProperty<'src>> for DateTime<'src> {
                     time: dt.time.into(),
                 }),
                 _ => Err(vec![SemanticError::InvalidValue {
-                    property: crate::typed::PropertyKind::DtStart, // Default fallback
+                    property: PropertyKind::DtStart, // Default fallback
                     value: format!("Expected date or date-time value, got {value:?}"),
                 }]),
             }
@@ -269,8 +269,8 @@ impl Time {
     }
 }
 
-impl From<crate::value::ValueTime> for Time {
-    fn from(value: crate::value::ValueTime) -> Self {
+impl From<ValueTime> for Time {
+    fn from(value: ValueTime) -> Self {
         Time {
             hour: value.hour,
             minute: value.minute,
@@ -633,7 +633,7 @@ impl<'src> TryFrom<&Value<'src>> for Period<'src> {
                         && !matches!(duration, ValueDuration::Week { positive: true, .. })
                     {
                         return Err(SemanticError::InvalidValue {
-                            property: crate::typed::PropertyKind::FreeBusy,
+                            property: PropertyKind::FreeBusy,
                             value: "Duration must be positive for periods".to_string(),
                         });
                     }
@@ -654,7 +654,7 @@ impl<'src> TryFrom<&Value<'src>> for Period<'src> {
                 }
             },
             _ => Err(SemanticError::UnexpectedType {
-                property: crate::typed::PropertyKind::FreeBusy,
+                property: PropertyKind::FreeBusy,
                 expected: ValueType::Period,
             }),
         }

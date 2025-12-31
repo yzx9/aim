@@ -10,12 +10,10 @@
 use chumsky::error::Rich;
 
 use aimcal_ical::lexer::lex_analysis;
-use aimcal_ical::semantic::{
-    CalendarComponent, CalendarScale, ICalendar, Method, Period, SemanticError, Version,
-    semantic_analysis,
-};
+use aimcal_ical::semantic::{CalendarComponent, SemanticError, semantic_analysis};
 use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
+use aimcal_ical::{CalendarScale, Duration, ICalendar, Method, Period, Version};
 
 /// Test helper to parse iCalendar source through semantic phase
 fn parse_semantic(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError>> {
@@ -830,7 +828,7 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::VTimeZone(tz) => {
-            assert_eq!(tz.tz_id, "America/New_York");
+            assert_eq!(tz.tz_id.content.resolve(), "America/New_York");
         }
         _ => panic!("Expected VTimeZone component"),
     }
@@ -838,8 +836,6 @@ END:VCALENDAR\r
 
 #[test]
 fn semantic_parses_freebusy_with_periods() {
-    use aimcal_ical::semantic::Period;
-
     let src = "\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
@@ -892,9 +888,8 @@ END:VCALENDAR\r
                     assert_eq!(start_time.hour, 13);
                     assert_eq!(start_time.minute, 0);
                     // Duration: PT2H (2 hours)
-                    use aimcal_ical::typed::ValueDuration;
                     match duration {
-                        ValueDuration::DateTime {
+                        Duration::DateTime {
                             positive,
                             day,
                             hour,

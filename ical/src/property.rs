@@ -10,6 +10,7 @@
 //!
 //! ## Module Organization
 //!
+//! - **ast**: Unified `Property` enum with type-safe variants for all properties
 //! - **spec**: Property specifications, `PropertyKind` enum, and metadata
 //! - **alarm** (Section 3.8.6): Alarm properties - `Action`, `Trigger`
 //! - **cal** (Section 3.7): Calendar properties - `CalendarScale`, `Method`, `ProductId`, `Version`
@@ -29,6 +30,7 @@ mod spec;
 
 // Property type modules organized by RFC 5545 sections
 pub mod alarm; // Section 3.8.6 - Alarm Component Properties
+pub mod ast; // Unified Property enum
 pub mod cal; // Section 3.7 - Calendar Properties
 pub mod datetime; // Section 3.8.2 - Date and Time Properties
 pub mod descriptive; // Section 3.8.1 - Descriptive Component Properties
@@ -36,32 +38,17 @@ pub mod relationship; // Section 3.8.4 - Component Relationship Properties
 pub mod status; // Section 3.8.1.11 - Status Properties
 pub mod timezone; // Section 3.8.3 - Time Zone Component Properties
 pub mod transp; // Section 3.8.2.7 - Time Transparency Property
+pub mod util;
 
-// Re-export property specifications
-pub use spec::{PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality};
-
-// Re-export calendar properties (Section 3.7)
+pub use alarm::{Action, Trigger, TriggerValue};
+pub use ast::{ExDateValue, Property, RDateValue};
 pub use cal::{CalendarScale, Method, ProductId, Version};
-
-// Re-export descriptive properties (Section 3.8.1)
+pub use datetime::{DateTime, Period, Time};
 pub use descriptive::{
     Attachment, AttachmentValue, Classification, Geo, Organizer, Text, parse_multi_text_property,
 };
-
-// Re-export date/time properties (Section 3.8.2)
-pub use datetime::{DateTime, Period, Time};
-
-// Re-export relationship properties (Section 3.8.4)
 pub use relationship::Attendee;
-
-// Re-export alarm properties (Section 3.8.6)
-pub use alarm::{Action, Trigger, TriggerValue};
-
-// Re-export time zone properties (Section 3.8.3)
+pub use spec::{PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality};
+pub use status::Status;
 pub use timezone::TimeZoneOffset;
-
-// Re-export status properties (Section 3.8.1.11)
-pub use status::{EventStatus, JournalStatus, TodoStatus};
-
-// Re-export time transparency (Section 3.8.2.7)
 pub use transp::TimeTransparency;

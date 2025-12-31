@@ -106,8 +106,9 @@ mod tests {
     use chumsky::extra;
     use chumsky::input::Stream;
 
-    use super::*;
     use crate::typed::{ValueDate, ValueDuration, ValueTime};
+
+    use super::*;
 
     #[test]
     fn parses_period() {

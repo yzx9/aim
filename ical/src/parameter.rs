@@ -8,7 +8,7 @@
 //! as defined in RFC 5545 Section 3.2.
 
 mod ast;
-pub mod definition;
+mod definition;
 
 pub use ast::{TypedParameter, TypedParameterKind};
 pub use definition::{

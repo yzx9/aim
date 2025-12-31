@@ -13,7 +13,7 @@ use chumsky::input::{Input, Stream};
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 
-use crate::parameter::definition::ValueType;
+use crate::parameter::ValueType;
 use crate::syntax::SpannedSegments;
 use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
 use crate::value::duration::{ValueDuration, values_duration};

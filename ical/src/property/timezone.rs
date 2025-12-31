@@ -12,7 +12,7 @@
 use std::convert::TryFrom;
 
 use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, Value};
+use crate::typed::{PropertyKind, TypedProperty, Value};
 
 /// Timezone offset (RFC 5545 Section 3.8.3.3, 3.8.3.4)
 #[derive(Debug, Clone, Copy)]
@@ -63,5 +63,19 @@ impl TryFrom<Value<'_>> for TimeZoneOffset {
                 value: format!("Expected UTC offset value, got {value:?}"),
             }),
         }
+    }
+}
+
+impl<'src> TryFrom<TypedProperty<'src>> for TimeZoneOffset {
+    type Error = Vec<SemanticError>;
+
+    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+        let Some(value) = prop.values.first() else {
+            return Err(vec![SemanticError::MissingValue {
+                property: prop.kind,
+            }]);
+        };
+
+        TimeZoneOffset::try_from_value(value, prop.kind).map_err(|e| vec![e])
     }
 }
