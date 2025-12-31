@@ -13,14 +13,14 @@ use chumsky::input::{Input, Stream};
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 
+use crate::parameter::definition::ValueType;
 use crate::syntax::SpannedSegments;
-use crate::typed::parameter_type::ValueType;
-use crate::typed::value_datetime::{value_utc_offset, values_date, values_date_time, values_time};
-use crate::typed::value_duration::{ValueDuration, values_duration};
-use crate::typed::value_numeric::{values_float, values_integer};
-use crate::typed::value_period::{ValuePeriod, values_period};
-use crate::typed::value_text::values_text;
-use crate::typed::{ValueDate, ValueDateTime, ValueText, ValueTime, ValueUtcOffset};
+use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
+use crate::value::duration::{ValueDuration, values_duration};
+use crate::value::numeric::{values_float, values_integer};
+use crate::value::period::{ValuePeriod, values_period};
+use crate::value::text::values_text;
+use crate::value::{ValueDate, ValueDateTime, ValueText, ValueTime, ValueUtcOffset};
 
 /// The properties in an iCalendar object are strongly typed.  The definition
 /// of each property restricts the value to be one of the value data types, or
@@ -113,18 +113,17 @@ pub enum Value<'src> {
 /// * `kinds` - Slice of allowed value types to try, in order of preference
 /// * `value` - The property value to parse
 ///
-/// # Returns
+/// # Errors
 ///
-/// * `Ok(Vec<Value>)` - Successfully parsed values
-/// * `Err(Vec<Rich>)` - Parse errors from all attempted types
+/// Parse errors from all attempted types
 #[allow(clippy::too_many_lines)]
 pub fn parse_values<'src>(
     kinds: &[ValueType],
     value: &SpannedSegments<'src>,
 ) -> Result<Vec<Value<'src>>, Vec<Rich<'src, char>>> {
     use ValueType::{
-        Binary, Boolean, CalendarUserAddress, Date, DateTime, Duration, Float, Integer, Period,
-        RecurrenceRule, Text, Time, Uri, UtcOffset,
+        Binary, Boolean, Date, DateTime, Duration, Float, Integer, Period, RecurrenceRule, Time,
+        UtcOffset,
     };
 
     // Collect errors from all attempted types
@@ -221,7 +220,7 @@ pub fn parse_values<'src>(
 
             // URI and CAL-ADDRESS are parsed as text per RFC 5545
             // (cal-address = uri, and URI values are essentially text strings)
-            CalendarUserAddress | Text | Uri => {
+            ValueType::CalendarUserAddress | ValueType::Text | ValueType::Uri => {
                 let result = values_text::<'_, _, extra::Err<_>>()
                     .parse(make_input(value.clone()))
                     .into_result()

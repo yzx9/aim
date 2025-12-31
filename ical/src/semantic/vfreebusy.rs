@@ -11,11 +11,11 @@ use crate::semantic::property_common::{
     take_single_floating_date_time, take_single_text, take_single_value,
 };
 use crate::semantic::{DateTime, Organizer, Period, SemanticError, Text};
-use crate::typed::parameter_type::{FreeBusyType, ValueType};
+use crate::parameter::{FreeBusyType, ValueType};
 use crate::typed::{
-    PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, Value, ValueDate,
-    ValueDuration, ValueText,
+    PropertyKind, TypedComponent, TypedParameter, TypedParameterKind, Value,
 };
+use crate::value::{ValueDate, ValueDuration, ValueText};
 
 /// Free/busy time component (VFREEBUSY)
 #[derive(Debug, Clone)]

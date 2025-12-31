@@ -13,8 +13,9 @@ use crate::semantic::property_common::{
     take_single_int, take_single_value, take_single_value_string,
 };
 use crate::semantic::{Attachment, Attendee, SemanticError, Text, Trigger, TriggerValue};
-use crate::typed::ValueDuration;
-use crate::typed::{PropertyKind, TypedComponent, Value, ValueType};
+use crate::parameter::ValueType;
+use crate::typed::{PropertyKind, TypedComponent, Value};
+use crate::value::ValueDuration;
 
 /// Alarm component (VALARM)
 #[derive(Debug, Clone)]

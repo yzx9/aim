@@ -11,7 +11,8 @@ use crate::semantic::property_common::{
     take_single_floating_date_time, take_single_text, take_single_value,
 };
 use crate::semantic::{DateTime, SemanticError, Text};
-use crate::typed::{PropertyKind, RecurrenceRule, TypedComponent, Value, ValueDate, ValueText};
+use crate::typed::{PropertyKind, TypedComponent, Value};
+use crate::value::{RecurrenceRule, ValueDate, ValueText};
 
 /// Timezone component (VTIMEZONE)
 #[derive(Debug, Clone)]

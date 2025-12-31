@@ -13,7 +13,8 @@ use crate::keyword::{
     KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
 use crate::semantic::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
-use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value, ValueType};
+use crate::parameter::ValueType;
+use crate::typed::{PropertyKind, TypedComponent, TypedProperty, Value};
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]

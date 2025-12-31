@@ -9,10 +9,14 @@ validation.
 
 The parser follows a **four-phase pipeline**:
 
-1. **Lexical Analysis** - Tokenizes raw iCalendar text into structured tokens (using `logos`)
+1. **Lexical Analysis** - Tokenizes raw iCalendar text into structured tokens
+   (using `logos`)
 2. **Syntax Analysis** - Assembles tokens into component structure (using `chumsky`)
 3. **Typed Analysis** - Validates and converts components to strongly-typed
-   representations
+   representations through three sub-passes:
+   - **Parameter Pass** - Parses and validates iCalendar parameters (RFC 5545 Section 3.2)
+   - **Value Pass** - Parses and validates property value types (RFC 5545 Section 3.3)
+   - **Property Pass** - (TODO) Validates property-specific constraints and relationships
 4. **Semantic Analysis** - Validates RFC 5545 semantics (required properties,
    constraints, relationships)
 
@@ -28,9 +32,24 @@ nesting (BEGIN/END matching), and processes escape sequences.
 
 ### Typed Analysis Phase
 
-Validates all components against RFC 5545 specifications, converts string
-values to appropriate Rust types, and enforces property multiplicity and
-parameter constraints.
+Validates all components against RFC 5545 specifications through three sub-passes:
+
+1. **Parameter Pass**
+   - Parses and validates iCalendar parameters per RFC 5545 Section 3.2
+   - Converts parameter strings to strongly-typed representations
+   - Validates parameter values (e.g., enum values for CUTYPE, ENCODING, etc.)
+   - Provides `TypedParameter` and `TypedParameterKind` types
+
+2. **Value Pass**
+   - Parses and validates property value types per RFC 5545 Section 3.3
+   - Converts value strings to appropriate Rust types (dates, durations, integers, etc.)
+   - Handles type inference when VALUE parameter is not specified
+   - Provides `Value` enum and specific value types (`ValueDate`, `ValueDateTime`, etc.)
+
+3. **Property Pass** (TODO)
+   - Will validate property-specific constraints and relationships
+   - Will handle property cardinality and multiplicity rules
+   - Will validate inter-property dependencies
 
 ### Semantic Analysis Phase
 
@@ -60,32 +79,33 @@ ical/
     ├── lexer.rs            # Lexical analysis (tokenization)
     ├── syntax.rs           # Syntax analysis
     ├── parser.rs           # Unified parser orchestration
-    ├── semantic.rs         # Semantic module declaration
-    │   ├── analysis.rs     # Main semantic coordinator
-    │   ├── icalendar.rs    # ICalendar root component
-    │   ├── property_attendee.rs   # Attendee property parsing
-    │   ├── property_common.rs     # Common property definitions
-    │   ├── property_datetime.rs   # DateTime property parsing
-    │   ├── property_period.rs     # Period value type parsing
-    │   ├── property_util.rs       # Property parsing utilities
-    │   ├── valarm.rs       # VAlarm component
-    │   ├── vevent.rs       # VEvent component
-    │   ├── vfreebusy.rs    # VFreeBusy component
-    │   ├── vjournal.rs     # VJournal component
-    │   ├── vtimezone.rs    # VTimeZone component
-    │   └── vtodo.rs        # VTodo component
-    └── typed.rs            # Typed module declaration
-        ├── analysis.rs     # Typed analysis coordinator
-        ├── parameter.rs    # Parameter definitions
-        ├── parameter_type.rs   # Parameter type enums
-        ├── property_spec.rs    # Property specifications
-        ├── rrule.rs            # Recurrence rule parsing
-        ├── value.rs            # Value type base
-        ├── value_datetime.rs   # DateTime values
-        ├── value_duration.rs   # Duration values
-        ├── value_numeric.rs    # Numeric values
-        ├── value_period.rs     # Period values
-        └── value_text.rs       # Text values
+    ├── typed.rs            # Typed module entry point
+    ├── parameter/          # Parameter pass implementation
+    │   ├── ast.rs          # Parameter definitions and parsing
+    │   └── definition.rs   # Parameter type enums
+    ├── property/           # Property pass implementation
+    │   └── spec.rs         # Property specifications
+    ├── value/              # Value pass implementation
+    │   ├── ast.rs          # Value enum and parsing
+    │   ├── datetime.rs     # Date/time value types
+    │   ├── duration.rs     # Duration value type
+    │   ├── numeric.rs      # Numeric value types
+    │   ├── period.rs       # Period value type
+    │   ├── rrule.rs        # Recurrence rule type
+    │   └── text.rs         # Text value type
+    └── semantic/           # Semantic module declaration
+        ├── analysis.rs     # Main semantic coordinator
+        ├── icalendar.rs    # ICalendar root component
+        ├── property_attendee.rs   # Attendee property parsing
+        ├── property_common.rs     # Common property definitions
+        ├── property_datetime.rs   # DateTime property parsing
+        ├── property_period.rs     # Period value type parsing
+        ├── valarm.rs       # VAlarm component
+        ├── vevent.rs       # VEvent component
+        ├── vfreebusy.rs    # VFreeBusy component
+        ├── vjournal.rs     # VJournal component
+        ├── vtimezone.rs    # VTimeZone component
+        └── vtodo.rs        # VTodo component
 ```
 
 **Test Files:**
@@ -115,15 +135,20 @@ ical/tests/
 
 - **Phase Separation**: Each parsing phase has clear responsibilities and well-
   defined interfaces
+- **Three-Pass Typed Analysis**: The typed analysis phase is split into three
+  independent passes for better modularity and maintainability:
+  - **Parameter Pass** handles all parameter-related parsing and validation
+  - **Value Pass** handles all value type parsing and validation
+  - **Property Pass** (planned) will handle property-level constraints
 - **RFC 5545 Compliance**: Comprehensive validation against the iCalendar
   specification
 - **Error Aggregation**: Collects and reports errors from all phases
 - **Type Safety**: Strongly typed representation of iCalendar data
 - **Performance**: Zero-copy parsing where possible, minimal allocations
 - **Extensibility**: Modular design allows for easy addition of new features
-- **Optional datetime dependencies**: All types use the typed module's
+- **Optional datetime dependencies**: All types use the value module's
   `ValueDate`, `ValueTime`, and `ValueDateTime` instead of directly using
-  datetime types from `jiff` or `chorno` (planned)
+  datetime types from `jiff` or `chrono` (planned)
 
 ## Error Handling
 

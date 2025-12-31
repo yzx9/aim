@@ -17,8 +17,9 @@ use crate::semantic::property_common::{
 };
 use crate::semantic::{Attendee, Classification, DateTime, Organizer, Period, SemanticError, Text};
 use crate::typed::{
-    PropertyKind, RecurrenceRule, TypedComponent, Value, ValueDate, ValueText, ValueType,
+    PropertyKind, TypedComponent, Value, ValueType,
 };
+use crate::value::{RecurrenceRule, ValueDate, ValueText};
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]

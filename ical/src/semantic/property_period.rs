@@ -8,7 +8,9 @@ use std::convert::TryFrom;
 
 use crate::semantic::{DateTime, SemanticError, Time};
 use crate::syntax::SpannedSegments;
-use crate::typed::{Value, ValueDate, ValueDuration, ValuePeriod, ValueType};
+use crate::parameter::ValueType;
+use crate::typed::Value;
+use crate::value::{ValueDate, ValueDuration, ValuePeriod};
 
 /// Period of time (start-end or start-duration)
 ///

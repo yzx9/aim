@@ -13,10 +13,9 @@ use chumsky::{Parser, error::Rich, extra, input::Stream};
 use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
 use crate::semantic::{DateTime, SemanticError};
 use crate::syntax::SpannedSegments;
-use crate::typed::{
-    AlarmTriggerRelationship, Encoding, PropertyKind, TypedParameter, TypedParameterKind,
-    TypedProperty, Value, ValueDuration, ValueText, ValueType, values_float_semicolon,
-};
+use crate::parameter::{AlarmTriggerRelationship, Encoding, TypedParameter, TypedParameterKind, ValueType};
+use crate::typed::{PropertyKind, TypedProperty, Value};
+use crate::value::{ValueDuration, ValueText, values_float_semicolon};
 
 /// Geographic position
 #[derive(Debug, Clone, Copy)]

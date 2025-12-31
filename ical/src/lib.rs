@@ -28,10 +28,13 @@
 
 pub mod keyword;
 pub mod lexer;
+mod parameter;
 mod parser;
+mod property;
 pub mod semantic;
 pub mod syntax;
 pub mod typed;
+mod value;
 
 pub use crate::parser::{ParseError, parse};
 pub use crate::semantic::{
@@ -40,6 +43,6 @@ pub use crate::semantic::{
     Text, Time, TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, VAlarm, VEvent, VFreeBusy,
     VJournal, VTimeZone, VTodo, Version,
 };
-pub use crate::typed::{
+pub use crate::value::{
     Day, RecurrenceFrequency, RecurrenceRule, ValueDuration as Duration, WeekDay,
 };

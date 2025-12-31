@@ -2,22 +2,23 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::str::FromStr;
+
 use crate::keyword::{
     KW_ALTREP, KW_CN, KW_CUTYPE, KW_DELEGATED_FROM, KW_DELEGATED_TO, KW_DIR, KW_ENCODING,
     KW_FBTYPE, KW_FMTTYPE, KW_LANGUAGE, KW_MEMBER, KW_PARTSTAT, KW_RANGE, KW_RELATED, KW_RELTYPE,
     KW_ROLE, KW_RSVP, KW_SENT_BY, KW_TZID, KW_VALUE,
 };
 use crate::lexer::Span;
-use crate::syntax::{SpannedSegments, SyntaxParameter};
-use crate::typed::TypedAnalysisError;
-use crate::typed::parameter_type::{
+use crate::parameter::definition::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,
     ParticipationStatus, RecurrenceIdRange, RelationshipType, ValueType,
     parse_alarm_trigger_relationship, parse_cutype, parse_encoding, parse_fbtype,
     parse_multiple_quoted, parse_partstat, parse_range, parse_reltype, parse_role, parse_rsvp,
     parse_single, parse_single_quoted, parse_tzid, parse_value_type,
 };
-use std::str::FromStr;
+use crate::syntax::{SpannedSegments, SyntaxParameter};
+use crate::typed::TypedAnalysisError;
 
 /// A typed iCalendar parameter with validated values.
 #[derive(Debug, Clone)]

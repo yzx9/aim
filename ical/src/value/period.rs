@@ -10,9 +10,9 @@ use chumsky::label::LabelError;
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 
-use crate::typed::value::ValueExpected;
-use crate::typed::value_datetime::{ValueDateTime, value_date_time};
-use crate::typed::value_duration::{ValueDuration, value_duration};
+use crate::value::ast::ValueExpected;
+use crate::value::datetime::{ValueDateTime, value_date_time};
+use crate::value::duration::{ValueDuration, value_duration};
 
 /// Period of Time value defined in RFC 5545 Section 3.3.9
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -9,7 +9,8 @@
 
 use crate::keyword::KW_VCALENDAR;
 use crate::semantic::ICalendar;
-use crate::typed::{PropertyKind, TypedComponent, TypedParameterKind, ValueType};
+use crate::parameter::{TypedParameterKind, ValueType};
+use crate::typed::{PropertyKind, TypedComponent};
 
 /// Perform semantic analysis on typed components.
 ///

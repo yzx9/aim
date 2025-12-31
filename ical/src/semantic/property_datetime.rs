@@ -8,9 +8,10 @@ use std::convert::TryFrom;
 
 use crate::semantic::SemanticError;
 use crate::syntax::SpannedSegments;
-use crate::typed::{
-    TypedParameter, TypedParameterKind, TypedProperty, Value, ValueDate, ValueTime,
-};
+use crate::parameter::{TypedParameter, TypedParameterKind};
+use crate::typed::TypedProperty;
+use crate::typed::Value;
+use crate::value::{ValueDate, ValueTime};
 
 /// Date and time representation
 #[derive(Debug, Clone)]

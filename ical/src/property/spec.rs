@@ -18,8 +18,7 @@ use crate::keyword::{
     KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
 use crate::syntax::SpannedSegments;
-use crate::typed::parameter::TypedParameterKind;
-use crate::typed::parameter_type::ValueType;
+use crate::parameter::{TypedParameterKind, ValueType};
 
 /// Macro to define `PropertyKind` with all associated metadata.
 ///

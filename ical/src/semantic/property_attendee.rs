@@ -9,10 +9,9 @@ use std::convert::TryFrom;
 use crate::semantic::SemanticError;
 use crate::semantic::property_common::take_single_value;
 use crate::syntax::SpannedSegments;
-use crate::typed::{
-    CalendarUserType, ParticipationRole, ParticipationStatus, PropertyKind, TypedParameter,
-    TypedParameterKind, TypedProperty, Value, ValueText,
-};
+use crate::parameter::{CalendarUserType, ParticipationRole, ParticipationStatus, TypedParameter, TypedParameterKind};
+use crate::typed::{PropertyKind, TypedProperty, Value};
+use crate::value::ValueText;
 
 /// Attendee information
 #[derive(Debug, Clone)]

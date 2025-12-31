@@ -53,6 +53,7 @@ aim/
 **ical** - iCalendar (RFC 5545) parser with:
 
 - Four-phase parsing pipeline (lexer → syntax → typed → semantic)
+- Three-pass typed analysis (parameter → value → property)
 - Type-safe representations
 - Comprehensive error reporting
 

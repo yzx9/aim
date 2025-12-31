@@ -20,9 +20,9 @@ use crate::semantic::{
     Attendee, Classification, DateTime, Geo, Organizer, Period, SemanticError, Text, VAlarm,
 };
 use crate::typed::{
-    PropertyKind, RecurrenceRule, TypedComponent, Value, ValueDate, ValueDuration, ValueText,
-    ValueType,
+    PropertyKind, TypedComponent, Value, ValueType,
 };
+use crate::value::{RecurrenceRule, ValueDate, ValueDuration, ValueText};
 
 /// To-do component (VTODO)
 #[derive(Debug, Clone)]

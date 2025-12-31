@@ -16,9 +16,9 @@ use crate::keyword::{
     KW_ROLE_NON_PARTICIPANT, KW_ROLE_OPT_PARTICIPANT, KW_ROLE_REQ_PARTICIPANT, KW_RRULE,
     KW_RSVP_FALSE, KW_RSVP_TRUE, KW_TEXT, KW_TIME, KW_URI, KW_UTC_OFFSET, KW_VALUE,
 };
+use crate::parameter::{TypedParameter, TypedParameterKind};
 use crate::syntax::{SpannedSegments, SyntaxParameter, SyntaxParameterValue};
 use crate::typed::TypedAnalysisError;
-use crate::typed::parameter::{TypedParameter, TypedParameterKind};
 
 /// Parse RSVP expectation parameter.
 ///
