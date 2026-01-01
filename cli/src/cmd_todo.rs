@@ -125,7 +125,7 @@ impl CmdTodoNew {
     }
 
     /// Determine whether to use TUI mode, which is true if not all required fields are provided
-    #[allow(clippy::ref_option)]
+    #[expect(clippy::ref_option)]
     pub(crate) fn need_tui(summary: &Option<String>) -> bool {
         summary.is_none()
     }
@@ -443,7 +443,7 @@ impl CmdTodoList {
         Ok(())
     }
 
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     pub async fn list(
         aim: &Aim,
         conds: &TodoConditions,

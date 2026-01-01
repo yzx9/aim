@@ -147,7 +147,6 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
-        #[allow(clippy::enum_glob_use)]
         let commands = Self::command();
         let matches = commands.try_get_matches_from(args)?;
         Self::from(&matches)
@@ -157,9 +156,12 @@ Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on 
     ///
     /// # Errors
     /// If an error occurs while parsing the arguments
-    #[allow(clippy::enum_glob_use)]
     pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
-        use Commands::*;
+        use Commands::{
+            Dashboard, Delay, Edit, EventDelay, EventEdit, EventList, EventNew, EventReschedule,
+            Flush, GenerateCompletion, New, Reschedule, TodoCancel, TodoDelay, TodoDone, TodoEdit,
+            TodoList, TodoNew, TodoReschedule, TodoUndo,
+        };
         let command = match matches.subcommand() {
             Some((CmdDashboard::NAME, matches)) => Dashboard(CmdDashboard::from(matches)),
             Some((CmdNew::NAME, matches)) => New(CmdNew::from(matches)),
@@ -280,11 +282,14 @@ impl Commands {
     ///
     /// # Errors
     /// If an error occurs while running the command
-    #[allow(clippy::enum_glob_use)]
     #[rustfmt::skip]
     #[tracing::instrument(skip_all, fields(trace_id = %uuid::Uuid::new_v4()))]
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
-        use Commands::*;
+        use Commands::{
+            Dashboard, Delay, Edit, EventDelay, EventEdit, EventList, EventNew, EventReschedule,
+            Flush, GenerateCompletion, New, Reschedule, TodoCancel, TodoDelay, TodoDone, TodoEdit,
+            TodoList, TodoNew, TodoReschedule, TodoUndo,
+        };
         tracing::info!(?self, "running command");
         match self {
             Dashboard(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,

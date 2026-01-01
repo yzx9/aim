@@ -124,7 +124,7 @@ impl CmdEventNew {
     }
 
     /// Determine whether TUI is needed based on the provided arguments.
-    #[allow(clippy::ref_option)]
+    #[expect(clippy::ref_option)]
     pub(crate) fn need_tui(summary: &Option<String>, start: &Option<String>) -> bool {
         summary.is_none() || start.is_none()
     }
@@ -434,7 +434,7 @@ impl CmdEventList {
     }
 
     /// List events with the given conditions and output format.
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     pub async fn list(
         aim: &Aim,
         conds: &EventConditions,

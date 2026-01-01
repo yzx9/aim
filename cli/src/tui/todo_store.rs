@@ -172,7 +172,7 @@ pub struct TodoData {
 }
 
 #[derive(Debug, Default)]
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct TodoMarker {
     description: bool,
     due: bool,

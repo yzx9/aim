@@ -20,7 +20,6 @@ use crate::typed::TypedComponent;
 /// Returns a vector of errors if:
 /// - No VCALENDAR components are found
 /// - Any components failed to parse
-#[allow(clippy::missing_panics_doc)]
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
 ) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError>> {

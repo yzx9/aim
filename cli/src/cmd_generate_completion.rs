@@ -62,7 +62,7 @@ pub enum Shell {
     Fish,
     Nushell,
     #[clap(name = "powershell")]
-    #[allow(clippy::enum_variant_names)]
+    #[expect(clippy::enum_variant_names)]
     PowerShell,
     Zsh,
 }

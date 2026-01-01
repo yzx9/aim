@@ -365,7 +365,7 @@ mod tests {
         assert_eq!(DateTimeAnchor::now().resolve_at_start_of_day(&now), now);
         assert_eq!(DateTimeAnchor::now().resolve_at_end_of_day(&now), now);
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         {
             assert_eq!(DateTimeAnchor::now().parse_as_start_of_day(&now), now);
             assert_eq!(DateTimeAnchor::now().parse_as_end_of_day(&now), now);
@@ -387,7 +387,7 @@ mod tests {
         assert!(parsed < Utc.with_ymd_and_hms(2025, 1, 3, 0, 0, 0).unwrap());
 
         // Test deprecated functions still work
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         {
             let parsed = anchor.parse_as_start_of_day(&now);
             assert_eq!(parsed, expected);
@@ -414,7 +414,7 @@ mod tests {
         assert!(parsed < Utc.with_ymd_and_hms(2025, 1, 6, 0, 0, 0).unwrap());
 
         // Test deprecated functions still work
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         {
             let parsed = anchor.parse_as_start_of_day(&now);
             assert_eq!(parsed, expected);
@@ -459,7 +459,7 @@ mod tests {
             let parsed = anchor.resolve_at_end_of_day(&now);
             assert_eq!(parsed, expected, "end_of_day failed for {name}");
 
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             {
                 let parsed = anchor.parse_as_start_of_day(&now);
                 assert_eq!(parsed, expected, "parse_as_start_of_day failed for {name}",);
@@ -519,7 +519,7 @@ mod tests {
         assert_eq!(parsed_end.time(), time);
 
         // Test deprecated functions still work
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         {
             let parsed_start = anchor.parse_as_start_of_day(&now);
             let parsed_end = anchor.parse_as_end_of_day(&now);
@@ -567,7 +567,7 @@ mod tests {
             let result = anchor.resolve_at(&now);
             assert_eq!(result, expected, "resolve_at failed for case: {name}");
 
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             {
                 let result = anchor.parse_from_loose(&now);
                 assert_eq!(result, expected, "parse_from_loose failed for case: {name}");
@@ -645,7 +645,7 @@ mod tests {
             assert_eq!(result, expected, "failed: {name} → resolve_since_datetime",);
 
             // Deprecated API should behave identically
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             {
                 let deprecated_result = anchor.parse_from_dt(&now);
                 assert_eq!(

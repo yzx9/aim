@@ -165,7 +165,7 @@ impl Default for EventData {
 }
 
 #[derive(Debug, Default)]
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct EventMarker {
     description: bool,
     start: bool,

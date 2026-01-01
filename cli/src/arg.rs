@@ -128,7 +128,7 @@ impl EventOrTodoArgs {
         matches.get_one("summary").cloned()
     }
 
-    #[allow(clippy::unused_self)]
+    #[expect(clippy::unused_self)]
     pub fn time(self, operation: &str) -> Arg {
         arg!(time: -t --time <TIME>)
             .help(format!(

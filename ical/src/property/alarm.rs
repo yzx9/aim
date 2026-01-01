@@ -110,7 +110,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
             let kind_name = param.kind().name();
             let param_span = param.span();
 
-            #[allow(clippy::single_match)]
+            #[expect(clippy::single_match)]
             match param {
                 Parameter::AlarmTriggerRelationship { value, .. } => match related {
                     Some(_) => errors.push(TypedError::ParameterDuplicated {

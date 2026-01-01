@@ -138,7 +138,7 @@ impl Value<'_> {
 /// # Errors
 ///
 /// Parse errors from all attempted types
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 pub fn parse_values<'src>(
     kinds: &[ValueKind],
     value: &SpannedSegments<'src>,

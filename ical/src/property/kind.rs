@@ -35,7 +35,7 @@ macro_rules! property_kind {
         /// Kind of iCalendar property.
         /// Represents all standard properties defined in RFC 5545.
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumIter)]
-        #[allow(missing_docs)]
+        #[expect(missing_docs)]
         pub enum PropertyKind {
             $(
                 $(#[$attr])*

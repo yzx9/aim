@@ -61,8 +61,7 @@ pub struct Attendee<'src> {
 impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
     type Error = Vec<TypedError<'src>>;
 
-    #[allow(clippy::too_many_lines)]
-    #[expect(clippy::indexing_slicing)]
+    #[expect(clippy::too_many_lines)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 

@@ -156,7 +156,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
             let kind_name = param.kind().name();
             let param_span = param.span();
 
-            #[allow(clippy::single_match)]
+            #[expect(clippy::single_match)]
             match param {
                 Parameter::TimeZoneIdentifier {
                     value,
@@ -250,7 +250,7 @@ impl Time {
     ///
     /// # Errors
     /// If hour, minute, or second are out of valid ranges.
-    #[allow(clippy::cast_possible_wrap)]
+    #[expect(clippy::cast_possible_wrap)]
     pub fn new(hour: u8, minute: u8, second: u8) -> Result<Self, String> {
         Ok(Time {
             hour,
@@ -398,7 +398,6 @@ impl<'src> Period<'src> {
     }
 
     /// Get the start as a `DateTime`.
-    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn start(&self) -> DateTime<'src> {
         match self {
@@ -457,7 +456,7 @@ impl<'src> Period<'src> {
     ///
     /// For duration-based periods, calculates the end by adding the duration to the start.
     #[cfg(feature = "jiff")]
-    #[allow(clippy::missing_panics_doc)]
+    #[expect(clippy::missing_panics_doc)]
     #[must_use]
     pub fn end(&self) -> DateTime<'src> {
         match self {
@@ -502,7 +501,7 @@ impl<'src> Period<'src> {
                         month: end.month(),
                         day: end.day(),
                     },
-                    #[allow(clippy::cast_sign_loss)]
+                    #[expect(clippy::cast_sign_loss)]
                     time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
                         .map_err(|e| format!("invalid time: {e}"))
                         .unwrap(), // SAFETY: hour, minute, second are within valid ranges
@@ -525,7 +524,7 @@ impl<'src> Period<'src> {
                         month: end.month(),
                         day: end.day(),
                     },
-                    #[allow(clippy::cast_sign_loss)]
+                    #[expect(clippy::cast_sign_loss)]
                     time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
                         .map_err(|e| format!("invalid time: {e}"))
                         .unwrap(), // SAFETY: hour, minute, second are within valid ranges
@@ -549,7 +548,7 @@ impl<'src> Period<'src> {
                         month: end.month(),
                         day: end.day(),
                     },
-                    #[allow(clippy::cast_sign_loss)]
+                    #[expect(clippy::cast_sign_loss)]
                     time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
                         .expect("invalid time"),
                     tz_id: tz_id.clone(),

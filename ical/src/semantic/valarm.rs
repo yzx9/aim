@@ -42,7 +42,7 @@ pub struct VAlarm<'src> {
 impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
     type Error = Vec<SemanticError>;
 
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VALARM {
             return Err(vec![SemanticError::ExpectedComponent {

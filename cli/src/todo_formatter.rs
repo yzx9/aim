@@ -176,7 +176,7 @@ fn format_priority(todo: &impl Todo) -> Cow<'_, str> {
     .into()
 }
 
-#[allow(clippy::unnecessary_wraps)]
+#[expect(clippy::unnecessary_wraps)]
 fn get_color_priority() -> Option<Color> {
     Some(Color::Red)
 }

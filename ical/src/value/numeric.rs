@@ -187,7 +187,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(clippy::approx_constant)]
+    #[expect(clippy::approx_constant)]
     fn parses_float() {
         fn parse(src: &str) -> Result<f64, Vec<Rich<'_, char>>> {
             let stream = Stream::from_iter(src.chars());

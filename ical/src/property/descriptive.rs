@@ -267,7 +267,6 @@ pub struct Organizer<'src> {
 impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
     type Error = Vec<TypedError<'src>>;
 
-    #[expect(clippy::indexing_slicing)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
@@ -365,7 +364,6 @@ pub enum AttachmentValue<'src> {
 impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
     type Error = Vec<TypedError<'src>>;
 
-    #[expect(clippy::indexing_slicing)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 

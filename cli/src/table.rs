@@ -62,27 +62,27 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
 
     fn build<'b>(&self, columns: &'a [C], table: &'b [Vec<Cow<'a, str>>]) -> Vec<Self::ColumnMeta>;
 
-    #[allow(clippy::unnecessary_literal_bound)]
+    #[expect(clippy::unnecessary_literal_bound)]
     fn table_starting(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
     }
 
-    #[allow(clippy::unnecessary_literal_bound)]
+    #[expect(clippy::unnecessary_literal_bound)]
     fn table_ending(&self, _columns: &[Self::ColumnMeta]) -> &str {
         ""
     }
 
-    #[allow(clippy::unnecessary_literal_bound)]
+    #[expect(clippy::unnecessary_literal_bound)]
     fn row_starting(&self, _data: &T) -> &str {
         ""
     }
 
-    #[allow(clippy::unnecessary_literal_bound)]
+    #[expect(clippy::unnecessary_literal_bound)]
     fn row_ending(&self, _data: &T) -> &str {
         ""
     }
 
-    #[allow(clippy::unnecessary_literal_bound)]
+    #[expect(clippy::unnecessary_literal_bound)]
     fn row_separator(&self) -> &str {
         "\n"
     }
@@ -96,7 +96,7 @@ pub trait TableStyle<'a, T, C: TableColumn<T>> {
         cell
     }
 
-    #[allow(clippy::unnecessary_literal_bound)]
+    #[expect(clippy::unnecessary_literal_bound)]
     fn cell_separator(&self) -> &str {
         " "
     }

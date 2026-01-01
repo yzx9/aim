@@ -154,7 +154,7 @@ where
             let expected = e.ctx();
             if &got != expected {
                 emitter.emit(Err::expected_found(
-                    #[allow(clippy::explicit_auto_deref)]
+                    #[expect(clippy::explicit_auto_deref)]
                     [DefaultExpected::Token(Token::Word(*expected).into())],
                     Some(Token::Word(got).into()),
                     e.span(),

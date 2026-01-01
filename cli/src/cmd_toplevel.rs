@@ -44,7 +44,7 @@ impl CmdDashboard {
         Ok(())
     }
 
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     async fn list_events(aim: &Aim) -> Result<(), Box<dyn Error>> {
         const MAX: i64 = 128;
 

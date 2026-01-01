@@ -67,7 +67,7 @@ pub struct VJournal<'src> {
 }
 
 /// Parse a `TypedComponent` into a `VJournal`
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
     type Error = Vec<SemanticError>;
 

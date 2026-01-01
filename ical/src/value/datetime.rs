@@ -139,7 +139,7 @@ where
             date,
             time,
             #[cfg(feature = "jiff")]
-            #[allow(clippy::cast_possible_wrap)]
+            #[expect(clippy::cast_possible_wrap)]
             jiff: jiff::civil::datetime(
                 date.year,
                 date.month,
@@ -196,7 +196,7 @@ impl ValueTime {
                 second,
                 utc,
                 #[cfg(feature = "jiff")]
-                #[allow(clippy::cast_possible_wrap)]
+                #[expect(clippy::cast_possible_wrap)]
                 jiff: jiff::civil::time(hour as i8, minute as i8, second.min(59) as i8, 0),
             }
         }
@@ -237,7 +237,7 @@ where
             second,
             utc: utc.is_some(),
             #[cfg(feature = "jiff")]
-            #[allow(clippy::cast_possible_wrap)]
+            #[expect(clippy::cast_possible_wrap)]
             jiff: jiff::civil::time(hour as i8, minute as i8, second.min(59) as i8, 0),
         })
 }
@@ -434,7 +434,7 @@ mod tests {
             assert_eq!(result.date, expected_date, "Failed for {src}");
             assert_eq!(result.time, expected_time, "Failed for {src}");
             #[cfg(feature = "jiff")]
-            #[allow(clippy::cast_possible_wrap)]
+            #[expect(clippy::cast_possible_wrap)]
             {
                 // Verify civil field is correctly computed
                 let expected_civil = jiff::civil::datetime(
@@ -502,7 +502,7 @@ mod tests {
             #[cfg(feature = "jiff")]
             {
                 // Verify civil_time returns correct value
-                #[allow(clippy::cast_possible_wrap)]
+                #[expect(clippy::cast_possible_wrap)]
                 let expected_jiff = jiff::civil::time(
                     expected.hour as i8,
                     expected.minute as i8,

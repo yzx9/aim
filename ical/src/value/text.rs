@@ -24,7 +24,7 @@ impl ValueText<'_> {
     /// Resolve the text value into a single string, processing escapes.
     #[must_use]
     pub fn resolve(&self) -> Cow<'_, str> {
-        #[allow(clippy::indexing_slicing)]
+        #[expect(clippy::indexing_slicing)]
         if self.tokens.len() == 1
             && let ValueTextToken::Str(parts) = &self.tokens[0]
             && parts.len() == 1
@@ -58,7 +58,7 @@ impl<'src> PartialEq<ValueText<'src>> for &str {
 impl Display for ValueText<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for token in &self.tokens {
-            #[allow(clippy::write_with_newline)]
+            #[expect(clippy::write_with_newline)]
             match token {
                 ValueTextToken::Str(parts) => {
                     for part in parts {

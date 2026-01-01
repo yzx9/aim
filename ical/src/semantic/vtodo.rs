@@ -101,7 +101,7 @@ pub struct VTodo<'src> {
 impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
     type Error = Vec<SemanticError>;
 
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VTODO {
             return Err(vec![SemanticError::ExpectedComponent {

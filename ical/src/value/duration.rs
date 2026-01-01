@@ -56,7 +56,6 @@ pub enum ValueDuration {
 /// dur-second = 1*DIGIT "S"
 /// dur-day    = 1*DIGIT "D"
 /// ```
-#[allow(clippy::doc_link_with_quotes)]
 pub fn value_duration<'src, I, E>() -> impl Parser<'src, I, ValueDuration, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,

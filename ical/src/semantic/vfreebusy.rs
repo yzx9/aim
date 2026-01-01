@@ -55,7 +55,7 @@ pub struct VFreeBusy<'src> {
 impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
     type Error = Vec<SemanticError>;
 
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VFREEBUSY {
             return Err(vec![SemanticError::ExpectedComponent {

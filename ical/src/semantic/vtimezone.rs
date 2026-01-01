@@ -142,7 +142,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
     type Error = Vec<SemanticError>;
 
     /// Parse a timezone observance (STANDARD or DAYLIGHT) component
-    #[allow(clippy::too_many_lines)]
     fn try_from(
         comp: TypedComponent<'src>,
     ) -> Result<TimeZoneObservance<'src>, Vec<SemanticError>> {

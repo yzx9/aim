@@ -22,7 +22,7 @@ use crate::typed::TypedError;
 
 /// A typed iCalendar parameter with validated values.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub enum Parameter<'src> {
     /// This parameter specifies a URI that points to an alternate
     /// representation for a textual property value. A property specifying
@@ -454,7 +454,7 @@ macro_rules! impl_typed_parameter_kind_mapping {
 
 impl_typed_parameter_kind_mapping! {
     /// Kinds of iCalendar parameters
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     enum ParameterKind {
         AlternateText       => KW_ALTREP,
         CommonName          => KW_CN,

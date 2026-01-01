@@ -97,7 +97,7 @@ pub struct VEvent<'src> {
 impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
     type Error = Vec<SemanticError>;
 
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VEVENT {
             return Err(vec![SemanticError::ExpectedComponent {

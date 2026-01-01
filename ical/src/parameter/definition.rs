@@ -137,8 +137,6 @@ macro_rules! define_param_enum {
             }
         }
 
-        #[allow(missing_docs)]
-        #[allow(clippy::missing_errors_doc)]
         pub fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
             let kind = ParameterKind::from_str($param_kw).unwrap();
             parse_single_not_quoted(&mut param, kind).and_then(|value| {
@@ -202,6 +200,7 @@ define_param_enum! {
 }
 
 define_param_enum! {
+    /// This parameter defines the free or busy time type for a time
     #[derive(Default)]
     enum FreeBusyType {
         /// The time interval is free for scheduling
@@ -261,6 +260,7 @@ define_param_enum! {
 }
 
 define_param_enum! {
+    /// This parameter defines the relationship of the alarm trigger to the
     #[derive(Default)]
     enum AlarmTriggerRelationship {
         /// The parameter value START will set the alarm to trigger off the
@@ -304,12 +304,9 @@ define_param_enum! {
     #[derive(Default)]
     enum ParticipationRole {
         Chair             => KW_ROLE_CHAIR,
-
         #[default]
         ReqParticipant    => KW_ROLE_REQ_PARTICIPANT,
-
         OptParticipant    => KW_ROLE_OPT_PARTICIPANT,
-
         NonParticipant    => KW_ROLE_NON_PARTICIPANT,
     }
 
