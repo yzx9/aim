@@ -5,14 +5,51 @@
 //! Descriptive Component Properties (RFC 5545 Section 3.8.1)
 //!
 //! This module contains property types for the "Descriptive Component Properties"
-//! section of RFC 5545, including:
-//! - 3.8.1.1 Attachment
-//! - 3.8.1.3 Classification
-//! - 3.8.1.6 Geographic Position
-//! - Text helpers for properties like Description, Summary, Location, Contact
+//! section of RFC 5545. Properties are organized into three categories:
+//!
+//! ## Complex Property Types
+//!
+//! - 3.8.1.1: `Attachment` - Attached documents or resources
+//! - 3.8.1.3: `Classification` - Access classification (PUBLIC, PRIVATE, CONFIDENTIAL)
+//! - 3.8.1.6: `Geo` - Geographic position (latitude/longitude)
+//! - 3.8.4.3: `Organizer` - Event organizer
+//!
+//! ## Text Property Wrapper Types
+//!
+//! Each text wrapper implements `Deref` and `DerefMut` to the `Text` type,
+//! which provides content, language, and altrep parameters. All wrappers
+//! validate their property kind during conversion:
+//!
+//! - 3.8.1.2: `Categories` - Categories or tags (multi-valued)
+//! - 3.8.1.4: `Comment` - Non-processing comments
+//! - 3.8.1.5: `Description` - Detailed description
+//! - 3.8.1.7: `Location` - Venue location
+//! - 3.8.1.10: `Resources` - Resources (multi-valued)
+//! - 3.8.1.12: `Summary` - Summary/subject
+//! - 3.8.4.2: `Contact` - Contact information
+//! - 3.8.4.5: `RelatedTo` - Related to another component
+//! - 3.8.8.3: `RequestStatus` - Status code for request processing
+//!
+//! ## URI/Identifier Wrapper Types
+//!
+//! These wrappers also implement `Deref`/`DerefMut` to `Text` and validate
+//! their property kind:
+//!
+//! - 3.8.4.6: `Url` - Uniform Resource Locator
+//! - 3.8.4.7: `Uid` - Unique identifier
+//! - 3.8.3.1: `TzId` - Time zone identifier
+//! - 3.8.3.2: `TzName` - Time zone name
+//! - 3.8.3.5: `TzUrl` - Time zone URL
+//!
+//! ## Implementation Notes
+//!
+//! All wrapper types use the `Text` or `Texts` utility types from the `util` module,
+//! which provide common functionality for text properties including language
+//! and alternate text representation (altrep) parameters.
 
 use std::convert::TryFrom;
-use std::fmt::{self, Display, Formatter};
+use std::fmt;
+use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
 use chumsky::{Parser, error::Rich, extra, input::Stream};
@@ -20,10 +57,601 @@ use chumsky::{Parser, error::Rich, extra, input::Stream};
 use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
 use crate::parameter::{Encoding, Parameter};
 use crate::property::PropertyKind;
-use crate::property::util::{take_single_string, take_single_text, take_single_value};
+use crate::property::util::{Text, Texts, take_single_string, take_single_text, take_single_value};
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueText, values_float_semicolon};
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.1.4)
+///
+/// This is a wrapper type for simple text properties that only contain
+/// a single Text value with optional language and altrep parameters.
+#[derive(Debug, Clone)]
+pub struct Comment<'src>(pub Text<'src>);
+
+impl<'src> Deref for Comment<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Comment<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Comment<'_> {
+    /// Get the property kind for Comment
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Comment
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Comment<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(Comment)
+    }
+}
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.1.5)
+#[derive(Debug, Clone)]
+pub struct Description<'src>(pub Text<'src>);
+
+impl<'src> Deref for Description<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Description<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Description<'_> {
+    /// Get the property kind for `Description`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Description
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Description<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(Description)
+    }
+}
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.1.7)
+#[derive(Debug, Clone)]
+pub struct Location<'src>(pub Text<'src>);
+
+impl<'src> Deref for Location<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Location<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Location<'_> {
+    /// Get the property kind for Location
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Location
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Location<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(Location)
+    }
+}
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.1.12)
+#[derive(Debug, Clone)]
+pub struct Summary<'src>(pub Text<'src>);
+
+impl<'src> Deref for Summary<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Summary<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Summary<'_> {
+    /// Get the property kind for Summary
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Summary
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Summary<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(Summary)
+    }
+}
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.4.2)
+#[derive(Debug, Clone)]
+pub struct Contact<'src>(pub Text<'src>);
+
+impl<'src> Deref for Contact<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Contact<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Contact<'_> {
+    /// Get the property kind for Contact
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Contact
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Contact<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(Contact)
+    }
+}
+
+/// Multi-valued text property wrapper (RFC 5545 Section 3.8.1.2)
+#[derive(Debug, Clone)]
+pub struct Categories<'src>(pub Texts<'src>);
+
+impl<'src> Deref for Categories<'src> {
+    type Target = Texts<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Categories<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Categories<'_> {
+    /// Get the property kind for Categories
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Categories
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Categories<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Texts::try_from(prop).map(Categories)
+    }
+}
+
+/// Multi-valued text property wrapper (RFC 5545 Section 3.8.1.10)
+#[derive(Debug, Clone)]
+pub struct Resources<'src>(pub Texts<'src>);
+
+impl<'src> Deref for Resources<'src> {
+    type Target = Texts<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Resources<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Resources<'_> {
+    /// Get the property kind for Resources
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Resources
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Resources<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Texts::try_from(prop).map(Resources)
+    }
+}
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.8.3)
+#[derive(Debug, Clone)]
+pub struct RequestStatus<'src>(pub Text<'src>);
+
+impl<'src> Deref for RequestStatus<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RequestStatus<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl RequestStatus<'_> {
+    /// Get the property kind for `RequestStatus`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::RequestStatus
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for RequestStatus<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(RequestStatus)
+    }
+}
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.4.5)
+#[derive(Debug, Clone)]
+pub struct RelatedTo<'src>(pub Text<'src>);
+
+impl<'src> Deref for RelatedTo<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RelatedTo<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl RelatedTo<'_> {
+    /// Get the property kind for `RelatedTo`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::RelatedTo
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(RelatedTo)
+    }
+}
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.4.7)
+#[derive(Debug, Clone)]
+pub struct Url<'src>(pub Text<'src>);
+
+impl<'src> Deref for Url<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Url<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Url<'_> {
+    /// Get the property kind for `Url`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Url
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Url<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(Url)
+    }
+}
+
+/// Simple text property wrapper (RFC 5545 Section 3.8.4.9)
+#[derive(Debug, Clone)]
+pub struct Uid<'src>(pub Text<'src>);
+
+impl Uid<'_> {
+    /// Get the property kind for `Uid`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Uid
+    }
+}
+
+impl<'src> Deref for Uid<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Uid<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Uid<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(Uid)
+    }
+}
+
+/// Simple text property wrapper for `TzId` (RFC 5545 Section 3.8.3.1)
+#[derive(Debug, Clone)]
+pub struct TzId<'src>(pub Text<'src>);
+
+impl<'src> Deref for TzId<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TzId<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl TzId<'_> {
+    /// Get the property kind for `TzId`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::TzId
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for TzId<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(TzId)
+    }
+}
+
+/// Simple text property wrapper for `TzName` (RFC 5545 Section 3.8.3.2)
+#[derive(Debug, Clone)]
+pub struct TzName<'src>(pub Text<'src>);
+
+impl<'src> Deref for TzName<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TzName<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl TzName<'_> {
+    /// Get the property kind for `TzName`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::TzName
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for TzName<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(TzName)
+    }
+}
+
+/// Simple text property wrapper for `TzUrl` (RFC 5545 Section 3.8.3.5)
+#[derive(Debug, Clone)]
+pub struct TzUrl<'src>(pub Text<'src>);
+
+impl<'src> Deref for TzUrl<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TzUrl<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl TzUrl<'_> {
+    /// Get the property kind for `TzUrl`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::TzUrl
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for TzUrl<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(TzUrl)
+    }
+}
 
 /// Geographic position (RFC 5545 Section 3.8.1.6)
 #[derive(Debug, Clone, Copy)]
@@ -35,11 +663,27 @@ pub struct Geo {
     pub lon: f64,
 }
 
+impl Geo {
+    /// Get the property kind for `Geo`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Geo
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Geo {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let text = take_single_string(prop.kind, prop.values).map_err(|e| vec![e])?;
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
 
         // Use the typed phase's float parser with semicolon separator
         let stream = Stream::from_iter(text.chars());
@@ -66,125 +710,6 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo {
     }
 }
 
-/// Text with language and alternate representation information
-///
-/// This is a helper type used by many text properties like:
-/// - 3.8.1.5: `Description`
-/// - 3.8.1.12: `Summary`
-/// - 3.8.1.7: `Location`
-/// - 3.8.4.2: `Contact`
-/// - 3.8.3.2: `TzName`
-#[derive(Debug, Clone)]
-pub struct Text<'src> {
-    /// The actual text content
-    pub content: ValueText<'src>,
-
-    /// Language code (optional)
-    pub language: Option<SpannedSegments<'src>>,
-
-    /// Alternate text representation URI (optional)
-    ///
-    /// Per RFC 5545, this parameter is not applicable to TZNAME and CATEGORIES
-    /// properties, but may be present in other text properties like DESCRIPTION,
-    /// SUMMARY, LOCATION, CONTACT, and RESOURCES.
-    pub altrep: Option<SpannedSegments<'src>>,
-}
-
-impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
-    type Error = Vec<TypedError<'src>>;
-
-    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let mut errors = Vec::new();
-
-        let content = match take_single_text(prop.kind, prop.values) {
-            Ok(text) => text,
-            Err(e) => return Err(vec![e]),
-        };
-
-        // Extract language and altrep parameters
-        let mut language = None;
-        let mut altrep = None;
-
-        for param in prop.parameters {
-            let kind_name = param.kind().name();
-            let param_span = param.span();
-
-            match param {
-                Parameter::Language { value, .. } => match language {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => language = Some(value),
-                },
-                Parameter::AlternateText { value, .. } => match altrep {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => altrep = Some(value),
-                },
-                _ => {}
-            }
-        }
-
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-
-        Ok(Self {
-            content,
-            language,
-            altrep,
-        })
-    }
-}
-
-/// Multi-valued text properties (CATEGORIES, RESOURCES)
-///
-/// This type represents properties that can have multiple text values,
-/// such as CATEGORIES or RESOURCES.
-///
-/// Note: Per RFC 5545, ALTREP is not applicable to CATEGORIES and RESOURCES,
-/// so only the language parameter is extracted.
-#[derive(Debug, Clone)]
-pub struct Texts<'src> {
-    /// List of text values
-    pub values: Vec<Text<'src>>,
-}
-
-impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
-    type Error = Vec<TypedError<'src>>;
-
-    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        // Get language parameter (shared by all values)
-        let language = prop
-            .parameters
-            .into_iter()
-            .find(|p| matches!(p, Parameter::Language { .. }))
-            .and_then(|p| match p {
-                Parameter::Language { value, .. } => Some(value),
-                _ => None,
-            });
-
-        let values = prop
-            .values
-            .into_iter()
-            .filter_map(|v| match v {
-                Value::Text(content) => Some(Text {
-                    content,
-                    language: language.clone(),
-                    altrep: None, // ALTREP not applicable to multi-valued text properties
-                }),
-                _ => None,
-            })
-            .collect();
-
-        Ok(Self { values })
-    }
-}
-
 /// Classification of calendar data (RFC 5545 Section 3.8.1.3)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Classification {
@@ -199,6 +724,14 @@ pub enum Classification {
     Confidential,
     // /// Custom classification
     // Custom(String),
+}
+
+impl Classification {
+    /// Get the property kind for `Classification`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Class
+    }
 }
 
 impl FromStr for Classification {
@@ -224,8 +757,8 @@ impl AsRef<str> for Classification {
     }
 }
 
-impl Display for Classification {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl fmt::Display for Classification {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_ref().fmt(f)
     }
 }
@@ -234,7 +767,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let text = take_single_string(PropertyKind::Class, prop.values).map_err(|e| vec![e])?;
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Class,
@@ -264,10 +805,26 @@ pub struct Organizer<'src> {
     pub language: Option<SpannedSegments<'src>>,
 }
 
+impl Organizer<'_> {
+    /// Get the property kind for `Organizer`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Organizer
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         let mut errors = Vec::new();
 
         // Collect all optional parameters in a single pass
@@ -361,10 +918,26 @@ pub enum AttachmentValue<'src> {
     Binary(SpannedSegments<'src>),
 }
 
+impl Attachment<'_> {
+    /// Get the property kind for `Attachment`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Attach
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         let mut errors = Vec::new();
 
         // Collect all optional parameters in a single pass

@@ -6,11 +6,12 @@
 
 use std::fmt;
 
+use crate::Uid;
 use crate::keyword::{KW_VALARM, KW_VTODO};
-use crate::property::PropertyKind;
 use crate::property::{
-    Attendee, Classification, DateTime, ExDateValue, Geo, Organizer, Period, Property, RDateValue,
-    Status, Text,
+    Attendee, Categories, Classification, Completed, DateTime, Description, Due, DtStamp,
+    DtStart, ExDateValue, Geo, LastModified, Location, Organizer, Period, Property,
+    PropertyKind, RDateValue, Resources, Status, Summary, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::typed::TypedComponent;
@@ -20,37 +21,37 @@ use crate::value::{RecurrenceRule, ValueDuration};
 #[derive(Debug, Clone)]
 pub struct VTodo<'src> {
     /// Unique identifier for the todo
-    pub uid: Text<'src>,
+    pub uid: Uid<'src>,
 
     /// Date/time the todo was created
-    pub dt_stamp: DateTime<'src>,
+    pub dt_stamp: DtStamp<'src>,
 
     /// Date/time to start the todo
-    pub dt_start: Option<DateTime<'src>>,
+    pub dt_start: Option<DtStart<'src>>,
 
     /// Date/time the todo is due
-    pub due: Option<DateTime<'src>>,
+    pub due: Option<Due<'src>>,
 
     /// Completion date/time
-    pub completed: Option<DateTime<'src>>,
+    pub completed: Option<Completed<'src>>,
 
     /// Duration of the todo
     pub duration: Option<ValueDuration>,
 
     /// Summary/title of the todo
-    pub summary: Option<Text<'src>>,
+    pub summary: Option<Summary<'src>>,
 
     /// Description of the todo
-    pub description: Option<Text<'src>>,
+    pub description: Option<Description<'src>>,
 
     /// Location of the todo
-    pub location: Option<Text<'src>>,
+    pub location: Option<Location<'src>>,
 
     /// Geographic position
     pub geo: Option<Geo>,
 
     /// URL associated with the todo
-    pub url: Option<Text<'src>>,
+    pub url: Option<Url<'src>>,
 
     /// Organizer of the todo
     pub organizer: Option<Organizer<'src>>,
@@ -59,7 +60,7 @@ pub struct VTodo<'src> {
     pub attendees: Vec<Attendee<'src>>,
 
     /// Last modification date/time
-    pub last_modified: Option<DateTime<'src>>,
+    pub last_modified: Option<LastModified<'src>>,
 
     /// Status of the todo
     pub status: Option<TodoStatus>,
@@ -77,10 +78,10 @@ pub struct VTodo<'src> {
     pub classification: Option<Classification>,
 
     /// Resources
-    pub resources: Vec<Text<'src>>,
+    pub resources: Option<Resources<'src>>,
 
     /// Categories
-    pub categories: Vec<Text<'src>>,
+    pub categories: Option<Categories<'src>>,
 
     /// Recurrence rule
     pub rrule: Option<RecurrenceRule>,
@@ -116,11 +117,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop {
-                Property::Uid(text) => match props.uid {
+                Property::Uid(uid) => match props.uid {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Uid,
                     }),
-                    None => props.uid = Some(text),
+                    None => props.uid = Some(uid),
                 },
                 Property::DtStamp(dt) => match props.dt_stamp {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -152,23 +153,23 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
                     }),
                     None => props.duration = Some(dur.value),
                 },
-                Property::Summary(text) => match props.summary {
+                Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
                     }),
-                    None => props.summary = Some(text),
+                    None => props.summary = Some(s),
                 },
-                Property::Description(text) => match props.description {
+                Property::Description(desc) => match props.description {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Description,
                     }),
-                    None => props.description = Some(text),
+                    None => props.description = Some(desc),
                 },
-                Property::Location(text) => match props.location {
+                Property::Location(loc) => match props.location {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Location,
                     }),
-                    None => props.location = Some(text),
+                    None => props.location = Some(loc),
                 },
                 Property::Geo(geo) => match props.geo {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -176,11 +177,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
                     }),
                     None => props.geo = Some(geo),
                 },
-                Property::Url(text) => match props.url {
+                Property::Url(url) => match props.url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Url,
                     }),
-                    None => props.url = Some(text),
+                    None => props.url = Some(url),
                 },
                 Property::Organizer(org) => match props.organizer {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -247,13 +248,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Resources,
                     }),
-                    None => props.resources = Some(resources.values),
+                    None => props.resources = Some(resources),
                 },
                 Property::Categories(categories) => match props.categories {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Categories,
                     }),
-                    None => props.categories = Some(categories.values),
+                    None => props.categories = Some(categories),
                 },
                 Property::RRule(rrule) => match props.rrule {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -339,8 +340,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
             priority: props.priority,
             percent_complete: props.percent_complete,
             classification: props.classification,
-            resources: props.resources.unwrap_or_default(),
-            categories: props.categories.unwrap_or_default(),
+            resources: props.resources,
+            categories: props.categories,
             rrule: props.rrule,
             rdate: props.rdate,
             ex_date: props.ex_dates,
@@ -399,27 +400,27 @@ impl From<TodoStatus> for Status {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    uid:            Option<Text<'src>>,
-    dt_stamp:       Option<DateTime<'src>>,
-    dt_start:       Option<DateTime<'src>>,
-    due:            Option<DateTime<'src>>,
-    completed:      Option<DateTime<'src>>,
+    uid:            Option<Uid<'src>>,
+    dt_stamp:       Option<DtStamp<'src>>,
+    dt_start:       Option<DtStart<'src>>,
+    due:            Option<Due<'src>>,
+    completed:      Option<Completed<'src>>,
     duration:       Option<ValueDuration>,
-    summary:        Option<Text<'src>>,
-    description:    Option<Text<'src>>,
-    location:       Option<Text<'src>>,
+    summary:        Option<Summary<'src>>,
+    description:    Option<Description<'src>>,
+    location:       Option<Location<'src>>,
     geo:            Option<Geo>,
-    url:            Option<Text<'src>>,
+    url:            Option<Url<'src>>,
     organizer:      Option<Organizer<'src>>,
     attendees:      Vec<Attendee<'src>>,
-    last_modified:  Option<DateTime<'src>>,
+    last_modified:  Option<LastModified<'src>>,
     status:         Option<TodoStatus>,
     sequence:       Option<u32>,
     priority:       Option<u8>,
     percent_complete: Option<u8>,
     classification: Option<Classification>,
-    resources:      Option<Vec<Text<'src>>>,
-    categories:     Option<Vec<Text<'src>>>,
+    resources:      Option<Resources<'src>>,
+    categories:     Option<Categories<'src>>,
     rrule:          Option<RecurrenceRule>,
     rdate:          Vec<Period<'src>>,
     ex_dates:       Vec<DateTime<'src>>,

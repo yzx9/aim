@@ -5,9 +5,13 @@
 //! Component Relationship Properties (RFC 5545 Section 3.8.4)
 //!
 //! This module contains property types for the "Component Relationship Properties"
-//! section of RFC 5545, including:
-//! - 3.8.4.1 Attendee
-//! - 3.8.4.3 Organizer
+//! section of RFC 5545. All types implement `kind()` methods and validate their
+//! property kind during conversion from `ParsedProperty`:
+//!
+//! - 3.8.4.1: `Attendee` - Event participant with calendar user address and
+//!   participation parameters (CUType, Role, PartStat, etc.)
+//! - 3.8.4.3: `Organizer` - Event organizer with calendar user address
+//!   and sent-by parameter
 
 use std::convert::TryFrom;
 
@@ -58,11 +62,27 @@ pub struct Attendee<'src> {
     pub language: Option<SpannedSegments<'src>>,
 }
 
+impl Attendee<'_> {
+    /// Get the property kind for `Attendee`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Attendee
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
     type Error = Vec<TypedError<'src>>;
 
     #[expect(clippy::too_many_lines)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         let mut errors = Vec::new();
 
         // Collect all optional parameters in a single pass

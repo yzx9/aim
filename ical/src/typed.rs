@@ -48,13 +48,11 @@ fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<
     let mut errors = Vec::new();
     for prop in comp.properties {
         match parsed_property(&mut existing_props, prop) {
-            Ok(prop) => {
-                // Convert ParsedProperty to Property
-                match Property::try_from(prop) {
-                    Ok(property) => properties.push(property),
-                    Err(errs) => errors.extend(errs),
-                }
-            }
+            // Convert ParsedProperty to Property
+            Ok(prop) => match Property::try_from(prop) {
+                Ok(property) => properties.push(property),
+                Err(errs) => errors.extend(errs),
+            },
             Err(errs) => errors.extend(errs),
         }
     }
@@ -152,32 +150,6 @@ pub enum TypedError<'src> {
     PropertyDuplicated {
         /// The property name
         property: &'src str,
-        /// The span of the error
-        span: Span,
-    },
-
-    /// Property has an invalid value count.
-    #[error("Property '{property}' requires exactly {expected} value(s), but found {found}")]
-    PropertyInvalidValueCount {
-        /// The property kind
-        property: PropertyKind,
-        /// Expected number of values
-        expected: usize,
-        /// Actual number of values found
-        found: usize,
-        /// The span of the error
-        span: Span,
-    },
-
-    /// Property has insufficient values.
-    #[error("Property '{property}' requires at least {min} value(s), but found {found}")]
-    PropertyInsufficientValues {
-        /// The property name
-        property: &'src str,
-        /// Minimum required number of values
-        min: usize,
-        /// Actual number of values found
-        found: usize,
         /// The span of the error
         span: Span,
     },
@@ -293,13 +265,13 @@ pub enum TypedError<'src> {
         err: Rich<'src, char>,
     },
 
-    /// Property value is invalid or out of allowed range.
-    #[error("Invalid value '{value}' for property '{property}'")]
-    PropertyInvalidValue {
-        /// The property that has the invalid value
-        property: PropertyKind,
-        /// Description of why the value is invalid
-        value: String,
+    /// Property kind does not match the expected type.
+    #[error("Expected property kind '{expected}', found '{found}'")]
+    PropertyUnexpectedKind {
+        /// Expected property kind
+        expected: PropertyKind,
+        /// Actual property kind found
+        found: PropertyKind,
         /// The span of the error
         span: Span,
     },
@@ -309,6 +281,30 @@ pub enum TypedError<'src> {
     PropertyMissingValue {
         /// The property that is missing values
         property: PropertyKind,
+        /// The span of the error
+        span: Span,
+    },
+
+    /// Property has an invalid value count.
+    #[error("Property '{property}' requires exactly {expected} value(s), but found {found}")]
+    PropertyInvalidValueCount {
+        /// The property kind
+        property: PropertyKind,
+        /// Expected number of values
+        expected: usize,
+        /// Actual number of values found
+        found: usize,
+        /// The span of the error
+        span: Span,
+    },
+
+    /// Property value is invalid or out of allowed range.
+    #[error("Invalid value '{value}' for property '{property}'")]
+    PropertyInvalidValue {
+        /// The property that has the invalid value
+        property: PropertyKind,
+        /// Description of why the value is invalid
+        value: String,
         /// The span of the error
         span: Span,
     },
@@ -335,7 +331,6 @@ impl TypedError<'_> {
             TypedError::PropertyUnknown { span, .. }
             | TypedError::PropertyDuplicated { span, .. }
             | TypedError::PropertyInvalidValueCount { span, .. }
-            | TypedError::PropertyInsufficientValues { span, .. }
             | TypedError::PropertyMultipleValuesDisallowed { span, .. }
             | TypedError::ParameterUnknown { span, .. }
             | TypedError::ParameterDuplicated { span, .. }
@@ -345,6 +340,7 @@ impl TypedError<'_> {
             | TypedError::ParameterValueMustNotBeQuoted { span, .. }
             | TypedError::ParameterValueInvalid { span, .. }
             | TypedError::ValueTypeDisallowed { span, .. }
+            | TypedError::PropertyUnexpectedKind { span, .. }
             | TypedError::PropertyInvalidValue { span, .. }
             | TypedError::PropertyMissingValue { span, .. }
             | TypedError::PropertyUnexpectedValue { span, .. } => span.clone(),

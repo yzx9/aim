@@ -4,14 +4,22 @@
 
 //! Recurrence-related property types.
 //!
-//! This module contains property types related to date/time recurrence:
-//! - 3.8.2.6 Free/Busy Time
-//! - 3.8.5.1 Exception Date-Times
-//! - 3.8.5.2 Recurrence Date-Times
+//! This module contains property types related to date/time recurrence.
+//! All types implement `kind()` methods and validate their property kind
+//! during conversion from `ParsedProperty`:
+//!
+//! - 3.8.2.6: `FreeBusy` - Free/busy time information
+//! - 3.8.5.1: `ExDate` - Exception date-times
+//! - 3.8.5.2: `RDate` - Recurrence date-times
+//!
+//! Value types:
+//! - `ExDateValue` - Exception date/time value (DATE or DATE-TIME)
+//! - `RDateValue` - Recurrence date/time value (DATE, DATE-TIME, or PERIOD)
 
 use std::convert::TryFrom;
 
 use crate::parameter::{FreeBusyType, Parameter, ValueKind};
+use crate::property::PropertyKind;
 use crate::property::datetime::{DateTime, Period};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate};
@@ -47,10 +55,26 @@ pub struct FreeBusy<'src> {
     pub values: Vec<Period<'src>>,
 }
 
+impl FreeBusy<'_> {
+    /// Get the property kind for `FreeBusy`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::FreeBusy
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         // Extract FBTYPE parameter (defaults to BUSY)
         let mut fb_type = FreeBusyType::Busy;
         for param in &prop.parameters {
@@ -90,10 +114,26 @@ pub struct ExDate<'src> {
     pub dates: Vec<ExDateValue<'src>>,
 }
 
+impl ExDate<'_> {
+    /// Get the property kind for `ExDate`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::ExDate
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         prop.values
             .into_iter()
             .map(|v| match v {
@@ -123,10 +163,26 @@ pub struct RDate<'src> {
     pub dates: Vec<RDateValue<'src>>,
 }
 
+impl RDate<'_> {
+    /// Get the property kind for `RDate`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::RDate
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for RDate<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         prop.values
             .into_iter()
             .map(|v| match v {

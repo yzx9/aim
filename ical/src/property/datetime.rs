@@ -6,12 +6,33 @@
 //!
 //! This module contains property types for the "Date and Time Properties"
 //! section of RFC 5545, including:
-//! - 3.8.2.1: Date-Time Start
-//! - 3.8.2.2: Date-Time End
-//! - 3.8.2.5: Duration
-//! - 3.8.2.6: Period values for Free/Busy time
+//!
+//! ## Base Types
+//!
+//! - `DateTime`: Core date/time representation (floating, UTC, or timezone-aware)
+//! - `Period`: Time period with start/end or start/duration
+//! - `Time`: Time of day representation
+//!
+//! ## Property Wrapper Types
+//!
+//! Each wrapper type implements `Deref` and `DerefMut` to `DateTime` for convenient
+//! access to the underlying date/time data, and includes a `kind()` method for
+//! property validation:
+//!
+//! - 3.8.2.1: `Completed` - Date-Time Completed
+//! - 3.8.2.2: `DtEnd` - Date-Time End
+//! - 3.8.2.3: `Due` - Date-Time Due
+//! - 3.8.2.4: `DtStart` - Date-Time Start
+//! - 3.8.7.1: `Created` - Date-Time Created
+//! - 3.8.7.2: `DtStamp` - Date-Time Stamp
+//! - 3.8.7.3: `LastModified` - Last Modified
+//! - 3.8.4.4: `RecurrenceId` - Recurrence ID
+//!
+//! All wrapper types validate their property kind during conversion from
+//! `ParsedProperty`, ensuring type safety throughout the parsing pipeline.
 
 use std::convert::TryFrom;
+use std::ops::{Deref, DerefMut};
 
 use crate::parameter::{Parameter, ValueKind};
 use crate::property::PropertyKind;
@@ -704,5 +725,335 @@ fn add_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff:
                 start.checked_sub(span).unwrap()
             }
         }
+    }
+}
+
+// DateTime wrapper types for specific properties
+
+/// Created property wrapper (RFC 5545 Section 3.8.7.1)
+#[derive(Debug, Clone)]
+pub struct Created<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for Created<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Created<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Created<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Created
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Created<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(Created)
+    }
+}
+
+/// Date-Time Stamp property wrapper (RFC 5545 Section 3.8.7.2)
+#[derive(Debug, Clone)]
+pub struct DtStamp<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for DtStamp<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DtStamp<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl DtStamp<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::DtStamp
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for DtStamp<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(DtStamp)
+    }
+}
+
+/// Last Modified property wrapper (RFC 5545 Section 3.8.7.3)
+#[derive(Debug, Clone)]
+pub struct LastModified<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for LastModified<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for LastModified<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl LastModified<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::LastModified
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for LastModified<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(LastModified)
+    }
+}
+
+/// Date-Time Start property wrapper (RFC 5545 Section 3.8.2.4)
+#[derive(Debug, Clone)]
+pub struct DtStart<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for DtStart<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DtStart<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl DtStart<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::DtStart
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for DtStart<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(DtStart)
+    }
+}
+
+/// Date-Time End property wrapper (RFC 5545 Section 3.8.2.2)
+#[derive(Debug, Clone)]
+pub struct DtEnd<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for DtEnd<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DtEnd<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl DtEnd<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::DtEnd
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for DtEnd<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(DtEnd)
+    }
+}
+
+/// Date-Time Due property wrapper (RFC 5545 Section 3.8.2.3)
+#[derive(Debug, Clone)]
+pub struct Due<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for Due<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Due<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Due<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Due
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Due<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(Due)
+    }
+}
+
+/// Date-Time Completed property wrapper (RFC 5545 Section 3.8.2.1)
+#[derive(Debug, Clone)]
+pub struct Completed<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for Completed<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Completed<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Completed<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Completed
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Completed<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(Completed)
+    }
+}
+
+/// Recurrence ID property wrapper (RFC 5545 Section 3.8.4.4)
+#[derive(Debug, Clone)]
+pub struct RecurrenceId<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for RecurrenceId<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RecurrenceId<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl RecurrenceId<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::RecurrenceId
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for RecurrenceId<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(RecurrenceId)
     }
 }

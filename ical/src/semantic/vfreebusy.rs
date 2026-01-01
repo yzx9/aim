@@ -4,9 +4,10 @@
 
 //! Free/busy time component (VFREEBUSY) for iCalendar semantic components.
 
+use crate::Uid;
 use crate::keyword::KW_VFREEBUSY;
 use crate::parameter::FreeBusyType;
-use crate::property::{DateTime, Organizer, Period, Property, PropertyKind, Text};
+use crate::property::{Contact, DtEnd, DtStamp, DtStart, Organizer, Period, Property, PropertyKind, Url};
 use crate::semantic::SemanticError;
 use crate::typed::TypedComponent;
 use crate::value::ValueDuration;
@@ -15,16 +16,16 @@ use crate::value::ValueDuration;
 #[derive(Debug, Clone)]
 pub struct VFreeBusy<'src> {
     /// Unique identifier for the free/busy info
-    pub uid: Text<'src>,
+    pub uid: Uid<'src>,
 
     /// Date/time the free/busy info was created
-    pub dt_stamp: DateTime<'src>,
+    pub dt_stamp: DtStamp<'src>,
 
     /// Start of the free/busy period
-    pub dt_start: DateTime<'src>,
+    pub dt_start: DtStart<'src>,
 
     /// End of the free/busy period
-    pub dt_end: Option<DateTime<'src>>,
+    pub dt_end: Option<DtEnd<'src>>,
 
     /// Duration of the free/busy period
     pub duration: Option<ValueDuration>,
@@ -33,10 +34,10 @@ pub struct VFreeBusy<'src> {
     pub organizer: Organizer<'src>,
 
     /// Contact information
-    pub contact: Option<Text<'src>>,
+    pub contact: Option<Contact<'src>>,
 
     /// URL for additional free/busy info
-    pub url: Option<Text<'src>>,
+    pub url: Option<Url<'src>>,
 
     /// Busy periods
     pub busy: Vec<Period<'src>>,
@@ -81,11 +82,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                         }
                     }
                 }
-                Property::Uid(text) => match props.uid {
+                Property::Uid(uid) => match props.uid {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Uid,
                     }),
-                    None => props.uid = Some(text),
+                    None => props.uid = Some(uid),
                 },
                 Property::DtStamp(dt) => match props.dt_stamp {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -117,17 +118,17 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                     }),
                     None => props.organizer = Some(org),
                 },
-                Property::Contact(text) => match props.contact {
+                Property::Contact(contact) => match props.contact {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Contact,
                     }),
-                    None => props.contact = Some(text),
+                    None => props.contact = Some(contact),
                 },
-                Property::Url(text) => match props.url {
+                Property::Url(url) => match props.url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Url,
                     }),
-                    None => props.url = Some(text),
+                    None => props.url = Some(url),
                 },
                 // Ignore other properties not used by VFreeBusy
                 _ => {}
@@ -182,14 +183,14 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    uid:              Option<Text<'src>>,
-    dt_stamp:         Option<DateTime<'src>>,
-    dt_start:         Option<DateTime<'src>>,
-    dt_end:           Option<DateTime<'src>>,
+    uid:              Option<Uid<'src>>,
+    dt_stamp:         Option<DtStamp<'src>>,
+    dt_start:         Option<DtStart<'src>>,
+    dt_end:           Option<DtEnd<'src>>,
     duration:         Option<ValueDuration>,
     organizer:        Option<Organizer<'src>>,
-    contact:          Option<Text<'src>>,
-    url:              Option<Text<'src>>,
+    contact:          Option<Contact<'src>>,
+    url:              Option<Url<'src>>,
     busy:             Vec<Period<'src>>,
     free:             Vec<Period<'src>>,
     busy_tentative:   Vec<Period<'src>>,

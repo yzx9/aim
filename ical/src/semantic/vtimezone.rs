@@ -5,7 +5,9 @@
 //! Timezone component (VTIMEZONE) for iCalendar semantic components.
 
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
-use crate::property::{DateTime, Property, PropertyKind, Text, TimeZoneOffset};
+use crate::property::{
+    DateTime, LastModified, Property, PropertyKind, Text, TzOffsetFrom, TzOffsetTo,
+};
 use crate::semantic::SemanticError;
 use crate::typed::TypedComponent;
 use crate::value::RecurrenceRule;
@@ -17,7 +19,7 @@ pub struct VTimeZone<'src> {
     pub tz_id: Text<'src>,
 
     /// Last modification date/time
-    pub last_modified: Option<DateTime<'src>>,
+    pub last_modified: Option<LastModified<'src>>,
 
     /// Timezone URL
     pub tz_url: Option<Text<'src>>,
@@ -47,11 +49,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop {
-                Property::TzId(text) => match props.tz_id {
+                Property::TzId(tz_id) => match props.tz_id {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::TzId,
                     }),
-                    None => props.tz_id = Some(text),
+                    None => props.tz_id = Some(tz_id.0.clone()),
                 },
                 Property::LastModified(dt) => match props.last_modified {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -59,11 +61,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                     }),
                     None => props.last_modified = Some(dt),
                 },
-                Property::TzUrl(text) => match props.tz_url {
+                Property::TzUrl(tz_url) => match props.tz_url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::TzUrl,
                     }),
-                    None => props.tz_url = Some(text),
+                    None => props.tz_url = Some(tz_url.0.clone()),
                 },
                 // Ignore other properties not used by VTimeZone
                 _ => {}
@@ -126,10 +128,10 @@ pub struct TimeZoneObservance<'src> {
     pub dt_start: DateTime<'src>,
 
     /// Offset from UTC for this observance
-    pub tz_offset_from: TimeZoneOffset,
+    pub tz_offset_from: TzOffsetFrom,
 
     /// Offset from UTC for this observance
-    pub tz_offset_to: TimeZoneOffset,
+    pub tz_offset_to: TzOffsetTo,
 
     /// Timezone names
     pub tz_name: Vec<Text<'src>>,
@@ -155,7 +157,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStart,
                     }),
-                    None => props.dt_start = Some(dt),
+                    None => props.dt_start = Some(dt.0.clone()),
                 },
                 Property::TzOffsetFrom(offset) => match props.tz_offset_from {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -169,9 +171,9 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
                     }),
                     None => props.tz_offset_to = Some(offset),
                 },
-                Property::TzName(text) => {
+                Property::TzName(tz_name) => {
                     // TZNAME can appear multiple times
-                    props.tz_name.push(text);
+                    props.tz_name.push(tz_name.0.clone());
                 }
                 Property::RRule(rrule) => match props.rrule {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -221,7 +223,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
     tz_id:          Option<Text<'src>>,
-    last_modified:  Option<DateTime<'src>>,
+    last_modified:  Option<LastModified<'src>>,
     tz_url:         Option<Text<'src>>,
 }
 
@@ -230,8 +232,8 @@ struct PropertyCollector<'src> {
 #[derive(Debug, Default)]
 struct ObservanceCollector<'src> {
     dt_start:       Option<DateTime<'src>>,
-    tz_offset_from: Option<TimeZoneOffset>,
-    tz_offset_to:   Option<TimeZoneOffset>,
+    tz_offset_from: Option<TzOffsetFrom>,
+    tz_offset_to:   Option<TzOffsetTo>,
     tz_name:        Vec<Text<'src>>,
     rrule:          Option<RecurrenceRule>,
 }

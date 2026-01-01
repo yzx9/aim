@@ -3,6 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Time Transparency Property (RFC 5545 Section 3.8.2.7)
+//!
+//! This module contains the `TimeTransparency` enum, which defines whether
+//! an event blocks or transparently shows time. The type implements a
+//! `kind()` method and validates its property kind during conversion from
+//! `ParsedProperty`.
+//!
+//! Values:
+//! - **OPAQUE**: Event blocks time (default)
+//! - **TRANSPARENT**: Event does not block time
 
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
@@ -21,6 +30,14 @@ pub enum TimeTransparency {
 
     /// Event does not block time
     Transparent,
+}
+
+impl TimeTransparency {
+    /// Get the property kind for `TimeTransparency`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Transp
+    }
 }
 
 impl FromStr for TimeTransparency {
@@ -57,7 +74,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let text = take_single_string(prop.kind, prop.values).map_err(|e| vec![e])?;
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Transp,

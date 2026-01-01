@@ -5,9 +5,12 @@
 //! Alarm Component Properties (RFC 5545 Section 3.8.6)
 //!
 //! This module contains property types for the "Alarm Component Properties"
-//! section of RFC 5545, including:
-//! - 3.8.6.1 `Action`
-//! - 3.8.6.3 `Trigger`
+//! section of RFC 5545. All types implement `kind()` methods and validate
+//! their property kind during conversion from `ParsedProperty`:
+//!
+//! - 3.8.6.1: `Action` - Alarm action type (AUDIO, DISPLAY, EMAIL)
+//! - 3.8.6.3: `Trigger` - Alarm trigger time or duration
+//!   - `TriggerValue` - Trigger value variant (duration or date-time)
 
 use std::{convert::TryFrom, fmt::Display, str::FromStr};
 
@@ -29,6 +32,14 @@ pub enum Action {
 
     /// Email alarm
     Email,
+}
+
+impl Action {
+    /// Get the property kind for `Action`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Action
+    }
 }
 
 impl FromStr for Action {
@@ -65,8 +76,16 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         let span = prop.span.clone();
-        let text = take_single_string(prop.kind, prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Action,
@@ -97,10 +116,26 @@ pub enum TriggerValue<'src> {
     DateTime(DateTime<'src>),
 }
 
+impl Trigger<'_> {
+    /// Get the property kind for `Trigger`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Trigger
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         let mut errors = Vec::new();
 
         // Collect the RELATED parameter (optional, default is START)

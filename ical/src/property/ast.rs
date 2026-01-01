@@ -10,13 +10,18 @@
 use crate::property::PropertyKind;
 use crate::property::alarm::{Action, Trigger};
 use crate::property::cal::{CalendarScale, Method, ProductId, Version};
-use crate::property::datetime::DateTime;
-use crate::property::descriptive::{Attachment, Classification, Geo, Organizer, Text, Texts};
+use crate::property::datetime::{
+    Completed, Created, DtEnd, DtStamp, DtStart, Due, LastModified, RecurrenceId,
+};
+use crate::property::descriptive::{
+    Attachment, Categories, Classification, Comment, Contact, Description, Geo, Location,
+    Organizer, RelatedTo, RequestStatus, Resources, Summary, TzId, TzName, TzUrl, Uid, Url,
+};
 use crate::property::numeric::{Duration, PercentComplete, Priority, Repeat, Sequence};
 use crate::property::recurrence::{ExDate, FreeBusy, RDate};
 use crate::property::relationship::Attendee;
 use crate::property::status::Status;
-use crate::property::timezone::TimeZoneOffset;
+use crate::property::timezone::{TzOffsetFrom, TzOffsetTo};
 use crate::property::transp::TimeTransparency;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::RecurrenceRule;
@@ -55,22 +60,22 @@ pub enum Property<'src> {
     Attach(Attachment<'src>),
 
     /// 3.8.1.2 Categories (multi-valued text)
-    Categories(Texts<'src>),
+    Categories(Categories<'src>),
 
     /// 3.8.1.3 Classification
     Class(Classification),
 
     /// 3.8.1.4 Comment
-    Comment(Text<'src>),
+    Comment(Comment<'src>),
 
     /// 3.8.1.5 Description
-    Description(Text<'src>),
+    Description(Description<'src>),
 
     /// 3.8.1.6 Geographic Position
     Geo(Geo),
 
     /// 3.8.1.7 Location
-    Location(Text<'src>),
+    Location(Location<'src>),
 
     /// 3.8.1.8 Percent Complete
     PercentComplete(PercentComplete),
@@ -79,26 +84,26 @@ pub enum Property<'src> {
     Priority(Priority),
 
     /// 3.8.1.10 Resources (multi-valued text)
-    Resources(Texts<'src>),
+    Resources(Resources<'src>),
 
     /// 3.8.1.11 Status
     Status(Status),
 
     /// 3.8.1.12 Summary
-    Summary(Text<'src>),
+    Summary(Summary<'src>),
 
     // Section 3.8.2 - Date and Time Properties
     /// 3.8.2.1 Date-Time Completed
-    Completed(DateTime<'src>),
+    Completed(Completed<'src>),
 
     /// 3.8.2.2 Date-Time End
-    DtEnd(DateTime<'src>),
+    DtEnd(DtEnd<'src>),
 
     /// 3.8.2.3 Date-Time Due
-    Due(DateTime<'src>),
+    Due(Due<'src>),
 
     /// 3.8.2.4 Date-Time Start
-    DtStart(DateTime<'src>),
+    DtStart(DtStart<'src>),
 
     /// 3.8.2.5 Duration
     Duration(Duration),
@@ -111,41 +116,41 @@ pub enum Property<'src> {
 
     // Section 3.8.3 - Time Zone Component Properties
     /// 3.8.3.1 Time Zone Identifier
-    TzId(Text<'src>),
+    TzId(TzId<'src>),
 
     /// 3.8.3.2 Time Zone Name
-    TzName(Text<'src>),
+    TzName(TzName<'src>),
 
     /// 3.8.3.3 Time Zone Offset From
-    TzOffsetFrom(TimeZoneOffset),
+    TzOffsetFrom(TzOffsetFrom),
 
     /// 3.8.3.4 Time Zone Offset To
-    TzOffsetTo(TimeZoneOffset),
+    TzOffsetTo(TzOffsetTo),
 
     /// 3.8.3.5 Time Zone URL
-    TzUrl(Text<'src>),
+    TzUrl(TzUrl<'src>),
 
     // Section 3.8.4 - Component Relationship Properties
     /// 3.8.4.1 Attendee
     Attendee(Attendee<'src>),
 
     /// 3.8.4.2 Contact
-    Contact(Text<'src>),
+    Contact(Contact<'src>),
 
     /// 3.8.4.3 Organizer
     Organizer(Organizer<'src>),
 
     /// 3.8.4.4 Recurrence ID
-    RecurrenceId(DateTime<'src>),
+    RecurrenceId(RecurrenceId<'src>),
 
     /// 3.8.4.5 Related To
-    RelatedTo(Text<'src>),
+    RelatedTo(RelatedTo<'src>),
 
     /// 3.8.4.6 URL
-    Url(Text<'src>),
+    Url(Url<'src>),
 
     /// 3.8.4.7 Unique Identifier
-    Uid(Text<'src>),
+    Uid(Uid<'src>),
 
     // Section 3.8.5 - Recurrence Properties
     /// 3.8.5.1 Exception Date-Times
@@ -169,20 +174,20 @@ pub enum Property<'src> {
 
     // Section 3.8.7 - Change Management Properties
     /// 3.8.7.1 Date-Time Created
-    Created(DateTime<'src>),
+    Created(Created<'src>),
 
     /// 3.8.7.2 Date-Time Stamp
-    DtStamp(DateTime<'src>),
+    DtStamp(DtStamp<'src>),
 
     /// 3.8.7.3 Last Modified
-    LastModified(DateTime<'src>),
+    LastModified(LastModified<'src>),
 
     /// 3.8.7.4 Sequence Number
     Sequence(Sequence),
 
     // Section 3.8.8 - Miscellaneous Properties
     /// 3.8.8.3 Request Status
-    RequestStatus(Text<'src>),
+    RequestStatus(RequestStatus<'src>),
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
@@ -198,46 +203,44 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
 
             // Section 3.8.1 - Descriptive Component Properties
             PropertyKind::Attach => Attachment::try_from(prop).map(Property::Attach),
-            PropertyKind::Categories => Texts::try_from(prop).map(Property::Categories),
+            PropertyKind::Categories => Categories::try_from(prop).map(Property::Categories),
             PropertyKind::Class => Classification::try_from(prop).map(Property::Class),
-            PropertyKind::Comment => Text::try_from(prop).map(Property::Comment),
-            PropertyKind::Description => Text::try_from(prop).map(Property::Description),
+            PropertyKind::Comment => Comment::try_from(prop).map(Property::Comment),
+            PropertyKind::Description => Description::try_from(prop).map(Property::Description),
             PropertyKind::Geo => Geo::try_from(prop).map(Property::Geo),
-            PropertyKind::Location => Text::try_from(prop).map(Property::Location),
+            PropertyKind::Location => Location::try_from(prop).map(Property::Location),
             PropertyKind::PercentComplete => {
                 PercentComplete::try_from(prop).map(Property::PercentComplete)
             }
             PropertyKind::Priority => Priority::try_from(prop).map(Property::Priority),
-            PropertyKind::Resources => Texts::try_from(prop).map(Property::Resources),
+            PropertyKind::Resources => Resources::try_from(prop).map(Property::Resources),
             PropertyKind::Status => Status::try_from(prop).map(Property::Status),
-            PropertyKind::Summary => Text::try_from(prop).map(Property::Summary),
+            PropertyKind::Summary => Summary::try_from(prop).map(Property::Summary),
 
             // Section 3.8.2 - Date and Time Properties
-            PropertyKind::Completed => DateTime::try_from(prop).map(Property::Completed),
-            PropertyKind::DtEnd => DateTime::try_from(prop).map(Property::DtEnd),
-            PropertyKind::Due => DateTime::try_from(prop).map(Property::Due),
-            PropertyKind::DtStart => DateTime::try_from(prop).map(Property::DtStart),
+            PropertyKind::Completed => Completed::try_from(prop).map(Property::Completed),
+            PropertyKind::DtEnd => DtEnd::try_from(prop).map(Property::DtEnd),
+            PropertyKind::Due => Due::try_from(prop).map(Property::Due),
+            PropertyKind::DtStart => DtStart::try_from(prop).map(Property::DtStart),
             PropertyKind::Duration => Duration::try_from(prop).map(Property::Duration),
             PropertyKind::FreeBusy => FreeBusy::try_from(prop).map(Property::FreeBusy),
             PropertyKind::Transp => TimeTransparency::try_from(prop).map(Property::Transp),
 
             // Section 3.8.3 - Time Zone Component Properties
-            PropertyKind::TzId => Text::try_from(prop).map(Property::TzId),
-            PropertyKind::TzName => Text::try_from(prop).map(Property::TzName),
-            PropertyKind::TzOffsetFrom => {
-                TimeZoneOffset::try_from(prop).map(Property::TzOffsetFrom)
-            }
-            PropertyKind::TzOffsetTo => TimeZoneOffset::try_from(prop).map(Property::TzOffsetTo),
-            PropertyKind::TzUrl => Text::try_from(prop).map(Property::TzUrl),
+            PropertyKind::TzId => TzId::try_from(prop).map(Property::TzId),
+            PropertyKind::TzName => TzName::try_from(prop).map(Property::TzName),
+            PropertyKind::TzOffsetFrom => TzOffsetFrom::try_from(prop).map(Property::TzOffsetFrom),
+            PropertyKind::TzOffsetTo => TzOffsetTo::try_from(prop).map(Property::TzOffsetTo),
+            PropertyKind::TzUrl => TzUrl::try_from(prop).map(Property::TzUrl),
 
             // Section 3.8.4 - Component Relationship Properties
             PropertyKind::Attendee => Attendee::try_from(prop).map(Property::Attendee),
-            PropertyKind::Contact => Text::try_from(prop).map(Property::Contact),
+            PropertyKind::Contact => Contact::try_from(prop).map(Property::Contact),
             PropertyKind::Organizer => Organizer::try_from(prop).map(Property::Organizer),
-            PropertyKind::RecurrenceId => DateTime::try_from(prop).map(Property::RecurrenceId),
-            PropertyKind::RelatedTo => Text::try_from(prop).map(Property::RelatedTo),
-            PropertyKind::Url => Text::try_from(prop).map(Property::Url),
-            PropertyKind::Uid => Text::try_from(prop).map(Property::Uid),
+            PropertyKind::RecurrenceId => RecurrenceId::try_from(prop).map(Property::RecurrenceId),
+            PropertyKind::RelatedTo => RelatedTo::try_from(prop).map(Property::RelatedTo),
+            PropertyKind::Url => Url::try_from(prop).map(Property::Url),
+            PropertyKind::Uid => Uid::try_from(prop).map(Property::Uid),
 
             // Section 3.8.5 - Recurrence Properties
             PropertyKind::ExDate => ExDate::try_from(prop).map(Property::ExDate),
@@ -258,13 +261,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
             PropertyKind::Trigger => Trigger::try_from(prop).map(Property::Trigger),
 
             // Section 3.8.7 - Change Management Properties
-            PropertyKind::Created => DateTime::try_from(prop).map(Property::Created),
-            PropertyKind::DtStamp => DateTime::try_from(prop).map(Property::DtStamp),
-            PropertyKind::LastModified => DateTime::try_from(prop).map(Property::LastModified),
+            PropertyKind::Created => Created::try_from(prop).map(Property::Created),
+            PropertyKind::DtStamp => DtStamp::try_from(prop).map(Property::DtStamp),
+            PropertyKind::LastModified => LastModified::try_from(prop).map(Property::LastModified),
             PropertyKind::Sequence => Sequence::try_from(prop).map(Property::Sequence),
 
             // Section 3.8.8 - Miscellaneous Properties
-            PropertyKind::RequestStatus => Text::try_from(prop).map(Property::RequestStatus),
+            PropertyKind::RequestStatus => {
+                RequestStatus::try_from(prop).map(Property::RequestStatus)
+            }
         }
     }
 }

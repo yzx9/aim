@@ -46,13 +46,18 @@ Validates all components against RFC 5545 specifications through three sub-passe
    - Provides `Value` enum and specific value types (`ValueDate`, `ValueDateTime`, etc.)
 
 3. **Property Pass**
-   - Will validate property-specific constraints and relationships
-   - Will handle property cardinality and multiplicity rules
-   - Will validate inter-property dependencies
+   - Validates property-specific constraints and relationships
+   - Handles property cardinality and multiplicity rules
+   - Validates inter-property dependencies
+   - Implements property kind validation to ensure type safety
+   - Creates strongly-typed wrapper types for each property
 
 **Note**: Property type definitions (e.g., `Attendee`, `DateTime`, `Geo`) are organized
 in the `property/` module by RFC 5545 sections for better code organization and
-maintainability.
+maintainability. Each property type now has:
+- A dedicated wrapper type (e.g., `Created`, `DtStart`, `Summary`)
+- A `kind()` method returning the corresponding `PropertyKind`
+- Type validation in `TryFrom<ParsedProperty>` implementations
 
 ### Semantic Analysis Phase
 
@@ -89,13 +94,17 @@ ical/
 │   ├── property/           # Property types organized by RFC 5545 sections
 │   │   ├── kind.rs         # Property kinds (PropertyKind)
 │   │   ├── alarm.rs        # Section 3.8.6 - Alarm properties (Action, Trigger)
+│   │   ├── ast.rs          # Unified Property enum
 │   │   ├── cal.rs          # Section 3.7 - Calendar properties (CalendarScale, Method, etc.)
-│   │   ├── datetime.rs     # Section 3.8.2 - Date/time properties (DateTime, Period, Time)
-│   │   ├── descriptive.rs  # Section 3.8.1 - Descriptive properties (Attachment, Geo, etc.)
+│   │   ├── datetime.rs     # Section 3.8.2 - Date/time properties (DateTime, Period, Time, plus wrappers)
+│   │   ├── descriptive.rs  # Section 3.8.1 - Descriptive properties (Attachment, Geo, Text types)
+│   │   ├── numeric.rs      # Section 3.8.1.9 - Numeric properties (Duration, Priority, etc.)
+│   │   ├── recurrence.rs   # Section 3.8.5 - Recurrence properties (ExDate, RDate, etc.)
 │   │   ├── relationship.rs # Section 3.8.4 - Relationship properties (Attendee, Organizer)
 │   │   ├── status.rs       # Section 3.8.1.11 - Status properties (EventStatus, etc.)
-│   │   ├── timezone.rs     # Section 3.8.3 - Time zone properties (TimeZoneOffset)
-│   │   └── transp.rs       # Section 3.8.2.7 - Time transparency property
+│   │   ├── timezone.rs     # Section 3.8.3 - Time zone properties (TzOffsetFrom, TzOffsetTo)
+│   │   ├── transp.rs       # Section 3.8.2.7 - Time transparency property
+│   │   └── util.rs         # Text property utilities (Text, Texts, helpers)
 │   ├── value/              # Value pass implementation
 │   │   ├── ast.rs          # Value enum and parsing
 │   │   ├── datetime.rs     # Date/time value types
@@ -142,11 +151,15 @@ ical/
   independent passes for better modularity and maintainability:
   - **Parameter Pass** handles all parameter-related parsing and validation
   - **Value Pass** handles all value type parsing and validation
-  - **Property Pass** (planned) will handle property-level constraints
+  - **Property Pass** handles property-level constraints and type validation
+- **Property Kind Validation**: All property types now validate their kind
+  during conversion, ensuring type safety and preventing incorrect property
+  assignments
 - **RFC 5545 Compliance**: Comprehensive validation against the iCalendar
   specification
 - **Error Aggregation**: Collects and reports errors from all phases
-- **Type Safety**: Strongly typed representation of iCalendar data
+- **Type Safety**: Strongly typed representation of iCalendar data with
+  dedicated wrapper types for each property (e.g., `Created`, `DtStart`, `Summary`)
 - **Performance**: Zero-copy parsing where possible, minimal allocations
 - **Extensibility**: Modular design allows for easy addition of new features
 - **Optional datetime dependencies**: All types use the value module's

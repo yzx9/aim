@@ -85,33 +85,33 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop {
-                Property::Uid(text) => match props.uid {
+                Property::Uid(uid) => match props.uid {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Uid,
                     }),
-                    None => props.uid = Some(text),
+                    None => props.uid = Some(uid.0.clone()),
                 },
                 Property::DtStamp(dt) => match props.dt_stamp {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStamp,
                     }),
-                    None => props.dt_stamp = Some(dt),
+                    None => props.dt_stamp = Some(dt.0.clone()),
                 },
                 Property::DtStart(dt) => match props.dt_start {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStart,
                     }),
-                    None => props.dt_start = Some(dt),
+                    None => props.dt_start = Some(dt.0.clone()),
                 },
-                Property::Summary(text) => match props.summary {
+                Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
                     }),
-                    None => props.summary = Some(text),
+                    None => props.summary = Some(s.0.clone()),
                 },
-                Property::Description(text) => {
+                Property::Description(desc) => {
                     // VJOURNAL allows multiple DESCRIPTION properties
-                    props.descriptions.push(text);
+                    props.descriptions.push(desc.0.clone());
                 }
                 Property::Organizer(org) => match props.organizer {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -126,7 +126,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::LastModified,
                     }),
-                    None => props.last_modified = Some(dt),
+                    None => props.last_modified = Some(dt.0.clone()),
                 },
                 Property::Status(status) => match JournalStatus::try_from(status) {
                     Ok(journal_status) => match props.status {
@@ -150,7 +150,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Categories,
                     }),
-                    None => props.categories = Some(categories.values),
+                    None => props.categories = Some(categories.values.clone()),
                 },
                 Property::RRule(rrule) => match props.rrule {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -174,11 +174,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                         // TODO: ExDate Date-only not yet implemented for journals
                     }
                 }
-                Property::Url(text) => match props.url {
+                Property::Url(url) => match props.url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Url,
                     }),
-                    None => props.url = Some(text),
+                    None => props.url = Some(url.0.clone()),
                 },
                 // Ignore other properties not used by VJournal
                 _ => {}

@@ -5,6 +5,13 @@
 //! Status Properties (RFC 5545 Section 3.8.1.11)
 //!
 //! This module contains status enum types for different calendar components.
+//! The `Status` enum implements a `kind()` method and validates its property
+//! kind during conversion from `ParsedProperty`.
+//!
+//! Status values vary by component type:
+//! - **VEvent**: TENTATIVE, CONFIRMED, CANCELLED
+//! - **VTodo**: NEEDS-ACTION, COMPLETED, IN-PROCESS, CANCELLED
+//! - **VJournal**: DRAFT, FINAL, CANCELLED
 
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
@@ -47,6 +54,14 @@ pub enum Status {
 
     /// Event/To-do/Journal is cancelled
     Cancelled,
+}
+
+impl Status {
+    /// Get the property kind for `Status`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Status
+    }
 }
 
 impl FromStr for Status {
@@ -92,7 +107,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let text = take_single_string(PropertyKind::Status, prop.values).map_err(|e| vec![e])?;
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: PropertyKind::Status,
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Status,

@@ -637,7 +637,7 @@ END:VEVENT\r
     // TZID parameter should be parsed - check that we get a Zoned DateTime
     assert!(matches!(
         &components[0].properties[0],
-        Property::DtStart(PropertyDateTime::Zoned { .. })
+        Property::DtStart(dt_start) if matches!(dt_start.0, PropertyDateTime::Zoned { .. })
     ));
 }
 

@@ -4,12 +4,15 @@
 
 //! Numeric property types.
 //!
-//! This module contains property types that represent numeric values:
-//! - 3.8.1.8 Percent Complete
-//! - 3.8.1.9 Priority
-//! - 3.8.2.5 Duration
-//! - 3.8.6.2 Repeat Count
-//! - 3.8.7.4 Sequence Number
+//! This module contains property types that represent numeric values.
+//! All types implement `kind()` methods and validate their property kind
+//! during conversion from `ParsedProperty`:
+//!
+//! - 3.8.1.8: `PercentComplete` - Percent complete for todos (0-100)
+//! - 3.8.1.9: `Priority` - Priority level (0-9, undefined = 0)
+//! - 3.8.2.5: `Duration` - Duration value
+//! - 3.8.6.2: `Repeat` - Alarm repeat count
+//! - 3.8.7.4: `Sequence` - Revision sequence number
 
 use std::convert::TryFrom;
 
@@ -29,11 +32,27 @@ pub struct PercentComplete {
     pub value: u8,
 }
 
+impl PercentComplete {
+    /// Get the property kind for `PercentComplete`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::PercentComplete
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        match take_single_value(prop.kind, prop.values) {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        match take_single_value(Self::kind(), prop.values) {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             Ok(Value::Integer(i)) if (0..=100).contains(&i) => Ok(Self { value: i as u8 }),
             Ok(Value::Integer(_)) => Err(vec![TypedError::PropertyInvalidValue {
@@ -64,11 +83,27 @@ pub struct Priority {
     pub value: u8,
 }
 
+impl Priority {
+    /// Get the property kind for `Priority`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Priority
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Priority {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        match take_single_value(prop.kind, prop.values) {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        match take_single_value(Self::kind(), prop.values) {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             Ok(Value::Integer(i)) if (0..=9).contains(&i) => Ok(Self { value: i as u8 }),
             Ok(Value::Integer(_)) => Err(vec![TypedError::PropertyInvalidValue {
@@ -96,11 +131,27 @@ pub struct Duration {
     pub value: ValueDuration,
 }
 
+impl Duration {
+    /// Get the property kind for `Duration`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Duration
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Duration {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        match take_single_value(prop.kind, prop.values) {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        match take_single_value(Self::kind(), prop.values) {
             Ok(Value::Duration(d)) => Ok(Self { value: d }),
             Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
@@ -122,11 +173,27 @@ pub struct Repeat {
     pub value: u32,
 }
 
+impl Repeat {
+    /// Get the property kind for `Repeat`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Repeat
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Repeat {
     type Error = Vec<TypedError<'src>>;
 
     #[expect(clippy::cast_sign_loss)]
     fn try_from(mut prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
         match prop.values.len() {
             0 => Err(vec![TypedError::PropertyMissingValue {
                 property: prop.kind,
@@ -165,11 +232,27 @@ pub struct Sequence {
     pub value: i32,
 }
 
+impl Sequence {
+    /// Get the property kind for `Sequence`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Sequence
+    }
+}
+
 impl<'src> TryFrom<ParsedProperty<'src>> for Sequence {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        match take_single_value(prop.kind, prop.values) {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        match take_single_value(Self::kind(), prop.values) {
             Ok(Value::Integer(value)) => Ok(Self { value }),
             Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,

@@ -81,17 +81,17 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
                     }),
                     None => props.repeat = Some(repeat.value),
                 },
-                Property::Description(text) => match props.description {
+                Property::Description(desc) => match props.description {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Description,
                     }),
-                    None => props.description = Some(text),
+                    None => props.description = Some(desc.0.clone()),
                 },
-                Property::Summary(text) => match props.summary {
+                Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
                     }),
-                    None => props.summary = Some(text),
+                    None => props.summary = Some(s.0.clone()),
                 },
                 Property::Attendee(attendee) => {
                     props.attendees.push(attendee);
