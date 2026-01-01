@@ -14,18 +14,10 @@ use chumsky::error::Rich;
 use thiserror::Error;
 
 use crate::lexer::Span;
+use crate::parameter::{Parameter, ValueKind};
+use crate::property::{Property, PropertyKind};
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
-
-// Re-export types from other modules
-pub use crate::parameter::{
-    AlarmTriggerRelationship, CalendarUserType, Encoding, ParticipationRole, ParticipationStatus,
-    TypedParameter, TypedParameterKind, ValueType,
-};
-pub use crate::property::{PropertyCardinality, PropertyKind, PropertySpec, ValueCardinality};
-pub use crate::value::{
-    Value, ValueDate, ValueDateTime, ValueDuration, ValueExpected, ValuePeriod, ValueText,
-    ValueTime, ValueUtcOffset, parse_values,
-};
+use crate::value::{Value, parse_values};
 
 /// Perform typed analysis on raw components, returning typed components or errors.
 ///
@@ -33,7 +25,7 @@ pub use crate::value::{
 /// If there are typing errors, a vector of errors will be returned.
 pub fn typed_analysis(
     components: Vec<SyntaxComponent<'_>>,
-) -> Result<Vec<TypedComponent<'_>>, Vec<TypedAnalysisError<'_>>> {
+) -> Result<Vec<TypedComponent<'_>>, Vec<TypedError<'_>>> {
     let mut typed_components = Vec::with_capacity(components.len());
     let mut errors = Vec::new();
     for comp in components {
@@ -50,15 +42,19 @@ pub fn typed_analysis(
     }
 }
 
-fn typed_component(
-    comp: SyntaxComponent<'_>,
-) -> Result<TypedComponent<'_>, Vec<TypedAnalysisError<'_>>> {
+fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<TypedError<'_>>> {
     let mut existing_props = HashSet::with_capacity(comp.properties.len());
     let mut properties = Vec::with_capacity(comp.properties.len());
     let mut errors = Vec::new();
     for prop in comp.properties {
-        match typed_property(&mut existing_props, prop) {
-            Ok(prop) => properties.push(prop),
+        match parsed_property(&mut existing_props, prop) {
+            Ok(prop) => {
+                // Convert ParsedProperty to Property
+                match Property::try_from(prop) {
+                    Ok(property) => properties.push(property),
+                    Err(errs) => errors.extend(errs),
+                }
+            }
             Err(errs) => errors.extend(errs),
         }
     }
@@ -82,71 +78,35 @@ fn typed_component(
     }
 }
 
-fn typed_property<'src>(
-    existing: &mut HashSet<&str>,
+fn parsed_property<'src>(
+    _existing: &mut HashSet<&str>,
     prop: SyntaxProperty<'src>,
-) -> Result<TypedProperty<'src>, Vec<TypedAnalysisError<'src>>> {
+) -> Result<ParsedProperty<'src>, Vec<TypedError<'src>>> {
     let Ok(prop_kind) = PropertyKind::try_from(&prop.name) else {
-        return Err(vec![TypedAnalysisError::PropertyUnknown {
+        return Err(vec![TypedError::PropertyUnknown {
             span: prop.name.span(),
             property: prop.name,
         }]);
     };
-    let spec = prop_kind.spec();
 
-    // Check if property can appear multiple times in the component
-    if matches!(spec.property_cardinality, PropertyCardinality::AtMostOnce) {
-        if existing.contains(spec.name()) {
-            return Err(vec![TypedAnalysisError::PropertyDuplicated {
-                property: spec.name(),
-                span: prop.name.span(),
-            }]);
-        }
-
-        existing.insert(spec.name());
-    }
-
-    let parameters = parameters(spec, prop.parameters)?;
-    let value_types = value_types(spec, &parameters)?;
+    let parameters = parameters(prop.parameters)?;
+    let value_types = value_types(prop_kind, &parameters)?;
 
     // PERF: cache parser
     let values = parse_values(&value_types, &prop.value).map_err(|errs| {
         errs.into_iter()
-            .map(|err| TypedAnalysisError::ValueSyntax {
+            .map(|err| TypedError::ValueSyntax {
                 value: prop.value.clone(),
                 err,
             })
             .collect::<Vec<_>>()
     })?;
 
-    // Validate value count based on ValueCardinality specification
-    match &spec.value_cardinality {
-        ValueCardinality::Exactly(n) => {
-            if values.len() != n.get() {
-                return Err(vec![TypedAnalysisError::PropertyInvalidValueCount {
-                    property: spec.name(),
-                    expected: n.get(),
-                    found: values.len(),
-                    span: prop.name.span(),
-                }]);
-            }
-        }
-        ValueCardinality::AtLeast(n) => {
-            if values.len() < n.get() {
-                return Err(vec![TypedAnalysisError::PropertyInsufficientValues {
-                    property: spec.name(),
-                    min: n.get(),
-                    found: values.len(),
-                    span: prop.name.span(),
-                }]);
-            }
-        }
-    }
-
-    Ok(TypedProperty {
+    Ok(ParsedProperty {
         kind: prop_kind,
         parameters,
         values,
+        span: prop.name.span(),
     })
 }
 
@@ -156,26 +116,28 @@ pub struct TypedComponent<'src> {
     /// Component name (e.g., "VCALENDAR", "VEVENT", "VTIMEZONE", "VALARM")
     pub name: &'src str,
     /// Properties in original order
-    pub properties: Vec<TypedProperty<'src>>,
+    pub properties: Vec<Property<'src>>,
     /// Nested child components
     pub children: Vec<TypedComponent<'src>>,
 }
 
 /// A typed iCalendar property with validated parameters and values.
 #[derive(Debug, Clone)]
-pub struct TypedProperty<'src> {
+pub struct ParsedProperty<'src> {
     /// Property kind
     pub kind: PropertyKind,
     /// Property parameters
-    pub parameters: Vec<TypedParameter<'src>>,
+    pub parameters: Vec<Parameter<'src>>,
     /// Property values
     pub values: Vec<Value<'src>>,
+    /// The span of the property name (for error reporting)
+    pub span: Span,
 }
 
 /// Errors that can occur during typed analysis of iCalendar components.
 #[non_exhaustive]
 #[derive(Error, Debug, Clone)]
-pub enum TypedAnalysisError<'src> {
+pub enum TypedError<'src> {
     /// Unknown property encountered.
     #[error("Unknown property '{property}'")]
     PropertyUnknown {
@@ -197,8 +159,8 @@ pub enum TypedAnalysisError<'src> {
     /// Property has an invalid value count.
     #[error("Property '{property}' requires exactly {expected} value(s), but found {found}")]
     PropertyInvalidValueCount {
-        /// The property name
-        property: &'src str,
+        /// The property kind
+        property: PropertyKind,
         /// Expected number of values
         expected: usize,
         /// Actual number of values found
@@ -315,9 +277,9 @@ pub enum TypedAnalysisError<'src> {
         /// The property name
         property: &'src str,
         /// The value type that was provided
-        value_type: ValueType,
+        value_type: ValueKind,
         /// The expected value types
-        expected_types: &'src [ValueType],
+        expected_types: &'src [ValueKind],
         /// The span of the error
         span: Span,
     },
@@ -330,54 +292,81 @@ pub enum TypedAnalysisError<'src> {
         /// The syntax error details
         err: Rich<'src, char>,
     },
+
+    /// Property value is invalid or out of allowed range.
+    #[error("Invalid value '{value}' for property '{property}'")]
+    PropertyInvalidValue {
+        /// The property that has the invalid value
+        property: PropertyKind,
+        /// Description of why the value is invalid
+        value: String,
+        /// The span of the error
+        span: Span,
+    },
+
+    /// Property has no values when at least one is required.
+    #[error("Property '{property}' has no values")]
+    PropertyMissingValue {
+        /// The property that is missing values
+        property: PropertyKind,
+        /// The span of the error
+        span: Span,
+    },
+
+    /// Property value has unexpected type.
+    #[error("Expected {expected} value for property '{property}', found {found}")]
+    PropertyUnexpectedValue {
+        /// The property that has the wrong type
+        property: PropertyKind,
+        /// Expected value type
+        expected: ValueKind,
+        /// Actual value type found
+        found: ValueKind,
+        /// The span of the error
+        span: Span,
+    },
 }
 
-impl TypedAnalysisError<'_> {
+impl TypedError<'_> {
     /// Get the span of this error.
     #[must_use]
     pub fn span(&self) -> Span {
         match self {
-            TypedAnalysisError::PropertyUnknown { span, .. }
-            | TypedAnalysisError::PropertyDuplicated { span, .. }
-            | TypedAnalysisError::PropertyInvalidValueCount { span, .. }
-            | TypedAnalysisError::PropertyInsufficientValues { span, .. }
-            | TypedAnalysisError::PropertyMultipleValuesDisallowed { span, .. }
-            | TypedAnalysisError::ParameterUnknown { span, .. }
-            | TypedAnalysisError::ParameterDuplicated { span, .. }
-            | TypedAnalysisError::ParameterMultipleValuesDisallowed { span, .. }
-            | TypedAnalysisError::ParameterDisallowedForProperty { span, .. }
-            | TypedAnalysisError::ParameterValueMustBeQuoted { span, .. }
-            | TypedAnalysisError::ParameterValueMustNotBeQuoted { span, .. }
-            | TypedAnalysisError::ParameterValueInvalid { span, .. }
-            | TypedAnalysisError::ValueTypeDisallowed { span, .. } => span.clone(),
+            TypedError::PropertyUnknown { span, .. }
+            | TypedError::PropertyDuplicated { span, .. }
+            | TypedError::PropertyInvalidValueCount { span, .. }
+            | TypedError::PropertyInsufficientValues { span, .. }
+            | TypedError::PropertyMultipleValuesDisallowed { span, .. }
+            | TypedError::ParameterUnknown { span, .. }
+            | TypedError::ParameterDuplicated { span, .. }
+            | TypedError::ParameterMultipleValuesDisallowed { span, .. }
+            | TypedError::ParameterDisallowedForProperty { span, .. }
+            | TypedError::ParameterValueMustBeQuoted { span, .. }
+            | TypedError::ParameterValueMustNotBeQuoted { span, .. }
+            | TypedError::ParameterValueInvalid { span, .. }
+            | TypedError::ValueTypeDisallowed { span, .. }
+            | TypedError::PropertyInvalidValue { span, .. }
+            | TypedError::PropertyMissingValue { span, .. }
+            | TypedError::PropertyUnexpectedValue { span, .. } => span.clone(),
 
-            TypedAnalysisError::ParameterValueSyntax { err, .. }
-            | TypedAnalysisError::ValueSyntax { err, .. } => err.span().into_range(),
+            TypedError::ParameterValueSyntax { err, .. } | TypedError::ValueSyntax { err, .. } => {
+                err.span().into_range()
+            }
         }
     }
 }
 
-fn parameters<'src>(
-    spec: &PropertySpec<'src>,
-    params: Vec<SyntaxParameter<'src>>,
-) -> Result<Vec<TypedParameter<'src>>, Vec<TypedAnalysisError<'src>>> {
+fn parameters(params: Vec<SyntaxParameter<'_>>) -> Result<Vec<Parameter<'_>>, Vec<TypedError<'_>>> {
     let mut existing = HashSet::with_capacity(params.len());
     let mut typed_params = Vec::with_capacity(params.len());
     let mut errors = Vec::new();
     for param in params {
-        match TypedParameter::try_from(param) {
+        match Parameter::try_from(param) {
             Ok(typed) => {
                 let param_kind = typed.kind();
                 let param_name = typed.name();
-                if !spec.parameters.contains(&param_kind) {
-                    // Check if parameter is allowed for this property
-                    errors.push(TypedAnalysisError::ParameterDisallowedForProperty {
-                        parameter: param_name,
-                        property: spec.name(),
-                        span: typed.span(),
-                    });
-                } else if existing.contains(&param_kind) {
-                    errors.push(TypedAnalysisError::ParameterDuplicated {
+                if existing.contains(&param_kind) {
+                    errors.push(TypedError::ParameterDuplicated {
                         parameter: param_name,
                         span: typed.span(),
                     });
@@ -398,24 +387,26 @@ fn parameters<'src>(
 }
 
 fn value_types<'src>(
-    spec: &'src PropertySpec,
-    params: &Vec<TypedParameter<'src>>,
-) -> Result<Vec<ValueType>, Vec<TypedAnalysisError<'src>>> {
-    use ValueType::Binary;
+    prop_kind: PropertyKind,
+    params: &Vec<Parameter<'src>>,
+) -> Result<Vec<ValueKind>, Vec<TypedError<'src>>> {
+    use ValueKind::Binary;
+
+    let allowed_types = prop_kind.value_kinds();
 
     // If VALUE parameter is explicitly specified, use only that type
-    if let Some(TypedParameter::ValueType { value, span }) = params
+    if let Some(Parameter::ValueKind { value, span }) = params
         .iter()
-        .find(|param| matches!(param, TypedParameter::ValueType { .. }))
+        .find(|param| matches!(param, Parameter::ValueKind { .. }))
     {
-        if spec.value_types.contains(value) {
+        if allowed_types.contains(value) {
             // Return only the explicitly specified type
             Ok(vec![*value])
         } else {
-            Err(vec![TypedAnalysisError::ValueTypeDisallowed {
-                property: spec.name(),
+            Err(vec![TypedError::ValueTypeDisallowed {
+                property: prop_kind.as_str(),
                 value_type: *value,
-                expected_types: spec.value_types,
+                expected_types: allowed_types,
                 span: span.clone(),
             }])
         }
@@ -423,8 +414,7 @@ fn value_types<'src>(
         // No VALUE parameter specified - return all allowed types for type inference,
         // EXCEPT for BINARY which MUST be explicitly specified with VALUE=BINARY
         // (per RFC 5545 Section 3.3.1 and 3.8.1.1)
-        Ok(spec
-            .value_types
+        Ok(allowed_types
             .iter()
             .filter(|&&t| t != Binary)
             .copied()

@@ -4,13 +4,11 @@
 
 //! Free/busy time component (VFREEBUSY) for iCalendar semantic components.
 
-use std::convert::TryFrom;
-
 use crate::keyword::KW_VFREEBUSY;
-use crate::parameter::{FreeBusyType, TypedParameter, TypedParameterKind};
-use crate::property::{DateTime, Organizer, Period, Property, Text};
+use crate::parameter::FreeBusyType;
+use crate::property::{DateTime, Organizer, Period, Property, PropertyKind, Text};
 use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedComponent};
+use crate::typed::TypedComponent;
 use crate::value::ValueDuration;
 
 /// Free/busy time component (VFREEBUSY)
@@ -54,10 +52,10 @@ pub struct VFreeBusy<'src> {
 }
 
 /// Parse a `TypedComponent` into a `VFreeBusy`
-#[allow(clippy::too_many_lines)]
 impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
     type Error = Vec<SemanticError>;
 
+    #[allow(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VFREEBUSY {
             return Err(vec![SemanticError::ExpectedComponent {
@@ -71,97 +69,68 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            // Special handling for FreeBusy properties to extract FBTYPE parameter
-            if prop.kind == PropertyKind::FreeBusy {
-                // Get the FBTYPE parameter
-                let mut fb_type = None;
-                for param in prop.parameters {
-                    #[allow(clippy::single_match)]
-                    match param {
-                        TypedParameter::FreeBusyType { value, .. } => match fb_type {
-                            Some(_) => errors.push(SemanticError::DuplicateParameter {
-                                parameter: TypedParameterKind::FreeBusyType,
-                            }),
-                            None => fb_type = Some(value),
-                        },
-                        _ => {}
+            match prop {
+                Property::FreeBusy(freebusy) => {
+                    for value in freebusy.values {
+                        // Categorize by FBTYPE
+                        match freebusy.fb_type {
+                            FreeBusyType::Free => props.free.push(value),
+                            FreeBusyType::Busy => props.busy.push(value),
+                            FreeBusyType::BusyTentative => props.busy_tentative.push(value),
+                            FreeBusyType::BusyUnavailable => props.busy_unavailable.push(value),
+                        }
                     }
                 }
-
-                // Parse all period values and categorize by FBTYPE
-                for value in &prop.values {
-                    match Period::try_from(value) {
-                        Ok(period) => match fb_type.unwrap_or_default() {
-                            FreeBusyType::Free => props.free.push(period),
-                            FreeBusyType::Busy => props.busy.push(period),
-                            FreeBusyType::BusyTentative => props.busy_tentative.push(period),
-                            FreeBusyType::BusyUnavailable => {
-                                props.busy_unavailable.push(period);
-                            }
-                        },
-                        Err(e) => errors.push(e),
-                    }
-                }
-                continue;
-            }
-
-            // Use Property enum for all other properties
-            match Property::try_from(prop) {
-                Ok(property) => {
-                    match property {
-                        Property::Uid(text) => match props.uid {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Uid,
-                            }),
-                            None => props.uid = Some(text),
-                        },
-                        Property::DtStamp(dt) => match props.dt_stamp {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::DtStamp,
-                            }),
-                            None => props.dt_stamp = Some(dt),
-                        },
-                        Property::DtStart(dt) => match props.dt_start {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::DtStart,
-                            }),
-                            None => props.dt_start = Some(dt),
-                        },
-                        Property::DtEnd(dt) => match props.dt_end {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::DtEnd,
-                            }),
-                            None => props.dt_end = Some(dt),
-                        },
-                        Property::Duration(dur) => match props.duration {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Duration,
-                            }),
-                            None => props.duration = Some(dur),
-                        },
-                        Property::Organizer(org) => match props.organizer {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Organizer,
-                            }),
-                            None => props.organizer = Some(org),
-                        },
-                        Property::Contact(text) => match props.contact {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Contact,
-                            }),
-                            None => props.contact = Some(text),
-                        },
-                        Property::Url(text) => match props.url {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Url,
-                            }),
-                            None => props.url = Some(text),
-                        },
-                        // Ignore other properties not used by VFreeBusy
-                        _ => {}
-                    }
-                }
-                Err(e) => errors.extend(e),
+                Property::Uid(text) => match props.uid {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Uid,
+                    }),
+                    None => props.uid = Some(text),
+                },
+                Property::DtStamp(dt) => match props.dt_stamp {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::DtStamp,
+                    }),
+                    None => props.dt_stamp = Some(dt),
+                },
+                Property::DtStart(dt) => match props.dt_start {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::DtStart,
+                    }),
+                    None => props.dt_start = Some(dt),
+                },
+                Property::DtEnd(dt) => match props.dt_end {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::DtEnd,
+                    }),
+                    None => props.dt_end = Some(dt),
+                },
+                Property::Duration(dur) => match props.duration {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Duration,
+                    }),
+                    None => props.duration = Some(dur.value),
+                },
+                Property::Organizer(org) => match props.organizer {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Organizer,
+                    }),
+                    None => props.organizer = Some(org),
+                },
+                Property::Contact(text) => match props.contact {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Contact,
+                    }),
+                    None => props.contact = Some(text),
+                },
+                Property::Url(text) => match props.url {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Url,
+                    }),
+                    None => props.url = Some(text),
+                },
+                // Ignore other properties not used by VFreeBusy
+                _ => {}
             }
         }
 

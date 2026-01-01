@@ -5,12 +5,13 @@
 //! Helper functions for semantic analysis.
 //!
 //! This module provides utility functions for converting `TypedComponent`
-//! and `TypedProperty` into semantic types.
+//! and `ParsedProperty` into semantic types.
 
 use crate::keyword::KW_VCALENDAR;
-use crate::parameter::{TypedParameterKind, ValueType};
+use crate::parameter::{ParameterKind, ValueKind};
+use crate::property::PropertyKind;
 use crate::semantic::ICalendar;
-use crate::typed::{PropertyKind, TypedComponent};
+use crate::typed::TypedComponent;
 
 /// Perform semantic analysis on typed components.
 ///
@@ -92,7 +93,7 @@ pub enum SemanticError {
     #[error("Duplicate property '{parameter}'")]
     DuplicateParameter {
         /// The duplicated parameter
-        parameter: TypedParameterKind,
+        parameter: ParameterKind,
     },
 
     /// Property has no values
@@ -108,7 +109,7 @@ pub enum SemanticError {
         /// The property that has the wrong type
         property: PropertyKind,
         /// The expected value type
-        expected: ValueType,
+        expected: ValueKind,
     },
 
     /// Invalid property value

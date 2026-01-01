@@ -39,10 +39,11 @@ pub mod value;
 pub use crate::parser::{ParseError, parse};
 pub use crate::property::{
     Action, Attachment, AttachmentValue, Attendee, CalendarScale, Classification, DateTime,
-    ExDateValue, Geo, Method, Organizer, Period, ProductId, Property, RDateValue, Status, Text,
-    Time, TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, Version,
+    Duration, ExDateValue, Geo, Method, Organizer, Period, ProductId, Property, RDateValue, Status,
+    Text, Time, TimeTransparency, TimeZoneOffset, Trigger, TriggerValue, Version,
 };
 pub use crate::semantic::{CalendarComponent, ICalendar, VEvent, VFreeBusy, VJournal, VTodo};
 pub use crate::value::{
-    Day, RecurrenceFrequency, RecurrenceRule, ValueDuration as Duration, WeekDay,
+    Day, RecurrenceFrequency, RecurrenceRule, Value, ValueDate, ValueDateTime, ValueDuration,
+    ValueExpected, ValuePeriod, ValueText, ValueTime, ValueUtcOffset, WeekDay,
 };

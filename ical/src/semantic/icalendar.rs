@@ -9,9 +9,9 @@ use std::convert::TryFrom;
 use crate::keyword::{
     KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
-use crate::property::{CalendarScale, Method, ProductId, Version};
+use crate::property::{CalendarScale, Method, ProductId, Property, PropertyKind, Version};
 use crate::semantic::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
-use crate::typed::{PropertyKind, TypedComponent};
+use crate::typed::TypedComponent;
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]
@@ -57,71 +57,31 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            match prop.kind {
-                PropertyKind::ProdId => {
-                    let value = match ProductId::try_from(prop) {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            errors.extend(e);
-                            Some(ProductId::default())
-                        }
-                    };
-
-                    match props.prod_id {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::ProdId,
-                        }),
-                        None => props.prod_id = value,
-                    }
-                }
-                PropertyKind::Version => {
-                    let value = match Version::try_from(prop) {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            errors.extend(e);
-                            Some(Version::V2_0)
-                        }
-                    };
-
-                    match props.version {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Version,
-                        }),
-                        None => props.version = value,
-                    }
-                }
-                PropertyKind::CalScale => {
-                    let value = match CalendarScale::try_from(prop) {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            errors.extend(e);
-                            None
-                        }
-                    };
-
-                    match props.calscale {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::CalScale,
-                        }),
-                        None => props.calscale = value,
-                    }
-                }
-                PropertyKind::Method => {
-                    let value = match Method::try_from(prop) {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            errors.extend(e);
-                            None
-                        }
-                    };
-
-                    match props.method {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Method,
-                        }),
-                        None => props.method = value,
-                    }
-                }
+            match prop {
+                Property::ProdId(value) => match props.prod_id {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::ProdId,
+                    }),
+                    None => props.prod_id = Some(value),
+                },
+                Property::Version(value) => match props.version {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Version,
+                    }),
+                    None => props.version = Some(value),
+                },
+                Property::CalScale(value) => match props.calscale {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::CalScale,
+                    }),
+                    None => props.calscale = Some(value),
+                },
+                Property::Method(value) => match props.method {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Method,
+                    }),
+                    None => props.method = Some(value),
+                },
                 // Ignore unknown properties
                 _ => {}
             }
@@ -247,7 +207,7 @@ pub enum CalendarComponent<'src> {
 //     pub name: SpannedSegments<'src>,
 //
 //     /// Properties
-//     pub properties: Vec<TypedProperty<'src>>,
+//     pub properties: Vec<Property<'src>>,
 //
 //     /// Nested components
 //     pub children: Vec<CalendarComponent<'src>>,

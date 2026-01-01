@@ -7,20 +7,19 @@
 //! This module defines the unified `Property` enum that provides type-safe
 //! access to all iCalendar properties with their corresponding semantic types.
 
+use crate::property::PropertyKind;
 use crate::property::alarm::{Action, Trigger};
 use crate::property::cal::{CalendarScale, Method, ProductId, Version};
-use crate::property::datetime::{DateTime, Period};
-use crate::property::descriptive::{
-    Attachment, Classification, Geo, Organizer, Text, parse_multi_text_property,
-};
+use crate::property::datetime::DateTime;
+use crate::property::descriptive::{Attachment, Classification, Geo, Organizer, Text, Texts};
+use crate::property::numeric::{Duration, PercentComplete, Priority, Repeat, Sequence};
+use crate::property::recurrence::{ExDate, FreeBusy, RDate};
 use crate::property::relationship::Attendee;
 use crate::property::status::Status;
 use crate::property::timezone::TimeZoneOffset;
 use crate::property::transp::TimeTransparency;
-use crate::property::util::take_single_value;
-use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedProperty, Value, ValueType};
-use crate::value::{RecurrenceRule, ValueDate, ValueDuration};
+use crate::typed::{ParsedProperty, TypedError};
+use crate::value::RecurrenceRule;
 
 /// Unified property enum with one variant per `PropertyKind`.
 ///
@@ -56,7 +55,7 @@ pub enum Property<'src> {
     Attach(Attachment<'src>),
 
     /// 3.8.1.2 Categories (multi-valued text)
-    Categories(Vec<Text<'src>>),
+    Categories(Texts<'src>),
 
     /// 3.8.1.3 Classification
     Class(Classification),
@@ -74,13 +73,13 @@ pub enum Property<'src> {
     Location(Text<'src>),
 
     /// 3.8.1.8 Percent Complete
-    PercentComplete(u8),
+    PercentComplete(PercentComplete),
 
     /// 3.8.1.9 Priority
-    Priority(u8),
+    Priority(Priority),
 
     /// 3.8.1.10 Resources (multi-valued text)
-    Resources(Vec<Text<'src>>),
+    Resources(Texts<'src>),
 
     /// 3.8.1.11 Status
     Status(Status),
@@ -102,10 +101,10 @@ pub enum Property<'src> {
     DtStart(DateTime<'src>),
 
     /// 3.8.2.5 Duration
-    Duration(ValueDuration),
+    Duration(Duration),
 
     /// 3.8.2.6 Free/Busy Time
-    FreeBusy(Vec<Period<'src>>),
+    FreeBusy(FreeBusy<'src>),
 
     /// 3.8.2.7 Time Transparency
     Transp(TimeTransparency),
@@ -150,10 +149,10 @@ pub enum Property<'src> {
 
     // Section 3.8.5 - Recurrence Properties
     /// 3.8.5.1 Exception Date-Times
-    ExDate(Vec<ExDateValue<'src>>),
+    ExDate(ExDate<'src>),
 
     /// 3.8.5.2 Recurrence Date-Times
-    RDate(Vec<RDateValue<'src>>),
+    RDate(RDate<'src>),
 
     /// 3.8.5.3 Recurrence Rule
     RRule(RecurrenceRule),
@@ -163,7 +162,7 @@ pub enum Property<'src> {
     Action(Action),
 
     /// 3.8.6.2 Repeat Count
-    Repeat(i32),
+    Repeat(Repeat),
 
     /// 3.8.6.3 Trigger
     Trigger(Trigger<'src>),
@@ -179,38 +178,17 @@ pub enum Property<'src> {
     LastModified(DateTime<'src>),
 
     /// 3.8.7.4 Sequence Number
-    Sequence(i32),
+    Sequence(Sequence),
 
     // Section 3.8.8 - Miscellaneous Properties
     /// 3.8.8.3 Request Status
     RequestStatus(Text<'src>),
 }
 
-/// Exception date-time value (can be DATE or DATE-TIME).
-#[derive(Debug, Clone)]
-pub enum ExDateValue<'src> {
-    /// Date-only value
-    Date(ValueDate),
-    /// Date-time value
-    DateTime(DateTime<'src>),
-}
+impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
+    type Error = Vec<TypedError<'src>>;
 
-/// Recurrence date-time value (can be DATE, DATE-TIME, or PERIOD).
-#[derive(Debug, Clone)]
-pub enum RDateValue<'src> {
-    /// Date-only value
-    Date(ValueDate),
-    /// Date-time value
-    DateTime(DateTime<'src>),
-    /// Period value
-    Period(Period<'src>),
-}
-
-impl<'src> TryFrom<TypedProperty<'src>> for Property<'src> {
-    type Error = Vec<SemanticError>;
-
-    #[allow(clippy::too_many_lines)]
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         match prop.kind {
             // Section 3.7 - Calendar Properties
             PropertyKind::CalScale => CalendarScale::try_from(prop).map(Property::CalScale),
@@ -220,43 +198,17 @@ impl<'src> TryFrom<TypedProperty<'src>> for Property<'src> {
 
             // Section 3.8.1 - Descriptive Component Properties
             PropertyKind::Attach => Attachment::try_from(prop).map(Property::Attach),
-            PropertyKind::Categories => Ok(Property::Categories(parse_multi_text_property(prop))),
+            PropertyKind::Categories => Texts::try_from(prop).map(Property::Categories),
             PropertyKind::Class => Classification::try_from(prop).map(Property::Class),
             PropertyKind::Comment => Text::try_from(prop).map(Property::Comment),
             PropertyKind::Description => Text::try_from(prop).map(Property::Description),
             PropertyKind::Geo => Geo::try_from(prop).map(Property::Geo),
             PropertyKind::Location => Text::try_from(prop).map(Property::Location),
-            PropertyKind::PercentComplete => take_single_value(prop.kind, prop.values)
-                .and_then(|v| match v {
-                    Value::Integer(i) => {
-                        Ok(u8::try_from(i).map_err(|_| SemanticError::InvalidValue {
-                            property: prop.kind,
-                            value: "Percent complete must be 0-100".to_string(),
-                        })?)
-                    }
-                    _ => Err(SemanticError::UnexpectedType {
-                        property: prop.kind,
-                        expected: ValueType::Integer,
-                    }),
-                })
-                .map(Property::PercentComplete)
-                .map_err(|e| vec![e]),
-            PropertyKind::Priority => take_single_value(prop.kind, prop.values)
-                .and_then(|v| match v {
-                    Value::Integer(i) => {
-                        Ok(u8::try_from(i).map_err(|_| SemanticError::InvalidValue {
-                            property: prop.kind,
-                            value: "Priority must be 0-9".to_string(),
-                        })?)
-                    }
-                    _ => Err(SemanticError::UnexpectedType {
-                        property: prop.kind,
-                        expected: ValueType::Integer,
-                    }),
-                })
-                .map(Property::Priority)
-                .map_err(|e| vec![e]),
-            PropertyKind::Resources => Ok(Property::Resources(parse_multi_text_property(prop))),
+            PropertyKind::PercentComplete => {
+                PercentComplete::try_from(prop).map(Property::PercentComplete)
+            }
+            PropertyKind::Priority => Priority::try_from(prop).map(Property::Priority),
+            PropertyKind::Resources => Texts::try_from(prop).map(Property::Resources),
             PropertyKind::Status => Status::try_from(prop).map(Property::Status),
             PropertyKind::Summary => Text::try_from(prop).map(Property::Summary),
 
@@ -265,22 +217,8 @@ impl<'src> TryFrom<TypedProperty<'src>> for Property<'src> {
             PropertyKind::DtEnd => DateTime::try_from(prop).map(Property::DtEnd),
             PropertyKind::Due => DateTime::try_from(prop).map(Property::Due),
             PropertyKind::DtStart => DateTime::try_from(prop).map(Property::DtStart),
-            PropertyKind::Duration => take_single_value(prop.kind, prop.values)
-                .and_then(|v| match v {
-                    Value::Duration(d) => Ok(d),
-                    _ => Err(SemanticError::UnexpectedType {
-                        property: prop.kind,
-                        expected: ValueType::Duration,
-                    }),
-                })
-                .map(Property::Duration)
-                .map_err(|e| vec![e]),
-            PropertyKind::FreeBusy => prop
-                .values
-                .into_iter()
-                .map(|v| Period::try_from(&v).map_err(|e| vec![e]))
-                .collect::<Result<Vec<_>, _>>()
-                .map(Property::FreeBusy),
+            PropertyKind::Duration => Duration::try_from(prop).map(Property::Duration),
+            PropertyKind::FreeBusy => FreeBusy::try_from(prop).map(Property::FreeBusy),
             PropertyKind::Transp => TimeTransparency::try_from(prop).map(Property::Transp),
 
             // Section 3.8.3 - Time Zone Component Properties
@@ -302,81 +240,103 @@ impl<'src> TryFrom<TypedProperty<'src>> for Property<'src> {
             PropertyKind::Uid => Text::try_from(prop).map(Property::Uid),
 
             // Section 3.8.5 - Recurrence Properties
-            PropertyKind::ExDate => prop
-                .values
-                .into_iter()
-                .map(|v| match v {
-                    Value::Date(d) => Ok(ExDateValue::Date(d)),
-                    Value::DateTime(dt) => Ok(ExDateValue::DateTime(DateTime::Floating {
-                        date: dt.date,
-                        time: dt.time.into(),
-                    })),
-                    _ => Err(vec![SemanticError::UnexpectedType {
-                        property: prop.kind,
-                        expected: ValueType::DateTime,
-                    }]),
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .map(Property::ExDate),
-            PropertyKind::RDate => prop
-                .values
-                .into_iter()
-                .map(|v| match v {
-                    Value::Date(d) => Ok(RDateValue::Date(d)),
-                    Value::DateTime(dt) => Ok(RDateValue::DateTime(DateTime::Floating {
-                        date: dt.date,
-                        time: dt.time.into(),
-                    })),
-                    _ => match Period::try_from(&v) {
-                        Ok(p) => Ok(RDateValue::Period(p)),
-                        Err(_) => Err(vec![SemanticError::UnexpectedType {
-                            property: prop.kind,
-                            expected: ValueType::Period,
-                        }]),
-                    },
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .map(Property::RDate),
+            PropertyKind::ExDate => ExDate::try_from(prop).map(Property::ExDate),
+            PropertyKind::RDate => RDate::try_from(prop).map(Property::RDate),
             PropertyKind::RRule => {
                 // TODO: Parse RRULE from text (Value::Text)
                 // For now, return an error since RecurrenceRule parsing is not yet implemented
-                Err(vec![SemanticError::InvalidValue {
+                Err(vec![TypedError::PropertyInvalidValue {
                     property: prop.kind,
                     value: "RRULE parsing not yet implemented".to_string(),
+                    span: prop.span,
                 }])
             }
 
             // Section 3.8.6 - Alarm Component Properties
             PropertyKind::Action => Action::try_from(prop).map(Property::Action),
-            PropertyKind::Repeat => take_single_value(prop.kind, prop.values)
-                .and_then(|v| match v {
-                    Value::Integer(i) => Ok(i),
-                    _ => Err(SemanticError::UnexpectedType {
-                        property: prop.kind,
-                        expected: ValueType::Integer,
-                    }),
-                })
-                .map(Property::Repeat)
-                .map_err(|e| vec![e]),
+            PropertyKind::Repeat => Repeat::try_from(prop).map(Property::Repeat),
             PropertyKind::Trigger => Trigger::try_from(prop).map(Property::Trigger),
 
             // Section 3.8.7 - Change Management Properties
             PropertyKind::Created => DateTime::try_from(prop).map(Property::Created),
             PropertyKind::DtStamp => DateTime::try_from(prop).map(Property::DtStamp),
             PropertyKind::LastModified => DateTime::try_from(prop).map(Property::LastModified),
-            PropertyKind::Sequence => take_single_value(prop.kind, prop.values)
-                .and_then(|v| match v {
-                    Value::Integer(i) => Ok(i),
-                    _ => Err(SemanticError::UnexpectedType {
-                        property: prop.kind,
-                        expected: ValueType::Integer,
-                    }),
-                })
-                .map(Property::Sequence)
-                .map_err(|e| vec![e]),
+            PropertyKind::Sequence => Sequence::try_from(prop).map(Property::Sequence),
 
             // Section 3.8.8 - Miscellaneous Properties
             PropertyKind::RequestStatus => Text::try_from(prop).map(Property::RequestStatus),
+        }
+    }
+}
+
+impl Property<'_> {
+    /// Returns the `PropertyKind` for this property
+    #[must_use]
+    pub const fn kind(&self) -> PropertyKind {
+        match self {
+            // Section 3.7 - Calendar Properties
+            Self::CalScale(_) => PropertyKind::CalScale,
+            Self::Method(_) => PropertyKind::Method,
+            Self::ProdId(_) => PropertyKind::ProdId,
+            Self::Version(_) => PropertyKind::Version,
+
+            // Section 3.8.1 - Descriptive Component Properties
+            Self::Attach(_) => PropertyKind::Attach,
+            Self::Categories(_) => PropertyKind::Categories,
+            Self::Class(_) => PropertyKind::Class,
+            Self::Comment(_) => PropertyKind::Comment,
+            Self::Description(_) => PropertyKind::Description,
+            Self::Geo(_) => PropertyKind::Geo,
+            Self::Location(_) => PropertyKind::Location,
+            Self::PercentComplete(_) => PropertyKind::PercentComplete,
+            Self::Priority(_) => PropertyKind::Priority,
+            Self::Resources(_) => PropertyKind::Resources,
+            Self::Status(_) => PropertyKind::Status,
+            Self::Summary(_) => PropertyKind::Summary,
+
+            // Section 3.8.2 - Date and Time Properties
+            Self::Completed(_) => PropertyKind::Completed,
+            Self::DtEnd(_) => PropertyKind::DtEnd,
+            Self::Due(_) => PropertyKind::Due,
+            Self::DtStart(_) => PropertyKind::DtStart,
+            Self::Duration(_) => PropertyKind::Duration,
+            Self::FreeBusy(_) => PropertyKind::FreeBusy,
+            Self::Transp(_) => PropertyKind::Transp,
+
+            // Section 3.8.3 - Time Zone Component Properties
+            Self::TzId(_) => PropertyKind::TzId,
+            Self::TzName(_) => PropertyKind::TzName,
+            Self::TzOffsetFrom(_) => PropertyKind::TzOffsetFrom,
+            Self::TzOffsetTo(_) => PropertyKind::TzOffsetTo,
+            Self::TzUrl(_) => PropertyKind::TzUrl,
+
+            // Section 3.8.4 - Component Relationship Properties
+            Self::Attendee(_) => PropertyKind::Attendee,
+            Self::Contact(_) => PropertyKind::Contact,
+            Self::Organizer(_) => PropertyKind::Organizer,
+            Self::RecurrenceId(_) => PropertyKind::RecurrenceId,
+            Self::RelatedTo(_) => PropertyKind::RelatedTo,
+            Self::Url(_) => PropertyKind::Url,
+            Self::Uid(_) => PropertyKind::Uid,
+
+            // Section 3.8.5 - Recurrence Properties
+            Self::ExDate(_) => PropertyKind::ExDate,
+            Self::RDate(_) => PropertyKind::RDate,
+            Self::RRule(_) => PropertyKind::RRule,
+
+            // Section 3.8.6 - Alarm Component Properties
+            Self::Action(_) => PropertyKind::Action,
+            Self::Repeat(_) => PropertyKind::Repeat,
+            Self::Trigger(_) => PropertyKind::Trigger,
+
+            // Section 3.8.7 - Change Management Properties
+            Self::Created(_) => PropertyKind::Created,
+            Self::DtStamp(_) => PropertyKind::DtStamp,
+            Self::LastModified(_) => PropertyKind::LastModified,
+            Self::Sequence(_) => PropertyKind::Sequence,
+
+            // Section 3.8.8 - Miscellaneous Properties
+            Self::RequestStatus(_) => PropertyKind::RequestStatus,
         }
     }
 }

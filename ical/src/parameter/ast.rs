@@ -12,18 +12,18 @@ use crate::keyword::{
 use crate::lexer::Span;
 use crate::parameter::definition::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,
-    ParticipationStatus, RecurrenceIdRange, RelationshipType, ValueType,
+    ParticipationStatus, RecurrenceIdRange, RelationshipType, ValueKind,
     parse_alarm_trigger_relationship, parse_cutype, parse_encoding, parse_fbtype,
     parse_multiple_quoted, parse_partstat, parse_range, parse_reltype, parse_role, parse_rsvp,
     parse_single, parse_single_quoted, parse_tzid, parse_value_type,
 };
 use crate::syntax::{SpannedSegments, SyntaxParameter};
-use crate::typed::TypedAnalysisError;
+use crate::typed::TypedError;
 
 /// A typed iCalendar parameter with validated values.
 #[derive(Debug, Clone)]
 #[allow(missing_docs)]
-pub enum TypedParameter<'src> {
+pub enum Parameter<'src> {
     /// This parameter specifies a URI that points to an alternate
     /// representation for a textual property value. A property specifying
     /// this parameter MUST also include a value that reflects the default
@@ -258,38 +258,34 @@ pub enum TypedParameter<'src> {
     /// MUST be specified.
     ///
     /// See also: RFC 5545 Section 3.2.20. Value Data Types
-    ValueType { value: ValueType, span: Span },
+    ValueKind { value: ValueKind, span: Span },
 }
 
-impl TypedParameter<'_> {
+impl Parameter<'_> {
     /// Returns the type of the parameter
     #[must_use]
-    pub fn kind(&self) -> TypedParameterKind {
+    pub fn kind(&self) -> ParameterKind {
         match self {
-            TypedParameter::AlternateText { .. } => TypedParameterKind::AlternateText,
-            TypedParameter::CommonName { .. } => TypedParameterKind::CommonName,
-            TypedParameter::CalendarUserType { .. } => TypedParameterKind::CalendarUserType,
-            TypedParameter::Delegators { .. } => TypedParameterKind::Delegators,
-            TypedParameter::Delegatees { .. } => TypedParameterKind::Delegatees,
-            TypedParameter::Directory { .. } => TypedParameterKind::Directory,
-            TypedParameter::Encoding { .. } => TypedParameterKind::Encoding,
-            TypedParameter::FormatType { .. } => TypedParameterKind::FormatType,
-            TypedParameter::FreeBusyType { .. } => TypedParameterKind::FreeBusyType,
-            TypedParameter::Language { .. } => TypedParameterKind::Language,
-            TypedParameter::GroupOrListMembership { .. } => {
-                TypedParameterKind::GroupOrListMembership
-            }
-            TypedParameter::ParticipationStatus { .. } => TypedParameterKind::ParticipationStatus,
-            TypedParameter::RecurrenceIdRange { .. } => TypedParameterKind::RecurrenceIdRange,
-            TypedParameter::AlarmTriggerRelationship { .. } => {
-                TypedParameterKind::AlarmTriggerRelationship
-            }
-            TypedParameter::RelationshipType { .. } => TypedParameterKind::RelationshipType,
-            TypedParameter::ParticipationRole { .. } => TypedParameterKind::ParticipationRole,
-            TypedParameter::SendBy { .. } => TypedParameterKind::SendBy,
-            TypedParameter::RsvpExpectation { .. } => TypedParameterKind::RsvpExpectation,
-            TypedParameter::TimeZoneIdentifier { .. } => TypedParameterKind::TimeZoneIdentifier,
-            TypedParameter::ValueType { .. } => TypedParameterKind::ValueType,
+            Parameter::AlternateText { .. } => ParameterKind::AlternateText,
+            Parameter::CommonName { .. } => ParameterKind::CommonName,
+            Parameter::CalendarUserType { .. } => ParameterKind::CalendarUserType,
+            Parameter::Delegators { .. } => ParameterKind::Delegators,
+            Parameter::Delegatees { .. } => ParameterKind::Delegatees,
+            Parameter::Directory { .. } => ParameterKind::Directory,
+            Parameter::Encoding { .. } => ParameterKind::Encoding,
+            Parameter::FormatType { .. } => ParameterKind::FormatType,
+            Parameter::FreeBusyType { .. } => ParameterKind::FreeBusyType,
+            Parameter::Language { .. } => ParameterKind::Language,
+            Parameter::GroupOrListMembership { .. } => ParameterKind::GroupOrListMembership,
+            Parameter::ParticipationStatus { .. } => ParameterKind::ParticipationStatus,
+            Parameter::RecurrenceIdRange { .. } => ParameterKind::RecurrenceIdRange,
+            Parameter::AlarmTriggerRelationship { .. } => ParameterKind::AlarmTriggerRelationship,
+            Parameter::RelationshipType { .. } => ParameterKind::RelationshipType,
+            Parameter::ParticipationRole { .. } => ParameterKind::ParticipationRole,
+            Parameter::SendBy { .. } => ParameterKind::SendBy,
+            Parameter::RsvpExpectation { .. } => ParameterKind::RsvpExpectation,
+            Parameter::TimeZoneIdentifier { .. } => ParameterKind::TimeZoneIdentifier,
+            Parameter::ValueKind { .. } => ParameterKind::ValueType,
         }
     }
 
@@ -303,37 +299,37 @@ impl TypedParameter<'_> {
     #[must_use]
     pub fn span(&self) -> Span {
         match self {
-            TypedParameter::AlternateText { span, .. }
-            | TypedParameter::CommonName { span, .. }
-            | TypedParameter::CalendarUserType { span, .. }
-            | TypedParameter::Delegators { span, .. }
-            | TypedParameter::Delegatees { span, .. }
-            | TypedParameter::Directory { span, .. }
-            | TypedParameter::Encoding { span, .. }
-            | TypedParameter::FormatType { span, .. }
-            | TypedParameter::FreeBusyType { span, .. }
-            | TypedParameter::Language { span, .. }
-            | TypedParameter::GroupOrListMembership { span, .. }
-            | TypedParameter::ParticipationStatus { span, .. }
-            | TypedParameter::RecurrenceIdRange { span, .. }
-            | TypedParameter::AlarmTriggerRelationship { span, .. }
-            | TypedParameter::RelationshipType { span, .. }
-            | TypedParameter::ParticipationRole { span, .. }
-            | TypedParameter::SendBy { span, .. }
-            | TypedParameter::RsvpExpectation { span, .. }
-            | TypedParameter::TimeZoneIdentifier { span, .. }
-            | TypedParameter::ValueType { span, .. } => span.clone(),
+            Parameter::AlternateText { span, .. }
+            | Parameter::CommonName { span, .. }
+            | Parameter::CalendarUserType { span, .. }
+            | Parameter::Delegators { span, .. }
+            | Parameter::Delegatees { span, .. }
+            | Parameter::Directory { span, .. }
+            | Parameter::Encoding { span, .. }
+            | Parameter::FormatType { span, .. }
+            | Parameter::FreeBusyType { span, .. }
+            | Parameter::Language { span, .. }
+            | Parameter::GroupOrListMembership { span, .. }
+            | Parameter::ParticipationStatus { span, .. }
+            | Parameter::RecurrenceIdRange { span, .. }
+            | Parameter::AlarmTriggerRelationship { span, .. }
+            | Parameter::RelationshipType { span, .. }
+            | Parameter::ParticipationRole { span, .. }
+            | Parameter::SendBy { span, .. }
+            | Parameter::RsvpExpectation { span, .. }
+            | Parameter::TimeZoneIdentifier { span, .. }
+            | Parameter::ValueKind { span, .. } => span.clone(),
         }
     }
 }
 
-impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
-    type Error = Vec<TypedAnalysisError<'src>>;
+impl<'src> TryFrom<SyntaxParameter<'src>> for Parameter<'src> {
+    type Error = Vec<TypedError<'src>>;
 
     fn try_from(mut param: SyntaxParameter<'src>) -> Result<Self, Self::Error> {
         // Parse the parameter kind
-        let Ok(kind) = TypedParameterKind::from_str(param.name.resolve().as_ref()) else {
-            return Err(vec![TypedAnalysisError::ParameterUnknown {
+        let Ok(kind) = ParameterKind::from_str(param.name.resolve().as_ref()) else {
+            return Err(vec![TypedError::ParameterUnknown {
                 span: param.name.span(),
                 parameter: param.name,
             }]);
@@ -341,68 +337,68 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for TypedParameter<'src> {
 
         // Handle parsing based on the kind
         match kind {
-            TypedParameterKind::AlternateText => {
-                parse_single_quoted(&mut param, kind).map(|value| TypedParameter::AlternateText {
+            ParameterKind::AlternateText => {
+                parse_single_quoted(&mut param, kind).map(|value| Parameter::AlternateText {
                     value,
                     span: param.span(),
                 })
             }
-            TypedParameterKind::CommonName => {
-                parse_single(&mut param, kind).map(|v| TypedParameter::CommonName {
+            ParameterKind::CommonName => {
+                parse_single(&mut param, kind).map(|v| Parameter::CommonName {
                     value: v.value,
                     span: param.span(),
                 })
             }
-            TypedParameterKind::CalendarUserType => parse_cutype(param),
-            TypedParameterKind::Delegators => {
+            ParameterKind::CalendarUserType => parse_cutype(param),
+            ParameterKind::Delegators => {
                 let span = param.span();
                 parse_multiple_quoted(param, kind)
-                    .map(|values| TypedParameter::Delegators { values, span })
+                    .map(|values| Parameter::Delegators { values, span })
             }
-            TypedParameterKind::Delegatees => {
+            ParameterKind::Delegatees => {
                 let span = param.span();
                 parse_multiple_quoted(param, kind)
-                    .map(|values| TypedParameter::Delegatees { values, span })
+                    .map(|values| Parameter::Delegatees { values, span })
             }
-            TypedParameterKind::Directory => {
-                parse_single_quoted(&mut param, kind).map(|value| TypedParameter::Directory {
+            ParameterKind::Directory => {
+                parse_single_quoted(&mut param, kind).map(|value| Parameter::Directory {
                     value,
                     span: param.span(),
                 })
             }
-            TypedParameterKind::Encoding => parse_encoding(param),
-            TypedParameterKind::FormatType => {
-                parse_single(&mut param, kind).map(|v| TypedParameter::FormatType {
+            ParameterKind::Encoding => parse_encoding(param),
+            ParameterKind::FormatType => {
+                parse_single(&mut param, kind).map(|v| Parameter::FormatType {
                     value: v.value,
                     span: param.span(),
                 })
             }
-            TypedParameterKind::FreeBusyType => parse_fbtype(param),
-            TypedParameterKind::Language => {
-                parse_single(&mut param, kind).map(|v| TypedParameter::Language {
+            ParameterKind::FreeBusyType => parse_fbtype(param),
+            ParameterKind::Language => {
+                parse_single(&mut param, kind).map(|v| Parameter::Language {
                     value: v.value,
                     span: param.span(),
                 })
             }
-            TypedParameterKind::GroupOrListMembership => {
+            ParameterKind::GroupOrListMembership => {
                 let span = param.span();
                 parse_multiple_quoted(param, kind)
-                    .map(|values| TypedParameter::GroupOrListMembership { values, span })
+                    .map(|values| Parameter::GroupOrListMembership { values, span })
             }
-            TypedParameterKind::ParticipationStatus => parse_partstat(param),
-            TypedParameterKind::RecurrenceIdRange => parse_range(param),
-            TypedParameterKind::AlarmTriggerRelationship => parse_alarm_trigger_relationship(param),
-            TypedParameterKind::RelationshipType => parse_reltype(param),
-            TypedParameterKind::ParticipationRole => parse_role(param),
-            TypedParameterKind::SendBy => {
-                parse_single_quoted(&mut param, kind).map(|value| TypedParameter::SendBy {
+            ParameterKind::ParticipationStatus => parse_partstat(param),
+            ParameterKind::RecurrenceIdRange => parse_range(param),
+            ParameterKind::AlarmTriggerRelationship => parse_alarm_trigger_relationship(param),
+            ParameterKind::RelationshipType => parse_reltype(param),
+            ParameterKind::ParticipationRole => parse_role(param),
+            ParameterKind::SendBy => {
+                parse_single_quoted(&mut param, kind).map(|value| Parameter::SendBy {
                     value,
                     span: param.span(),
                 })
             }
-            TypedParameterKind::RsvpExpectation => parse_rsvp(param),
-            TypedParameterKind::TimeZoneIdentifier => parse_tzid(param),
-            TypedParameterKind::ValueType => parse_value_type(param),
+            ParameterKind::RsvpExpectation => parse_rsvp(param),
+            ParameterKind::TimeZoneIdentifier => parse_tzid(param),
+            ParameterKind::ValueType => parse_value_type(param),
         }
     }
 }
@@ -420,7 +416,7 @@ macro_rules! impl_typed_parameter_kind_mapping {
         $(#[$attr])*
         pub enum $ty {
             $(
-            $variant,
+                $variant,
             )+
         }
 
@@ -457,9 +453,9 @@ macro_rules! impl_typed_parameter_kind_mapping {
 }
 
 impl_typed_parameter_kind_mapping! {
-    /// Simple enum for `TypedParameter` types that maps parameter type to keyword
+    /// Kinds of iCalendar parameters
     #[allow(missing_docs)]
-    enum TypedParameterKind {
+    enum ParameterKind {
         AlternateText       => KW_ALTREP,
         CommonName          => KW_CN,
         CalendarUserType    => KW_CUTYPE,

@@ -4,13 +4,16 @@
 
 //! To-do component (VTODO) for iCalendar semantic components.
 
-use std::{convert::TryFrom, fmt};
+use std::fmt;
 
 use crate::keyword::{KW_VALARM, KW_VTODO};
-use crate::property::{Attendee, Classification, DateTime, Geo, Organizer, Period, Text};
-use crate::property::{ExDateValue, Property, RDateValue, Status};
+use crate::property::PropertyKind;
+use crate::property::{
+    Attendee, Classification, DateTime, ExDateValue, Geo, Organizer, Period, Property, RDateValue,
+    Status, Text,
+};
 use crate::semantic::{SemanticError, VAlarm};
-use crate::typed::{PropertyKind, TypedComponent};
+use crate::typed::TypedComponent;
 use crate::value::{RecurrenceRule, ValueDuration};
 
 /// To-do component (VTODO)
@@ -95,10 +98,10 @@ pub struct VTodo<'src> {
 }
 
 /// Parse a `TypedComponent` into a `VTodo`
-#[allow(clippy::too_many_lines)]
 impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
     type Error = Vec<SemanticError>;
 
+    #[allow(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VTODO {
             return Err(vec![SemanticError::ExpectedComponent {
@@ -112,175 +115,170 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            match Property::try_from(prop) {
-                Ok(property) => {
-                    match property {
-                        Property::Uid(text) => match props.uid {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Uid,
-                            }),
-                            None => props.uid = Some(text),
-                        },
-                        Property::DtStamp(dt) => match props.dt_stamp {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::DtStamp,
-                            }),
-                            None => props.dt_stamp = Some(dt),
-                        },
-                        Property::DtStart(dt) => match props.dt_start {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::DtStart,
-                            }),
-                            None => props.dt_start = Some(dt),
-                        },
-                        Property::Due(dt) => match props.due {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Due,
-                            }),
-                            None => props.due = Some(dt),
-                        },
-                        Property::Completed(dt) => match props.completed {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Completed,
-                            }),
-                            None => props.completed = Some(dt),
-                        },
-                        Property::Duration(dur) => match props.duration {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Duration,
-                            }),
-                            None => props.duration = Some(dur),
-                        },
-                        Property::Summary(text) => match props.summary {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Summary,
-                            }),
-                            None => props.summary = Some(text),
-                        },
-                        Property::Description(text) => match props.description {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Description,
-                            }),
-                            None => props.description = Some(text),
-                        },
-                        Property::Location(text) => match props.location {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Location,
-                            }),
-                            None => props.location = Some(text),
-                        },
-                        Property::Geo(geo) => match props.geo {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Geo,
-                            }),
-                            None => props.geo = Some(geo),
-                        },
-                        Property::Url(text) => match props.url {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Url,
-                            }),
-                            None => props.url = Some(text),
-                        },
-                        Property::Organizer(org) => match props.organizer {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Organizer,
-                            }),
-                            None => props.organizer = Some(org),
-                        },
-                        Property::Attendee(attendee) => {
-                            props.attendees.push(attendee);
-                        }
-                        Property::LastModified(dt) => match props.last_modified {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::LastModified,
-                            }),
-                            None => props.last_modified = Some(dt),
-                        },
-                        Property::Status(status) => match TodoStatus::try_from(status) {
-                            Ok(todo_status) => match props.status {
-                                Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                    property: PropertyKind::Status,
-                                }),
-                                None => props.status = Some(todo_status),
-                            },
-                            Err(e) => {
-                                errors.push(SemanticError::InvalidValue {
-                                    property: PropertyKind::Status,
-                                    value: e,
-                                });
-                            }
-                        },
-                        Property::Sequence(seq) => match props.sequence {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
+            match prop {
+                Property::Uid(text) => match props.uid {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Uid,
+                    }),
+                    None => props.uid = Some(text),
+                },
+                Property::DtStamp(dt) => match props.dt_stamp {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::DtStamp,
+                    }),
+                    None => props.dt_stamp = Some(dt),
+                },
+                Property::DtStart(dt) => match props.dt_start {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::DtStart,
+                    }),
+                    None => props.dt_start = Some(dt),
+                },
+                Property::Due(dt) => match props.due {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Due,
+                    }),
+                    None => props.due = Some(dt),
+                },
+                Property::Completed(dt) => match props.completed {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Completed,
+                    }),
+                    None => props.completed = Some(dt),
+                },
+                Property::Duration(dur) => match props.duration {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Duration,
+                    }),
+                    None => props.duration = Some(dur.value),
+                },
+                Property::Summary(text) => match props.summary {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Summary,
+                    }),
+                    None => props.summary = Some(text),
+                },
+                Property::Description(text) => match props.description {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Description,
+                    }),
+                    None => props.description = Some(text),
+                },
+                Property::Location(text) => match props.location {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Location,
+                    }),
+                    None => props.location = Some(text),
+                },
+                Property::Geo(geo) => match props.geo {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Geo,
+                    }),
+                    None => props.geo = Some(geo),
+                },
+                Property::Url(text) => match props.url {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Url,
+                    }),
+                    None => props.url = Some(text),
+                },
+                Property::Organizer(org) => match props.organizer {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Organizer,
+                    }),
+                    None => props.organizer = Some(org),
+                },
+                Property::Attendee(attendee) => {
+                    props.attendees.push(attendee);
+                }
+                Property::LastModified(dt) => match props.last_modified {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::LastModified,
+                    }),
+                    None => props.last_modified = Some(dt),
+                },
+                Property::Status(status) => match TodoStatus::try_from(status) {
+                    Ok(todo_status) => match props.status {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Status,
+                        }),
+                        None => props.status = Some(todo_status),
+                    },
+                    Err(e) => {
+                        errors.push(SemanticError::InvalidValue {
+                            property: PropertyKind::Status,
+                            value: e,
+                        });
+                    }
+                },
+                Property::Sequence(seq) => match props.sequence {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Sequence,
+                    }),
+                    None => match u32::try_from(seq.value) {
+                        Ok(v) => props.sequence = Some(v),
+                        Err(_) => {
+                            errors.push(SemanticError::InvalidValue {
                                 property: PropertyKind::Sequence,
-                            }),
-                            None => match u32::try_from(seq) {
-                                Ok(v) => props.sequence = Some(v),
-                                Err(_) => {
-                                    errors.push(SemanticError::InvalidValue {
-                                        property: PropertyKind::Sequence,
-                                        value: "Sequence must be non-negative".to_string(),
-                                    });
-                                }
-                            },
-                        },
-                        Property::Priority(pri) => match props.priority {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Priority,
-                            }),
-                            None => props.priority = Some(pri),
-                        },
-                        Property::PercentComplete(pct) => match props.percent_complete {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::PercentComplete,
-                            }),
-                            None => props.percent_complete = Some(pct),
-                        },
-                        Property::Class(class) => match props.classification {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Class,
-                            }),
-                            None => props.classification = Some(class),
-                        },
-                        Property::Resources(resources) => match props.resources {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Resources,
-                            }),
-                            None => props.resources = Some(resources),
-                        },
-                        Property::Categories(categories) => match props.categories {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Categories,
-                            }),
-                            None => props.categories = Some(categories),
-                        },
-                        Property::RRule(rrule) => match props.rrule {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::RRule,
-                            }),
-                            None => props.rrule = Some(rrule),
-                        },
-                        Property::RDate(rdates) => {
-                            for rdate in rdates {
-                                if let RDateValue::Period(p) = rdate {
-                                    props.rdate.push(p);
-                                }
-                                // RDate Date/DateTime not yet implemented for todos
-                            }
+                                value: "Sequence must be non-negative".to_string(),
+                            });
                         }
-                        Property::ExDate(exdates) => {
-                            for exdate in exdates {
-                                if let ExDateValue::DateTime(dt) = exdate {
-                                    props.ex_dates.push(dt);
-                                }
-                                // ExDate Date-only not yet implemented for todos
-                            }
+                    },
+                },
+                Property::Priority(pri) => match props.priority {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Priority,
+                    }),
+                    None => props.priority = Some(pri.value),
+                },
+                Property::PercentComplete(pct) => match props.percent_complete {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::PercentComplete,
+                    }),
+                    None => props.percent_complete = Some(pct.value),
+                },
+                Property::Class(class) => match props.classification {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Class,
+                    }),
+                    None => props.classification = Some(class),
+                },
+                Property::Resources(resources) => match props.resources {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Resources,
+                    }),
+                    None => props.resources = Some(resources.values),
+                },
+                Property::Categories(categories) => match props.categories {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Categories,
+                    }),
+                    None => props.categories = Some(categories.values),
+                },
+                Property::RRule(rrule) => match props.rrule {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::RRule,
+                    }),
+                    None => props.rrule = Some(rrule),
+                },
+                Property::RDate(rdates) => {
+                    for rdate in rdates.dates {
+                        if let RDateValue::Period(p) = rdate {
+                            props.rdate.push(p);
                         }
-                        // Ignore other properties not used by VTodo
-                        _ => {}
+                        // RDate Date/DateTime not yet implemented for todos
                     }
                 }
-                Err(e) => errors.extend(e),
+                Property::ExDate(exdates) => {
+                    for exdate in exdates.dates {
+                        if let ExDateValue::DateTime(dt) = exdate {
+                            props.ex_dates.push(dt);
+                        }
+                        // ExDate Date-only not yet implemented for todos
+                    }
+                }
+                // Ignore other properties not used by VTodo
+                _ => {}
             }
         }
 

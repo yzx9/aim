@@ -12,11 +12,11 @@
 use std::{convert::TryFrom, fmt::Display, str::FromStr};
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
-use crate::parameter::{AlarmTriggerRelationship, TypedParameter, TypedParameterKind};
-use crate::property::DateTime;
-use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedProperty, Value, ValueType};
-use crate::value::ValueDuration;
+use crate::parameter::{AlarmTriggerRelationship, Parameter};
+use crate::property::util::{take_single_string, take_single_value};
+use crate::property::{DateTime, PropertyKind};
+use crate::typed::{ParsedProperty, TypedError};
+use crate::value::{Value, ValueDuration};
 
 /// Alarm action (RFC 5545 Section 3.8.6.1)
 #[derive(Debug, Clone, Copy)]
@@ -39,7 +39,7 @@ impl FromStr for Action {
             KW_ACTION_AUDIO => Ok(Self::Audio),
             KW_ACTION_DISPLAY => Ok(Self::Display),
             KW_ACTION_EMAIL => Ok(Self::Email),
-            KW_ACTION_PROCEDURE => Err("PROCEDURE action has been deprecated".to_string()),
+            KW_ACTION_PROCEDURE => Err(format!("{KW_ACTION_PROCEDURE} action has been deprecated")),
             _ => Err(format!("Invalid alarm action: {s}")),
         }
     }
@@ -61,28 +61,17 @@ impl Display for Action {
     }
 }
 
-impl<'src> TryFrom<TypedProperty<'src>> for Action {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Action {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
-        let text = prop
-            .values
-            .first()
-            .and_then(|v| match v {
-                Value::Text(t) => Some(t.resolve().to_string()),
-                _ => None,
-            })
-            .ok_or_else(|| {
-                vec![SemanticError::UnexpectedType {
-                    property: PropertyKind::Action,
-                    expected: ValueType::Text,
-                }]
-            })?;
-
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let span = prop.span.clone();
+        let text = take_single_string(prop.kind, prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
-            vec![SemanticError::InvalidValue {
+            vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Action,
                 value: e,
+                span,
             }]
         })
     }
@@ -108,21 +97,25 @@ pub enum TriggerValue<'src> {
     DateTime(DateTime<'src>),
 }
 
-impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
         // Collect the RELATED parameter (optional, default is START)
         let mut related = None;
 
         for param in &prop.parameters {
+            let kind_name = param.kind().name();
+            let param_span = param.span();
+
             #[allow(clippy::single_match)]
             match param {
-                TypedParameter::AlarmTriggerRelationship { value, .. } => match related {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::AlarmTriggerRelationship,
+                Parameter::AlarmTriggerRelationship { value, .. } => match related {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => related = Some(*value),
                 },
@@ -131,11 +124,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
             }
         }
 
-        let Some(value) = prop.values.first() else {
-            return Err(vec![SemanticError::MissingValue {
-                property: PropertyKind::Trigger,
-            }]);
-        };
+        let value = take_single_value(PropertyKind::Trigger, prop.values).map_err(|e| vec![e])?;
 
         // Return all errors if any occurred
         if !errors.is_empty() {
@@ -144,7 +133,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
 
         match value {
             Value::Duration(dur) => Ok(Trigger {
-                value: TriggerValue::Duration(*dur),
+                value: TriggerValue::Duration(dur),
                 related: Some(related.unwrap_or(AlarmTriggerRelationship::Start)),
             }),
             Value::DateTime(dt) => Ok(Trigger {
@@ -154,9 +143,10 @@ impl<'src> TryFrom<TypedProperty<'src>> for Trigger<'src> {
                 }),
                 related: None,
             }),
-            _ => Err(vec![SemanticError::InvalidValue {
+            _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Trigger,
                 value: "Expected duration or date-time value".to_string(),
+                span: prop.span,
             }]),
         }
     }

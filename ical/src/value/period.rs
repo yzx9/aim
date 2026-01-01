@@ -106,7 +106,7 @@ mod tests {
     use chumsky::extra;
     use chumsky::input::Stream;
 
-    use crate::typed::{ValueDate, ValueDuration, ValueTime};
+    use crate::value::{ValueDate, ValueDuration, ValueTime};
 
     use super::*;
 

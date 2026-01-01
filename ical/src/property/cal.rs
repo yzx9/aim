@@ -18,8 +18,9 @@ use crate::keyword::{
     KW_METHOD_DECLINECOUNTER, KW_METHOD_PUBLISH, KW_METHOD_REFRESH, KW_METHOD_REPLY,
     KW_METHOD_REQUEST, KW_VERSION_2_0,
 };
-use crate::parameter::ValueType;
-use crate::typed::{PropertyKind, TypedProperty, Value};
+use crate::property::PropertyKind;
+use crate::property::util::take_single_string;
+use crate::typed::{ParsedProperty, TypedError};
 
 /// Calendar scale specification (RFC 5545 Section 3.7.1)
 #[derive(Debug, Clone, Copy, Default)]
@@ -29,29 +30,17 @@ pub enum CalendarScale {
     Gregorian,
 }
 
-impl TryFrom<TypedProperty<'_>> for CalendarScale {
-    type Error = Vec<crate::semantic::SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let text = prop
-            .values
-            .first()
-            .and_then(|v| match v {
-                Value::Text(t) => Some(t.resolve().to_string()),
-                _ => None,
-            })
-            .ok_or_else(|| {
-                vec![crate::semantic::SemanticError::UnexpectedType {
-                    property: PropertyKind::CalScale,
-                    expected: ValueType::Text,
-                }]
-            })?;
-
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = take_single_string(PropertyKind::CalScale, prop.values).map_err(|e| vec![e])?;
         match text.to_uppercase().as_str() {
             KW_CALSCALE_GREGORIAN => Ok(CalendarScale::Gregorian),
-            _ => Err(vec![crate::semantic::SemanticError::InvalidValue {
+            _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::CalScale,
                 value: format!("Unsupported calendar scale: {text}"),
+                span: prop.span,
             }]),
         }
     }
@@ -85,24 +74,11 @@ pub enum Method {
     DeclineCounter,
 }
 
-impl TryFrom<TypedProperty<'_>> for Method {
-    type Error = Vec<crate::semantic::SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Method {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let text = prop
-            .values
-            .first()
-            .and_then(|v| match v {
-                Value::Text(t) => Some(t.resolve().to_string()),
-                _ => None,
-            })
-            .ok_or_else(|| {
-                vec![crate::semantic::SemanticError::UnexpectedType {
-                    property: PropertyKind::Method,
-                    expected: ValueType::Text,
-                }]
-            })?;
-
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = take_single_string(PropertyKind::Method, prop.values).map_err(|e| vec![e])?;
         match text.to_uppercase().as_str() {
             KW_METHOD_PUBLISH => Ok(Method::Publish),
             KW_METHOD_REQUEST => Ok(Method::Request),
@@ -112,9 +88,10 @@ impl TryFrom<TypedProperty<'_>> for Method {
             KW_METHOD_REFRESH => Ok(Method::Refresh),
             KW_METHOD_COUNTER => Ok(Method::Counter),
             KW_METHOD_DECLINECOUNTER => Ok(Method::DeclineCounter),
-            _ => Err(vec![crate::semantic::SemanticError::InvalidValue {
+            _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Method,
                 value: format!("Unsupported method type: {text}"),
+                span: prop.span,
             }]),
         }
     }
@@ -133,23 +110,11 @@ pub struct ProductId {
     pub language: Option<String>,
 }
 
-impl TryFrom<TypedProperty<'_>> for ProductId {
-    type Error = Vec<crate::semantic::SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for ProductId {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let text = prop
-            .values
-            .first()
-            .and_then(|v| match v {
-                Value::Text(t) => Some(t.resolve().to_string()),
-                _ => None,
-            })
-            .ok_or_else(|| {
-                vec![crate::semantic::SemanticError::UnexpectedType {
-                    property: PropertyKind::ProdId,
-                    expected: ValueType::Text,
-                }]
-            })?;
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = take_single_string(PropertyKind::ProdId, prop.values).map_err(|e| vec![e])?;
 
         // PRODID format: company//product//language
         // e.g., "-//Mozilla.org/NONSGML Mozilla Calendar V1.0//EN"
@@ -178,29 +143,17 @@ pub enum Version {
     V2_0,
 }
 
-impl TryFrom<TypedProperty<'_>> for Version {
-    type Error = Vec<crate::semantic::SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Version {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let text = prop
-            .values
-            .first()
-            .and_then(|v| match v {
-                Value::Text(t) => Some(t.resolve().to_string()),
-                _ => None,
-            })
-            .ok_or_else(|| {
-                vec![crate::semantic::SemanticError::UnexpectedType {
-                    property: PropertyKind::Version,
-                    expected: ValueType::Text,
-                }]
-            })?;
-
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = take_single_string(PropertyKind::Version, prop.values).map_err(|e| vec![e])?;
         match text.as_str() {
             KW_VERSION_2_0 => Ok(Version::V2_0),
-            _ => Err(vec![crate::semantic::SemanticError::InvalidValue {
+            _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Version,
                 value: format!("Unsupported iCalendar version: {text}"),
+                span: prop.span,
             }]),
         }
     }

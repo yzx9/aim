@@ -13,11 +13,12 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::{TypedParameter, TypedParameterKind, ValueType};
-use crate::semantic::SemanticError;
+use crate::parameter::{Parameter, ValueKind};
+use crate::property::PropertyKind;
+use crate::property::util::take_single_value;
 use crate::syntax::SpannedSegments;
-use crate::typed::{PropertyKind, TypedProperty, Value, ValueTime};
-use crate::value::{ValueDate, ValueDuration, ValuePeriod};
+use crate::typed::{ParsedProperty, TypedError};
+use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
 
 /// Date and time representation
 #[derive(Debug, Clone)]
@@ -136,16 +137,15 @@ impl<'src> DateTime<'src> {
     }
 }
 
-impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        let Some(value) = prop.values.first() else {
-            return Err(vec![SemanticError::MissingValue {
-                property: prop.kind,
-            }]);
+        let value = match take_single_value(prop.kind, prop.values) {
+            Ok(v) => v,
+            Err(e) => return Err(vec![e]),
         };
 
         // Get TZID parameter
@@ -153,16 +153,20 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
         #[cfg(feature = "jiff")]
         let mut tz_jiff = None;
         for param in prop.parameters {
+            let kind_name = param.kind().name();
+            let param_span = param.span();
+
             #[allow(clippy::single_match)]
             match param {
-                TypedParameter::TimeZoneIdentifier {
+                Parameter::TimeZoneIdentifier {
                     value,
                     #[cfg(feature = "jiff")]
                     tz,
                     ..
                 } => match tz_id {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::TimeZoneIdentifier,
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => {
                         tz_id = Some(value);
@@ -197,14 +201,15 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
                     tz_jiff: tz_jiff.unwrap(), // SAFETY: set above
                 }),
 
-                _ => Err(vec![SemanticError::InvalidValue {
+                _ => Err(vec![TypedError::PropertyInvalidValue {
                     property: prop.kind,
                     value: "Expected date-time value".to_string(),
+                    span: prop.span,
                 }]),
             }
         } else {
             match value {
-                Value::Date(date) => Ok(DateTime::Date { date: *date }),
+                Value::Date(date) => Ok(DateTime::Date { date }),
                 Value::DateTime(dt) if dt.time.utc => Ok(DateTime::Utc {
                     date: dt.date,
                     time: dt.time.into(),
@@ -213,9 +218,10 @@ impl<'src> TryFrom<TypedProperty<'src>> for DateTime<'src> {
                     date: dt.date,
                     time: dt.time.into(),
                 }),
-                _ => Err(vec![SemanticError::InvalidValue {
+                _ => Err(vec![TypedError::PropertyInvalidValue {
                     property: PropertyKind::DtStart, // Default fallback
                     value: format!("Expected date or date-time value, got {value:?}"),
+                    span: prop.span,
                 }]),
             }
         }
@@ -603,10 +609,10 @@ impl<'src> Period<'src> {
     }
 }
 
-impl<'src> TryFrom<&Value<'src>> for Period<'src> {
-    type Error = SemanticError;
+impl<'src> TryFrom<Value<'src>> for Period<'src> {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(value: &Value<'src>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value<'src>) -> Result<Self, Self::Error> {
         match value {
             Value::Period(value_period) => match value_period {
                 ValuePeriod::Explicit { start, end } => {
@@ -632,31 +638,34 @@ impl<'src> TryFrom<&Value<'src>> for Period<'src> {
                     if !matches!(duration, ValueDuration::DateTime { positive: true, .. })
                         && !matches!(duration, ValueDuration::Week { positive: true, .. })
                     {
-                        return Err(SemanticError::InvalidValue {
+                        return Err(vec![TypedError::PropertyInvalidValue {
                             property: PropertyKind::FreeBusy,
                             value: "Duration must be positive for periods".to_string(),
-                        });
+                            span: 0..0, // TODO: provide actual span
+                        }]);
                     }
 
                     if start.time.utc {
                         Ok(Period::DurationUtc {
                             start_date: start.date,
                             start_time: start.time.into(),
-                            duration: *duration,
+                            duration,
                         })
                     } else {
                         Ok(Period::DurationFloating {
                             start_date: start.date,
                             start_time: start.time.into(),
-                            duration: *duration,
+                            duration,
                         })
                     }
                 }
             },
-            _ => Err(SemanticError::UnexpectedType {
-                property: PropertyKind::FreeBusy,
-                expected: ValueType::Period,
-            }),
+            _ => Err(vec![TypedError::ValueTypeDisallowed {
+                property: PropertyKind::FreeBusy.as_str(),
+                value_type: value.kind(),
+                expected_types: &[ValueKind::Period],
+                span: 0..0, // TODO: provide actual span
+            }]),
         }
     }
 }

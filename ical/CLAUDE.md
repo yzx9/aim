@@ -10,13 +10,12 @@ validation.
 The parser follows a **four-phase pipeline**:
 
 1. **Lexical Analysis** - Tokenizes raw iCalendar text into structured tokens
-   (using `logos`)
-2. **Syntax Analysis** - Assembles tokens into component structure (using `chumsky`)
+2. **Syntax Analysis** - Assembles tokens into component structure
 3. **Typed Analysis** - Validates and converts components to strongly-typed
    representations through three sub-passes:
    - **Parameter Pass** - Parses and validates iCalendar parameters (RFC 5545 Section 3.2)
    - **Value Pass** - Parses and validates property value types (RFC 5545 Section 3.3)
-   - **Property Pass** - (TODO) Validates property-specific constraints
+   - **Property Pass** - Validates property-specific constraints
 4. **Semantic Analysis** - Validates RFC 5545 semantics (required properties,
    constraints, relationships)
 
@@ -38,7 +37,7 @@ Validates all components against RFC 5545 specifications through three sub-passe
    - Parses and validates iCalendar parameters per RFC 5545 Section 3.2
    - Converts parameter strings to strongly-typed representations
    - Validates parameter values (e.g., enum values for CUTYPE, ENCODING, etc.)
-   - Provides `TypedParameter` and `TypedParameterKind` types
+   - Provides `Parameter` and `ParameterKind` types
 
 2. **Value Pass**
    - Parses and validates property value types per RFC 5545 Section 3.3
@@ -46,7 +45,7 @@ Validates all components against RFC 5545 specifications through three sub-passe
    - Handles type inference when VALUE parameter is not specified
    - Provides `Value` enum and specific value types (`ValueDate`, `ValueDateTime`, etc.)
 
-3. **Property Pass** (TODO)
+3. **Property Pass**
    - Will validate property-specific constraints and relationships
    - Will handle property cardinality and multiplicity rules
    - Will validate inter-property dependencies
@@ -88,7 +87,7 @@ ical/
 │   │   ├── ast.rs          # Parameter definitions and parsing
 │   │   └── definition.rs   # Parameter type enums
 │   ├── property/           # Property types organized by RFC 5545 sections
-│   │   ├── spec.rs         # Property specifications (PropertyKind, PropertySpec)
+│   │   ├── kind.rs         # Property kinds (PropertyKind)
 │   │   ├── alarm.rs        # Section 3.8.6 - Alarm properties (Action, Trigger)
 │   │   ├── cal.rs          # Section 3.7 - Calendar properties (CalendarScale, Method, etc.)
 │   │   ├── datetime.rs     # Section 3.8.2 - Date/time properties (DateTime, Period, Time)

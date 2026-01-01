@@ -13,14 +13,16 @@ use chumsky::input::{Input, Stream};
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 
-use crate::parameter::ValueType;
+use crate::parameter::ValueKind;
 use crate::syntax::SpannedSegments;
-use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
+use crate::value::datetime::{
+    ValueDate, ValueDateTime, ValueTime, ValueUtcOffset, value_utc_offset, values_date,
+    values_date_time, values_time,
+};
 use crate::value::duration::{ValueDuration, values_duration};
 use crate::value::numeric::{values_float, values_integer};
 use crate::value::period::{ValuePeriod, values_period};
-use crate::value::text::values_text;
-use crate::value::{ValueDate, ValueDateTime, ValueText, ValueTime, ValueUtcOffset};
+use crate::value::text::{ValueText, values_text};
 
 /// The properties in an iCalendar object are strongly typed.  The definition
 /// of each property restricts the value to be one of the value data types, or
@@ -38,13 +40,13 @@ pub enum Value<'src> {
     /// document might be included in an iCalendar object.
     ///
     /// See RFC 5545 Section 3.3.1 for more details.
-    Binary(SpannedSegments<'src>), // TODO: implement
+    Binary(SpannedSegments<'src>),
 
     /// This value type is used to identify properties that contain either a
     /// "TRUE" or "FALSE" Boolean value.
     ///
     /// See RFC 5545 Section 3.3.2 for more details.
-    Boolean(bool), // TODO: implement
+    Boolean(bool),
 
     // TODO: 3.3.3. Calendar User Address
     //
@@ -102,6 +104,26 @@ pub enum Value<'src> {
     UtcOffset(ValueUtcOffset),
 }
 
+impl Value<'_> {
+    /// Get the kind of this value.
+    #[must_use]
+    pub fn kind(&self) -> ValueKind {
+        match self {
+            Value::Binary(_) => ValueKind::Binary,
+            Value::Boolean(_) => ValueKind::Boolean,
+            Value::Date(_) => ValueKind::Date,
+            Value::DateTime(_) => ValueKind::DateTime,
+            Value::Duration(_) => ValueKind::Duration,
+            Value::Float(_) => ValueKind::Float,
+            Value::Integer(_) => ValueKind::Integer,
+            Value::Period(_) => ValueKind::Period,
+            Value::Text(_) => ValueKind::Text,
+            Value::Time(_) => ValueKind::Time,
+            Value::UtcOffset(_) => ValueKind::UtcOffset,
+        }
+    }
+}
+
 /// Parse property values, attempting each allowed value type until one succeeds.
 ///
 /// When multiple value types are allowed (e.g., DATE or DATE-TIME), this function
@@ -118,12 +140,12 @@ pub enum Value<'src> {
 /// Parse errors from all attempted types
 #[allow(clippy::too_many_lines)]
 pub fn parse_values<'src>(
-    kinds: &[ValueType],
+    kinds: &[ValueKind],
     value: &SpannedSegments<'src>,
 ) -> Result<Vec<Value<'src>>, Vec<Rich<'src, char>>> {
-    use ValueType::{
-        Binary, Boolean, Date, DateTime, Duration, Float, Integer, Period, RecurrenceRule, Time,
-        UtcOffset,
+    use ValueKind::{
+        Binary, Boolean, CalendarUserAddress, Date, DateTime, Duration, Float, Integer, Period,
+        RecurrenceRule, Text, Time, Uri, UtcOffset,
     };
 
     // Collect errors from all attempted types
@@ -220,7 +242,7 @@ pub fn parse_values<'src>(
 
             // URI and CAL-ADDRESS are parsed as text per RFC 5545
             // (cal-address = uri, and URI values are essentially text strings)
-            ValueType::CalendarUserAddress | ValueType::Text | ValueType::Uri => {
+            CalendarUserAddress | Text | Uri => {
                 let result = values_text::<'_, _, extra::Err<_>>()
                     .parse(make_input(value.clone()))
                     .into_result()

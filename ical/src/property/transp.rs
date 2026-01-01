@@ -8,8 +8,9 @@ use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 use crate::keyword::{KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT};
-use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedProperty, Value, ValueType};
+use crate::property::PropertyKind;
+use crate::property::util::take_single_string;
+use crate::typed::{ParsedProperty, TypedError};
 
 /// Time transparency for events (RFC 5545 Section 3.8.2.7)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -52,28 +53,16 @@ impl AsRef<str> for TimeTransparency {
     }
 }
 
-impl<'src> TryFrom<TypedProperty<'src>> for TimeTransparency {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
-        let text = prop
-            .values
-            .first()
-            .and_then(|v| match v {
-                Value::Text(t) => Some(t.resolve().to_string()),
-                _ => None,
-            })
-            .ok_or_else(|| {
-                vec![SemanticError::UnexpectedType {
-                    property: PropertyKind::Transp,
-                    expected: ValueType::Text,
-                }]
-            })?;
-
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = take_single_string(prop.kind, prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
-            vec![SemanticError::InvalidValue {
+            vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Transp,
                 value: e,
+                span: prop.span,
             }]
         })
     }

@@ -11,8 +11,10 @@
 
 use std::convert::TryFrom;
 
-use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedProperty, Value};
+use crate::parameter::ValueKind;
+use crate::property::util::take_single_value;
+use crate::typed::{ParsedProperty, TypedError};
+use crate::value::Value;
 
 /// Timezone offset (RFC 5545 Section 3.8.3.3, 3.8.3.4)
 #[derive(Debug, Clone, Copy)]
@@ -27,55 +29,23 @@ pub struct TimeZoneOffset {
     pub minutes: u8,
 }
 
-impl TimeZoneOffset {
-    /// Try to convert from a Value with `PropertyKind` context
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err` if the value is not a `UtcOffset`
-    pub fn try_from_value(value: &Value<'_>, kind: PropertyKind) -> Result<Self, SemanticError> {
-        match value {
-            Value::UtcOffset(offset) => Ok(TimeZoneOffset {
+impl<'src> TryFrom<ParsedProperty<'src>> for TimeZoneOffset {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        match take_single_value(prop.kind, prop.values) {
+            Ok(Value::UtcOffset(offset)) => Ok(TimeZoneOffset {
                 positive: offset.positive,
                 hours: offset.hour,
                 minutes: offset.minute,
             }),
-            _ => Err(SemanticError::InvalidValue {
-                property: kind,
-                value: format!("Expected UTC offset value, got {value:?}"),
-            }),
-        }
-    }
-}
-
-impl TryFrom<Value<'_>> for TimeZoneOffset {
-    type Error = SemanticError;
-
-    fn try_from(value: Value<'_>) -> Result<Self, Self::Error> {
-        match value {
-            Value::UtcOffset(offset) => Ok(TimeZoneOffset {
-                positive: offset.positive,
-                hours: offset.hour,
-                minutes: offset.minute,
-            }),
-            _ => Err(SemanticError::InvalidValue {
-                property: PropertyKind::TzOffsetFrom, // Default fallback
-                value: format!("Expected UTC offset value, got {value:?}"),
-            }),
-        }
-    }
-}
-
-impl<'src> TryFrom<TypedProperty<'src>> for TimeZoneOffset {
-    type Error = Vec<SemanticError>;
-
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
-        let Some(value) = prop.values.first() else {
-            return Err(vec![SemanticError::MissingValue {
+            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-            }]);
-        };
-
-        TimeZoneOffset::try_from_value(value, prop.kind).map_err(|e| vec![e])
+                expected: ValueKind::UtcOffset,
+                found: v.kind(),
+                span: prop.span,
+            }]),
+            Err(e) => Err(vec![e]),
+        }
     }
 }

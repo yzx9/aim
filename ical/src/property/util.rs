@@ -7,13 +7,10 @@
 //! This module provides utility functions for extracting and converting
 //! property values from typed properties to semantic types.
 
-use std::convert::TryFrom;
-
-use crate::parameter::ValueType;
-use crate::property::DateTime;
-use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, Value};
-use crate::value::ValueText;
+use crate::parameter::ValueKind;
+use crate::property::PropertyKind;
+use crate::typed::TypedError;
+use crate::value::{Value, ValueText};
 
 /// Get the first value from a property, or return an error
 ///
@@ -22,18 +19,23 @@ use crate::value::ValueText;
 pub fn take_single_value(
     kind: PropertyKind,
     mut values: Vec<Value<'_>>,
-) -> Result<Value<'_>, SemanticError> {
+) -> Result<Value<'_>, TypedError<'_>> {
     let len = values.len();
     if len > 1 {
-        // TODO: better error reporting
-        return Err(SemanticError::ConstraintViolation {
-            message: format!("Property {kind:?} expected to have a single value, but has {len}",),
+        return Err(TypedError::PropertyInvalidValueCount {
+            property: kind,
+            expected: 1,
+            found: len,
+            span: 0..0, // TODO: improve span reporting
         });
     }
 
     match values.pop() {
         Some(value) => Ok(value),
-        None => Err(SemanticError::MissingValue { property: kind }),
+        None => Err(TypedError::PropertyMissingValue {
+            property: kind,
+            span: 0..0, // TODO: improve span reporting
+        }),
     }
 }
 
@@ -44,33 +46,14 @@ pub fn take_single_value(
 pub fn take_single_text(
     kind: PropertyKind,
     values: Vec<Value<'_>>,
-) -> Result<ValueText<'_>, SemanticError> {
+) -> Result<ValueText<'_>, TypedError<'_>> {
     match take_single_value(kind, values) {
         Ok(Value::Text(text)) => Ok(text),
-        Ok(_) => Err(SemanticError::UnexpectedType {
-            property: PropertyKind::Url,
-            expected: ValueType::Text,
-        }),
-        Err(e) => Err(e),
-    }
-}
-
-/// Get a single floating date-time value from a property
-///
-/// # Errors
-/// Returns `SemanticError::UnexpectedType` if the value is not date-time
-pub fn take_single_floating_date_time(
-    kind: PropertyKind,
-    values: Vec<Value<'_>>,
-) -> Result<DateTime<'_>, SemanticError> {
-    match take_single_value(kind, values) {
-        Ok(Value::DateTime(dt)) => Ok(DateTime::Floating {
-            date: dt.date,
-            time: dt.time.into(),
-        }),
-        Ok(_) => Err(SemanticError::UnexpectedType {
+        Ok(v) => Err(TypedError::PropertyUnexpectedValue {
             property: kind,
-            expected: ValueType::DateTime,
+            expected: ValueKind::Text,
+            found: v.kind(),
+            span: 0..0, // TODO: improve span reporting
         }),
         Err(e) => Err(e),
     }
@@ -80,51 +63,18 @@ pub fn take_single_floating_date_time(
 ///
 /// # Errors
 /// Returns `SemanticError::UnexpectedType` if the value is not text
-pub fn take_single_value_string(
+pub fn take_single_string(
     kind: PropertyKind,
     values: Vec<Value<'_>>,
-) -> Result<String, SemanticError> {
+) -> Result<String, TypedError<'_>> {
     match take_single_value(kind, values) {
-        Ok(Value::Text(v)) => Ok(v.resolve().to_string()),
-        Ok(_) => Err(SemanticError::UnexpectedType {
+        Ok(Value::Text(v)) => Ok(v.resolve().to_string()), // TODO: avoid allocation
+        Ok(v) => Err(TypedError::PropertyUnexpectedValue {
             property: kind,
-            expected: ValueType::Text,
+            expected: ValueKind::Text,
+            found: v.kind(),
+            span: 0..0, // TODO: improve span reporting
         }),
         Err(e) => Err(e),
-    }
-}
-
-/// Get a single integer value from a property
-///
-/// # Errors
-/// Returns `SemanticError::UnexpectedType` if the value is not an integer
-pub fn take_single_int<T: TryFrom<i32>>(
-    kind: PropertyKind,
-    values: Vec<Value<'_>>,
-) -> Result<T, SemanticError> {
-    match take_single_value(kind, values) {
-        Ok(value) => match value {
-            Value::Integer(i) => T::try_from(i).map_err(|_| SemanticError::UnexpectedType {
-                property: kind,
-                expected: ValueType::Integer,
-            }),
-            _ => Err(SemanticError::UnexpectedType {
-                property: kind,
-                expected: ValueType::Integer,
-            }),
-        },
-        Err(e) => Err(e),
-    }
-}
-
-/// Convert a date-time value to semantic `DateTime` (floating)
-#[must_use]
-pub fn value_to_floating_date_time<'src>(value: &Value<'src>) -> Option<DateTime<'src>> {
-    match value {
-        Value::DateTime(dt) => Some(DateTime::Floating {
-            date: dt.date,
-            time: dt.time.into(),
-        }),
-        _ => None,
     }
 }

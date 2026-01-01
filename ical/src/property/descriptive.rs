@@ -15,15 +15,15 @@ use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
-use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
-use crate::parameter::{Encoding, TypedParameter, TypedParameterKind, ValueType};
-use crate::property::util::{take_single_text, take_single_value};
-use crate::semantic::SemanticError;
-use crate::syntax::SpannedSegments;
-use crate::typed::{PropertyKind, TypedProperty, Value};
-use crate::value::{ValueText, values_float_semicolon};
-
 use chumsky::{Parser, error::Rich, extra, input::Stream};
+
+use crate::keyword::{KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC};
+use crate::parameter::{Encoding, Parameter};
+use crate::property::PropertyKind;
+use crate::property::util::{take_single_string, take_single_text, take_single_value};
+use crate::syntax::SpannedSegments;
+use crate::typed::{ParsedProperty, TypedError};
+use crate::value::{Value, ValueText, values_float_semicolon};
 
 /// Geographic position (RFC 5545 Section 3.8.1.6)
 #[derive(Debug, Clone, Copy)]
@@ -35,24 +35,11 @@ pub struct Geo {
     pub lon: f64,
 }
 
-impl TryFrom<TypedProperty<'_>> for Geo {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Geo {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let value = match take_single_value(prop.kind, prop.values) {
-            Ok(v) => v,
-            Err(e) => return Err(vec![e]),
-        };
-
-        let text = match value {
-            Value::Text(t) => t.resolve().to_string(), // TODO: avoid allocation
-            _ => {
-                return Err(vec![SemanticError::UnexpectedType {
-                    property: PropertyKind::Geo,
-                    expected: ValueType::Text,
-                }]);
-            }
-        };
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = take_single_string(prop.kind, prop.values).map_err(|e| vec![e])?;
 
         // Use the typed phase's float parser with semicolon separator
         let stream = Stream::from_iter(text.chars());
@@ -61,17 +48,19 @@ impl TryFrom<TypedProperty<'_>> for Geo {
         match parser.parse(stream).into_result() {
             Ok(result) => match (result.first(), result.get(1)) {
                 (Some(&lat), Some(&lon)) => Ok(Geo { lat, lon }),
-                (_, _) => Err(vec![SemanticError::InvalidValue {
+                (_, _) => Err(vec![TypedError::PropertyInvalidValue {
                     property: PropertyKind::Geo,
                     value: format!(
                         "Expected exactly 2 float values (lat;long), got {}",
                         result.len()
                     ),
+                    span: prop.span,
                 }]),
             },
-            Err(_) => Err(vec![SemanticError::InvalidValue {
+            Err(_) => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Geo,
-                value: format!("Expected 'lat;long' format with semicolon separator, got {text}",),
+                value: format!("Expected 'lat;long' format with semicolon separator, got {text}"),
+                span: prop.span,
             }]),
         }
     }
@@ -80,7 +69,7 @@ impl TryFrom<TypedProperty<'_>> for Geo {
 /// Text with language and alternate representation information
 ///
 /// This is a helper type used by many text properties like:
-/// - 3.8.1.5:`Description`
+/// - 3.8.1.5: `Description`
 /// - 3.8.1.12: `Summary`
 /// - 3.8.1.7: `Location`
 /// - 3.8.4.2: `Contact`
@@ -101,26 +90,15 @@ pub struct Text<'src> {
     pub altrep: Option<SpannedSegments<'src>>,
 }
 
-impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        let Some(value) = prop.values.first() else {
-            return Err(vec![SemanticError::MissingValue {
-                property: prop.kind,
-            }]);
-        };
-
-        let content = match value {
-            Value::Text(text) => text.clone(),
-            _ => {
-                return Err(vec![SemanticError::UnexpectedType {
-                    property: prop.kind,
-                    expected: ValueType::Text,
-                }]);
-            }
+        let content = match take_single_text(prop.kind, prop.values) {
+            Ok(text) => text,
+            Err(e) => return Err(vec![e]),
         };
 
         // Extract language and altrep parameters
@@ -128,16 +106,21 @@ impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
         let mut altrep = None;
 
         for param in prop.parameters {
+            let kind_name = param.kind().name();
+            let param_span = param.span();
+
             match param {
-                TypedParameter::Language { value, .. } => match language {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::Language,
+                Parameter::Language { value, .. } => match language {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => language = Some(value),
                 },
-                TypedParameter::AlternateText { value, .. } => match altrep {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::AlternateText,
+                Parameter::AlternateText { value, .. } => match altrep {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => altrep = Some(value),
                 },
@@ -158,36 +141,48 @@ impl<'src> TryFrom<TypedProperty<'src>> for Text<'src> {
     }
 }
 
-/// Parse multi-valued text properties (CATEGORIES, RESOURCES)
+/// Multi-valued text properties (CATEGORIES, RESOURCES)
 ///
-/// This helper function parses properties that can have multiple text values
-/// (like CATEGORIES or RESOURCES) and returns them as a Vec<Text>.
+/// This type represents properties that can have multiple text values,
+/// such as CATEGORIES or RESOURCES.
 ///
-/// Note: Per RFC 5545, ALTREP is not applicable to CATEGORIES, so only the
-/// language parameter is extracted.
-#[must_use]
-pub fn parse_multi_text_property(prop: TypedProperty<'_>) -> Vec<Text<'_>> {
-    // Get language parameter (shared by all values)
-    let language = prop
-        .parameters
-        .into_iter()
-        .find(|p| p.kind() == TypedParameterKind::Language)
-        .and_then(|p| match p {
-            TypedParameter::Language { value, .. } => Some(value),
-            _ => None,
-        });
+/// Note: Per RFC 5545, ALTREP is not applicable to CATEGORIES and RESOURCES,
+/// so only the language parameter is extracted.
+#[derive(Debug, Clone)]
+pub struct Texts<'src> {
+    /// List of text values
+    pub values: Vec<Text<'src>>,
+}
 
-    prop.values
-        .into_iter()
-        .filter_map(|v| match v {
-            Value::Text(content) => Some(Text {
-                content,
-                language: language.clone(),
-                altrep: None, // ALTREP not applicable to multi-valued text properties
-            }),
-            _ => None,
-        })
-        .collect()
+impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        // Get language parameter (shared by all values)
+        let language = prop
+            .parameters
+            .into_iter()
+            .find(|p| matches!(p, Parameter::Language { .. }))
+            .and_then(|p| match p {
+                Parameter::Language { value, .. } => Some(value),
+                _ => None,
+            });
+
+        let values = prop
+            .values
+            .into_iter()
+            .filter_map(|v| match v {
+                Value::Text(content) => Some(Text {
+                    content,
+                    language: language.clone(),
+                    altrep: None, // ALTREP not applicable to multi-valued text properties
+                }),
+                _ => None,
+            })
+            .collect();
+
+        Ok(Self { values })
+    }
 }
 
 /// Classification of calendar data (RFC 5545 Section 3.8.1.3)
@@ -235,30 +230,16 @@ impl Display for Classification {
     }
 }
 
-impl TryFrom<TypedProperty<'_>> for Classification {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Classification {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'_>) -> Result<Self, Self::Error> {
-        let Some(value) = prop.values.first() else {
-            return Err(vec![SemanticError::MissingValue {
-                property: PropertyKind::Class,
-            }]);
-        };
-
-        let text = match value {
-            Value::Text(t) => t.resolve().to_string(),
-            _ => {
-                return Err(vec![SemanticError::UnexpectedType {
-                    property: PropertyKind::Class,
-                    expected: ValueType::Text,
-                }]);
-            }
-        };
-
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = take_single_string(PropertyKind::Class, prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
-            vec![SemanticError::InvalidValue {
+            vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Class,
                 value: e,
+                span: prop.span,
             }]
         })
     }
@@ -283,10 +264,11 @@ pub struct Organizer<'src> {
     pub language: Option<SpannedSegments<'src>>,
 }
 
-impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+    #[expect(clippy::indexing_slicing)]
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
         // Collect all optional parameters in a single pass
@@ -296,28 +278,35 @@ impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
         let mut language = None;
 
         for param in prop.parameters {
+            let kind_name = param.kind().name();
+            let param_span = param.span();
+
             match param {
-                TypedParameter::CommonName { value, .. } => match cn {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::CommonName,
+                Parameter::CommonName { value, .. } => match cn {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => cn = Some(value),
                 },
-                TypedParameter::Directory { value, .. } => match dir {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::Directory,
+                Parameter::Directory { value, .. } => match dir {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => dir = Some(value),
                 },
-                TypedParameter::SendBy { value, .. } => match sent_by {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::SendBy,
+                Parameter::SendBy { value, .. } => match sent_by {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => sent_by = Some(value),
                 },
-                TypedParameter::Language { value, .. } => match language {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::Language,
+                Parameter::Language { value, .. } => match language {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => language = Some(value),
                 },
@@ -328,7 +317,7 @@ impl<'src> TryFrom<TypedProperty<'src>> for Organizer<'src> {
 
         // Get cal_address value
         let cal_address = match take_single_text(prop.kind, prop.values) {
-            Ok(v) => v,
+            Ok(text) => text,
             Err(e) => {
                 errors.push(e);
                 return Err(errors);
@@ -373,10 +362,11 @@ pub enum AttachmentValue<'src> {
     Binary(SpannedSegments<'src>),
 }
 
-impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
+    #[expect(clippy::indexing_slicing)]
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
         // Collect all optional parameters in a single pass
@@ -384,16 +374,21 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
         let mut encoding = None;
 
         for param in prop.parameters {
+            let kind_name = param.kind().name();
+            let param_span = param.span();
+
             match param {
-                TypedParameter::FormatType { value, .. } => match fmt_type {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::FormatType,
+                Parameter::FormatType { value, .. } => match fmt_type {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => fmt_type = Some(value),
                 },
-                TypedParameter::Encoding { value, .. } => match encoding {
-                    Some(_) => errors.push(SemanticError::DuplicateParameter {
-                        parameter: TypedParameterKind::Encoding,
+                Parameter::Encoding { value, .. } => match encoding {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
                     }),
                     None => encoding = Some(value),
                 },
@@ -418,18 +413,19 @@ impl<'src> TryFrom<TypedProperty<'src>> for Attachment<'src> {
 
         match value {
             Value::Text(uri) => Ok(Attachment {
-                value: AttachmentValue::Uri(uri),
+                value: AttachmentValue::Uri(uri.clone()),
                 fmt_type,
                 encoding,
             }),
             Value::Binary(data) => Ok(Attachment {
-                value: AttachmentValue::Binary(data),
+                value: AttachmentValue::Binary(data.clone()),
                 fmt_type,
                 encoding,
             }),
-            _ => Err(vec![SemanticError::InvalidValue {
+            _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Attach,
                 value: "Expected URI or binary value".to_string(),
+                span: prop.span,
             }]),
         }
     }

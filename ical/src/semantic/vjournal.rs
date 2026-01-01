@@ -4,14 +4,15 @@
 
 //! Journal entry component (VJOURNAL) for iCalendar semantic components.
 
-use std::convert::TryFrom;
 use std::fmt;
 
 use crate::keyword::KW_VJOURNAL;
-use crate::property::{Attendee, Classification, DateTime, Organizer, Period, Text};
-use crate::property::{ExDateValue, Property, RDateValue, Status};
+use crate::property::{
+    Attendee, Classification, DateTime, ExDateValue, Organizer, Period, Property, PropertyKind,
+    RDateValue, Status, Text,
+};
 use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedComponent};
+use crate::typed::TypedComponent;
 use crate::value::RecurrenceRule;
 
 /// Journal entry component (VJOURNAL)
@@ -83,109 +84,104 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            match Property::try_from(prop) {
-                Ok(property) => {
-                    match property {
-                        Property::Uid(text) => match props.uid {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Uid,
-                            }),
-                            None => props.uid = Some(text),
-                        },
-                        Property::DtStamp(dt) => match props.dt_stamp {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::DtStamp,
-                            }),
-                            None => props.dt_stamp = Some(dt),
-                        },
-                        Property::DtStart(dt) => match props.dt_start {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::DtStart,
-                            }),
-                            None => props.dt_start = Some(dt),
-                        },
-                        Property::Summary(text) => match props.summary {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Summary,
-                            }),
-                            None => props.summary = Some(text),
-                        },
-                        Property::Description(text) => {
-                            // VJOURNAL allows multiple DESCRIPTION properties
-                            props.descriptions.push(text);
+            match prop {
+                Property::Uid(text) => match props.uid {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Uid,
+                    }),
+                    None => props.uid = Some(text),
+                },
+                Property::DtStamp(dt) => match props.dt_stamp {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::DtStamp,
+                    }),
+                    None => props.dt_stamp = Some(dt),
+                },
+                Property::DtStart(dt) => match props.dt_start {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::DtStart,
+                    }),
+                    None => props.dt_start = Some(dt),
+                },
+                Property::Summary(text) => match props.summary {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Summary,
+                    }),
+                    None => props.summary = Some(text),
+                },
+                Property::Description(text) => {
+                    // VJOURNAL allows multiple DESCRIPTION properties
+                    props.descriptions.push(text);
+                }
+                Property::Organizer(org) => match props.organizer {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Organizer,
+                    }),
+                    None => props.organizer = Some(org),
+                },
+                Property::Attendee(attendee) => {
+                    props.attendees.push(attendee);
+                }
+                Property::LastModified(dt) => match props.last_modified {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::LastModified,
+                    }),
+                    None => props.last_modified = Some(dt),
+                },
+                Property::Status(status) => match JournalStatus::try_from(status) {
+                    Ok(journal_status) => match props.status {
+                        Some(_) => errors.push(SemanticError::DuplicateProperty {
+                            property: PropertyKind::Status,
+                        }),
+                        None => props.status = Some(journal_status),
+                    },
+                    Err(e) => errors.push(SemanticError::InvalidValue {
+                        property: PropertyKind::Status,
+                        value: e,
+                    }),
+                },
+                Property::Class(class) => match props.classification {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Class,
+                    }),
+                    None => props.classification = Some(class),
+                },
+                Property::Categories(categories) => match props.categories {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Categories,
+                    }),
+                    None => props.categories = Some(categories.values),
+                },
+                Property::RRule(rrule) => match props.rrule {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::RRule,
+                    }),
+                    None => props.rrule = Some(rrule),
+                },
+                Property::RDate(rdates) => {
+                    for rdate in rdates.dates {
+                        if let RDateValue::Period(p) = rdate {
+                            props.rdate.push(p);
                         }
-                        Property::Organizer(org) => match props.organizer {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Organizer,
-                            }),
-                            None => props.organizer = Some(org),
-                        },
-                        Property::Attendee(attendee) => {
-                            props.attendees.push(attendee);
-                        }
-                        Property::LastModified(dt) => match props.last_modified {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::LastModified,
-                            }),
-                            None => props.last_modified = Some(dt),
-                        },
-                        Property::Status(status) => match JournalStatus::try_from(status) {
-                            Ok(journal_status) => match props.status {
-                                Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                    property: PropertyKind::Status,
-                                }),
-                                None => props.status = Some(journal_status),
-                            },
-                            Err(e) => errors.push(SemanticError::InvalidValue {
-                                property: PropertyKind::Status,
-                                value: e,
-                            }),
-                        },
-                        Property::Class(class) => match props.classification {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Class,
-                            }),
-                            None => props.classification = Some(class),
-                        },
-                        Property::Categories(categories) => match props.categories {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Categories,
-                            }),
-                            None => props.categories = Some(categories),
-                        },
-                        Property::RRule(rrule) => match props.rrule {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::RRule,
-                            }),
-                            None => props.rrule = Some(rrule),
-                        },
-                        Property::RDate(rdates) => {
-                            for rdate in rdates {
-                                if let RDateValue::Period(p) = rdate {
-                                    props.rdate.push(p);
-                                }
-                                // RDate Date/DateTime not yet implemented for journals
-                            }
-                        }
-                        Property::ExDate(exdates) => {
-                            for exdate in exdates {
-                                if let ExDateValue::DateTime(dt) = exdate {
-                                    props.ex_dates.push(dt);
-                                }
-                                // ExDate Date-only not yet implemented for journals
-                            }
-                        }
-                        Property::Url(text) => match props.url {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Url,
-                            }),
-                            None => props.url = Some(text),
-                        },
-                        // Ignore other properties not used by VJournal
-                        _ => {}
+                        // TODO: RDate Date/DateTime not yet implemented for journals
                     }
                 }
-                Err(e) => errors.extend(e),
+                Property::ExDate(exdates) => {
+                    for exdate in exdates.dates {
+                        if let ExDateValue::DateTime(dt) = exdate {
+                            props.ex_dates.push(dt);
+                        }
+                        // TODO: ExDate Date-only not yet implemented for journals
+                    }
+                }
+                Property::Url(text) => match props.url {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Url,
+                    }),
+                    None => props.url = Some(text),
+                },
+                // Ignore other properties not used by VJournal
+                _ => {}
             }
         }
 

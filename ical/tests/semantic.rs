@@ -13,7 +13,8 @@ use aimcal_ical::lexer::lex_analysis;
 use aimcal_ical::semantic::{CalendarComponent, SemanticError, semantic_analysis};
 use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
-use aimcal_ical::{CalendarScale, Duration, ICalendar, Method, Period, Version};
+use aimcal_ical::value::ValueDuration;
+use aimcal_ical::{CalendarScale, ICalendar, Method, Period, Version};
 
 /// Test helper to parse iCalendar source through semantic phase
 fn parse_semantic(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError>> {
@@ -889,7 +890,7 @@ END:VCALENDAR\r
                     assert_eq!(start_time.minute, 0);
                     // Duration: PT2H (2 hours)
                     match duration {
-                        Duration::DateTime {
+                        ValueDuration::DateTime {
                             positive,
                             day,
                             hour,

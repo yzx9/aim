@@ -4,13 +4,10 @@
 
 //! Alarm component (VALARM) for iCalendar semantic components.
 
-use std::convert::TryFrom;
-
 use crate::keyword::KW_VALARM;
-use crate::property::Property;
-use crate::property::{Action, Attachment, Attendee, Text, Trigger};
+use crate::property::{Action, Attachment, Attendee, Property, PropertyKind, Text, Trigger};
 use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedComponent};
+use crate::typed::TypedComponent;
 use crate::value::ValueDuration;
 
 /// Alarm component (VALARM)
@@ -42,10 +39,10 @@ pub struct VAlarm<'src> {
 }
 
 /// Parse a `TypedComponent` into a `VAlarm`
-#[allow(clippy::too_many_lines)]
 impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
     type Error = Vec<SemanticError>;
 
+    #[allow(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VALARM {
             return Err(vec![SemanticError::ExpectedComponent {
@@ -59,67 +56,54 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            match Property::try_from(prop) {
-                Ok(property) => {
-                    match property {
-                        Property::Action(action) => match props.action {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Action,
-                            }),
-                            None => props.action = Some(action),
-                        },
-                        Property::Trigger(trigger) => match props.trigger {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Trigger,
-                            }),
-                            None => props.trigger = Some(trigger),
-                        },
-                        Property::Duration(duration) => match props.duration {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Duration,
-                            }),
-                            None => props.duration = Some(duration),
-                        },
-                        Property::Repeat(repeat) => match props.repeat {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Repeat,
-                            }),
-                            None => match u32::try_from(repeat) {
-                                Ok(v) => props.repeat = Some(v),
-                                Err(_) => {
-                                    errors.push(SemanticError::InvalidValue {
-                                        property: PropertyKind::Repeat,
-                                        value: "Repeat must be non-negative".to_string(),
-                                    });
-                                }
-                            },
-                        },
-                        Property::Description(text) => match props.description {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Description,
-                            }),
-                            None => props.description = Some(text),
-                        },
-                        Property::Summary(text) => match props.summary {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Summary,
-                            }),
-                            None => props.summary = Some(text),
-                        },
-                        Property::Attendee(attendee) => {
-                            props.attendees.push(attendee);
-                        }
-                        Property::Attach(attach) => match props.attach {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::Attach,
-                            }),
-                            None => props.attach = Some(attach),
-                        },
-                        // Ignore other properties not used by VAlarm
-                        _ => {}
-                    }
+            match prop {
+                Property::Action(action) => match props.action {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Action,
+                    }),
+                    None => props.action = Some(action),
+                },
+                Property::Trigger(trigger) => match props.trigger {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Trigger,
+                    }),
+                    None => props.trigger = Some(trigger),
+                },
+                Property::Duration(duration) => match props.duration {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Duration,
+                    }),
+                    None => props.duration = Some(duration.value),
+                },
+                Property::Repeat(repeat) => match props.repeat {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Repeat,
+                    }),
+                    None => props.repeat = Some(repeat.value),
+                },
+                Property::Description(text) => match props.description {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Description,
+                    }),
+                    None => props.description = Some(text),
+                },
+                Property::Summary(text) => match props.summary {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Summary,
+                    }),
+                    None => props.summary = Some(text),
+                },
+                Property::Attendee(attendee) => {
+                    props.attendees.push(attendee);
                 }
-                Err(e) => errors.extend(e),
+                Property::Attach(attach) => match props.attach {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::Attach,
+                    }),
+                    None => props.attach = Some(attach),
+                },
+                // Ignore other properties not used by VAlarm
+                _ => {}
             }
         }
 

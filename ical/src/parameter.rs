@@ -10,8 +10,8 @@
 mod ast;
 mod definition;
 
-pub use ast::{TypedParameter, TypedParameterKind};
+pub use ast::{Parameter, ParameterKind};
 pub use definition::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,
-    ParticipationStatus, ValueType,
+    ParticipationStatus, ValueKind,
 };

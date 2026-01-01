@@ -7,7 +7,7 @@ use chumsky::error::Rich;
 use crate::lexer::{Token, lex_analysis};
 use crate::semantic::{ICalendar, SemanticError, semantic_analysis};
 use crate::syntax::syntax_analysis;
-use crate::typed::{TypedAnalysisError, typed_analysis};
+use crate::typed::{TypedError, typed_analysis};
 
 /// Parse an iCalendar component from source code
 ///
@@ -124,7 +124,7 @@ pub enum ParseError<'src> {
     Syntax(Rich<'src, Token<'src>>),
 
     /// Errors from typed analysis
-    Typed(TypedAnalysisError<'src>),
+    Typed(TypedError<'src>),
 
     /// Errors from semantic analysis
     Semantic(SemanticError),

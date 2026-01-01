@@ -13,8 +13,9 @@ use crate::keyword::{
     KW_STATUS_CANCELLED, KW_STATUS_COMPLETED, KW_STATUS_CONFIRMED, KW_STATUS_DRAFT,
     KW_STATUS_FINAL, KW_STATUS_IN_PROCESS, KW_STATUS_NEEDS_ACTION, KW_STATUS_TENTATIVE,
 };
-use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedProperty, Value, ValueType};
+use crate::property::PropertyKind;
+use crate::property::util::take_single_string;
+use crate::typed::{ParsedProperty, TypedError};
 
 /// Event/To-do/Journal status (RFC 5545 Section 3.8.1.11)
 ///
@@ -87,28 +88,16 @@ impl Display for Status {
     }
 }
 
-impl<'src> TryFrom<TypedProperty<'src>> for Status {
-    type Error = Vec<SemanticError>;
+impl<'src> TryFrom<ParsedProperty<'src>> for Status {
+    type Error = Vec<TypedError<'src>>;
 
-    fn try_from(prop: TypedProperty<'src>) -> Result<Self, Self::Error> {
-        let text = prop
-            .values
-            .first()
-            .and_then(|v| match v {
-                Value::Text(t) => Some(t.resolve().to_string()),
-                _ => None,
-            })
-            .ok_or_else(|| {
-                vec![SemanticError::UnexpectedType {
-                    property: PropertyKind::Status,
-                    expected: ValueType::Text,
-                }]
-            })?;
-
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let text = take_single_string(PropertyKind::Status, prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
-            vec![SemanticError::InvalidValue {
+            vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Status,
                 value: e,
+                span: prop.span,
             }]
         })
     }

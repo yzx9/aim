@@ -4,12 +4,10 @@
 
 //! Timezone component (VTIMEZONE) for iCalendar semantic components.
 
-use std::convert::TryFrom;
-
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
-use crate::property::{DateTime, Property, Text, TimeZoneOffset};
+use crate::property::{DateTime, Property, PropertyKind, Text, TimeZoneOffset};
 use crate::semantic::SemanticError;
-use crate::typed::{PropertyKind, TypedComponent};
+use crate::typed::TypedComponent;
 use crate::value::RecurrenceRule;
 
 /// Timezone component (VTIMEZONE)
@@ -32,7 +30,6 @@ pub struct VTimeZone<'src> {
 }
 
 /// Parse a `TypedComponent` into a `VTimeZone`
-#[allow(clippy::too_many_lines)]
 impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
     type Error = Vec<SemanticError>;
 
@@ -49,32 +46,27 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            match Property::try_from(prop) {
-                Ok(property) => {
-                    match property {
-                        Property::TzId(text) => match props.tz_id {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::TzId,
-                            }),
-                            None => props.tz_id = Some(text),
-                        },
-                        Property::LastModified(dt) => match props.last_modified {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::LastModified,
-                            }),
-                            None => props.last_modified = Some(dt),
-                        },
-                        Property::TzUrl(text) => match props.tz_url {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::TzUrl,
-                            }),
-                            None => props.tz_url = Some(text),
-                        },
-                        // Ignore other properties not used by VTimeZone
-                        _ => {}
-                    }
-                }
-                Err(e) => errors.extend(e),
+            match prop {
+                Property::TzId(text) => match props.tz_id {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::TzId,
+                    }),
+                    None => props.tz_id = Some(text),
+                },
+                Property::LastModified(dt) => match props.last_modified {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::LastModified,
+                    }),
+                    None => props.last_modified = Some(dt),
+                },
+                Property::TzUrl(text) => match props.tz_url {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::TzUrl,
+                    }),
+                    None => props.tz_url = Some(text),
+                },
+                // Ignore other properties not used by VTimeZone
+                _ => {}
             }
         }
 
@@ -88,7 +80,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
         // Parse child components (STANDARD and DAYLIGHT observances)
         let mut standard = Vec::new();
         let mut daylight = Vec::new();
-
         for child in comp.children {
             match child.name {
                 KW_STANDARD => match child.try_into() {
@@ -99,9 +90,17 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                     Ok(v) => daylight.push(v),
                     Err(e) => errors.extend(e),
                 },
-                _ => errors.push(SemanticError::UnknownComponent {
-                    component: child.name.to_string(),
-                }),
+                _ => {
+                    errors.push(SemanticError::UnknownComponent {
+                        component: child.name.to_string(),
+                    });
+
+                    // still attempt to parse to collect errors
+                    match TimeZoneObservance::try_from(child) {
+                        Ok(_) => {}
+                        Err(e) => errors.extend(e),
+                    }
+                }
             }
         }
 
@@ -152,42 +151,37 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
         // Collect all properties in a single pass
         let mut props = ObservanceCollector::default();
         for prop in comp.properties {
-            match Property::try_from(prop) {
-                Ok(property) => {
-                    match property {
-                        Property::DtStart(dt) => match props.dt_start {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::DtStart,
-                            }),
-                            None => props.dt_start = Some(dt),
-                        },
-                        Property::TzOffsetFrom(offset) => match props.tz_offset_from {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::TzOffsetFrom,
-                            }),
-                            None => props.tz_offset_from = Some(offset),
-                        },
-                        Property::TzOffsetTo(offset) => match props.tz_offset_to {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::TzOffsetTo,
-                            }),
-                            None => props.tz_offset_to = Some(offset),
-                        },
-                        Property::TzName(text) => {
-                            // TZNAME can appear multiple times
-                            props.tz_name.push(text);
-                        }
-                        Property::RRule(rrule) => match props.rrule {
-                            Some(_) => errors.push(SemanticError::DuplicateProperty {
-                                property: PropertyKind::RRule,
-                            }),
-                            None => props.rrule = Some(rrule),
-                        },
-                        // Ignore other properties not used by TimeZoneObservance
-                        _ => {}
-                    }
+            match prop {
+                Property::DtStart(dt) => match props.dt_start {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::DtStart,
+                    }),
+                    None => props.dt_start = Some(dt),
+                },
+                Property::TzOffsetFrom(offset) => match props.tz_offset_from {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::TzOffsetFrom,
+                    }),
+                    None => props.tz_offset_from = Some(offset),
+                },
+                Property::TzOffsetTo(offset) => match props.tz_offset_to {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::TzOffsetTo,
+                    }),
+                    None => props.tz_offset_to = Some(offset),
+                },
+                Property::TzName(text) => {
+                    // TZNAME can appear multiple times
+                    props.tz_name.push(text);
                 }
-                Err(e) => errors.extend(e),
+                Property::RRule(rrule) => match props.rrule {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
+                        property: PropertyKind::RRule,
+                    }),
+                    None => props.rrule = Some(rrule),
+                },
+                // Ignore other properties not used by TimeZoneObservance
+                _ => {}
             }
         }
 
