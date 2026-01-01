@@ -7,22 +7,13 @@
 //! This module defines the unified `Property` enum that provides type-safe
 //! access to all iCalendar properties with their corresponding semantic types.
 
-use crate::property::PropertyKind;
-use crate::property::alarm::{Action, Trigger};
-use crate::property::cal::{CalendarScale, Method, ProductId, Version};
-use crate::property::datetime::{
-    Completed, Created, DtEnd, DtStamp, DtStart, Due, LastModified, RecurrenceId,
+use crate::property::{
+    Action, Attachment, Attendee, CalendarScale, Categories, Classification, Comment, Completed,
+    Contact, Created, Description, DtEnd, DtStamp, DtStart, Due, Duration, ExDate, FreeBusy, Geo,
+    LastModified, Location, Method, Organizer, PercentComplete, Priority, ProductId, PropertyKind,
+    RDate, RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status, Summary,
+    TimeTransparency, Trigger, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, Url, Version,
 };
-use crate::property::descriptive::{
-    Attachment, Categories, Classification, Comment, Contact, Description, Geo, Location,
-    Organizer, RelatedTo, RequestStatus, Resources, Summary, TzId, TzName, TzUrl, Uid, Url,
-};
-use crate::property::numeric::{Duration, PercentComplete, Priority, Repeat, Sequence};
-use crate::property::recurrence::{ExDate, FreeBusy, RDate};
-use crate::property::relationship::Attendee;
-use crate::property::status::Status;
-use crate::property::timezone::{TzOffsetFrom, TzOffsetTo};
-use crate::property::transp::TimeTransparency;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::RecurrenceRule;
 

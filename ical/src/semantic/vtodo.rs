@@ -9,9 +9,9 @@ use std::fmt;
 use crate::Uid;
 use crate::keyword::{KW_VALARM, KW_VTODO};
 use crate::property::{
-    Attendee, Categories, Classification, Completed, DateTime, Description, Due, DtStamp,
-    DtStart, ExDateValue, Geo, LastModified, Location, Organizer, Period, Property,
-    PropertyKind, RDateValue, Resources, Status, Summary, Url,
+    Attendee, Categories, Classification, Completed, DateTime, Description, DtStamp, DtStart, Due,
+    ExDateValue, Geo, LastModified, Location, Organizer, Period, Property, PropertyKind,
+    RDateValue, Resources, Status, Summary, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::typed::TypedComponent;

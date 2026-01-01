@@ -9,15 +9,23 @@
 //! property kind during conversion from `ParsedProperty`:
 //!
 //! - 3.8.4.1: `Attendee` - Event participant with calendar user address and
-//!   participation parameters (CUType, Role, PartStat, etc.)
-//! - 3.8.4.3: `Organizer` - Event organizer with calendar user address
-//!   and sent-by parameter
+//!   participation parameters
+//! - 3.8.4.2: `Contact` - Contact information
+//! - 3.8.4.3: `Organizer` - Event organizer
+//! - 3.8.4.3: `Organizer` - Event organizer with calendar user address and
+//!   sent-by parameter
+//! - 3.8.4.4: `RecurrenceId` - Recurrence ID
+//! - 3.8.4.5: `RelatedTo` - Related to another component
+//! - 3.8.4.6: `Url` - Uniform Resource Locator
+//! - 3.8.4.7: `Uid` - Unique identifier
 
 use std::convert::TryFrom;
+use std::ops::{Deref, DerefMut};
 
+use crate::DateTime;
 use crate::parameter::{CalendarUserType, Parameter, ParticipationRole, ParticipationStatus};
 use crate::property::PropertyKind;
-use crate::property::util::take_single_text;
+use crate::property::util::{Text, take_single_text};
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
@@ -262,3 +270,173 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
         })
     }
 }
+
+simple_property_wrapper!(
+    /// Simple text property wrapper (RFC 5545 Section 3.8.4.2)
+    Contact<'src>: Text<'src> => Contact
+);
+
+/// Organizer information (RFC 5545 Section 3.8.4.3)
+#[derive(Debug, Clone)]
+pub struct Organizer<'src> {
+    /// Calendar user address (mailto: or other URI)
+    pub cal_address: ValueText<'src>, // TODO: parse mailto:
+
+    /// Common name (optional)
+    pub cn: Option<SpannedSegments<'src>>,
+
+    /// Directory entry reference (optional)
+    pub dir: Option<SpannedSegments<'src>>,
+
+    /// Sent by (optional)
+    pub sent_by: Option<SpannedSegments<'src>>,
+
+    /// Language (optional)
+    pub language: Option<SpannedSegments<'src>>,
+}
+
+impl Organizer<'_> {
+    /// Get the property kind for `Organizer`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Organizer
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let mut errors = Vec::new();
+
+        // Collect all optional parameters in a single pass
+        let mut cn = None;
+        let mut dir = None;
+        let mut sent_by = None;
+        let mut language = None;
+
+        for param in prop.parameters {
+            let kind_name = param.kind().name();
+            let param_span = param.span();
+
+            match param {
+                Parameter::CommonName { value, .. } => match cn {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
+                    }),
+                    None => cn = Some(value),
+                },
+                Parameter::Directory { value, .. } => match dir {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
+                    }),
+                    None => dir = Some(value),
+                },
+                Parameter::SendBy { value, .. } => match sent_by {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
+                    }),
+                    None => sent_by = Some(value),
+                },
+                Parameter::Language { value, .. } => match language {
+                    Some(_) => errors.push(TypedError::ParameterDuplicated {
+                        parameter: kind_name,
+                        span: param_span,
+                    }),
+                    None => language = Some(value),
+                },
+                // Ignore unknown parameters
+                _ => {}
+            }
+        }
+
+        // Get cal_address value
+        let cal_address = match take_single_text(prop.kind, prop.values) {
+            Ok(text) => text,
+            Err(e) => {
+                errors.push(e);
+                return Err(errors);
+            }
+        };
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        Ok(Organizer {
+            cal_address,
+            cn,
+            dir,
+            sent_by,
+            language,
+        })
+    }
+}
+
+/// Recurrence ID property wrapper (RFC 5545 Section 3.8.4.4)
+#[derive(Debug, Clone)]
+pub struct RecurrenceId<'src>(pub DateTime<'src>);
+
+impl<'src> Deref for RecurrenceId<'src> {
+    type Target = DateTime<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RecurrenceId<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl RecurrenceId<'_> {
+    /// Returns the property kind.
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::RecurrenceId
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for RecurrenceId<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+        DateTime::try_from(prop).map(RecurrenceId)
+    }
+}
+
+simple_property_wrapper!(
+    /// Simple text property wrapper (RFC 5545 Section 3.8.4.5)
+    RelatedTo<'src>: Text<'src> => RelatedTo
+);
+
+simple_property_wrapper!(
+    /// Simple text property wrapper (RFC 5545 Section 3.8.4.6)
+    Url<'src>: Text<'src> => Url
+);
+
+simple_property_wrapper!(
+    /// Simple text property wrapper (RFC 5545 Section 3.8.4.7)
+    Uid<'src>: Text<'src> => Uid
+);

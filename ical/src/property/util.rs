@@ -200,3 +200,55 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
         Ok(Self { values })
     }
 }
+
+macro_rules! simple_property_wrapper {
+    (
+        $(#[$meta:meta])*
+        $name:ident <'src> : $inner:ty => $kind:ident
+        $(, derives = [$($derive:ident),* $(,)?])?
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone $(, $($($derive),*)? )?)]
+        pub struct $name<'src>(pub $inner);
+
+        impl<'src> ::core::ops::Deref for $name<'src> {
+            type Target = $inner;
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl ::core::ops::DerefMut for $name<'_> {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
+
+        impl $name<'_> {
+            /// Get the property kind for this type
+            #[must_use]
+            pub const fn kind() -> crate::property::PropertyKind {
+                crate::property::PropertyKind::$kind
+            }
+        }
+
+        impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name<'src>
+        where
+            $inner: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
+        {
+            type Error = Vec<crate::typed::TypedError<'src>>;
+
+            fn try_from(prop: crate::typed::ParsedProperty<'src>) -> Result<Self, Self::Error> {
+                if prop.kind != Self::kind() {
+                    return Err(vec![crate::typed::TypedError::PropertyUnexpectedKind {
+                        expected: Self::kind(),
+                        found: prop.kind,
+                        span: prop.span,
+                    }]);
+                }
+
+                <$inner>::try_from(prop).map($name)
+            }
+        }
+    };
+}

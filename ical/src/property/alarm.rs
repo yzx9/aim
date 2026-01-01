@@ -9,13 +9,14 @@
 //! their property kind during conversion from `ParsedProperty`:
 //!
 //! - 3.8.6.1: `Action` - Alarm action type (AUDIO, DISPLAY, EMAIL)
+//! - 3.8.6.2: `Repeat` - Alarm repeat count
 //! - 3.8.6.3: `Trigger` - Alarm trigger time or duration
 //!   - `TriggerValue` - Trigger value variant (duration or date-time)
 
-use std::{convert::TryFrom, fmt::Display, str::FromStr};
+use std::{convert::TryFrom, fmt, str::FromStr};
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
-use crate::parameter::{AlarmTriggerRelationship, Parameter};
+use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueKind};
 use crate::property::util::{take_single_string, take_single_value};
 use crate::property::{DateTime, PropertyKind};
 use crate::typed::{ParsedProperty, TypedError};
@@ -66,8 +67,8 @@ impl AsRef<str> for Action {
     }
 }
 
-impl Display for Action {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_ref().fmt(f)
     }
 }
@@ -93,6 +94,65 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action {
                 span,
             }]
         })
+    }
+}
+
+/// Repeat Count (RFC 5545 Section 3.8.6.2)
+///
+/// This property defines the number of times the alarm should repeat.
+#[derive(Debug, Clone, Copy)]
+pub struct Repeat {
+    /// Number of repetitions
+    pub value: u32,
+}
+
+impl Repeat {
+    /// Get the property kind for `Repeat`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::Repeat
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Repeat {
+    type Error = Vec<TypedError<'src>>;
+
+    #[allow(clippy::cast_sign_loss)]
+    fn try_from(mut prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        match prop.values.len() {
+            0 => Err(vec![TypedError::PropertyMissingValue {
+                property: prop.kind,
+                span: prop.span,
+            }]),
+            1 => match prop.values.pop().unwrap() {
+                Value::Integer(i) if i > 0 => Ok(Self { value: i as u32 }),
+                Value::Integer(i) => Err(vec![TypedError::PropertyInvalidValue {
+                    property: prop.kind,
+                    value: format!("Repeat count must be non-negative: {i}"),
+                    span: prop.span,
+                }]),
+                v => Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind,
+                    expected: ValueKind::Integer,
+                    found: v.kind(),
+                    span: prop.span,
+                }]),
+            },
+            len => Err(vec![TypedError::PropertyInvalidValueCount {
+                property: PropertyKind::Repeat,
+                expected: 1,
+                found: len,
+                span: prop.span,
+            }]),
+        }
     }
 }
 

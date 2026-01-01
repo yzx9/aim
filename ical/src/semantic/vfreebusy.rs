@@ -7,7 +7,9 @@
 use crate::Uid;
 use crate::keyword::KW_VFREEBUSY;
 use crate::parameter::FreeBusyType;
-use crate::property::{Contact, DtEnd, DtStamp, DtStart, Organizer, Period, Property, PropertyKind, Url};
+use crate::property::{
+    Contact, DtEnd, DtStamp, DtStart, Organizer, Period, Property, PropertyKind, Url,
+};
 use crate::semantic::SemanticError;
 use crate::typed::TypedComponent;
 use crate::value::ValueDuration;

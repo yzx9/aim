@@ -4,25 +4,104 @@
 
 //! Time Zone Component Properties (RFC 5545 Section 3.8.3)
 //!
-//! This module contains property types for the "Time Zone Component Properties"
-//! section of RFC 5545. Each property type implements `Deref` and `DerefMut`
-//! for convenient access to the underlying UTC offset value, and includes
-//! a `kind()` method for property validation:
-//!
+//! - 3.8.3.1: `TzId` - Time zone identifier
+//! - 3.8.3.2: `TzName` - Time zone name
 //! - 3.8.3.3: `TzOffsetFrom` - Time zone offset from standard time
 //! - 3.8.3.4: `TzOffsetTo` - Time zone offset to daylight saving time
-//!
-//! Both properties validate their kind during conversion, ensuring type
-//! safety throughout the parsing pipeline.
+//! - 3.8.3.5: `TzUrl` - Time zone URL
 
 use std::convert::TryFrom;
 use std::ops::{Deref, DerefMut};
 
 use crate::parameter::ValueKind;
 use crate::property::PropertyKind;
-use crate::property::util::take_single_value;
+use crate::property::util::{Text, take_single_value};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueUtcOffset};
+
+/// Simple text property wrapper for `TzId` (RFC 5545 Section 3.8.3.1)
+#[derive(Debug, Clone)]
+pub struct TzId<'src>(pub Text<'src>);
+
+impl<'src> Deref for TzId<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TzId<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl TzId<'_> {
+    /// Get the property kind for `TzId`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::TzId
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for TzId<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(TzId)
+    }
+}
+
+/// Simple text property wrapper for `TzName` (RFC 5545 Section 3.8.3.2)
+#[derive(Debug, Clone)]
+pub struct TzName<'src>(pub Text<'src>);
+
+impl<'src> Deref for TzName<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TzName<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl TzName<'_> {
+    /// Get the property kind for `TzName`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::TzName
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for TzName<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(TzName)
+    }
+}
 
 /// Time Zone Offset From property wrapper (RFC 5545 Section 3.8.3.3)
 #[derive(Debug, Clone, Copy)]
@@ -122,5 +201,47 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TzOffsetTo {
             }]),
             Err(e) => Err(vec![e]),
         }
+    }
+}
+
+/// Simple text property wrapper for `TzUrl` (RFC 5545 Section 3.8.3.5)
+#[derive(Debug, Clone)]
+pub struct TzUrl<'src>(pub Text<'src>);
+
+impl<'src> Deref for TzUrl<'src> {
+    type Target = Text<'src>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TzUrl<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl TzUrl<'_> {
+    /// Get the property kind for `TzUrl`
+    #[must_use]
+    pub const fn kind() -> PropertyKind {
+        PropertyKind::TzUrl
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for TzUrl<'src> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if prop.kind != Self::kind() {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: Self::kind(),
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        Text::try_from(prop).map(TzUrl)
     }
 }

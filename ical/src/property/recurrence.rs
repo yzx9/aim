@@ -4,11 +4,10 @@
 
 //! Recurrence-related property types.
 //!
-//! This module contains property types related to date/time recurrence.
-//! All types implement `kind()` methods and validate their property kind
-//! during conversion from `ParsedProperty`:
+//! This module contains property types related to date/time recurrence
+//! (RFC 5545 Section 3.8.5). All types implement `kind()` methods and
+//! validate their property kind during conversion from `ParsedProperty`:
 //!
-//! - 3.8.2.6: `FreeBusy` - Free/busy time information
 //! - 3.8.5.1: `ExDate` - Exception date-times
 //! - 3.8.5.2: `RDate` - Recurrence date-times
 //!
@@ -18,9 +17,8 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::{FreeBusyType, Parameter, ValueKind};
-use crate::property::PropertyKind;
-use crate::property::datetime::{DateTime, Period};
+use crate::parameter::ValueKind;
+use crate::property::{DateTime, Period, PropertyKind};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate};
 
@@ -42,66 +40,6 @@ pub enum RDateValue<'src> {
     DateTime(DateTime<'src>),
     /// Period value
     Period(Period<'src>),
-}
-
-/// Free/Busy Time (RFC 5545 Section 3.8.2.6)
-///
-/// This property defines one or more free or busy time intervals.
-#[derive(Debug, Clone)]
-pub struct FreeBusy<'src> {
-    /// Free/Busy type parameter
-    pub fb_type: FreeBusyType,
-    /// List of free/busy time periods
-    pub values: Vec<Period<'src>>,
-}
-
-impl FreeBusy<'_> {
-    /// Get the property kind for `FreeBusy`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::FreeBusy
-    }
-}
-
-impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<'src> {
-    type Error = Vec<TypedError<'src>>;
-
-    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
-            return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
-                found: prop.kind,
-                span: prop.span,
-            }]);
-        }
-
-        // Extract FBTYPE parameter (defaults to BUSY)
-        let mut fb_type = FreeBusyType::Busy;
-        for param in &prop.parameters {
-            if let Parameter::FreeBusyType { value, .. } = param {
-                fb_type = *value;
-                break; // Found it, no need to continue
-            }
-        }
-
-        let mut errors = Vec::new();
-        if prop.values.is_empty() {
-            errors.push(TypedError::PropertyMissingValue {
-                property: prop.kind,
-                span: prop.span,
-            });
-        }
-
-        let mut values = Vec::with_capacity(prop.values.len());
-        for value in prop.values {
-            match Period::try_from(value) {
-                Ok(period) => values.push(period),
-                Err(e) => errors.extend(e),
-            }
-        }
-
-        Ok(FreeBusy { fb_type, values })
-    }
 }
 
 /// Exception Date-Times (RFC 5545 Section 3.8.5.1)
