@@ -9,7 +9,7 @@ use chumsky::extra::ParserExtra;
 use chumsky::label::LabelError;
 use chumsky::prelude::*;
 
-use crate::value::ast::ValueExpected;
+use crate::value::miscellaneous::ValueExpected;
 
 /// Format Definition:  This value type is defined by the following notation:
 ///

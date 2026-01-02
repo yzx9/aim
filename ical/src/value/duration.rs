@@ -10,7 +10,7 @@ use chumsky::label::LabelError;
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 
-use crate::value::ast::ValueExpected;
+use crate::value::miscellaneous::ValueExpected;
 
 /// Duration Value defined in RFC 5545 Section 3.3.6
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

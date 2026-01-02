@@ -37,7 +37,7 @@ Validates all components against RFC 5545 specifications through three sub-passe
    - Parses and validates iCalendar parameters per RFC 5545 Section 3.2
    - Converts parameter strings to strongly-typed representations
    - Validates parameter values (e.g., enum values for CUTYPE, ENCODING, etc.)
-   - Provides `Parameter` and `ParameterKind` types
+   - Provides `Parameter` enum and `ParameterKind` type for type-safe parameter handling
 
 2. **Value Pass**
    - Parses and validates property value types per RFC 5545 Section 3.3
@@ -52,12 +52,14 @@ Validates all components against RFC 5545 specifications through three sub-passe
    - Implements property kind validation to ensure type safety
    - Creates strongly-typed wrapper types for each property
 
-**Note**: Property type definitions (e.g., `Attendee`, `DateTime`, `Geo`) are organized
-in the `property/` module by RFC 5545 sections for better code organization and
-maintainability. Each property type now has:
+**Property Organization**: Property type definitions are organized in the `property/`
+module by RFC 5545 sections. Each property type has:
 - A dedicated wrapper type (e.g., `Created`, `DtStart`, `Summary`)
 - A `kind()` method returning the corresponding `PropertyKind`
-- Type validation in `TryFrom<ParsedProperty>` implementations
+- Type validation in `TryFrom<ParsedProperty>` implementations that verify the
+  property kind matches the expected type
+- A unified `Property` enum in `property.rs` that provides type-safe access to all
+  property variants
 
 ### Semantic Analysis Phase
 
@@ -88,35 +90,36 @@ ical/
 │   ├── syntax.rs           # Syntax analysis
 │   ├── parser.rs           # Unified parser orchestration
 │   ├── typed.rs            # Typed module entry point
+│   ├── semantic.rs         # Semantic analysis entry point and error types
+│   ├── parameter.rs        # Parameter enum and TryFrom implementation
 │   ├── parameter/          # Parameter pass implementation
-│   │   ├── ast.rs          # Parameter definitions and parsing
-│   │   └── definition.rs   # Parameter type enums
+│   │   ├── definition.rs   # Parameter type enums and parsing functions
+│   │   ├── kind.rs         # ParameterKind enum
+│   │   └── util.rs         # Parameter parsing utilities
+│   ├── property.rs         # Property enum and TryFrom implementation
 │   ├── property/           # Property types organized by RFC 5545 sections
-│   │   ├── kind.rs         # Property kinds (PropertyKind)
-│   │   ├── alarm.rs        # Section 3.8.6 - Alarm properties (Action, Trigger)
-│   │   ├── ast.rs          # Unified Property enum
-│   │   ├── cal.rs          # Section 3.7 - Calendar properties (CalendarScale, Method, etc.)
-│   │   ├── datetime.rs     # Section 3.8.2 - Date/time properties (DateTime, Period, Time, plus wrappers)
-│   │   ├── descriptive.rs  # Section 3.8.1 - Descriptive properties (Attachment, Geo, Text types)
-│   │   ├── numeric.rs      # Section 3.8.1.9 - Numeric properties (Duration, Priority, etc.)
-│   │   ├── recurrence.rs   # Section 3.8.5 - Recurrence properties (ExDate, RDate, etc.)
-│   │   ├── relationship.rs # Section 3.8.4 - Relationship properties (Attendee, Organizer)
-│   │   ├── status.rs       # Section 3.8.1.11 - Status properties (EventStatus, etc.)
-│   │   ├── timezone.rs     # Section 3.8.3 - Time zone properties (TzOffsetFrom, TzOffsetTo)
-│   │   ├── transp.rs       # Section 3.8.2.7 - Time transparency property
-│   │   └── util.rs         # Text property utilities (Text, Texts, helpers)
+│   │   ├── kind.rs         # PropertyKind enum with value type mappings
+│   │   ├── alarm.rs        # Section 3.8.6 - Alarm properties (Action, Repeat, Trigger)
+│   │   ├── calendar.rs     # Section 3.7 - Calendar properties (CalScale, Method, ProdId, Version)
+│   │   ├── changemgmt.rs   # Section 3.8.7 - Change management properties (Created, DtStamp, etc.)
+│   │   ├── datetime.rs     # Section 3.8.2 - Date/time properties (Completed, DtEnd, DtStart, Due, Duration, etc.)
+│   │   ├── descriptive.rs  # Section 3.8.1 - Descriptive properties (Attach, Categories, Class, Comment, etc.)
+│   │   ├── miscellaneous.rs # Section 3.8.8 - Miscellaneous properties (RequestStatus)
+│   │   ├── recurrence.rs   # Section 3.8.5 - Recurrence properties (ExDate, RDate)
+│   │   ├── relationship.rs # Section 3.8.4 - Relationship properties (Attendee, Contact, Organizer, etc.)
+│   │   ├── timezone.rs     # Section 3.8.3 - Time zone properties (TzId, TzName, TzOffsetFrom, etc.)
+│   │   └── util.rs         # Text property utilities (Text, Texts, macros, helpers)
+│   ├── value.rs            # Value enum and parsing
 │   ├── value/              # Value pass implementation
-│   │   ├── ast.rs          # Value enum and parsing
-│   │   ├── datetime.rs     # Date/time value types
-│   │   ├── duration.rs     # Duration value type
-│   │   ├── numeric.rs      # Numeric value types
-│   │   ├── period.rs       # Period value type
-│   │   ├── rrule.rs        # Recurrence rule type
-│   │   └── text.rs         # Text value type
-│   └── semantic/           # Semantic module declaration
-│       ├── analysis.rs     # Main semantic coordinator
+│   │   ├── datetime.rs     # Date/time value types (ValueDate, ValueDateTime, ValueTime, ValueUtcOffset)
+│   │   ├── duration.rs     # Duration value type (ValueDuration)
+│   │   ├── miscellaneous.rs # Miscellaneous value types (Binary, Boolean)
+│   │   ├── numeric.rs      # Numeric value types (Float, Integer)
+│   │   ├── period.rs       # Period value type (ValuePeriod)
+│   │   ├── rrule.rs        # Recurrence rule type (RecurrenceRule, Day, WeekDay)
+│   │   └── text.rs         # Text value type (ValueText)
+│   └── semantic/           # Semantic component implementations
 │       ├── icalendar.rs    # ICalendar root component
-│       ├── property_util.rs    # Property parsing helper functions
 │       ├── valarm.rs       # VAlarm component
 │       ├── vevent.rs       # VEvent component
 │       ├── vfreebusy.rs    # VFreeBusy component
@@ -152,11 +155,13 @@ ical/
   - **Parameter Pass** handles all parameter-related parsing and validation
   - **Value Pass** handles all value type parsing and validation
   - **Property Pass** handles property-level constraints and type validation
-- **Property Kind Validation**: All property types now validate their kind
-  during conversion, ensuring type safety and preventing incorrect property
-  assignments
+- **Property Kind Validation**: Comprehensive type safety through:
+  - `PropertyKind` enum (`property/kind.rs`) representing all RFC 5545 properties
+  - Each property has a `kind()` method returning its corresponding `PropertyKind`
+  - `TryFrom<ParsedProperty>` implementations verify property kind matches expected type
+  - Unified `Property` enum providing type-safe access to all property variants
 - **RFC 5545 Compliance**: Comprehensive validation against the iCalendar
-  specification
+  specification with property-to-value-type mappings defined in `PropertyKind`
 - **Error Aggregation**: Collects and reports errors from all phases
 - **Type Safety**: Strongly typed representation of iCalendar data with
   dedicated wrapper types for each property (e.g., `Created`, `DtStart`, `Summary`)
@@ -176,9 +181,14 @@ The architecture provides comprehensive error reporting with:
 
 ## Feature Support
 
+- **Property Kind System**: Complete `PropertyKind` enum with value type mappings
+  for all RFC 5545 properties, enabling compile-time type safety
+- **Unified Property Enum**: Single `Property` enum providing type-safe access to
+  all property variants with `TryFrom<ParsedProperty>` validation
 - **Timezone Validation**: Optional integration with `jiff` for timezone
   database validation (feature-gated)
-- **Extensible Property Support**: Registry-based property specifications
+- **Extensible Property Support**: Property types organized by RFC 5545 sections
+  for easy maintenance and extension
 - **RFC 5545 Compliance**: Complete support for all required value types and
   parameters
 - **Semantic Type System**: High-level semantic representations of iCalendar
