@@ -28,7 +28,7 @@ use crate::keyword::{
     KW_STATUS_COMPLETED, KW_STATUS_CONFIRMED, KW_STATUS_DRAFT, KW_STATUS_FINAL,
     KW_STATUS_IN_PROCESS, KW_STATUS_NEEDS_ACTION, KW_STATUS_TENTATIVE,
 };
-use crate::parameter::{Encoding, Parameter, ValueKind};
+use crate::parameter::{Encoding, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::util::{Text, Texts, take_single_string, take_single_value};
 use crate::syntax::SpannedSegments;
@@ -46,6 +46,12 @@ pub struct Attachment<'src> {
 
     /// Encoding (optional)
     pub encoding: Option<Encoding>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 /// Attachment value (URI or binary)
@@ -58,21 +64,13 @@ pub enum AttachmentValue<'src> {
     Binary(SpannedSegments<'src>),
 }
 
-impl Attachment<'_> {
-    /// Get the property kind for `Attachment`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Attach
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Attach) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Attach,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -83,36 +81,38 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
         // Collect all optional parameters in a single pass
         let mut fmt_type = None;
         let mut encoding = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
 
         for param in prop.parameters {
-            let kind_name = param.kind().name();
-            let param_span = param.span();
-
             match param {
-                Parameter::FormatType { value, .. } => match fmt_type {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => fmt_type = Some(value),
-                },
-                Parameter::Encoding { value, .. } => match encoding {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => encoding = Some(value),
-                },
-                // Ignore unknown parameters
+                p @ Parameter::FormatType { .. } if fmt_type.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::FormatType { value, .. } => fmt_type = Some(value),
+
+                p @ Parameter::Encoding { .. } if encoding.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::Encoding { value, .. } => encoding = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
                 _ => {}
             }
         }
 
         // Get value
-        let (value, _) = match take_single_value(prop.kind, prop.values) {
+        let (value, _) = match take_single_value(&PropertyKind::Attach, prop.values) {
             Ok(v) => v,
             Err(e) => {
-                errors.push(e);
+                errors.extend(e);
                 return Err(errors);
             }
         };
@@ -127,11 +127,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
                 value: AttachmentValue::Uri(uri.clone()),
                 fmt_type,
                 encoding,
+                x_parameters,
+                unrecognized_parameters,
             }),
             Value::Binary(data) => Ok(Attachment {
                 value: AttachmentValue::Binary(data.clone()),
                 fmt_type,
                 encoding,
+                x_parameters,
+                unrecognized_parameters,
             }),
             _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Attach,
@@ -154,14 +158,6 @@ pub enum Classification {
 
     /// Confidential classification
     Confidential,
-}
-
-impl Classification {
-    /// Get the property kind for `Classification`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Class
-    }
 }
 
 impl FromStr for Classification {
@@ -197,15 +193,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Class) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Class,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(&PropertyKind::Class, prop.values)?;
         text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Class,
@@ -236,27 +232,19 @@ pub struct Geo {
     pub lon: f64,
 }
 
-impl Geo {
-    /// Get the property kind for `Geo`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Geo
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Geo {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Geo) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Geo,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(&PropertyKind::Geo, prop.values)?;
 
         // Use the typed phase's float parser with semicolon separator
         let stream = Stream::from_iter(text.chars());
@@ -320,14 +308,6 @@ pub enum Status {
     Cancelled,
 }
 
-impl Status {
-    /// Get the property kind for `Status`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Status
-    }
-}
-
 impl FromStr for Status {
     type Err = String;
 
@@ -371,15 +351,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Status) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Status,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(&PropertyKind::Status, prop.values)?;
         text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Status,
@@ -400,27 +380,19 @@ pub struct PercentComplete {
     pub value: u8,
 }
 
-impl PercentComplete {
-    /// Get the property kind for `PercentComplete`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::PercentComplete
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::PercentComplete) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::PercentComplete,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        match take_single_value(Self::kind(), prop.values) {
+        match take_single_value(&PropertyKind::PercentComplete, prop.values) {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             Ok((Value::Integer(i), _)) if (0..=100).contains(&i) => Ok(Self { value: i as u8 }),
             Ok((Value::Integer(_), span)) => Err(vec![TypedError::PropertyInvalidValue {
@@ -430,11 +402,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete {
             }]),
             Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueKind::Integer,
-                found: v.kind(),
+                expected: ValueType::Integer,
+                found: v.into_kind(),
                 span,
             }]),
-            Err(e) => Err(vec![e]),
+            Err(e) => Err(e),
         }
     }
 }
@@ -449,27 +421,19 @@ pub struct Priority {
     pub value: u8,
 }
 
-impl Priority {
-    /// Get the property kind for `Priority`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Priority
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Priority {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Priority) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Priority,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        match take_single_value(Self::kind(), prop.values) {
+        match take_single_value(&PropertyKind::Priority, prop.values) {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             Ok((Value::Integer(i), _)) if (0..=9).contains(&i) => Ok(Self { value: i as u8 }),
             Ok((Value::Integer(_), span)) => Err(vec![TypedError::PropertyInvalidValue {
@@ -479,11 +443,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority {
             }]),
             Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueKind::Integer,
-                found: v.kind(),
+                expected: ValueType::Integer,
+                found: v.into_kind(),
                 span,
             }]),
-            Err(e) => Err(vec![e]),
+            Err(e) => Err(e),
         }
     }
 }

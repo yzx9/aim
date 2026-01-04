@@ -17,7 +17,7 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::ValueKind;
+use crate::parameter::ValueType;
 use crate::property::{DateTime, Period, PropertyKind};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate};
@@ -52,21 +52,13 @@ pub struct ExDate<'src> {
     pub dates: Vec<ExDateValue<'src>>,
 }
 
-impl ExDate<'_> {
-    /// Get the property kind for `ExDate`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::ExDate
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::ExDate) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::ExDate,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -79,11 +71,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
                 Value::DateTime(dt) => Ok(ExDateValue::DateTime(DateTime::Floating {
                     date: dt.date,
                     time: dt.time.into(),
+                    x_parameters: Vec::new(),
+                    unrecognized_parameters: Vec::new(),
                 })),
-                _ => Err(vec![TypedError::PropertyUnexpectedValue {
-                    property: prop.kind,
-                    expected: ValueKind::DateTime,
-                    found: ValueKind::Text,
+                v => Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind.clone(),
+                    expected: ValueType::Date,
+                    found: v.into_kind(),
                     span: prop.span,
                 }]),
             })
@@ -101,21 +95,13 @@ pub struct RDate<'src> {
     pub dates: Vec<RDateValue<'src>>,
 }
 
-impl RDate<'_> {
-    /// Get the property kind for `RDate`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::RDate
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for RDate<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::RDate) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::RDate,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -128,20 +114,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<'src> {
                 Value::DateTime(dt) => Ok(RDateValue::DateTime(DateTime::Floating {
                     date: dt.date,
                     time: dt.time.into(),
+                    x_parameters: Vec::new(),
+                    unrecognized_parameters: Vec::new(),
                 })),
                 Value::Period(_) => {
                     // Period values need to be handled at semantic level
                     // For now, just return an error
                     Err(vec![TypedError::PropertyInvalidValue {
-                        property: prop.kind,
+                        property: prop.kind.clone(),
                         value: "Period values must be processed at semantic level".to_string(),
                         span: prop.span,
                     }])
                 }
-                _ => Err(vec![TypedError::PropertyUnexpectedValue {
-                    property: prop.kind,
-                    expected: ValueKind::Period,
-                    found: ValueKind::Text,
+                v => Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind.clone(),
+                    expected: ValueType::Period,
+                    found: v.into_kind(),
                     span: prop.span,
                 }]),
             })

@@ -48,8 +48,8 @@ END:VCALENDAR\r
     assert_eq!(components.len(), 1);
     assert_eq!(components[0].name, "VCALENDAR");
     assert_eq!(components[0].properties.len(), 2);
-    assert_eq!(components[0].properties[0].kind().as_str(), "VERSION");
-    assert_eq!(components[0].properties[1].kind().as_str(), "PRODID");
+    assert_eq!(components[0].properties[0].kind().to_string(), "VERSION");
+    assert_eq!(components[0].properties[1].kind().to_string(), "PRODID");
 }
 
 #[test]
@@ -60,7 +60,7 @@ VERSION:2.0\r
 END:VCALENDAR\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "VERSION");
+    assert_eq!(components[0].properties[0].kind().to_string(), "VERSION");
     assert!(matches!(&components[0].properties[0], Property::Version(_)));
 }
 
@@ -72,7 +72,7 @@ PRODID:-//Example Corp.//CalDAV Client//EN\r
 END:VCALENDAR\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "PRODID");
+    assert_eq!(components[0].properties[0].kind().to_string(), "PRODID");
     assert!(matches!(&components[0].properties[0], Property::ProdId(_)));
 }
 
@@ -84,7 +84,7 @@ CALSCALE:GREGORIAN\r
 END:VCALENDAR\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "CALSCALE");
+    assert_eq!(components[0].properties[0].kind().to_string(), "CALSCALE");
     assert!(matches!(
         &components[0].properties[0],
         Property::CalScale(_)
@@ -123,7 +123,7 @@ DTSTART:20250615T133000Z\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DTSTART");
+    assert_eq!(components[0].properties[0].kind().to_string(), "DTSTART");
     assert!(matches!(&components[0].properties[0], Property::DtStart(_)));
 }
 
@@ -135,7 +135,7 @@ DTEND:20250615T143000Z\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DTEND");
+    assert_eq!(components[0].properties[0].kind().to_string(), "DTEND");
     assert!(matches!(&components[0].properties[0], Property::DtEnd(_)));
 }
 
@@ -147,7 +147,7 @@ SUMMARY:Team Meeting\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "SUMMARY");
+    assert_eq!(components[0].properties[0].kind().to_string(), "SUMMARY");
     assert!(matches!(&components[0].properties[0], Property::Summary(_)));
 }
 
@@ -159,7 +159,10 @@ DESCRIPTION:This is a detailed description\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DESCRIPTION");
+    assert_eq!(
+        components[0].properties[0].kind().to_string(),
+        "DESCRIPTION"
+    );
     assert!(matches!(
         &components[0].properties[0],
         Property::Description(_)
@@ -174,7 +177,7 @@ LOCATION:Conference Room B\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "LOCATION");
+    assert_eq!(components[0].properties[0].kind().to_string(), "LOCATION");
     assert!(matches!(
         &components[0].properties[0],
         Property::Location(_)
@@ -189,7 +192,7 @@ CLASS:PUBLIC\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "CLASS");
+    assert_eq!(components[0].properties[0].kind().to_string(), "CLASS");
     assert!(matches!(&components[0].properties[0], Property::Class(_)));
 }
 
@@ -201,7 +204,7 @@ STATUS:CONFIRMED\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "STATUS");
+    assert_eq!(components[0].properties[0].kind().to_string(), "STATUS");
     assert!(matches!(&components[0].properties[0], Property::Status(_)));
 }
 
@@ -213,7 +216,7 @@ TRANSP:OPAQUE\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "TRANSP");
+    assert_eq!(components[0].properties[0].kind().to_string(), "TRANSP");
     assert!(matches!(&components[0].properties[0], Property::Transp(_)));
 }
 
@@ -225,7 +228,7 @@ PRIORITY:5\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "PRIORITY");
+    assert_eq!(components[0].properties[0].kind().to_string(), "PRIORITY");
     assert!(matches!(
         &components[0].properties[0],
         Property::Priority(_)
@@ -240,7 +243,7 @@ SEQUENCE:2\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "SEQUENCE");
+    assert_eq!(components[0].properties[0].kind().to_string(), "SEQUENCE");
     assert!(matches!(
         &components[0].properties[0],
         Property::Sequence(_)
@@ -255,7 +258,7 @@ CREATED:20250101T000000Z\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "CREATED");
+    assert_eq!(components[0].properties[0].kind().to_string(), "CREATED");
     assert!(matches!(&components[0].properties[0], Property::Created(_)));
 }
 
@@ -267,7 +270,10 @@ LAST-MODIFIED:20250102T120000Z\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "LAST-MODIFIED");
+    assert_eq!(
+        components[0].properties[0].kind().to_string(),
+        "LAST-MODIFIED"
+    );
     assert!(matches!(
         &components[0].properties[0],
         Property::LastModified(_)
@@ -282,7 +288,7 @@ DTSTART:20250615\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DTSTART");
+    assert_eq!(components[0].properties[0].kind().to_string(), "DTSTART");
     assert!(matches!(&components[0].properties[0], Property::DtStart(_)));
 }
 
@@ -294,7 +300,7 @@ DTEND:20250615\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DTEND");
+    assert_eq!(components[0].properties[0].kind().to_string(), "DTEND");
     assert!(matches!(&components[0].properties[0], Property::DtEnd(_)));
 }
 
@@ -306,7 +312,7 @@ DURATION:PT1H30M\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DURATION");
+    assert_eq!(components[0].properties[0].kind().to_string(), "DURATION");
     assert!(matches!(
         &components[0].properties[0],
         Property::Duration(_)
@@ -323,7 +329,7 @@ RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "RRULE");
+    assert_eq!(components[0].properties[0].kind().to_string(), "RRULE");
     // RRULE values are parsed as RecurrenceRule
     // (the specific value type depends on the typed module implementation)
 }
@@ -336,7 +342,7 @@ EXDATE:20250101T090000,20250108T090000\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "EXDATE");
+    assert_eq!(components[0].properties[0].kind().to_string(), "EXDATE");
     assert!(matches!(&components[0].properties[0], Property::ExDate(_)));
 }
 
@@ -348,7 +354,7 @@ GEO:37.386013;-122.083932\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "GEO");
+    assert_eq!(components[0].properties[0].kind().to_string(), "GEO");
     // GEO is parsed as TEXT in typed phase; actual float parsing happens in semantic phase
     assert!(matches!(&components[0].properties[0], Property::Geo(_)));
 }
@@ -362,7 +368,7 @@ END:VTODO\r
 ";
     let components = parse_typed(src).unwrap();
     assert_eq!(
-        components[0].properties[0].kind().as_str(),
+        components[0].properties[0].kind().to_string(),
         "PERCENT-COMPLETE"
     );
     assert!(matches!(
@@ -471,12 +477,12 @@ X-CUSTOM-PROPERTY:some value\r
 END:VEVENT\r
 ";
     let result = parse_typed(src);
-    assert!(result.is_err());
-    let errors = result.unwrap_err();
-    assert!(
-        errors
-            .iter()
-            .any(|e| matches!(e, TypedError::PropertyUnknown { .. }))
+    // Unknown properties are now preserved instead of causing errors
+    assert!(result.is_ok());
+    let components = result.unwrap();
+    assert_eq!(
+        components[0].properties[0].kind().to_string(),
+        "X-CUSTOM-PROPERTY"
     );
 }
 
@@ -525,8 +531,8 @@ DTSTART;X-CUSTOM-PARAM=value:20250615T100000Z\r
 END:VEVENT\r
 ";
     let result = parse_typed(src);
-    // Should fail because X-CUSTOM-PARAM is not a valid parameter for DTSTART
-    assert!(result.is_err());
+    // Unknown parameters are now preserved instead of causing errors
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -537,7 +543,7 @@ SUMMARY:Team会议📅\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "SUMMARY");
+    assert_eq!(components[0].properties[0].kind().to_string(), "SUMMARY");
     assert!(matches!(&components[0].properties[0], Property::Summary(_)));
 }
 
@@ -549,7 +555,10 @@ DESCRIPTION:Line 1\\nLine 2\\;And semicolon\\,And comma\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DESCRIPTION");
+    assert_eq!(
+        components[0].properties[0].kind().to_string(),
+        "DESCRIPTION"
+    );
     assert!(matches!(
         &components[0].properties[0],
         Property::Description(_)
@@ -622,7 +631,7 @@ END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
     // Property name should be normalized to uppercase
-    assert_eq!(components[0].properties[0].kind().as_str(), "SUMMARY");
+    assert_eq!(components[0].properties[0].kind().to_string(), "SUMMARY");
 }
 
 #[test]
@@ -633,7 +642,7 @@ DTSTART;TZID=America/New_York:20250615T100000\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DTSTART");
+    assert_eq!(components[0].properties[0].kind().to_string(), "DTSTART");
     // TZID parameter should be parsed - check that we get a Zoned DateTime
     assert!(matches!(
         &components[0].properties[0],
@@ -649,7 +658,7 @@ DTSTART;VALUE=DATE:20250615\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DTSTART");
+    assert_eq!(components[0].properties[0].kind().to_string(), "DTSTART");
     assert!(matches!(&components[0].properties[0], Property::DtStart(_)));
 }
 
@@ -661,7 +670,7 @@ DTSTART;VALUE=DATE:20250615\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "DTSTART");
+    assert_eq!(components[0].properties[0].kind().to_string(), "DTSTART");
     // When VALUE=DATE is specified, the value should be parsed as a date
     assert!(matches!(&components[0].properties[0], Property::DtStart(_)));
 }
@@ -710,7 +719,7 @@ URL:http://example.com/event.html\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "URL");
+    assert_eq!(components[0].properties[0].kind().to_string(), "URL");
     assert!(matches!(&components[0].properties[0], Property::Url(_)));
 }
 
@@ -722,7 +731,7 @@ ORGANIZER;CN=John Doe:mailto:john.doe@example.com\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "ORGANIZER");
+    assert_eq!(components[0].properties[0].kind().to_string(), "ORGANIZER");
     assert!(matches!(
         &components[0].properties[0],
         Property::Organizer(_)
@@ -737,7 +746,7 @@ ATTENDEE;RSVP=TRUE:mailto:test@example.com\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "ATTENDEE");
+    assert_eq!(components[0].properties[0].kind().to_string(), "ATTENDEE");
     assert!(matches!(
         &components[0].properties[0],
         Property::Attendee(_)
@@ -756,7 +765,7 @@ END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
     // This should parse as URI (text) since BINARY requires explicit VALUE=BINARY
-    assert_eq!(components[0].properties[0].kind().as_str(), "ATTACH");
+    assert_eq!(components[0].properties[0].kind().to_string(), "ATTACH");
     assert!(matches!(&components[0].properties[0], Property::Attach(_)));
 }
 
@@ -769,7 +778,7 @@ ATTACH;ENCODING=BASE64;VALUE=BINARY:VGhpcyBpcyBub3QgYSB2YWxpZCBVUkk=\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "ATTACH");
+    assert_eq!(components[0].properties[0].kind().to_string(), "ATTACH");
     assert!(matches!(&components[0].properties[0], Property::Attach(_)));
 }
 
@@ -782,6 +791,32 @@ ATTACH:http://example.com/document.pdf\r
 END:VEVENT\r
 ";
     let components = parse_typed(src).unwrap();
-    assert_eq!(components[0].properties[0].kind().as_str(), "ATTACH");
+    assert_eq!(components[0].properties[0].kind().to_string(), "ATTACH");
     assert!(matches!(&components[0].properties[0], Property::Attach(_)));
+}
+
+#[test]
+fn typed_unknown_property_x_name() {
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+X-CUSTOM-PROP:test value\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_ok());
+    let components = result.unwrap();
+    assert_eq!(
+        components[0].properties[1].kind().to_string(),
+        "X-CUSTOM-PROP"
+    );
+}
+
+#[test]
+fn typed_unknown_parameter() {
+    let src = "BEGIN:VEVENT\r
+DTSTART;X-CUSTOM-PARAM=value:20250101T120000Z\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_ok());
 }

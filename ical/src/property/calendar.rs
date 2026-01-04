@@ -32,27 +32,19 @@ pub enum CalendarScale {
     Gregorian,
 }
 
-impl CalendarScale {
-    /// Get the property kind for `CalendarScale`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::CalScale
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::CalScale) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::CalScale,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(&PropertyKind::CalScale, prop.values)?;
         match text.to_uppercase().as_str() {
             KW_CALSCALE_GREGORIAN => Ok(CalendarScale::Gregorian),
             _ => Err(vec![TypedError::PropertyInvalidValue {
@@ -92,27 +84,19 @@ pub enum Method {
     DeclineCounter,
 }
 
-impl Method {
-    /// Get the property kind for `Method`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Method
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Method {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Method) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Method,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(&PropertyKind::Method, prop.values)?;
         match text.to_uppercase().as_str() {
             KW_METHOD_PUBLISH => Ok(Method::Publish),
             KW_METHOD_REQUEST => Ok(Method::Request),
@@ -144,27 +128,19 @@ pub struct ProductId {
     pub language: Option<String>,
 }
 
-impl ProductId {
-    /// Get the property kind for `ProductId`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::ProdId
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for ProductId {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::ProdId) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::ProdId,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(&PropertyKind::ProdId, prop.values)?;
 
         // PRODID format: company//product//language
         // e.g., "-//Mozilla.org/NONSGML Mozilla Calendar V1.0//EN"
@@ -193,27 +169,19 @@ pub enum Version {
     V2_0,
 }
 
-impl Version {
-    /// Get the property kind for `Version`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Version
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Version {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Version) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Version,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(&PropertyKind::Version, prop.values)?;
         match text.as_str() {
             KW_VERSION_2_0 => Ok(Version::V2_0),
             _ => Err(vec![TypedError::PropertyInvalidValue {

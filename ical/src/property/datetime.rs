@@ -39,7 +39,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::keyword::{KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT};
-use crate::parameter::{FreeBusyType, Parameter, ValueKind};
+use crate::parameter::{FreeBusyType, Parameter, StandardValueType, ValueType};
 use crate::property::PropertyKind;
 use crate::property::util::take_single_value;
 use crate::syntax::SpannedSegments;
@@ -55,6 +55,10 @@ pub enum DateTime<'src> {
         date: ValueDate,
         /// Time part
         time: Time,
+        /// X-name parameters (custom experimental parameters)
+        x_parameters: Vec<Parameter<'src>>,
+        /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+        unrecognized_parameters: Vec<Parameter<'src>>,
     },
 
     /// Date and time with specific timezone
@@ -68,6 +72,10 @@ pub enum DateTime<'src> {
         /// Cached parsed timezone (available with jiff feature)
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
+        /// X-name parameters (custom experimental parameters)
+        x_parameters: Vec<Parameter<'src>>,
+        /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+        unrecognized_parameters: Vec<Parameter<'src>>,
     },
 
     /// Date and time in UTC
@@ -76,12 +84,20 @@ pub enum DateTime<'src> {
         date: ValueDate,
         /// Time part
         time: Time,
+        /// X-name parameters (custom experimental parameters)
+        x_parameters: Vec<Parameter<'src>>,
+        /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+        unrecognized_parameters: Vec<Parameter<'src>>,
     },
 
     /// Date-only value
     Date {
         /// Date part
         date: ValueDate,
+        /// X-name parameters (custom experimental parameters)
+        x_parameters: Vec<Parameter<'src>>,
+        /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+        unrecognized_parameters: Vec<Parameter<'src>>,
     },
 }
 
@@ -93,7 +109,7 @@ impl<'src> DateTime<'src> {
             DateTime::Floating { date, .. }
             | DateTime::Zoned { date, .. }
             | DateTime::Utc { date, .. }
-            | DateTime::Date { date } => *date,
+            | DateTime::Date { date, .. } => *date,
         }
     }
 
@@ -152,9 +168,9 @@ impl<'src> DateTime<'src> {
     #[must_use]
     pub fn civil_date_time(&self) -> Option<jiff::civil::DateTime> {
         match self {
-            DateTime::Floating { date, time }
+            DateTime::Floating { date, time, .. }
             | DateTime::Zoned { date, time, .. }
-            | DateTime::Utc { date, time } => Some(jiff::civil::DateTime::from_parts(
+            | DateTime::Utc { date, time, .. } => Some(jiff::civil::DateTime::from_parts(
                 date.civil_date(),
                 time.civil_time(),
             )),
@@ -167,41 +183,39 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let mut errors = Vec::new();
+        let (value, _) = take_single_value(&prop.kind, prop.values)?;
 
-        let (value, _) = match take_single_value(prop.kind, prop.values) {
-            Ok(v) => v,
-            Err(e) => return Err(vec![e]),
-        };
+        let mut errors = Vec::new();
 
         // Get TZID parameter
         let mut tz_id = None;
         #[cfg(feature = "jiff")]
         let mut tz_jiff = None;
-        for param in prop.parameters {
-            let kind_name = param.kind().name();
-            let param_span = param.span();
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
 
-            #[expect(clippy::single_match)]
+        for param in prop.parameters {
             match param {
+                p @ Parameter::TimeZoneIdentifier { .. } if tz_id.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
                 Parameter::TimeZoneIdentifier {
                     value,
                     #[cfg(feature = "jiff")]
                     tz,
                     ..
-                } => match tz_id {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => {
-                        tz_id = Some(value);
-                        #[cfg(feature = "jiff")]
-                        {
-                            tz_jiff = Some(tz);
-                        }
+                } => {
+                    tz_id = Some(value);
+                    #[cfg(feature = "jiff")]
+                    {
+                        tz_jiff = Some(tz);
                     }
-                },
+                }
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
                 _ => {}
             }
         }
@@ -217,6 +231,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
                 Value::DateTime(dt) if dt.time.utc => Ok(DateTime::Utc {
                     date: dt.date,
                     time: dt.time.into(),
+                    x_parameters,
+                    unrecognized_parameters,
                 }),
 
                 Value::DateTime(dt) => Ok(DateTime::Zoned {
@@ -225,6 +241,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
                     tz_id: tz_id_value,
                     #[cfg(feature = "jiff")]
                     tz_jiff: tz_jiff.unwrap(), // SAFETY: set above
+                    x_parameters,
+                    unrecognized_parameters,
                 }),
 
                 _ => Err(vec![TypedError::PropertyInvalidValue {
@@ -235,14 +253,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
             }
         } else {
             match value {
-                Value::Date(date) => Ok(DateTime::Date { date }),
+                Value::Date(date) => Ok(DateTime::Date {
+                    date,
+                    x_parameters,
+                    unrecognized_parameters,
+                }),
                 Value::DateTime(dt) if dt.time.utc => Ok(DateTime::Utc {
                     date: dt.date,
                     time: dt.time.into(),
+                    x_parameters,
+                    unrecognized_parameters,
                 }),
                 Value::DateTime(dt) => Ok(DateTime::Floating {
                     date: dt.date,
                     time: dt.time.into(),
+                    x_parameters,
+                    unrecognized_parameters,
                 }),
                 _ => Err(vec![TypedError::PropertyInvalidValue {
                     property: PropertyKind::DtStart, // Default fallback
@@ -439,6 +465,8 @@ impl<'src> Period<'src> {
             } => DateTime::Utc {
                 date: *start_date,
                 time: *start_time,
+                x_parameters: Vec::new(),
+                unrecognized_parameters: Vec::new(),
             },
             Period::ExplicitFloating {
                 start_date,
@@ -452,6 +480,8 @@ impl<'src> Period<'src> {
             } => DateTime::Floating {
                 date: *start_date,
                 time: *start_time,
+                x_parameters: Vec::new(),
+                unrecognized_parameters: Vec::new(),
             },
             Period::ExplicitZoned {
                 start_date,
@@ -474,6 +504,8 @@ impl<'src> Period<'src> {
                 tz_id: tz_id.clone(),
                 #[cfg(feature = "jiff")]
                 tz_jiff: tz_jiff.clone(),
+                x_parameters: Vec::new(),
+                unrecognized_parameters: Vec::new(),
             },
         }
     }
@@ -482,7 +514,7 @@ impl<'src> Period<'src> {
     ///
     /// For duration-based periods, calculates the end by adding the duration to the start.
     #[cfg(feature = "jiff")]
-    #[expect(clippy::missing_panics_doc)]
+    #[expect(clippy::missing_panics_doc, clippy::too_many_lines)]
     #[must_use]
     pub fn end(&self) -> DateTime<'src> {
         match self {
@@ -491,12 +523,16 @@ impl<'src> Period<'src> {
             } => DateTime::Utc {
                 date: *end_date,
                 time: *end_time,
+                x_parameters: Vec::new(),
+                unrecognized_parameters: Vec::new(),
             },
             Period::ExplicitFloating {
                 end_date, end_time, ..
             } => DateTime::Floating {
                 date: *end_date,
                 time: *end_time,
+                x_parameters: Vec::new(),
+                unrecognized_parameters: Vec::new(),
             },
             Period::ExplicitZoned {
                 end_date,
@@ -509,6 +545,8 @@ impl<'src> Period<'src> {
                 time: *end_time,
                 tz_id: tz_id.clone(),
                 tz_jiff: tz_jiff.clone(),
+                x_parameters: Vec::new(),
+                unrecognized_parameters: Vec::new(),
             },
             Period::DurationUtc {
                 start_date,
@@ -531,6 +569,8 @@ impl<'src> Period<'src> {
                     time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
                         .map_err(|e| format!("invalid time: {e}"))
                         .unwrap(), // SAFETY: hour, minute, second are within valid ranges
+                    x_parameters: Vec::new(),
+                    unrecognized_parameters: Vec::new(),
                 }
             }
             Period::DurationFloating {
@@ -554,6 +594,8 @@ impl<'src> Period<'src> {
                     time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
                         .map_err(|e| format!("invalid time: {e}"))
                         .unwrap(), // SAFETY: hour, minute, second are within valid ranges
+                    x_parameters: Vec::new(),
+                    unrecognized_parameters: Vec::new(),
                 }
             }
             Period::DurationZoned {
@@ -579,6 +621,8 @@ impl<'src> Period<'src> {
                         .expect("invalid time"),
                     tz_id: tz_id.clone(),
                     tz_jiff: tz_jiff.clone(),
+                    x_parameters: Vec::new(),
+                    unrecognized_parameters: Vec::new(),
                 }
             }
         }
@@ -658,9 +702,9 @@ impl<'src> TryFrom<Value<'src>> for Period<'src> {
                 }
             },
             _ => Err(vec![TypedError::ValueTypeDisallowed {
-                property: PropertyKind::FreeBusy.as_str(),
-                value_type: value.kind(),
-                expected_types: &[ValueKind::Period],
+                property: PropertyKind::FreeBusy,
+                value_type: value.into_kind(),
+                expected_types: &[StandardValueType::Period],
                 span: (0..0).into(), // TODO: provide actual span
             }]),
         }
@@ -735,35 +779,27 @@ pub struct Duration {
     pub value: ValueDuration,
 }
 
-impl Duration {
-    /// Get the property kind for `Duration`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Duration
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Duration {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Duration) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Duration,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        match take_single_value(Self::kind(), prop.values) {
+        match take_single_value(&PropertyKind::Duration, prop.values) {
             Ok((Value::Duration(d), _)) => Ok(Self { value: d }),
             Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueKind::Duration,
-                found: v.kind(),
+                expected: ValueType::Duration,
+                found: v.into_kind(),
                 span,
             }]),
-            Err(e) => Err(vec![e]),
+            Err(e) => Err(e),
         }
     }
 }
@@ -774,41 +810,45 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration {
 #[derive(Debug, Clone)]
 pub struct FreeBusy<'src> {
     /// Free/Busy type parameter
-    pub fb_type: FreeBusyType,
+    pub fb_type: FreeBusyType<'src>,
     /// List of free/busy time periods
     pub values: Vec<Period<'src>>,
-}
-
-impl FreeBusy<'_> {
-    /// Get the property kind for `FreeBusy`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::FreeBusy
-    }
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::FreeBusy) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::FreeBusy,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
+        let mut errors = Vec::new();
+
         // Extract FBTYPE parameter (defaults to BUSY)
-        let mut fb_type = FreeBusyType::Busy;
-        for param in &prop.parameters {
-            if let Parameter::FreeBusyType { value, .. } = param {
-                fb_type = *value;
-                break; // Found it, no need to continue
+        let mut fb_type: FreeBusyType<'src> = FreeBusyType::Busy;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                Parameter::FreeBusyType { value, .. } => {
+                    fb_type = value.clone();
+                }
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
             }
         }
 
-        let mut errors = Vec::new();
         if prop.values.is_empty() {
             errors.push(TypedError::PropertyMissingValue {
                 property: prop.kind,
@@ -824,7 +864,16 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<'src> {
             }
         }
 
-        Ok(FreeBusy { fb_type, values })
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        Ok(FreeBusy {
+            fb_type,
+            values,
+            x_parameters,
+            unrecognized_parameters,
+        })
     }
 }
 
@@ -837,14 +886,6 @@ pub enum TimeTransparency {
 
     /// Event does not block time
     Transparent,
-}
-
-impl TimeTransparency {
-    /// Get the property kind for `TimeTransparency`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Transp
-    }
 }
 
 impl FromStr for TimeTransparency {
@@ -878,25 +919,25 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Transp) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Transp,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let text = match take_single_value(Self::kind(), prop.values) {
+        let text = match take_single_value(&PropertyKind::Transp, prop.values) {
             Ok((Value::Text(t), _)) => t.resolve().to_string(),
             Ok((v, span)) => {
                 return Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueKind::Text,
-                    found: v.kind(),
+                    expected: ValueType::Text,
+                    found: v.into_kind(),
                     span,
                 }]);
             }
-            Err(e) => return Err(vec![e]),
+            Err(e) => return Err(e),
         };
 
         text.parse().map_err(|e| {

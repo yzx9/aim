@@ -13,11 +13,9 @@ mod util;
 
 pub use definition::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,
-    ParticipationStatus, RecurrenceIdRange, RelationshipKind, ValueKind,
+    ParticipationStatus, RecurrenceIdRange, RelationshipType, StandardValueType, ValueType,
 };
 pub use kind::ParameterKind;
-
-use std::str::FromStr;
 
 use crate::lexer::Span;
 use crate::parameter::definition::{
@@ -61,7 +59,10 @@ pub enum Parameter<'src> {
     /// don't recognize the same way as they would the UNKNOWN value.
     ///
     /// See also: RFC 5545 Section 3.2.3. Calendar User Type
-    CalendarUserType { value: CalendarUserType, span: Span },
+    CalendarUserType {
+        value: CalendarUserType<'src>,
+        span: Span,
+    },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. This parameter specifies those calendar users that have delegated
@@ -121,7 +122,10 @@ pub enum Parameter<'src> {
     /// they would the BUSY value.
     ///
     /// See also: RFC 5545 Section 3.2.9. Free/Busy Time Type
-    FreeBusyType { value: FreeBusyType, span: Span },
+    FreeBusyType {
+        value: FreeBusyType<'src>,
+        span: Span,
+    },
 
     /// This parameter identifies the language of the text in the property
     /// value and of all property parameter values of the property. The value
@@ -162,7 +166,7 @@ pub enum Parameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.12. Participation Status
     ParticipationStatus {
-        value: ParticipationStatus,
+        value: ParticipationStatus<'src>,
         span: Span,
     },
 
@@ -198,7 +202,10 @@ pub enum Parameter<'src> {
     /// way as they would the PARENT value.
     ///
     /// See also: RFC 5545 Section 3.2.15. Relationship Type
-    RelationshipKind { value: RelationshipKind, span: Span },
+    RelationshipType {
+        value: RelationshipType<'src>,
+        span: Span,
+    },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter specifies the participation role for the calendar
@@ -208,7 +215,7 @@ pub enum Parameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.16. Participation Role
     ParticipationRole {
-        value: ParticipationRole,
+        value: ParticipationRole<'src>,
         span: Span,
     },
 
@@ -247,11 +254,12 @@ pub enum Parameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.19. Time Zone Identifier
     TimeZoneIdentifier {
+        /// The TZID parameter value
         value: SpannedSegments<'src>,
-
+        /// The time zone definition associated with this TZID
         #[cfg(feature = "jiff")]
         tz: jiff::tz::TimeZone,
-
+        /// The span of the parameter
         span: Span,
     },
 
@@ -266,13 +274,39 @@ pub enum Parameter<'src> {
     /// MUST be specified.
     ///
     /// See also: RFC 5545 Section 3.2.20. Value Data Types
-    ValueKind { value: ValueKind, span: Span },
+    ValueType { value: ValueType<'src>, span: Span },
+
+    /// Custom experimental x-name parameter.
+    ///
+    /// Per RFC 5545 Section 3.2: Applications MUST ignore x-param values,
+    /// but preserve the data for round-trip compatibility.
+    ///
+    /// See also: RFC 5545 Section 3.2 (Parameter definition)
+    XName {
+        /// Parameter name (including the "X-" prefix)
+        name: SpannedSegments<'src>,
+        /// Raw parameter (unparsed)
+        raw: SyntaxParameter<'src>,
+    },
+
+    /// Unrecognized iana-token parameter.
+    ///
+    /// Per RFC 5545 Section 3.2: Applications MUST ignore iana-param values
+    /// they don't recognize, but preserve the data for round-trip compatibility.
+    ///
+    /// See also: RFC 5545 Section 3.2 (Parameter definition)
+    Unrecognized {
+        /// Parameter name
+        name: SpannedSegments<'src>,
+        /// Raw parameter (unparsed)
+        raw: SyntaxParameter<'src>,
+    },
 }
 
-impl Parameter<'_> {
+impl<'src> Parameter<'src> {
     /// Returns the type of the parameter
     #[must_use]
-    pub fn kind(&self) -> ParameterKind {
+    pub fn into_kind(self) -> ParameterKind<'src> {
         match self {
             Parameter::AlternateText { .. } => ParameterKind::AlternateText,
             Parameter::CommonName { .. } => ParameterKind::CommonName,
@@ -288,19 +322,15 @@ impl Parameter<'_> {
             Parameter::ParticipationStatus { .. } => ParameterKind::ParticipationStatus,
             Parameter::RecurrenceIdRange { .. } => ParameterKind::RecurrenceIdRange,
             Parameter::AlarmTriggerRelationship { .. } => ParameterKind::AlarmTriggerRelationship,
-            Parameter::RelationshipKind { .. } => ParameterKind::RelationshipType,
+            Parameter::RelationshipType { .. } => ParameterKind::RelationshipType,
             Parameter::ParticipationRole { .. } => ParameterKind::ParticipationRole,
             Parameter::SendBy { .. } => ParameterKind::SendBy,
             Parameter::RsvpExpectation { .. } => ParameterKind::RsvpExpectation,
             Parameter::TimeZoneIdentifier { .. } => ParameterKind::TimeZoneIdentifier,
-            Parameter::ValueKind { .. } => ParameterKind::ValueType,
+            Parameter::ValueType { .. } => ParameterKind::ValueType,
+            Parameter::XName { name, .. } => ParameterKind::XName(name),
+            Parameter::Unrecognized { name, .. } => ParameterKind::Unrecognized(name),
         }
-    }
-
-    /// Name of the parameter (keyword)
-    #[must_use]
-    pub fn name(&self) -> &'static str {
-        self.kind().name()
     }
 
     /// Span of the parameter
@@ -321,12 +351,14 @@ impl Parameter<'_> {
             | Parameter::ParticipationStatus { span, .. }
             | Parameter::RecurrenceIdRange { span, .. }
             | Parameter::AlarmTriggerRelationship { span, .. }
-            | Parameter::RelationshipKind { span, .. }
+            | Parameter::RelationshipType { span, .. }
             | Parameter::ParticipationRole { span, .. }
             | Parameter::SendBy { span, .. }
             | Parameter::RsvpExpectation { span, .. }
             | Parameter::TimeZoneIdentifier { span, .. }
-            | Parameter::ValueKind { span, .. } => *span,
+            | Parameter::ValueType { span, .. } => *span,
+
+            Parameter::XName { raw, .. } | Parameter::Unrecognized { raw, .. } => raw.span(),
         }
     }
 }
@@ -336,12 +368,7 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for Parameter<'src> {
 
     fn try_from(mut param: SyntaxParameter<'src>) -> Result<Self, Self::Error> {
         // Parse the parameter kind
-        let Ok(kind) = ParameterKind::from_str(param.name.resolve().as_ref()) else {
-            return Err(vec![TypedError::ParameterUnknown {
-                span: param.name.span(),
-                parameter: param.name,
-            }]);
-        };
+        let kind = ParameterKind::from(param.name.clone());
 
         // Handle parsing based on the kind
         match kind {
@@ -360,12 +387,12 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for Parameter<'src> {
             ParameterKind::CalendarUserType => parse_cutype(param),
             ParameterKind::Delegators => {
                 let span = param.span();
-                parse_multiple_quoted(param, kind)
+                parse_multiple_quoted(param, &kind)
                     .map(|values| Parameter::Delegators { values, span })
             }
             ParameterKind::Delegatees => {
                 let span = param.span();
-                parse_multiple_quoted(param, kind)
+                parse_multiple_quoted(param, &kind)
                     .map(|values| Parameter::Delegatees { values, span })
             }
             ParameterKind::Directory => {
@@ -390,7 +417,7 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for Parameter<'src> {
             }
             ParameterKind::GroupOrListMembership => {
                 let span = param.span();
-                parse_multiple_quoted(param, kind)
+                parse_multiple_quoted(param, &kind)
                     .map(|values| Parameter::GroupOrListMembership { values, span })
             }
             ParameterKind::ParticipationStatus => parse_partstat(param),
@@ -407,6 +434,10 @@ impl<'src> TryFrom<SyntaxParameter<'src>> for Parameter<'src> {
             ParameterKind::RsvpExpectation => parse_rsvp(param),
             ParameterKind::TimeZoneIdentifier => parse_tzid(param),
             ParameterKind::ValueType => parse_value_type(param),
+            // Preserve unknown parameter per RFC 5545 Section 3.2
+            // TODO: emit warning for x-name / unrecognized iana-token parameter
+            ParameterKind::XName(name) => Ok(Parameter::XName { name, raw: param }),
+            ParameterKind::Unrecognized(name) => Ok(Parameter::Unrecognized { name, raw: param }),
         }
     }
 }

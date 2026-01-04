@@ -40,25 +40,25 @@ pub struct Attendee<'src> {
     pub cn: Option<SpannedSegments<'src>>,
 
     /// Participation role
-    pub role: ParticipationRole,
+    pub role: ParticipationRole<'src>,
 
     /// Participation status
-    pub part_stat: ParticipationStatus,
+    pub part_stat: ParticipationStatus<'src>,
 
     /// RSVP expectation
     pub rsvp: Option<bool>,
 
     /// Whether the attendee is required
-    pub cutype: CalendarUserType,
+    pub cutype: CalendarUserType<'src>,
 
-    /// Member of a group (optional)
-    pub member: Option<SpannedSegments<'src>>,
+    /// Member of a group (optional, multi-valued)
+    pub member: Option<Vec<SpannedSegments<'src>>>,
 
-    /// Delegated to (optional)
-    pub delegated_to: Option<SpannedSegments<'src>>,
+    /// Delegated to (optional, multi-valued)
+    pub delegated_to: Option<Vec<SpannedSegments<'src>>>,
 
-    /// Delegated from (optional)
-    pub delegated_from: Option<SpannedSegments<'src>>,
+    /// Delegated from (optional, multi-valued)
+    pub delegated_from: Option<Vec<SpannedSegments<'src>>>,
 
     /// Directory entry reference (optional)
     pub dir: Option<SpannedSegments<'src>>,
@@ -68,14 +68,12 @@ pub struct Attendee<'src> {
 
     /// Language (optional)
     pub language: Option<SpannedSegments<'src>>,
-}
 
-impl Attendee<'_> {
-    /// Get the property kind for `Attendee`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Attendee
-    }
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
@@ -83,9 +81,9 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
 
     #[expect(clippy::too_many_lines)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Attendee) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Attendee,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -105,141 +103,110 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
         let mut dir = None;
         let mut sent_by = None;
         let mut language = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
 
         for param in prop.parameters {
-            let kind_name = param.kind().name();
-            let param_span = param.span();
-
             match param {
-                Parameter::CommonName { value, .. } => match cn {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => cn = Some(value),
-                },
-                Parameter::ParticipationRole { value, .. } => match role {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => role = Some(value),
-                },
-                Parameter::ParticipationStatus { value, .. } => match part_stat {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => part_stat = Some(value),
-                },
-                Parameter::RsvpExpectation { value, .. } => match rsvp {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => rsvp = Some(value),
-                },
-                Parameter::CalendarUserType { value, .. } => match cutype {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => cutype = Some(value),
-                },
-                Parameter::GroupOrListMembership { mut values, .. } => match member {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => {
-                        // RFC 5545: MEMBER parameter is single-valued for Attendee
-                        if values.len() == 1 {
-                            member = values.pop();
-                        } else {
-                            errors.push(TypedError::PropertyInvalidValue {
-                                property: PropertyKind::Attendee,
-                                value: format!(
-                                    "MEMBER parameter expects 1 value, got {}",
-                                    values.len()
-                                ),
-                                span: param_span,
-                            });
-                        }
-                    }
-                },
-                Parameter::Delegatees { mut values, .. } => match delegated_to {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => {
-                        // RFC 5545: DELEGATED-TO parameter is single-valued for Attendee
-                        if values.len() == 1 {
-                            delegated_to = values.pop();
-                        } else {
-                            errors.push(TypedError::PropertyInvalidValue {
-                                property: PropertyKind::Attendee,
-                                value: format!(
-                                    "DELEGATED-TO parameter expects 1 value, got {}",
-                                    values.len()
-                                ),
-                                span: param_span,
-                            });
-                        }
-                    }
-                },
-                Parameter::Delegators { mut values, .. } => match delegated_from {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => {
-                        // RFC 5545: DELEGATED-FROM parameter is single-valued for Attendee
-                        if values.len() == 1 {
-                            delegated_from = values.pop();
-                        } else {
-                            errors.push(TypedError::PropertyInvalidValue {
-                                property: PropertyKind::Attendee,
-                                value: format!(
-                                    "DELEGATED-FROM parameter expects 1 value, got {}",
-                                    values.len()
-                                ),
-                                span: param_span,
-                            });
-                        }
-                    }
-                },
-                Parameter::Directory { value, .. } => match dir {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => dir = Some(value),
-                },
-                Parameter::SendBy { value, .. } => match sent_by {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => sent_by = Some(value),
-                },
-                Parameter::Language { value, .. } => match language {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => language = Some(value),
-                },
-                // Ignore unknown parameters
+                p @ Parameter::CommonName { .. } if cn.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::CommonName { value, .. } => cn = Some(value),
+
+                p @ Parameter::ParticipationRole { .. } if role.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::ParticipationRole { value, .. } => role = Some(value),
+
+                p @ Parameter::ParticipationStatus { .. } if part_stat.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::ParticipationStatus { value, .. } => part_stat = Some(value),
+
+                p @ Parameter::RsvpExpectation { .. } if rsvp.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::RsvpExpectation { value, .. } => rsvp = Some(value),
+
+                p @ Parameter::CalendarUserType { .. } if cutype.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::CalendarUserType { value, .. } => cutype = Some(value),
+
+                p @ Parameter::GroupOrListMembership { .. } if member.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::GroupOrListMembership { values, .. } => member = Some(values),
+
+                p @ Parameter::Delegatees { .. } if delegated_to.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::Delegatees { values, .. } => delegated_to = Some(values),
+
+                p @ Parameter::Delegators { .. } if delegated_from.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::Delegators { values, .. } => delegated_from = Some(values),
+
+                p @ Parameter::Directory { .. } if dir.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::Directory { value, .. } => dir = Some(value),
+
+                p @ Parameter::SendBy { .. } if sent_by.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::SendBy { value, .. } => sent_by = Some(value),
+
+                p @ Parameter::Language { .. } if language.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::Language { value, .. } => language = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
                 _ => {}
             }
         }
 
         // Get cal_address value
-        let cal_address = match take_single_text(prop.kind, prop.values) {
+        let cal_address = match take_single_text(&prop.kind, prop.values) {
             Ok(text) => Some(text),
             Err(e) => {
-                errors.push(e);
+                errors.extend(e);
                 None
             }
         };
@@ -267,6 +234,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
             dir,
             sent_by,
             language,
+            x_parameters,
+            unrecognized_parameters,
         })
     }
 }
@@ -293,23 +262,21 @@ pub struct Organizer<'src> {
 
     /// Language (optional)
     pub language: Option<SpannedSegments<'src>>,
-}
 
-impl Organizer<'_> {
-    /// Get the property kind for `Organizer`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Organizer
-    }
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Organizer) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Organizer,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -322,50 +289,54 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
         let mut dir = None;
         let mut sent_by = None;
         let mut language = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
 
         for param in prop.parameters {
-            let kind_name = param.kind().name();
-            let param_span = param.span();
-
             match param {
-                Parameter::CommonName { value, .. } => match cn {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => cn = Some(value),
-                },
-                Parameter::Directory { value, .. } => match dir {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => dir = Some(value),
-                },
-                Parameter::SendBy { value, .. } => match sent_by {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => sent_by = Some(value),
-                },
-                Parameter::Language { value, .. } => match language {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => language = Some(value),
-                },
-                // Ignore unknown parameters
+                p @ Parameter::CommonName { .. } if cn.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::CommonName { value, .. } => cn = Some(value),
+
+                p @ Parameter::Directory { .. } if dir.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::Directory { value, .. } => dir = Some(value),
+
+                p @ Parameter::SendBy { .. } if sent_by.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::SendBy { value, .. } => sent_by = Some(value),
+
+                p @ Parameter::Language { .. } if language.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::Language { value, .. } => language = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
                 _ => {}
             }
         }
 
         // Get cal_address value
-        let cal_address = match take_single_text(prop.kind, prop.values) {
+        let cal_address = match take_single_text(&prop.kind, prop.values) {
             Ok(text) => Some(text),
             Err(e) => {
-                errors.push(e);
+                errors.extend(e);
                 None
             }
         };
@@ -381,6 +352,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
             dir,
             sent_by,
             language,
+            x_parameters,
+            unrecognized_parameters,
         })
     }
 }
@@ -403,21 +376,13 @@ impl DerefMut for RecurrenceId<'_> {
     }
 }
 
-impl RecurrenceId<'_> {
-    /// Returns the property kind.
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::RecurrenceId
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for RecurrenceId<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::RecurrenceId) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::RecurrenceId,
                 found: prop.kind,
                 span: prop.span,
             }]);

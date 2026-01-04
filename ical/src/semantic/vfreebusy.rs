@@ -52,11 +52,17 @@ pub struct VFreeBusy<'src> {
 
     /// Unavailable periods
     pub busy_unavailable: Vec<Period<'src>>,
+
+    /// Custom X- properties (preserved for round-trip)
+    pub x_properties: Vec<Property<'src>>,
+
+    /// Unknown IANA properties (preserved for round-trip)
+    pub unrecognized_properties: Vec<Property<'src>>,
 }
 
 /// Parse a `TypedComponent` into a `VFreeBusy`
 impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
-    type Error = Vec<SemanticError>;
+    type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
@@ -76,11 +82,17 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                 Property::FreeBusy(freebusy) => {
                     for value in freebusy.values {
                         // Categorize by FBTYPE
-                        match freebusy.fb_type {
+                        // Per RFC 5545: applications MUST treat x-name and iana-token
+                        // values they don't recognize the same way as BUSY
+                        match &freebusy.fb_type {
                             FreeBusyType::Free => props.free.push(value),
                             FreeBusyType::Busy => props.busy.push(value),
                             FreeBusyType::BusyTentative => props.busy_tentative.push(value),
                             FreeBusyType::BusyUnavailable => props.busy_unavailable.push(value),
+                            // XName and Unrecognized values treated as BUSY
+                            FreeBusyType::XName(_) | FreeBusyType::Unrecognized(_) => {
+                                props.busy.push(value);
+                            }
                         }
                     }
                 }
@@ -132,6 +144,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
                     }),
                     None => props.url = Some(url),
                 },
+                // Preserve unknown properties for round-trip
+                prop @ Property::XName { .. } => {
+                    props.x_properties.push(prop);
+                }
+                prop @ Property::Unrecognized { .. } => {
+                    props.unrecognized_properties.push(prop);
+                }
                 // Ignore other properties not used by VFreeBusy
                 _ => {}
             }
@@ -177,6 +196,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
             free: props.free,
             busy_tentative: props.busy_tentative,
             busy_unavailable: props.busy_unavailable,
+            x_properties: props.x_properties,
+            unrecognized_properties: props.unrecognized_properties,
         })
     }
 }
@@ -185,16 +206,18 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    uid:              Option<Uid<'src>>,
-    dt_stamp:         Option<DtStamp<'src>>,
-    dt_start:         Option<DtStart<'src>>,
-    dt_end:           Option<DtEnd<'src>>,
-    duration:         Option<ValueDuration>,
-    organizer:        Option<Organizer<'src>>,
-    contact:          Option<Contact<'src>>,
-    url:              Option<Url<'src>>,
-    busy:             Vec<Period<'src>>,
-    free:             Vec<Period<'src>>,
-    busy_tentative:   Vec<Period<'src>>,
-    busy_unavailable: Vec<Period<'src>>,
+    uid:                Option<Uid<'src>>,
+    dt_stamp:           Option<DtStamp<'src>>,
+    dt_start:           Option<DtStart<'src>>,
+    dt_end:             Option<DtEnd<'src>>,
+    duration:           Option<ValueDuration>,
+    organizer:          Option<Organizer<'src>>,
+    contact:            Option<Contact<'src>>,
+    url:                Option<Url<'src>>,
+    busy:               Vec<Period<'src>>,
+    free:               Vec<Period<'src>>,
+    busy_tentative:     Vec<Period<'src>>,
+    busy_unavailable:   Vec<Period<'src>>,
+    x_properties:       Vec<Property<'src>>,
+    unrecognized_properties: Vec<Property<'src>>,
 }

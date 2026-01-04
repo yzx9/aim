@@ -63,8 +63,12 @@ pub use relationship::{Attendee, Contact, Organizer, RecurrenceId, RelatedTo, Ui
 pub use timezone::{TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl};
 pub use util::{Text, Texts};
 
+use crate::lexer::Span;
+use crate::parameter::Parameter;
+use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::RecurrenceRule;
+use crate::value::Value;
 
 /// Unified property enum with one variant per `PropertyKind`.
 ///
@@ -75,7 +79,7 @@ use crate::value::RecurrenceRule;
 ///
 /// ```ignore
 /// match property {
-///     Property::Summary(text) => println!("Summary: {}", text.content.resolve()),
+///     Property::Summary(text) => println!("Summary: {}", text.content),
 ///     Property::DtStart(dt) => println!("Starts at: {:?}", dt),
 ///     Property::Attendee(attendee) => println!("Attendee: {:?}", attendee.cal_address),
 /// }
@@ -228,6 +232,40 @@ pub enum Property<'src> {
     // Section 3.8.8 - Miscellaneous Properties
     /// 3.8.8.3 Request Status
     RequestStatus(RequestStatus<'src>),
+
+    /// Custom experimental x-name property (must start with "X-" or "x-").
+    ///
+    /// Per RFC 5545: All property names and parameter names are case-insensitive.
+    /// Names starting with "X-" and "x-" are reserved for experimental use.
+    ///
+    /// This variant preserves the original data for round-trip compatibility.
+    XName {
+        /// Property name (e.g., "X-CUSTOM", "x-custom")
+        name: SpannedSegments<'src>,
+        /// Parsed parameters (may include Unknown parameters)
+        parameters: Vec<Parameter<'src>>,
+        /// Parsed value(s)
+        value: Value<'src>,
+        /// The span of the property
+        span: Span,
+    },
+
+    /// Unrecognized property (not a known standard property).
+    ///
+    /// Per RFC 5545: Compliant applications are expected to be able to parse
+    /// these other IANA-registered properties but can ignore them.
+    ///
+    /// This variant preserves the original data for round-trip compatibility.
+    Unrecognized {
+        /// Property name (e.g., "SOME-IANA-PROP")
+        name: SpannedSegments<'src>,
+        /// Parsed parameters (may include Unknown parameters)
+        parameters: Vec<Parameter<'src>>,
+        /// Parsed value(s)
+        value: Value<'src>,
+        /// The span of the property
+        span: Span,
+    },
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
@@ -310,6 +348,42 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
             PropertyKind::RequestStatus => {
                 RequestStatus::try_from(prop).map(Property::RequestStatus)
             }
+
+            // XName properties (experimental x-name properties)
+            PropertyKind::XName(name) => {
+                // Get the first value (unknown properties typically have a single value)
+                let value = prop.values.values.first().ok_or_else(|| {
+                    vec![TypedError::PropertyMissingValue {
+                        property: PropertyKind::XName(name.clone()),
+                        span: prop.span,
+                    }]
+                })?;
+
+                Ok(Property::XName {
+                    name: prop.name,
+                    parameters: prop.parameters,
+                    value: value.clone(),
+                    span: prop.span,
+                })
+            }
+
+            // Unrecognized properties (not a known standard property)
+            PropertyKind::Unrecognized(name) => {
+                // Get the first value (unknown properties typically have a single value)
+                let value = prop.values.values.first().ok_or_else(|| {
+                    vec![TypedError::PropertyMissingValue {
+                        property: PropertyKind::Unrecognized(name.clone()),
+                        span: prop.span,
+                    }]
+                })?;
+
+                Ok(Property::Unrecognized {
+                    name: prop.name,
+                    parameters: prop.parameters,
+                    value: value.clone(),
+                    span: prop.span,
+                })
+            }
         }
     }
 }
@@ -317,7 +391,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
 impl Property<'_> {
     /// Returns the `PropertyKind` for this property
     #[must_use]
-    pub const fn kind(&self) -> PropertyKind {
+    pub fn kind(&self) -> PropertyKind<'_> {
         match self {
             // Section 3.7 - Calendar Properties
             Self::CalScale(_) => PropertyKind::CalScale,
@@ -382,6 +456,10 @@ impl Property<'_> {
 
             // Section 3.8.8 - Miscellaneous Properties
             Self::RequestStatus(_) => PropertyKind::RequestStatus,
+
+            // XName and Unrecognized properties
+            Self::XName { name, .. } => PropertyKind::XName(name.clone()),
+            Self::Unrecognized { name, .. } => PropertyKind::Unrecognized(name.clone()),
         }
     }
 }

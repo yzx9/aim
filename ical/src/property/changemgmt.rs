@@ -15,9 +15,9 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::ValueKind;
-use crate::property::util::take_single_value;
-use crate::property::{DateTime, PropertyKind};
+use crate::parameter::ValueType;
+use crate::property::DateTime;
+use crate::property::{PropertyKind, util::take_single_value};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
 
@@ -45,35 +45,27 @@ pub struct Sequence {
     pub value: i32,
 }
 
-impl Sequence {
-    /// Get the property kind for `Sequence`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Sequence
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Sequence {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Sequence) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Sequence,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        match take_single_value(Self::kind(), prop.values) {
+        match take_single_value(&PropertyKind::Sequence, prop.values) {
             Ok((Value::Integer(value), _)) => Ok(Self { value }),
             Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueKind::Integer,
-                found: v.kind(),
+                expected: ValueType::Integer,
+                found: v.into_kind(),
                 span,
             }]),
-            Err(e) => Err(vec![e]),
+            Err(e) => Err(e),
         }
     }
 }

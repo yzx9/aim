@@ -13,7 +13,7 @@
 use std::convert::TryFrom;
 use std::ops::{Deref, DerefMut};
 
-use crate::parameter::ValueKind;
+use crate::parameter::ValueType;
 use crate::property::PropertyKind;
 use crate::property::util::{Text, take_single_value};
 use crate::typed::{ParsedProperty, TypedError};
@@ -37,21 +37,13 @@ impl DerefMut for TzId<'_> {
     }
 }
 
-impl TzId<'_> {
-    /// Get the property kind for `TzId`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::TzId
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for TzId<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::TzId) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::TzId,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -79,21 +71,13 @@ impl DerefMut for TzName<'_> {
     }
 }
 
-impl TzName<'_> {
-    /// Get the property kind for `TzName`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::TzName
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for TzName<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::TzName) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::TzName,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -106,14 +90,6 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TzName<'src> {
 /// Time Zone Offset From property wrapper (RFC 5545 Section 3.8.3.3)
 #[derive(Debug, Clone, Copy)]
 pub struct TzOffsetFrom(ValueUtcOffset);
-
-impl TzOffsetFrom {
-    /// Get the property kind for `TzOffsetFrom`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::TzOffsetFrom
-    }
-}
 
 impl Deref for TzOffsetFrom {
     type Target = ValueUtcOffset;
@@ -133,23 +109,23 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TzOffsetFrom {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::TzOffsetFrom) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::TzOffsetFrom,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        match take_single_value(prop.kind, prop.values) {
+        match take_single_value(&prop.kind, prop.values) {
             Ok((Value::UtcOffset(offset), _)) => Ok(Self(offset)),
             Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueKind::UtcOffset,
-                found: v.kind(),
+                expected: ValueType::UtcOffset,
+                found: v.into_kind(),
                 span,
             }]),
-            Err(e) => Err(vec![e]),
+            Err(e) => Err(e),
         }
     }
 }
@@ -157,14 +133,6 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TzOffsetFrom {
 /// Time Zone Offset To property wrapper (RFC 5545 Section 3.8.3.4)
 #[derive(Debug, Clone, Copy)]
 pub struct TzOffsetTo(ValueUtcOffset);
-
-impl TzOffsetTo {
-    /// Get the property kind for `TzOffsetTo`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::TzOffsetTo
-    }
-}
 
 impl Deref for TzOffsetTo {
     type Target = ValueUtcOffset;
@@ -184,22 +152,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TzOffsetTo {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::TzOffsetTo) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::TzOffsetTo,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
-        match take_single_value(prop.kind, prop.values) {
+        match take_single_value(&prop.kind, prop.values) {
             Ok((Value::UtcOffset(offset), _)) => Ok(Self(offset)),
             Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueKind::UtcOffset,
-                found: v.kind(),
+                expected: ValueType::UtcOffset,
+                found: v.into_kind(),
                 span,
             }]),
-            Err(e) => Err(vec![e]),
+            Err(e) => Err(e),
         }
     }
 }
@@ -222,21 +190,13 @@ impl DerefMut for TzUrl<'_> {
     }
 }
 
-impl TzUrl<'_> {
-    /// Get the property kind for `TzUrl`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::TzUrl
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for TzUrl<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::TzUrl) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::TzUrl,
                 found: prop.kind,
                 span: prop.span,
             }]);

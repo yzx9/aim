@@ -92,15 +92,19 @@ pub struct VTodo<'src> {
     /// Exception dates
     pub ex_date: Vec<DateTime<'src>>,
 
-    // /// Custom properties
-    // pub custom_properties: HashMap<String, Vec<String>>,
+    /// Custom X- properties (preserved for round-trip)
+    pub x_properties: Vec<Property<'src>>,
+
+    /// Unknown IANA properties (preserved for round-trip)
+    pub unrecognized_properties: Vec<Property<'src>>,
+
     /// Sub-components (like alarms)
     pub alarms: Vec<VAlarm<'src>>,
 }
 
 /// Parse a `TypedComponent` into a `VTodo`
 impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
-    type Error = Vec<SemanticError>;
+    type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
@@ -278,6 +282,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
                         // ExDate Date-only not yet implemented for todos
                     }
                 }
+                // Preserve unknown properties for round-trip
+                prop @ Property::XName { .. } => {
+                    props.x_properties.push(prop);
+                }
+                prop @ Property::Unrecognized { .. } => {
+                    props.unrecognized_properties.push(prop);
+                }
                 // Ignore other properties not used by VTodo
                 _ => {}
             }
@@ -345,6 +356,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
             rrule: props.rrule,
             rdate: props.rdate,
             ex_date: props.ex_dates,
+            x_properties: props.x_properties,
+            unrecognized_properties: props.unrecognized_properties,
             alarms,
         })
     }
@@ -424,4 +437,6 @@ struct PropertyCollector<'src> {
     rrule:          Option<RecurrenceRule>,
     rdate:          Vec<Period<'src>>,
     ex_dates:       Vec<DateTime<'src>>,
+    x_properties:   Vec<Property<'src>>,
+    unrecognized_properties: Vec<Property<'src>>,
 }

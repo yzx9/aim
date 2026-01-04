@@ -127,5 +127,5 @@ pub enum ParseError<'src> {
     Typed(TypedError<'src>),
 
     /// Errors from semantic analysis
-    Semantic(SemanticError),
+    Semantic(SemanticError<'src>),
 }

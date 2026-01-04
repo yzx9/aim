@@ -62,14 +62,18 @@ pub struct VJournal<'src> {
 
     /// URL associated with the journal entry
     pub url: Option<Text<'src>>,
-    // /// Custom properties
-    // pub custom_properties: HashMap<String, Vec<String>>,
+
+    /// Custom X- properties (preserved for round-trip)
+    pub x_properties: Vec<Property<'src>>,
+
+    /// Unknown IANA properties (preserved for round-trip)
+    pub unrecognized_properties: Vec<Property<'src>>,
 }
 
 /// Parse a `TypedComponent` into a `VJournal`
 #[expect(clippy::too_many_lines)]
 impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
-    type Error = Vec<SemanticError>;
+    type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VJOURNAL {
@@ -180,6 +184,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     }),
                     None => props.url = Some(url.0.clone()),
                 },
+                // Preserve unknown properties for round-trip
+                prop @ Property::XName { .. } => {
+                    props.x_properties.push(prop);
+                }
+                prop @ Property::Unrecognized { .. } => {
+                    props.unrecognized_properties.push(prop);
+                }
                 // Ignore other properties not used by VJournal
                 _ => {}
             }
@@ -223,6 +234,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
             rdate: props.rdate,
             ex_date: props.ex_dates,
             url: props.url,
+            x_properties: props.x_properties,
+            unrecognized_properties: props.unrecognized_properties,
         })
     }
 }
@@ -287,4 +300,6 @@ struct PropertyCollector<'src> {
     rdate:          Vec<Period<'src>>,
     ex_dates:       Vec<DateTime<'src>>,
     url:            Option<Text<'src>>,
+    x_properties:   Vec<Property<'src>>,
+    unrecognized_properties: Vec<Property<'src>>,
 }

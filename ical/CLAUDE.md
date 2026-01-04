@@ -54,6 +54,7 @@ Validates all components against RFC 5545 specifications through three sub-passe
 
 **Property Organization**: Property type definitions are organized in the `property/`
 module by RFC 5545 sections. Each property type has:
+
 - A dedicated wrapper type (e.g., `Created`, `DtStart`, `Summary`)
 - A `kind()` method returning the corresponding `PropertyKind`
 - Type validation in `TryFrom<ParsedProperty>` implementations that verify the
@@ -142,9 +143,9 @@ ical/
 - **thiserror** - Error handling
 - **jiff** (optional) - Datetime and timezone validation
 
-**Features:**
+## Features
 
-- `jiff` (default) - Datetime integration
+- **jiff** (default) - Datetime integration
 
 ## Design Principles
 
@@ -162,11 +163,12 @@ ical/
   - Unified `Property` enum providing type-safe access to all property variants
 - **RFC 5545 Compliance**: Comprehensive validation against the iCalendar
   specification with property-to-value-type mappings defined in `PropertyKind`
+- **Extensibility Support**: Full support for custom and experimental
+  properties. Per RFC 5545, unknown content does not cause parsing to fail
 - **Error Aggregation**: Collects and reports errors from all phases
 - **Type Safety**: Strongly typed representation of iCalendar data with
   dedicated wrapper types for each property (e.g., `Created`, `DtStart`, `Summary`)
 - **Performance**: Zero-copy parsing where possible, minimal allocations
-- **Extensibility**: Modular design allows for easy addition of new features
 - **Optional datetime dependencies**: All types use the value module's
   `ValueDate`, `ValueTime`, and `ValueDateTime` instead of directly using
   datetime types from `jiff` or `chrono` (planned)
@@ -185,6 +187,9 @@ The architecture provides comprehensive error reporting with:
   for all RFC 5545 properties, enabling compile-time type safety
 - **Unified Property Enum**: Single `Property` enum providing type-safe access to
   all property variants with `TryFrom<ParsedProperty>` validation
+- **Unknown/Custom Property Support**: Full RFC 5545 compliance for extensibility:
+  - Parsing never fails due to unknown content (per RFC 5545 Section 4.1)
+  - Preserves original data for round-trip serialization compatibility
 - **Timezone Validation**: Optional integration with `jiff` for timezone
   database validation (feature-gated)
 - **Extensible Property Support**: Property types organized by RFC 5545 sections

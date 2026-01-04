@@ -29,11 +29,17 @@ pub struct VTimeZone<'src> {
 
     /// Daylight saving time observances
     pub daylight: Vec<TimeZoneObservance<'src>>,
+
+    /// Custom X- properties (preserved for round-trip)
+    pub x_properties: Vec<Property<'src>>,
+
+    /// Unknown IANA properties (preserved for round-trip)
+    pub unrecognized_properties: Vec<Property<'src>>,
 }
 
 /// Parse a `TypedComponent` into a `VTimeZone`
 impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
-    type Error = Vec<SemanticError>;
+    type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VTIMEZONE {
@@ -67,6 +73,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                     }),
                     None => props.tz_url = Some(tz_url.0.clone()),
                 },
+                // Preserve unknown properties for round-trip
+                prop @ Property::XName { .. } => {
+                    props.x_properties.push(prop);
+                }
+                prop @ Property::Unrecognized { .. } => {
+                    props.unrecognized_properties.push(prop);
+                }
                 // Ignore other properties not used by VTimeZone
                 _ => {}
             }
@@ -117,6 +130,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
             tz_url: props.tz_url,
             standard,
             daylight,
+            x_properties: props.x_properties,
+            unrecognized_properties: props.unrecognized_properties,
         })
     }
 }
@@ -141,12 +156,12 @@ pub struct TimeZoneObservance<'src> {
 }
 
 impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
-    type Error = Vec<SemanticError>;
+    type Error = Vec<SemanticError<'src>>;
 
     /// Parse a timezone observance (STANDARD or DAYLIGHT) component
     fn try_from(
         comp: TypedComponent<'src>,
-    ) -> Result<TimeZoneObservance<'src>, Vec<SemanticError>> {
+    ) -> Result<TimeZoneObservance<'src>, Vec<SemanticError<'src>>> {
         let mut errors = Vec::new();
 
         // Collect all properties in a single pass
@@ -222,9 +237,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    tz_id:          Option<Text<'src>>,
-    last_modified:  Option<LastModified<'src>>,
-    tz_url:         Option<Text<'src>>,
+    tz_id:            Option<Text<'src>>,
+    last_modified:    Option<LastModified<'src>>,
+    tz_url:           Option<Text<'src>>,
+    x_properties:     Vec<Property<'src>>,
+    unrecognized_properties: Vec<Property<'src>>,
 }
 
 /// Helper struct to collect observance properties during single-pass iteration

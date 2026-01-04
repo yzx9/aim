@@ -76,7 +76,6 @@ dependencies = [
  "jiff",
  "lexical",
  "logos",
- "strum",
  "thiserror 2.0.17",
 ]
 

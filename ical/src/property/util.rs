@@ -10,7 +10,7 @@
 use std::convert::TryFrom;
 
 use crate::lexer::Span;
-use crate::parameter::{Parameter, ValueKind};
+use crate::parameter::{Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
@@ -20,45 +20,44 @@ use crate::value::{Value, ValueText, Values};
 ///
 /// # Errors
 /// Returns `SemanticError::ConstraintViolation` if there are multiple values
-pub fn take_single_value(
-    kind: PropertyKind,
-    mut values: Values<'_>,
-) -> Result<(Value<'_>, Span), TypedError<'_>> {
-    let len = values.len();
-    if len > 1 {
-        return Err(TypedError::PropertyInvalidValueCount {
-            property: kind,
+pub fn take_single_value<'src>(
+    kind: &PropertyKind<'src>,
+    mut values: Values<'src>,
+) -> Result<(Value<'src>, Span), Vec<TypedError<'src>>> {
+    if values.len() > 1 {
+        return Err(vec![TypedError::PropertyInvalidValueCount {
+            property: kind.clone(),
             expected: 1,
-            found: len,
+            found: values.len(),
             span: values.span,
-        });
+        }]);
     }
 
     match values.pop() {
         Some(value) => Ok((value, values.span)),
-        None => Err(TypedError::PropertyMissingValue {
-            property: kind,
+        None => Err(vec![TypedError::PropertyMissingValue {
+            property: kind.clone(),
             span: values.span,
-        }),
+        }]),
     }
 }
 
 /// Get a single text value from a property
 ///
 /// # Errors
-/// Returns `SemanticError::UnexpectedType` if the value is not text
-pub fn take_single_text(
-    kind: PropertyKind,
-    values: Values<'_>,
-) -> Result<ValueText<'_>, TypedError<'_>> {
+/// Returns `TypedError::PropertyUnexpectedValue` if the value is not text
+pub fn take_single_text<'src>(
+    kind: &PropertyKind<'src>,
+    values: Values<'src>,
+) -> Result<ValueText<'src>, Vec<TypedError<'src>>> {
     match take_single_value(kind, values) {
         Ok((Value::Text(text), _)) => Ok(text),
-        Ok((v, span)) => Err(TypedError::PropertyUnexpectedValue {
-            property: kind,
-            expected: ValueKind::Text,
-            found: v.kind(),
+        Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
+            property: kind.clone(),
+            expected: ValueType::Text,
+            found: v.into_kind(),
             span,
-        }),
+        }]),
         Err(e) => Err(e),
     }
 }
@@ -66,19 +65,19 @@ pub fn take_single_text(
 /// Get a single string value from a property
 ///
 /// # Errors
-/// Returns `SemanticError::UnexpectedType` if the value is not text
-pub fn take_single_string(
-    kind: PropertyKind,
-    values: Values<'_>,
-) -> Result<String, TypedError<'_>> {
+/// Returns `TypedError::PropertyUnexpectedValue` if the value is not text
+pub fn take_single_string<'src>(
+    kind: &PropertyKind<'src>,
+    values: Values<'src>,
+) -> Result<String, Vec<TypedError<'src>>> {
     match take_single_value(kind, values) {
         Ok((Value::Text(v), _)) => Ok(v.resolve().to_string()), // TODO: avoid allocation
-        Ok((v, span)) => Err(TypedError::PropertyUnexpectedValue {
-            property: kind,
-            expected: ValueKind::Text,
-            found: v.kind(),
+        Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
+            property: kind.clone(),
+            expected: ValueType::Text,
+            found: v.into_kind(),
             span,
-        }),
+        }]),
         Err(e) => Err(e),
     }
 }
@@ -105,42 +104,48 @@ pub struct Text<'src> {
     /// properties, but may be present in other text properties like DESCRIPTION,
     /// SUMMARY, LOCATION, CONTACT, and RESOURCES.
     pub altrep: Option<SpannedSegments<'src>>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let content = take_single_text(&prop.kind, prop.values)?;
+
         let mut errors = Vec::new();
 
-        let content = match take_single_text(prop.kind, prop.values) {
-            Ok(text) => text,
-            Err(e) => return Err(vec![e]),
-        };
-
-        // Extract language and altrep parameters
+        // Extract language, altrep, and unknown parameters
         let mut language = None;
         let mut altrep = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
 
         for param in prop.parameters {
-            let kind_name = param.kind().name();
-            let param_span = param.span();
-
             match param {
-                Parameter::Language { value, .. } => match language {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => language = Some(value),
-                },
-                Parameter::AlternateText { value, .. } => match altrep {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => altrep = Some(value),
-                },
+                p @ Parameter::Language { .. } if language.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::Language { value, .. } => language = Some(value),
+
+                p @ Parameter::AlternateText { .. } if altrep.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::AlternateText { value, .. } => altrep = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
                 _ => {}
             }
         }
@@ -154,6 +159,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
             content,
             language,
             altrep,
+            x_parameters,
+            unrecognized_parameters,
         })
     }
 }
@@ -169,21 +176,30 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
 pub struct Texts<'src> {
     /// List of text values
     pub values: Vec<Text<'src>>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        // Get language parameter (shared by all values)
-        let language = prop
-            .parameters
-            .into_iter()
-            .find(|p| matches!(p, Parameter::Language { .. }))
-            .and_then(|p| match p {
-                Parameter::Language { value, .. } => Some(value),
-                _ => None,
-            });
+        let mut language = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                Parameter::Language { value, .. } => language = Some(value),
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
 
         let values = prop
             .values
@@ -193,12 +209,18 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
                     content,
                     language: language.clone(),
                     altrep: None, // ALTREP not applicable to multi-valued text properties
+                    x_parameters: Vec::new(),
+                    unrecognized_parameters: Vec::new(),
                 }),
                 _ => None,
             })
             .collect();
 
-        Ok(Self { values })
+        Ok(Self {
+            values,
+            x_parameters,
+            unrecognized_parameters,
+        })
     }
 }
 
@@ -225,14 +247,6 @@ macro_rules! simple_property_wrapper {
             }
         }
 
-        impl $name<'_> {
-            /// Get the property kind for this type
-            #[must_use]
-            pub const fn kind() -> crate::property::PropertyKind {
-                crate::property::PropertyKind::$kind
-            }
-        }
-
         impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name<'src>
         where
             $inner: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
@@ -240,9 +254,9 @@ macro_rules! simple_property_wrapper {
             type Error = Vec<crate::typed::TypedError<'src>>;
 
             fn try_from(prop: crate::typed::ParsedProperty<'src>) -> Result<Self, Self::Error> {
-                if prop.kind != Self::kind() {
+                if !matches!(prop.kind, crate::property::PropertyKind::$kind) {
                     return Err(vec![crate::typed::TypedError::PropertyUnexpectedKind {
-                        expected: Self::kind(),
+                        expected: crate::property::PropertyKind::$kind,
                         found: prop.kind,
                         span: prop.span,
                     }]);

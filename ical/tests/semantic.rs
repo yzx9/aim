@@ -17,7 +17,7 @@ use aimcal_ical::value::ValueDuration;
 use aimcal_ical::{CalendarScale, ICalendar, Method, Period, Version};
 
 /// Test helper to parse iCalendar source through semantic phase
-fn parse_semantic(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError>> {
+fn parse_semantic(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError<'_>>> {
     let token_stream = lex_analysis(src);
     let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
     let typed_components = typed_analysis(syntax_components).unwrap();
@@ -1032,4 +1032,37 @@ END:VCALENDAR\r
     assert_eq!(calendars[0].prod_id.product, "Corp1");
     assert_eq!(calendars[1].prod_id.product, "Corp2");
     assert_eq!(calendars[2].prod_id.product, "Corp3");
+}
+
+#[test]
+fn semantic_preserves_unknown_properties() {
+    let src = "BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Test//Test//EN\r
+BEGIN:VEVENT\r
+UID:test123\r
+DTSTAMP:20250101T000000Z\r
+DTSTART:20250101T120000Z\r
+X-CUSTOM-PROP:custom value\r
+X-ANOTHER-PROP:another value\r
+NONSTANDARD-PROP:non-standard value\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+
+    let calendars = parse_semantic(src).unwrap();
+    assert_eq!(calendars.len(), 1);
+
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::Event(event) => {
+            // X- properties should be in x_properties
+            assert_eq!(event.x_properties.len(), 2);
+            // Unrecognized properties should be in unrecognized_properties
+            assert_eq!(event.unrecognized_properties.len(), 1);
+        }
+        _ => panic!("Expected Event component"),
+    }
 }

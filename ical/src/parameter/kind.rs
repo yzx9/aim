@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt, str::FromStr};
+use std::fmt;
 
 use crate::keyword::{
     KW_ALTREP, KW_CN, KW_CUTYPE, KW_DELEGATED_FROM, KW_DELEGATED_TO, KW_DIR, KW_ENCODING,
     KW_FBTYPE, KW_FMTTYPE, KW_LANGUAGE, KW_MEMBER, KW_PARTSTAT, KW_RANGE, KW_RELATED, KW_RELTYPE,
     KW_ROLE, KW_RSVP, KW_SENT_BY, KW_TZID, KW_VALUE,
 };
+use crate::syntax::SpannedSegments;
 
 macro_rules! impl_typed_parameter_kind_mapping {
     (
@@ -19,41 +20,50 @@ macro_rules! impl_typed_parameter_kind_mapping {
             ),+ $(,)?
         }
     ) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(Debug, Clone)]
         $(#[$attr])*
-        pub enum $ty {
-            $(
-                $variant,
-            )+
+        pub enum $ty<'src> {
+            $( $variant, )+
+            /// Custom experimental x-name value (must start with "X-" or "x-")
+            XName(SpannedSegments<'src>),
+            /// Unrecognized value (not a known standard value)
+            Unrecognized(SpannedSegments<'src>),
         }
 
-        impl $ty {
-            /// Returns the name keyword for the parameter type
-            pub const fn name(self) -> &'static str {
+        impl<'src> From<SpannedSegments<'src>> for $ty<'src> {
+            fn from(name: SpannedSegments<'src>) -> Self {
+                // $(
+                //     if name.eq_str_ignore_ascii_case($kw) {
+                //         return Ok(Self::$variant);
+                //     }
+                // )*
+                // Err(())
+
+                let name_resolved = name.resolve(); // PERF: avoid allocation
+                let name_str = name_resolved.as_ref();
+                match name_str {
+                    $(
+                        $kw => Self::$variant,
+                    )+
+                    _ => {
+                        if name_str.starts_with("X-") || name_str.starts_with("x-") {
+                            Self::XName(name)
+                        } else {
+                            Self::Unrecognized(name)
+                        }
+                    }
+                }
+            }
+        }
+
+        impl fmt::Display for $ty<'_> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     $(
-                        Self::$variant => $kw,
+                        Self::$variant => write!(f, "{}", $kw),
                     )+
+                    Self::XName(s) | Self::Unrecognized(s) => write!(f, "{}", s),
                 }
-            }
-        }
-
-        impl FromStr for $ty {
-            type Err = ();
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s {
-                    $(
-                        $kw => Ok(Self::$variant),
-                    )+
-                    _ => Err(()),
-                }
-            }
-        }
-
-        impl fmt::Display for $ty {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                self.name().fmt(f)
             }
         }
     };

@@ -30,6 +30,12 @@ pub struct ICalendar<'src> {
 
     /// All calendar components (events, todos, journals, etc.)
     pub components: Vec<CalendarComponent<'src>>,
+
+    /// Custom X- properties (preserved for round-trip)
+    pub x_properties: Vec<Property<'src>>,
+
+    /// Unknown IANA properties (preserved for round-trip)
+    pub unrecognized_properties: Vec<Property<'src>>,
 }
 
 /// Parse a `TypedComponent` into typed `ICalendar`
@@ -42,7 +48,7 @@ pub struct ICalendar<'src> {
 /// - Property values are invalid or malformed
 /// - Child components cannot be parsed
 impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
-    type Error = Vec<SemanticError>;
+    type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         if comp.name != KW_VCALENDAR {
@@ -82,7 +88,14 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
                     }),
                     None => props.method = Some(value),
                 },
-                // Ignore unknown properties
+                // Preserve unknown properties for round-trip
+                prop @ Property::XName { .. } => {
+                    props.x_properties.push(prop);
+                }
+                prop @ Property::Unrecognized { .. } => {
+                    props.unrecognized_properties.push(prop);
+                }
+                // Ignore other properties not used by ICalendar
                 _ => {}
             }
         }
@@ -120,6 +133,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
             calscale: props.calscale,
             method: props.method,
             components,
+            x_properties: props.x_properties,
+            unrecognized_properties: props.unrecognized_properties,
         })
     }
 }
@@ -132,7 +147,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
 /// Individual component parsing errors are collected and included in the result.
 fn parse_component_children(
     children: Vec<TypedComponent<'_>>,
-) -> Result<Vec<CalendarComponent<'_>>, Vec<SemanticError>> {
+) -> Result<Vec<CalendarComponent<'_>>, Vec<SemanticError<'_>>> {
     let mut components = Vec::with_capacity(children.len());
     let mut errors = Vec::new();
 
@@ -216,9 +231,11 @@ pub enum CalendarComponent<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector {
-    prod_id:  Option<ProductId>,
-    version:  Option<Version>,
-    calscale: Option<CalendarScale>,
-    method:   Option<Method>,
+struct PropertyCollector<'src> {
+    prod_id:            Option<ProductId>,
+    version:            Option<Version>,
+    calscale:           Option<CalendarScale>,
+    method:             Option<Method>,
+    x_properties:       Vec<Property<'src>>,
+    unrecognized_properties: Vec<Property<'src>>,
 }

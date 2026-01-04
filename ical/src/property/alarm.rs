@@ -16,7 +16,7 @@
 use std::{convert::TryFrom, fmt, str::FromStr};
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
-use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueKind};
+use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueType};
 use crate::property::util::{take_single_string, take_single_value};
 use crate::property::{DateTime, PropertyKind};
 use crate::typed::{ParsedProperty, TypedError};
@@ -33,14 +33,6 @@ pub enum Action {
 
     /// Email alarm
     Email,
-}
-
-impl Action {
-    /// Get the property kind for `Action`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Action
-    }
 }
 
 impl FromStr for Action {
@@ -77,21 +69,20 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Action) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Action,
                 found: prop.kind,
                 span: prop.span,
             }]);
         }
 
-        let span = prop.span;
-        let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
+        let text = take_single_string(&PropertyKind::Action, prop.values)?;
         text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Action,
                 value: e,
-                span,
+                span: prop.span,
             }]
         })
     }
@@ -106,22 +97,14 @@ pub struct Repeat {
     pub value: u32,
 }
 
-impl Repeat {
-    /// Get the property kind for `Repeat`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Repeat
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Repeat {
     type Error = Vec<TypedError<'src>>;
 
     #[allow(clippy::cast_sign_loss)]
     fn try_from(mut prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Repeat) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Repeat,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -133,7 +116,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat {
                 span: prop.span,
             }]),
             1 => match prop.values.pop().unwrap() {
-                Value::Integer(i) if i > 0 => Ok(Self { value: i as u32 }),
+                Value::Integer(i) if i >= 0 => Ok(Self { value: i as u32 }), // SAFETY: i < i32::MAX < u32::MAX
                 Value::Integer(i) => Err(vec![TypedError::PropertyInvalidValue {
                     property: prop.kind,
                     value: format!("Repeat count must be non-negative: {i}"),
@@ -141,8 +124,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat {
                 }]),
                 v => Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueKind::Integer,
-                    found: v.kind(),
+                    expected: ValueType::Integer,
+                    found: v.into_kind(),
                     span: prop.span,
                 }]),
             },
@@ -164,6 +147,12 @@ pub struct Trigger<'src> {
 
     /// Related parameter for relative triggers
     pub related: Option<AlarmTriggerRelationship>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 /// Trigger value (relative duration or absolute date/time)
@@ -176,21 +165,13 @@ pub enum TriggerValue<'src> {
     DateTime(DateTime<'src>),
 }
 
-impl Trigger<'_> {
-    /// Get the property kind for `Trigger`
-    #[must_use]
-    pub const fn kind() -> PropertyKind {
-        PropertyKind::Trigger
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if prop.kind != Self::kind() {
+        if !matches!(prop.kind, PropertyKind::Trigger) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: Self::kind(),
+                expected: PropertyKind::Trigger,
                 found: prop.kind,
                 span: prop.span,
             }]);
@@ -200,27 +181,26 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
 
         // Collect the RELATED parameter (optional, default is START)
         let mut related = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
 
-        for param in &prop.parameters {
-            let kind_name = param.kind().name();
-            let param_span = param.span();
-
-            #[expect(clippy::single_match)]
+        for param in prop.parameters {
             match param {
-                Parameter::AlarmTriggerRelationship { value, .. } => match related {
-                    Some(_) => errors.push(TypedError::ParameterDuplicated {
-                        parameter: kind_name,
-                        span: param_span,
-                    }),
-                    None => related = Some(*value),
-                },
-                // Ignore unknown parameters
+                p @ Parameter::AlarmTriggerRelationship { .. } if related.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    });
+                }
+                Parameter::AlarmTriggerRelationship { value, .. } => related = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
                 _ => {}
             }
         }
 
-        let (value, _) =
-            take_single_value(PropertyKind::Trigger, prop.values).map_err(|e| vec![e])?;
+        let (value, _) = take_single_value(&PropertyKind::Trigger, prop.values)?;
 
         // Return all errors if any occurred
         if !errors.is_empty() {
@@ -231,13 +211,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
             Value::Duration(dur) => Ok(Trigger {
                 value: TriggerValue::Duration(dur),
                 related: Some(related.unwrap_or(AlarmTriggerRelationship::Start)),
+                x_parameters,
+                unrecognized_parameters,
             }),
             Value::DateTime(dt) => Ok(Trigger {
                 value: TriggerValue::DateTime(DateTime::Floating {
                     date: dt.date,
                     time: dt.time.into(),
+                    x_parameters: Vec::new(),
+                    unrecognized_parameters: Vec::new(),
                 }),
                 related: None,
+                x_parameters,
+                unrecognized_parameters,
             }),
             _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Trigger,

@@ -24,7 +24,6 @@ pub use vtimezone::{TimeZoneObservance, VTimeZone};
 pub use vtodo::VTodo;
 
 use crate::keyword::KW_VCALENDAR;
-use crate::parameter::{ParameterKind, ValueKind};
 use crate::property::PropertyKind;
 use crate::typed::TypedComponent;
 
@@ -37,7 +36,7 @@ use crate::typed::TypedComponent;
 /// - Any components failed to parse
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
-) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError>> {
+) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError<'_>>> {
     // Return error only if no calendars
     if typed_components.is_empty() {
         return Err(vec![SemanticError::ConstraintViolation {
@@ -65,7 +64,7 @@ pub fn semantic_analysis(
 /// Error type for parsing operations
 #[non_exhaustive]
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum SemanticError {
+pub enum SemanticError<'a> {
     /// Unknown component type
     #[error("Unknown component type: {component}")]
     UnknownComponent {
@@ -82,55 +81,25 @@ pub enum SemanticError {
         got: String,
     },
 
-    /// Unknown property
-    #[error("Unknown property '{property}'")]
-    UnknownProperty {
-        /// The unknown property name
-        property: String,
-    },
-
     /// Duplicate property
-    #[error("Duplicate property '{property} '")]
+    #[error("Duplicate property '{property}'")]
     DuplicateProperty {
         /// The property that is duplicated
-        property: PropertyKind,
+        property: PropertyKind<'a>,
     },
 
     /// Missing required property
     #[error("Missing required property '{property}'")]
     MissingProperty {
         /// The property that is missing
-        property: PropertyKind,
-    },
-
-    /// Duplicate parameter
-    #[error("Duplicate property '{parameter}'")]
-    DuplicateParameter {
-        /// The duplicated parameter
-        parameter: ParameterKind,
-    },
-
-    /// Property has no values
-    #[error("Property '{property}' has no values")]
-    MissingValue {
-        /// The property that has no values
-        property: PropertyKind,
-    },
-
-    /// Expected a different value type
-    #[error("Expected {expected} value for property: {property}")]
-    UnexpectedType {
-        /// The property that has the wrong type
-        property: PropertyKind,
-        /// The expected value type
-        expected: ValueKind,
+        property: PropertyKind<'a>,
     },
 
     /// Invalid property value
     #[error("Invalid value '{value}' for property: {property}")]
     InvalidValue {
         /// The property that has the invalid value
-        property: PropertyKind,
+        property: PropertyKind<'a>,
         /// The invalid value description
         value: String,
     },
