@@ -84,7 +84,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
                     property: prop.kind,
                     expected: ValueKind::DateTime,
                     found: ValueKind::Text,
-                    span: prop.span.clone(),
+                    span: prop.span,
                 }]),
             })
             .collect::<Result<Vec<_>, _>>()
@@ -135,14 +135,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<'src> {
                     Err(vec![TypedError::PropertyInvalidValue {
                         property: prop.kind,
                         value: "Period values must be processed at semantic level".to_string(),
-                        span: prop.span.clone(),
+                        span: prop.span,
                     }])
                 }
                 _ => Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueKind::Period,
                     found: ValueKind::Text,
-                    span: prop.span.clone(),
+                    span: prop.span,
                 }]),
             })
             .collect::<Result<Vec<_>, _>>()

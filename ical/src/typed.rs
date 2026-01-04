@@ -343,10 +343,10 @@ impl TypedError<'_> {
             | TypedError::PropertyUnexpectedKind { span, .. }
             | TypedError::PropertyInvalidValue { span, .. }
             | TypedError::PropertyMissingValue { span, .. }
-            | TypedError::PropertyUnexpectedValue { span, .. } => span.clone(),
+            | TypedError::PropertyUnexpectedValue { span, .. } => *span,
 
             TypedError::ParameterValueSyntax { err, .. } | TypedError::ValueSyntax { err, .. } => {
-                err.span().into_range()
+                (*err.span()).into()
             }
         }
     }
@@ -403,7 +403,7 @@ fn value_types<'src>(
                 property: prop_kind.as_str(),
                 value_type: *value,
                 expected_types: allowed_types,
-                span: span.clone(),
+                span: *span,
             }])
         }
     } else {

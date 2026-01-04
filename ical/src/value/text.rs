@@ -5,7 +5,7 @@
 //! Parsers for property values as defined in RFC 5545 Section 3.3.
 
 use std::borrow::Cow;
-use std::fmt::{self, Display};
+use std::fmt;
 
 use chumsky::Parser;
 use chumsky::container::Container;
@@ -55,7 +55,7 @@ impl<'src> PartialEq<ValueText<'src>> for &str {
     }
 }
 
-impl Display for ValueText<'_> {
+impl fmt::Display for ValueText<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for token in &self.tokens {
             #[expect(clippy::write_with_newline)]
@@ -209,7 +209,9 @@ impl Container<SimpleSpan> for SpanCollector {
 
     fn push(&mut self, span: SimpleSpan) {
         match self.0.last_mut() {
-            Some(last) if last.end == span.start => last.end = span.end,
+            Some(last) if last.end() == span.start() => {
+                *last = SimpleSpan::new(last.context(), last.start()..span.end());
+            }
             _ => self.0.push(span),
         }
     }
@@ -232,10 +234,14 @@ mod tests {
 
     fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
         let eoi = match (segs.segments.first(), segs.segments.last()) {
-            (Some(first), Some(last)) => first.1.start..last.1.end,
-            _ => 0..0,
+            (Some(first), Some(last)) => SimpleSpan::new((), first.1.start..last.1.end),
+            _ => SimpleSpan::new((), 0..0),
         };
-        Stream::from_iter(segs.into_spanned_chars()).map(eoi.into(), |(t, s)| (t, s.into()))
+        Stream::from_iter(segs.into_spanned_chars()).map(eoi, |(t, s)| {
+            // Convert our custom Span to SimpleSpan
+            let simple = SimpleSpan::new((), s.start..s.end);
+            (t, simple)
+        })
     }
 
     #[test]

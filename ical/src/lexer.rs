@@ -4,7 +4,7 @@
 
 //! Lexer for iCalendar files as defined in RFC 5545
 
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt;
 use std::ops::Range;
 
 use chumsky::input::{Input, MapExtra, Stream, ValueInput};
@@ -20,8 +20,7 @@ pub fn lex_analysis(src: &'_ str) -> impl ValueInput<'_, Token = Token<'_>, Span
         // Convert logos errors into tokens. We want parsing to be recoverable and not fail at the lexing stage, so
         // we have a dedicated `Token::Error` variant that represents a token error that was previously encountered
         .map(|(tok, span)| match tok {
-            // Turn the `Range<usize>` spans logos gives us into chumsky's `SimpleSpan` via `Into`, because it's easier
-            // to work with
+            // Convert logos' `Range<usize>` spans to our custom `Span` type, then to chumsky's `SimpleSpan`
             Ok(tok) => (tok, span.into()),
             Err(()) => (Token::Error, span.into()),
         });
@@ -91,8 +90,8 @@ pub enum Token<'a> {
     Error,
 }
 
-impl Display for Token<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl fmt::Display for Token<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DQuote => write!(f, "DQuote"),
             Self::Comma => write!(f, "Comma"),
@@ -113,17 +112,68 @@ impl Display for Token<'_> {
     }
 }
 
-impl Debug for Token<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self, f)
+impl fmt::Debug for Token<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 
 /// A span representing a range in the source code
-pub type Span = Range<usize>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Span {
+    /// Start position of the span
+    pub start: usize,
+    /// End position of the span
+    pub end: usize,
+}
+
+impl Span {
+    /// Create a new span from start and end positions
+    #[must_use]
+    pub const fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+
+    /// Convert to a standard range
+    #[must_use]
+    pub const fn into_range(self) -> Range<usize> {
+        self.start..self.end
+    }
+}
+
+impl From<Range<usize>> for Span {
+    fn from(range: Range<usize>) -> Self {
+        Self {
+            start: range.start,
+            end: range.end,
+        }
+    }
+}
+
+impl From<SimpleSpan<usize>> for Span {
+    fn from(span: SimpleSpan<usize>) -> Self {
+        Self {
+            start: span.start,
+            end: span.end,
+        }
+    }
+}
+
+impl From<Span> for SimpleSpan<usize> {
+    fn from(span: Span) -> Self {
+        use chumsky::span::Span;
+        SimpleSpan::new((), span.start..span.end)
+    }
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}..{}", self.start, self.end)
+    }
+}
 
 /// A token with its associated span in the source code
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SpannedToken<'src>(pub Token<'src>, pub Span);
 
 impl<'src> SpannedToken<'src> {
@@ -137,13 +187,12 @@ impl<'src> SpannedToken<'src> {
         E: ParserExtra<'tokens, I>,
     {
         let span = e.span();
-        let range = span.start..span.end;
-        SpannedToken(token, range)
+        SpannedToken(token, span.into())
     }
 }
 
-impl Display for SpannedToken<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl fmt::Display for SpannedToken<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}@{:?}", self.0, self.1)
     }
 }

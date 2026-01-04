@@ -71,7 +71,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence {
                 property: prop.kind,
                 expected: ValueKind::Integer,
                 found: v.kind(),
-                span: 0..0, // TODO: improve span reporting
+                span: (0..0).into(), // TODO: improve span reporting
             }]),
             Err(e) => Err(vec![e]),
         }

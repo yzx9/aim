@@ -29,7 +29,7 @@ pub fn take_single_value(
             property: kind,
             expected: 1,
             found: len,
-            span: 0..0, // TODO: improve span reporting
+            span: (0..0).into(), // TODO: improve span reporting
         });
     }
 
@@ -37,7 +37,7 @@ pub fn take_single_value(
         Some(value) => Ok(value),
         None => Err(TypedError::PropertyMissingValue {
             property: kind,
-            span: 0..0, // TODO: improve span reporting
+            span: (0..0).into(), // TODO: improve span reporting
         }),
     }
 }
@@ -56,7 +56,7 @@ pub fn take_single_text(
             property: kind,
             expected: ValueKind::Text,
             found: v.kind(),
-            span: 0..0, // TODO: improve span reporting
+            span: (0..0).into(), // TODO: improve span reporting
         }),
         Err(e) => Err(e),
     }
@@ -76,7 +76,7 @@ pub fn take_single_string(
             property: kind,
             expected: ValueKind::Text,
             found: v.kind(),
-            span: 0..0, // TODO: improve span reporting
+            span: (0..0).into(), // TODO: improve span reporting
         }),
         Err(e) => Err(e),
     }

@@ -71,12 +71,12 @@ use crate::typed::{TypedError, typed_analysis};
 ///         .finish()
 ///     }
 ///     ParseError::Typed(e) => {
-///       Report::build(ReportKind::Error, e.span())
+///       Report::build(ReportKind::Error, e.span().into_range())
 ///          .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
 ///          .with_code(3)
 ///          .with_message(e.to_string())
 ///          .with_label(
-///            Label::new(e.span())
+///            Label::new(e.span().into_range())
 ///              .with_message(e.to_string())
 ///              .with_color(Color::Red),
 ///          )

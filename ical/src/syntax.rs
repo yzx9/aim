@@ -5,7 +5,7 @@
 //! Parser for iCalendar syntax as defined in RFC 5545, built on top of the lexer, no type.
 
 use std::borrow::Cow;
-use std::fmt::Display;
+use std::fmt;
 use std::iter::Peekable;
 use std::str::CharIndices;
 
@@ -409,8 +409,8 @@ impl<'src> SpannedSegments<'src> {
     }
 }
 
-impl Display for SpannedSegments<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for SpannedSegments<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (seg, _) in &self.segments {
             seg.fmt(f)?;
         }
@@ -435,8 +435,8 @@ impl Iterator for SegmentedSpannedChars<'_> {
                 Some((ref span, ref mut chars)) => match chars.next() {
                     Some((start, c)) => {
                         let char_span = match chars.peek() {
-                            Some((end, _)) => (span.start + start)..(span.start + end),
-                            None => span.start + start..span.end,
+                            Some((end, _)) => Span::new(span.start + start, span.start + end),
+                            None => Span::new(span.start + start, span.end),
                         };
                         return Some((c, char_span));
                     }
@@ -447,7 +447,7 @@ impl Iterator for SegmentedSpannedChars<'_> {
                 },
                 None => {
                     let (s, span) = self.segments.get(self.seg_idx).unwrap(); // SAFETY: due to while condition
-                    self.chars = Some((span.clone(), s.char_indices().peekable()));
+                    self.chars = Some((*span, s.char_indices().peekable()));
                 }
             }
         }
@@ -464,7 +464,7 @@ impl SpanCollector {
         let mut segments = Vec::with_capacity(self.0.len());
         let mut len = 0;
         for s in self.0 {
-            let segment_str = &src[s.clone()];
+            let segment_str = &src[s.into_range()];
             segments.push((segment_str, s));
             len += segment_str.len();
         }
@@ -479,7 +479,9 @@ impl<'src> Container<SpannedToken<'src>> for SpanCollector {
 
     fn push(&mut self, spanned_token: SpannedToken<'src>) {
         match self.0.last_mut() {
-            Some(last) if last.end == spanned_token.1.start => last.end = spanned_token.1.end,
+            Some(last) if last.end == spanned_token.1.start => {
+                last.end = spanned_token.1.end;
+            }
             _ => self.0.push(spanned_token.1),
         }
     }

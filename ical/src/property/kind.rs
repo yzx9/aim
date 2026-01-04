@@ -7,7 +7,7 @@
 //! This module defines the `PropertyKind` enum that represents all standard
 //! iCalendar properties defined in RFC 5545, along with their allowed value types.
 
-use std::fmt::{Display, Formatter};
+use std::fmt;
 use std::str::FromStr;
 
 use crate::keyword::{
@@ -73,8 +73,8 @@ macro_rules! property_kind {
             }
         }
 
-        impl Display for PropertyKind {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        impl fmt::Display for PropertyKind {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 self.as_str().fmt(f)
             }
         }

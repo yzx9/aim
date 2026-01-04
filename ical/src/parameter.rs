@@ -326,7 +326,7 @@ impl Parameter<'_> {
             | Parameter::SendBy { span, .. }
             | Parameter::RsvpExpectation { span, .. }
             | Parameter::TimeZoneIdentifier { span, .. }
-            | Parameter::ValueKind { span, .. } => span.clone(),
+            | Parameter::ValueKind { span, .. } => *span,
         }
     }
 }

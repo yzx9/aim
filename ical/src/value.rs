@@ -23,8 +23,10 @@ pub use period::ValuePeriod;
 pub use rrule::{Day, RecurrenceFrequency, RecurrenceRule, WeekDay};
 pub use text::ValueText;
 
+use chumsky::input::Stream;
 use chumsky::prelude::*;
 
+use crate::lexer::Span;
 use crate::parameter::ValueKind;
 use crate::syntax::SpannedSegments;
 use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
@@ -310,7 +312,7 @@ pub fn parse_values<'src>(
                 // Return an error for unimplemented types
                 let span = value.span();
                 return Err(vec![Rich::custom(
-                    SimpleSpan::new((), span),
+                    span.into(),
                     format!("Parser for {kind} is not implemented"),
                 )]);
             }
@@ -318,13 +320,17 @@ pub fn parse_values<'src>(
     }
 
     // All types failed - return all collected errors
+    // TODO: map span to the entire value span
     Err(all_errors)
 }
 
 fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
     let eoi = match (segs.segments.first(), segs.segments.last()) {
-        (Some(first), Some(last)) => first.1.start..last.1.end,
-        _ => 0..0,
+        (Some(first), Some(last)) => Span {
+            start: first.1.start,
+            end: last.1.end,
+        },
+        _ => Span { start: 0, end: 0 },
     };
     Stream::from_iter(segs.into_spanned_chars()).map(eoi.into(), |(t, s)| (t, s.into()))
 }

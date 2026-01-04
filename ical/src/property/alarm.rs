@@ -85,7 +85,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action {
             }]);
         }
 
-        let span = prop.span.clone();
+        let span = prop.span;
         let text = take_single_string(Self::kind(), prop.values).map_err(|e| vec![e])?;
         text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {

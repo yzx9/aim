@@ -643,7 +643,7 @@ impl<'src> TryFrom<Value<'src>> for Period<'src> {
                         return Err(vec![TypedError::PropertyInvalidValue {
                             property: PropertyKind::FreeBusy,
                             value: "Duration must be positive for periods".to_string(),
-                            span: 0..0, // TODO: provide actual span
+                            span: (0..0).into(), // TODO: provide actual span
                         }]);
                     }
 
@@ -666,7 +666,7 @@ impl<'src> TryFrom<Value<'src>> for Period<'src> {
                 property: PropertyKind::FreeBusy.as_str(),
                 value_type: value.kind(),
                 expected_types: &[ValueKind::Period],
-                span: 0..0, // TODO: provide actual span
+                span: (0..0).into(), // TODO: provide actual span
             }]),
         }
     }
