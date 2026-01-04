@@ -9,11 +9,12 @@
 
 use std::convert::TryFrom;
 
+use crate::lexer::Span;
 use crate::parameter::{Parameter, ValueKind};
 use crate::property::PropertyKind;
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, ValueText};
+use crate::value::{Value, ValueText, Values};
 
 /// Get the first value from a property, or return an error
 ///
@@ -21,23 +22,23 @@ use crate::value::{Value, ValueText};
 /// Returns `SemanticError::ConstraintViolation` if there are multiple values
 pub fn take_single_value(
     kind: PropertyKind,
-    mut values: Vec<Value<'_>>,
-) -> Result<Value<'_>, TypedError<'_>> {
+    mut values: Values<'_>,
+) -> Result<(Value<'_>, Span), TypedError<'_>> {
     let len = values.len();
     if len > 1 {
         return Err(TypedError::PropertyInvalidValueCount {
             property: kind,
             expected: 1,
             found: len,
-            span: (0..0).into(), // TODO: improve span reporting
+            span: values.span,
         });
     }
 
     match values.pop() {
-        Some(value) => Ok(value),
+        Some(value) => Ok((value, values.span)),
         None => Err(TypedError::PropertyMissingValue {
             property: kind,
-            span: (0..0).into(), // TODO: improve span reporting
+            span: values.span,
         }),
     }
 }
@@ -48,15 +49,15 @@ pub fn take_single_value(
 /// Returns `SemanticError::UnexpectedType` if the value is not text
 pub fn take_single_text(
     kind: PropertyKind,
-    values: Vec<Value<'_>>,
+    values: Values<'_>,
 ) -> Result<ValueText<'_>, TypedError<'_>> {
     match take_single_value(kind, values) {
-        Ok(Value::Text(text)) => Ok(text),
-        Ok(v) => Err(TypedError::PropertyUnexpectedValue {
+        Ok((Value::Text(text), _)) => Ok(text),
+        Ok((v, span)) => Err(TypedError::PropertyUnexpectedValue {
             property: kind,
             expected: ValueKind::Text,
             found: v.kind(),
-            span: (0..0).into(), // TODO: improve span reporting
+            span,
         }),
         Err(e) => Err(e),
     }
@@ -68,15 +69,15 @@ pub fn take_single_text(
 /// Returns `SemanticError::UnexpectedType` if the value is not text
 pub fn take_single_string(
     kind: PropertyKind,
-    values: Vec<Value<'_>>,
+    values: Values<'_>,
 ) -> Result<String, TypedError<'_>> {
     match take_single_value(kind, values) {
-        Ok(Value::Text(v)) => Ok(v.resolve().to_string()), // TODO: avoid allocation
-        Ok(v) => Err(TypedError::PropertyUnexpectedValue {
+        Ok((Value::Text(v), _)) => Ok(v.resolve().to_string()), // TODO: avoid allocation
+        Ok((v, span)) => Err(TypedError::PropertyUnexpectedValue {
             property: kind,
             expected: ValueKind::Text,
             found: v.kind(),
-            span: (0..0).into(), // TODO: improve span reporting
+            span,
         }),
         Err(e) => Err(e),
     }

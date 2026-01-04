@@ -109,7 +109,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
         }
 
         // Get value
-        let value = match take_single_value(prop.kind, prop.values) {
+        let (value, _) = match take_single_value(prop.kind, prop.values) {
             Ok(v) => v,
             Err(e) => {
                 errors.push(e);
@@ -422,17 +422,17 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete {
 
         match take_single_value(Self::kind(), prop.values) {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            Ok(Value::Integer(i)) if (0..=100).contains(&i) => Ok(Self { value: i as u8 }),
-            Ok(Value::Integer(_)) => Err(vec![TypedError::PropertyInvalidValue {
+            Ok((Value::Integer(i), _)) if (0..=100).contains(&i) => Ok(Self { value: i as u8 }),
+            Ok((Value::Integer(_), span)) => Err(vec![TypedError::PropertyInvalidValue {
                 property: prop.kind,
                 value: "Percent complete must be 0-100".to_string(),
-                span: prop.span,
+                span,
             }]),
-            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
+            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
                 expected: ValueKind::Integer,
                 found: v.kind(),
-                span: (0..0).into(), // TODO: improve span reporting
+                span,
             }]),
             Err(e) => Err(vec![e]),
         }
@@ -471,17 +471,17 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority {
 
         match take_single_value(Self::kind(), prop.values) {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            Ok(Value::Integer(i)) if (0..=9).contains(&i) => Ok(Self { value: i as u8 }),
-            Ok(Value::Integer(_)) => Err(vec![TypedError::PropertyInvalidValue {
+            Ok((Value::Integer(i), _)) if (0..=9).contains(&i) => Ok(Self { value: i as u8 }),
+            Ok((Value::Integer(_), span)) => Err(vec![TypedError::PropertyInvalidValue {
                 property: prop.kind,
                 value: "Priority must be 0-9".to_string(),
-                span: prop.span,
+                span,
             }]),
-            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
+            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
                 expected: ValueKind::Integer,
                 found: v.kind(),
-                span: (0..0).into(), // TODO: improve span reporting
+                span,
             }]),
             Err(e) => Err(vec![e]),
         }

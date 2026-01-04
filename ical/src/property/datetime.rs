@@ -169,7 +169,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        let value = match take_single_value(prop.kind, prop.values) {
+        let (value, _) = match take_single_value(prop.kind, prop.values) {
             Ok(v) => v,
             Err(e) => return Err(vec![e]),
         };
@@ -617,24 +617,19 @@ impl<'src> TryFrom<Value<'src>> for Period<'src> {
     fn try_from(value: Value<'src>) -> Result<Self, Self::Error> {
         match value {
             Value::Period(value_period) => match value_period {
-                ValuePeriod::Explicit { start, end } => {
-                    // Both start and end have the same UTC flag (guaranteed by parser)
-                    if start.time.utc {
-                        Ok(Period::ExplicitUtc {
-                            start_date: start.date,
-                            start_time: start.time.into(),
-                            end_date: end.date,
-                            end_time: end.time.into(),
-                        })
-                    } else {
-                        Ok(Period::ExplicitFloating {
-                            start_date: start.date,
-                            start_time: start.time.into(),
-                            end_date: end.date,
-                            end_time: end.time.into(),
-                        })
-                    }
-                }
+                // Both start and end have the same UTC flag (guaranteed by parser)
+                ValuePeriod::Explicit { start, end } if start.time.utc => Ok(Period::ExplicitUtc {
+                    start_date: start.date,
+                    start_time: start.time.into(),
+                    end_date: end.date,
+                    end_time: end.time.into(),
+                }),
+                ValuePeriod::Explicit { start, end } => Ok(Period::ExplicitFloating {
+                    start_date: start.date,
+                    start_time: start.time.into(),
+                    end_date: end.date,
+                    end_time: end.time.into(),
+                }),
                 ValuePeriod::Duration { start, duration } => {
                     // Only positive durations are valid for periods
                     if !matches!(duration, ValueDuration::DateTime { positive: true, .. })
@@ -761,12 +756,12 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration {
         }
 
         match take_single_value(Self::kind(), prop.values) {
-            Ok(Value::Duration(d)) => Ok(Self { value: d }),
-            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
+            Ok((Value::Duration(d), _)) => Ok(Self { value: d }),
+            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
                 expected: ValueKind::Duration,
                 found: v.kind(),
-                span: prop.span,
+                span,
             }]),
             Err(e) => Err(vec![e]),
         }
@@ -892,13 +887,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency {
         }
 
         let text = match take_single_value(Self::kind(), prop.values) {
-            Ok(Value::Text(t)) => t.resolve().to_string(),
-            Ok(v) => {
+            Ok((Value::Text(t), _)) => t.resolve().to_string(),
+            Ok((v, span)) => {
                 return Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueKind::Text,
                     found: v.kind(),
-                    span: prop.span,
+                    span,
                 }]);
             }
             Err(e) => return Err(vec![e]),

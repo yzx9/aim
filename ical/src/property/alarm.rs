@@ -219,7 +219,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
             }
         }
 
-        let value = take_single_value(PropertyKind::Trigger, prop.values).map_err(|e| vec![e])?;
+        let (value, _) =
+            take_single_value(PropertyKind::Trigger, prop.values).map_err(|e| vec![e])?;
 
         // Return all errors if any occurred
         if !errors.is_empty() {

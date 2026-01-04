@@ -66,12 +66,12 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence {
         }
 
         match take_single_value(Self::kind(), prop.values) {
-            Ok(Value::Integer(value)) => Ok(Self { value }),
-            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
+            Ok((Value::Integer(value), _)) => Ok(Self { value }),
+            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
                 expected: ValueKind::Integer,
                 found: v.kind(),
-                span: (0..0).into(), // TODO: improve span reporting
+                span,
             }]),
             Err(e) => Err(vec![e]),
         }

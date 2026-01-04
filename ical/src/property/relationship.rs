@@ -237,10 +237,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
 
         // Get cal_address value
         let cal_address = match take_single_text(prop.kind, prop.values) {
-            Ok(text) => text,
+            Ok(text) => Some(text),
             Err(e) => {
                 errors.push(e);
-                return Err(errors);
+                None
             }
         };
 
@@ -255,7 +255,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
         let cutype = cutype.unwrap_or(CalendarUserType::Individual);
 
         Ok(Attendee {
-            cal_address,
+            cal_address: cal_address.unwrap(), // SAFETY: ensured above
             cn,
             role,
             part_stat,
@@ -363,10 +363,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
 
         // Get cal_address value
         let cal_address = match take_single_text(prop.kind, prop.values) {
-            Ok(text) => text,
+            Ok(text) => Some(text),
             Err(e) => {
                 errors.push(e);
-                return Err(errors);
+                None
             }
         };
 
@@ -376,7 +376,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
         }
 
         Ok(Organizer {
-            cal_address,
+            cal_address: cal_address.unwrap(), // SAFETY: ensured above
             cn,
             dir,
             sent_by,

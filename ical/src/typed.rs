@@ -17,7 +17,7 @@ use crate::lexer::Span;
 use crate::parameter::{Parameter, ValueKind};
 use crate::property::{Property, PropertyKind};
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
-use crate::value::{Value, parse_values};
+use crate::value::{Values, parse_values};
 
 /// Perform typed analysis on raw components, returning typed components or errors.
 ///
@@ -127,7 +127,7 @@ pub struct ParsedProperty<'src> {
     /// Property parameters
     pub parameters: Vec<Parameter<'src>>,
     /// Property values
-    pub values: Vec<Value<'src>>,
+    pub values: Values<'src>,
     /// The span of the property name (for error reporting)
     pub span: Span,
 }

@@ -15,6 +15,8 @@ mod period;
 mod rrule;
 mod text;
 
+use std::ops::{Deref, DerefMut};
+
 pub use datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
 pub use duration::ValueDuration;
 pub use miscellaneous::ValueExpected;
@@ -35,6 +37,50 @@ use crate::value::miscellaneous::{value_binary, value_boolean};
 use crate::value::numeric::{values_float, values_integer};
 use crate::value::period::values_period;
 use crate::value::text::values_text;
+
+/// Represents multiple property values with their source span.
+///
+/// This type wraps a vector of parsed values with span information,
+/// enabling error reporting that references the original source location.
+#[derive(Debug, Clone)]
+pub struct Values<'src> {
+    /// The parsed values
+    pub values: Vec<Value<'src>>,
+    /// The span covering all values in the source
+    pub span: Span,
+}
+
+impl<'src> Deref for Values<'src> {
+    type Target = Vec<Value<'src>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.values
+    }
+}
+
+impl DerefMut for Values<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.values
+    }
+}
+
+impl<'src> IntoIterator for Values<'src> {
+    type Item = Value<'src>;
+    type IntoIter = std::vec::IntoIter<Value<'src>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
+
+impl<'a, 'src> IntoIterator for &'a Values<'src> {
+    type Item = &'a Value<'src>;
+    type IntoIter = std::slice::Iter<'a, Value<'src>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.iter()
+    }
+}
 
 /// The properties in an iCalendar object are strongly typed.  The definition
 /// of each property restricts the value to be one of the value data types, or
@@ -154,7 +200,7 @@ impl Value<'_> {
 pub fn parse_values<'src>(
     kinds: &[ValueKind],
     value: &SpannedSegments<'src>,
-) -> Result<Vec<Value<'src>>, Vec<Rich<'src, char>>> {
+) -> Result<Values<'src>, Vec<Rich<'src, char>>> {
     use ValueKind::{
         Binary, Boolean, CalendarUserAddress, Date, DateTime, Duration, Float, Integer, Period,
         RecurrenceRule, Text, Time, Uri, UtcOffset,
@@ -176,7 +222,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if result.is_ok() {
-                    return Ok(vec![Value::Binary(value.clone())]);
+                    return Ok(Values {
+                        values: vec![Value::Binary(value.clone())],
+                        span: value.span(),
+                    });
                 }
             }
 
@@ -186,7 +235,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -198,7 +250,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -210,7 +265,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -222,7 +280,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -234,7 +295,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -246,7 +310,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -265,7 +332,10 @@ pub fn parse_values<'src>(
                             .collect()
                     });
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -277,7 +347,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -289,7 +362,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }
@@ -301,7 +377,10 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if let Ok(values) = result {
-                    return Ok(values);
+                    return Ok(Values {
+                        values,
+                        span: value.span(),
+                    });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
                 }

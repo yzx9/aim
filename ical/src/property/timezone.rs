@@ -142,12 +142,12 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TzOffsetFrom {
         }
 
         match take_single_value(prop.kind, prop.values) {
-            Ok(Value::UtcOffset(offset)) => Ok(Self(offset)),
-            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
+            Ok((Value::UtcOffset(offset), _)) => Ok(Self(offset)),
+            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
                 expected: ValueKind::UtcOffset,
                 found: v.kind(),
-                span: prop.span,
+                span,
             }]),
             Err(e) => Err(vec![e]),
         }
@@ -192,12 +192,12 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TzOffsetTo {
             }]);
         }
         match take_single_value(prop.kind, prop.values) {
-            Ok(Value::UtcOffset(offset)) => Ok(Self(offset)),
-            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
+            Ok((Value::UtcOffset(offset), _)) => Ok(Self(offset)),
+            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
                 expected: ValueKind::UtcOffset,
                 found: v.kind(),
-                span: prop.span,
+                span,
             }]),
             Err(e) => Err(vec![e]),
         }
