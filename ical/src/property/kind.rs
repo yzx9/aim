@@ -62,17 +62,15 @@ macro_rules! property_kind {
 
         impl<'src> From<SpannedSegments<'src>> for PropertyKind<'src> {
             fn from(name: SpannedSegments<'src>) -> Self {
-                let name_resolved = name.resolve();
-                let name_str = name_resolved.as_ref();
                 // Property names are case-insensitive per RFC 5545
                 // Normalize to uppercase for matching
-                let name_upper = name_str.to_uppercase();
+                let name_upper = name.resolve().to_uppercase();
                 match name_upper.as_str() {
                     $(
                         $kw => PropertyKind::$variant,
                     )*
                     _ => {
-                        if name_str.starts_with("X-") || name_str.starts_with("x-") {
+                        if name.starts_with_str_ignore_ascii_case("X-") {
                             PropertyKind::XName(name)
                         } else {
                             PropertyKind::Unrecognized(name)

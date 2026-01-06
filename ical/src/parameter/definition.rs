@@ -191,9 +191,7 @@ macro_rules! define_param_enum_with_unknown {
                 )*
 
                 // Check for x-name prefix
-                let resolved = segs.resolve();
-                let s = resolved.as_ref();
-                if s.starts_with("X-") || s.starts_with("x-") { // PERF: add starts_with
+                if segs.starts_with_str_ignore_ascii_case("X-") {
                     Self::XName(segs.clone())
                 } else {
                     // Otherwise, treat as unrecognized value

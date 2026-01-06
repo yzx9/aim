@@ -32,26 +32,16 @@ macro_rules! impl_typed_parameter_kind_mapping {
 
         impl<'src> From<SpannedSegments<'src>> for $ty<'src> {
             fn from(name: SpannedSegments<'src>) -> Self {
-                // $(
-                //     if name.eq_str_ignore_ascii_case($kw) {
-                //         return Ok(Self::$variant);
-                //     }
-                // )*
-                // Err(())
-
-                let name_resolved = name.resolve(); // PERF: avoid allocation
-                let name_str = name_resolved.as_ref();
-                match name_str {
-                    $(
-                        $kw => Self::$variant,
-                    )+
-                    _ => {
-                        if name_str.starts_with("X-") || name_str.starts_with("x-") {
-                            Self::XName(name)
-                        } else {
-                            Self::Unrecognized(name)
-                        }
+                $(
+                    if name.eq_str_ignore_ascii_case($kw) {
+                        return Self::$variant;
                     }
+                )*
+
+                if name.starts_with_str_ignore_ascii_case("X-") {
+                    Self::XName(name)
+                } else {
+                    Self::Unrecognized(name)
                 }
             }
         }
