@@ -26,32 +26,12 @@ impl ValueText<'_> {
     pub fn resolve(&self) -> Cow<'_, str> {
         #[expect(clippy::indexing_slicing)]
         if self.tokens.len() == 1
-            && let ValueTextToken::Str(parts) = &self.tokens[0]
-            && parts.len() == 1
+            && let ValueTextToken::Str(part) = &self.tokens[0]
         {
-            return Cow::Borrowed(parts[0]);
+            return Cow::Borrowed(part);
         }
 
         Cow::Owned(self.to_string())
-    }
-}
-
-// PERF: implement PartialEq manually to avoid extra allocations
-impl PartialEq for ValueText<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.resolve() == other.resolve()
-    }
-}
-
-impl PartialEq<&str> for ValueText<'_> {
-    fn eq(&self, other: &&str) -> bool {
-        &self.resolve()[..] == *other
-    }
-}
-
-impl<'src> PartialEq<ValueText<'src>> for &str {
-    fn eq(&self, other: &ValueText<'src>) -> bool {
-        *self == &other.resolve()[..]
     }
 }
 
@@ -60,11 +40,7 @@ impl fmt::Display for ValueText<'_> {
         for token in &self.tokens {
             #[expect(clippy::write_with_newline)]
             match token {
-                ValueTextToken::Str(parts) => {
-                    for part in parts {
-                        write!(f, "{part}")?;
-                    }
-                }
+                ValueTextToken::Str(part) => write!(f, "{part}")?,
                 ValueTextToken::Escape(ValueTextEscape::Backslash) => write!(f, "\\")?,
                 ValueTextToken::Escape(ValueTextEscape::Semicolon) => write!(f, ";")?,
                 ValueTextToken::Escape(ValueTextEscape::Comma) => write!(f, ",")?,
@@ -77,7 +53,7 @@ impl fmt::Display for ValueText<'_> {
 
 #[derive(Debug, Clone)]
 enum ValueTextToken<'src> {
-    Str(Vec<&'src str>),
+    Str(&'src str),
     Escape(ValueTextEscape),
 }
 
@@ -94,14 +70,20 @@ pub struct RawValueText(Vec<Either<SpanCollector, ValueTextEscape>>);
 
 impl RawValueText {
     pub fn build<'src>(self, src: &SpannedSegments<'src>) -> ValueText<'src> {
-        let tokens = self
-            .0
-            .into_iter()
-            .map(|t| match t {
-                Either::Left(collector) => ValueTextToken::Str(collector.build(src)),
-                Either::Right(v) => ValueTextToken::Escape(v),
-            })
-            .collect();
+        let size = self.0.iter().fold(0, |acc, t| match t {
+            Either::Left(collector) => acc + collector.0.len(),
+            Either::Right(_) => acc + 1,
+        });
+
+        let mut tokens = Vec::with_capacity(size);
+        for t in self.0 {
+            match t {
+                Either::Left(collector) => {
+                    tokens.extend(collector.build(src).into_iter().map(ValueTextToken::Str));
+                }
+                Either::Right(v) => tokens.push(ValueTextToken::Escape(v)),
+            }
+        }
 
         ValueText { tokens }
     }

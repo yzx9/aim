@@ -104,7 +104,10 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
-            assert_eq!(event.summary.as_ref().unwrap().content, "Test Event");
+            assert_eq!(
+                event.summary.as_ref().unwrap().content.to_string(),
+                "Test Event"
+            );
         }
         _ => panic!("Expected Event component"),
     }
@@ -133,7 +136,10 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::Todo(todo) => {
-            assert_eq!(todo.summary.as_ref().unwrap().content, "Complete task");
+            assert_eq!(
+                todo.summary.as_ref().unwrap().content.to_string(),
+                "Complete task"
+            );
         }
         _ => panic!("Expected Todo component"),
     }
@@ -160,7 +166,7 @@ END:VCALENDAR\r
     match &calendar.components[0] {
         CalendarComponent::VJournal(journal) => {
             assert_eq!(
-                journal.summary.as_ref().unwrap().content,
+                journal.summary.as_ref().unwrap().content.to_string(),
                 "Daily Journal Entry"
             );
         }
@@ -328,7 +334,7 @@ END:VCALENDAR\r
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
             assert_eq!(
-                event.location.as_ref().unwrap().content,
+                event.location.as_ref().unwrap().content.to_string(),
                 "Conference Room B"
             );
         }
@@ -386,7 +392,7 @@ END:VCALENDAR\r
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
             assert_eq!(
-                event.description.as_ref().unwrap().content,
+                event.description.as_ref().unwrap().content.to_string(),
                 "This is a detailed description"
             );
         }
@@ -1011,7 +1017,10 @@ END:VCALENDAR\r
     assert_eq!(calendar1.components.len(), 1);
     match &calendar1.components[0] {
         CalendarComponent::Event(event) => {
-            assert_eq!(event.summary.as_ref().unwrap().content, "Event 1");
+            assert_eq!(
+                event.summary.as_ref().unwrap().content.to_string(),
+                "Event 1"
+            );
         }
         _ => panic!("Expected Event component"),
     }
@@ -1023,7 +1032,10 @@ END:VCALENDAR\r
     assert_eq!(calendar2.components.len(), 1);
     match &calendar2.components[0] {
         CalendarComponent::Event(event) => {
-            assert_eq!(event.summary.as_ref().unwrap().content, "Event 2");
+            assert_eq!(
+                event.summary.as_ref().unwrap().content.to_string(),
+                "Event 2"
+            );
         }
         _ => panic!("Expected Event component"),
     }
