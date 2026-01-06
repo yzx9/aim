@@ -276,7 +276,7 @@ mod tests {
         for (src, expected) in success_cases {
             let src = format!("BEGIN:VEVENT\r\nTEST_PROP:{src}\r\nEND:VEVENT");
             let result = &parse(&src);
-            assert_eq!(result.resolve(), expected);
+            assert_eq!(result.to_string(), expected)
         }
     }
 }

@@ -1072,7 +1072,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<'src> {
         let value_span = prop.value.span();
         let text = match take_single_value(&PropertyKind::Transp, prop.value) {
             Ok(Value::Text { mut values, .. }) if values.len() == 1 => {
-                values.pop().unwrap().resolve().to_string()
+                values.pop().unwrap().to_string()
             }
             Ok(v) => {
                 let span = v.span();

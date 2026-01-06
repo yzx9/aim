@@ -45,8 +45,8 @@ END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
     assert_eq!(comp.properties.len(), 1);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "VERSION");
-    assert_eq!(comp.properties[0].value.resolve().as_ref(), "2.0");
+    assert_eq!(comp.properties[0].name.to_string(), "VERSION");
+    assert_eq!(comp.properties[0].value.to_string(), "2.0");
     assert!(comp.properties[0].parameters.is_empty());
 }
 
@@ -62,17 +62,17 @@ END:VCALENDAR\r
     let comp = parse_first_component(src);
     assert_eq!(comp.properties.len(), 3);
 
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "VERSION");
-    assert_eq!(comp.properties[0].value.resolve().as_ref(), "2.0");
+    assert_eq!(comp.properties[0].name.to_string(), "VERSION");
+    assert_eq!(comp.properties[0].value.to_string(), "2.0");
 
-    assert_eq!(comp.properties[1].name.resolve().as_ref(), "PRODID");
+    assert_eq!(comp.properties[1].name.to_string(), "PRODID");
     assert_eq!(
-        comp.properties[1].value.resolve().as_ref(),
+        comp.properties[1].value.to_string(),
         "-//Example Corp.//CalDAV Client//EN"
     );
 
-    assert_eq!(comp.properties[2].name.resolve().as_ref(), "CALSCALE");
-    assert_eq!(comp.properties[2].value.resolve().as_ref(), "GREGORIAN");
+    assert_eq!(comp.properties[2].name.to_string(), "CALSCALE");
+    assert_eq!(comp.properties[2].value.to_string(), "GREGORIAN");
 }
 
 #[test]
@@ -86,13 +86,13 @@ END:VCALENDAR\r
     assert_eq!(comp.properties.len(), 1);
 
     let prop = &comp.properties[0];
-    assert_eq!(prop.name.resolve().as_ref(), "DTSTART");
+    assert_eq!(prop.name.to_string(), "DTSTART");
     assert_eq!(prop.parameters.len(), 1);
 
     let param = &prop.parameters[0];
-    assert_eq!(param.name.resolve().as_ref(), "TZID");
+    assert_eq!(param.name.to_string(), "TZID");
     assert_eq!(param.values.len(), 1);
-    assert_eq!(param.values[0].value.resolve().as_ref(), "America/New_York");
+    assert_eq!(param.values[0].value.to_string(), "America/New_York");
     assert!(!param.values[0].quoted);
 }
 
@@ -107,24 +107,18 @@ END:VEVENT\r
     assert_eq!(comp.properties.len(), 1);
 
     let prop = &comp.properties[0];
-    assert_eq!(prop.name.resolve().as_ref(), "ATTENDEE");
+    assert_eq!(prop.name.to_string(), "ATTENDEE");
     assert_eq!(prop.parameters.len(), 3);
 
-    assert_eq!(prop.parameters[0].name.resolve().as_ref(), "RSVP");
-    assert_eq!(
-        prop.parameters[0].values[0].value.resolve().as_ref(),
-        "TRUE"
-    );
+    assert_eq!(prop.parameters[0].name.to_string(), "RSVP");
+    assert_eq!(prop.parameters[0].values[0].value.to_string(), "TRUE");
 
-    assert_eq!(prop.parameters[1].name.resolve().as_ref(), "CUTYPE");
-    assert_eq!(
-        prop.parameters[1].values[0].value.resolve().as_ref(),
-        "INDIVIDUAL"
-    );
+    assert_eq!(prop.parameters[1].name.to_string(), "CUTYPE");
+    assert_eq!(prop.parameters[1].values[0].value.to_string(), "INDIVIDUAL");
 
-    assert_eq!(prop.parameters[2].name.resolve().as_ref(), "ROLE");
+    assert_eq!(prop.parameters[2].name.to_string(), "ROLE");
     assert_eq!(
-        prop.parameters[2].values[0].value.resolve().as_ref(),
+        prop.parameters[2].values[0].value.to_string(),
         "REQ-PARTICIPANT"
     );
 }
@@ -141,10 +135,7 @@ END:VCALENDAR\r
 
     let prop = &comp.properties[0];
     assert_eq!(prop.parameters.len(), 1);
-    assert_eq!(
-        prop.parameters[0].values[0].value.resolve().as_ref(),
-        "value"
-    );
+    assert_eq!(prop.parameters[0].values[0].value.to_string(), "value");
     assert!(prop.parameters[0].values[0].quoted);
 }
 
@@ -159,10 +150,10 @@ END:VCALENDAR\r
     assert_eq!(comp.properties.len(), 1);
 
     let prop = &comp.properties[0];
-    assert_eq!(prop.name.resolve().as_ref(), "CATEGORIES");
+    assert_eq!(prop.name.to_string(), "CATEGORIES");
     assert_eq!(prop.parameters.len(), 1);
-    assert_eq!(prop.parameters[0].name.resolve().as_ref(), "LANGUAGE");
-    assert_eq!(prop.parameters[0].values[0].value.resolve().as_ref(), "en");
+    assert_eq!(prop.parameters[0].name.to_string(), "LANGUAGE");
+    assert_eq!(prop.parameters[0].values[0].value.to_string(), "en");
 }
 
 #[test]
@@ -184,8 +175,8 @@ END:VCALENDAR\r
     let event = &comp.children[0];
     assert_eq!(event.name, "VEVENT");
     assert_eq!(event.properties.len(), 2);
-    assert_eq!(event.properties[0].name.resolve().as_ref(), "UID");
-    assert_eq!(event.properties[1].name.resolve().as_ref(), "DTSTART");
+    assert_eq!(event.properties[0].name.to_string(), "UID");
+    assert_eq!(event.properties[1].name.to_string(), "DTSTART");
 }
 
 #[test]
@@ -242,9 +233,9 @@ END:VCALENDAR\r
     assert_eq!(comp.properties.len(), 1);
 
     let prop = &comp.properties[0];
-    assert_eq!(prop.name.resolve().as_ref(), "DESCRIPTION");
+    assert_eq!(prop.name.to_string(), "DESCRIPTION");
     // Escape sequences are preserved in the value - they'll be processed by the text parser
-    assert!(prop.value.resolve().contains('\\'));
+    assert!(prop.value.to_string().contains('\\'));
 }
 
 #[test]
@@ -255,9 +246,9 @@ SUMMARY:Team会议📅 Discuss Q1 goals\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "SUMMARY");
+    assert_eq!(comp.properties[0].name.to_string(), "SUMMARY");
     assert_eq!(
-        comp.properties[0].value.resolve().as_ref(),
+        comp.properties[0].value.to_string(),
         "Team会议📅 Discuss Q1 goals"
     );
 }
@@ -273,7 +264,7 @@ END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
     assert_eq!(
-        comp.properties[0].value.resolve().as_ref(),
+        comp.properties[0].value.to_string(),
         "This is a very long description thatspans multiple lines and should beconcatenated"
     );
 }
@@ -286,11 +277,11 @@ RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20251231T235959Z\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "RRULE");
+    assert_eq!(comp.properties[0].name.to_string(), "RRULE");
     // RRULE value is a single value containing the rule syntax
     // (the typed analysis phase will parse it further)
     assert_eq!(
-        comp.properties[0].value.resolve().as_ref(),
+        comp.properties[0].value.to_string(),
         "FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20251231T235959Z"
     );
     assert!(comp.properties[0].parameters.is_empty());
@@ -328,9 +319,9 @@ EXDATE:20250101T090000,20250108T090000,20250115T090000\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "EXDATE");
+    assert_eq!(comp.properties[0].name.to_string(), "EXDATE");
     // EXDATE value includes commas - they're part of the value, not separators
-    assert!(comp.properties[0].value.resolve().contains(','));
+    assert!(comp.properties[0].value.to_string().contains(','));
 }
 
 #[test]
@@ -341,9 +332,9 @@ GEO:37.386013;-122.083932\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "GEO");
+    assert_eq!(comp.properties[0].name.to_string(), "GEO");
     assert_eq!(
-        comp.properties[0].value.resolve().as_ref(),
+        comp.properties[0].value.to_string(),
         "37.386013;-122.083932"
     );
 }
@@ -356,9 +347,9 @@ URL:http://example.com/event.html\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "URL");
+    assert_eq!(comp.properties[0].name.to_string(), "URL");
     assert_eq!(
-        comp.properties[0].value.resolve().as_ref(),
+        comp.properties[0].value.to_string(),
         "http://example.com/event.html"
     );
 }
@@ -371,21 +362,15 @@ ORGANIZER;CN=John Doe:mailto:john.doe@example.com\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "ORGANIZER");
+    assert_eq!(comp.properties[0].name.to_string(), "ORGANIZER");
     assert_eq!(comp.properties[0].parameters.len(), 1);
+    assert_eq!(comp.properties[0].parameters[0].name.to_string(), "CN");
     assert_eq!(
-        comp.properties[0].parameters[0].name.resolve().as_ref(),
-        "CN"
-    );
-    assert_eq!(
-        comp.properties[0].parameters[0].values[0]
-            .value
-            .resolve()
-            .as_ref(),
+        comp.properties[0].parameters[0].values[0].value.to_string(),
         "John Doe"
     );
     assert_eq!(
-        comp.properties[0].value.resolve().as_ref(),
+        comp.properties[0].value.to_string(),
         "mailto:john.doe@example.com"
     );
 }
@@ -476,8 +461,8 @@ END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
     // Property names preserve case but are compared case-insensitively
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "version");
-    assert_eq!(comp.properties[1].name.resolve().as_ref(), "Summary");
+    assert_eq!(comp.properties[0].name.to_string(), "version");
+    assert_eq!(comp.properties[1].name.to_string(), "Summary");
 }
 
 #[test]
@@ -552,11 +537,8 @@ PERCENT-COMPLETE:75\r
 END:VTODO\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(
-        comp.properties[0].name.resolve().as_ref(),
-        "PERCENT-COMPLETE"
-    );
-    assert_eq!(comp.properties[0].value.resolve().as_ref(), "75");
+    assert_eq!(comp.properties[0].name.to_string(), "PERCENT-COMPLETE");
+    assert_eq!(comp.properties[0].value.to_string(), "75");
 }
 
 #[test]
@@ -567,8 +549,8 @@ PRIORITY:5\r
 END:VTODO\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "PRIORITY");
-    assert_eq!(comp.properties[0].value.resolve().as_ref(), "5");
+    assert_eq!(comp.properties[0].name.to_string(), "PRIORITY");
+    assert_eq!(comp.properties[0].value.to_string(), "5");
 }
 
 #[test]
@@ -579,8 +561,8 @@ STATUS:NEEDS-ACTION\r
 END:VTODO\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "STATUS");
-    assert_eq!(comp.properties[0].value.resolve().as_ref(), "NEEDS-ACTION");
+    assert_eq!(comp.properties[0].name.to_string(), "STATUS");
+    assert_eq!(comp.properties[0].value.to_string(), "NEEDS-ACTION");
 }
 
 #[test]
@@ -591,8 +573,8 @@ CLASS:PUBLIC\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "CLASS");
-    assert_eq!(comp.properties[0].value.resolve().as_ref(), "PUBLIC");
+    assert_eq!(comp.properties[0].name.to_string(), "CLASS");
+    assert_eq!(comp.properties[0].value.to_string(), "PUBLIC");
 }
 
 #[test]
@@ -603,8 +585,8 @@ TRANSP:OPAQUE\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "TRANSP");
-    assert_eq!(comp.properties[0].value.resolve().as_ref(), "OPAQUE");
+    assert_eq!(comp.properties[0].name.to_string(), "TRANSP");
+    assert_eq!(comp.properties[0].value.to_string(), "OPAQUE");
 }
 
 #[test]
@@ -616,8 +598,8 @@ LAST-MODIFIED:20250102T120000Z\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "CREATED");
-    assert_eq!(comp.properties[1].name.resolve().as_ref(), "LAST-MODIFIED");
+    assert_eq!(comp.properties[0].name.to_string(), "CREATED");
+    assert_eq!(comp.properties[1].name.to_string(), "LAST-MODIFIED");
 }
 
 #[test]
@@ -628,8 +610,8 @@ SEQUENCE:2\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "SEQUENCE");
-    assert_eq!(comp.properties[0].value.resolve().as_ref(), "2");
+    assert_eq!(comp.properties[0].name.to_string(), "SEQUENCE");
+    assert_eq!(comp.properties[0].value.to_string(), "2");
 }
 
 #[test]
@@ -640,8 +622,8 @@ LOCATION:Conference Room B\\, Building 1\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "LOCATION");
-    assert!(comp.properties[0].value.resolve().contains("\\,"));
+    assert_eq!(comp.properties[0].name.to_string(), "LOCATION");
+    assert!(comp.properties[0].value.to_string().contains("\\,"));
 }
 
 #[test]
@@ -653,17 +635,13 @@ ROLE=REQ-PARTICIPANT:mailto:test@example.com\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "ATTENDEE");
+    assert_eq!(comp.properties[0].name.to_string(), "ATTENDEE");
 
     let params = &comp.properties[0].parameters;
-    assert!(params.iter().any(|p| p.name.resolve().as_ref() == "RSVP"));
-    assert!(params.iter().any(|p| p.name.resolve().as_ref() == "CUTYPE"));
-    assert!(
-        params
-            .iter()
-            .any(|p| p.name.resolve().as_ref() == "PARTSTAT")
-    );
-    assert!(params.iter().any(|p| p.name.resolve().as_ref() == "ROLE"));
+    assert!(params.iter().any(|p| p.name.to_string() == "RSVP"));
+    assert!(params.iter().any(|p| p.name.to_string() == "CUTYPE"));
+    assert!(params.iter().any(|p| p.name.to_string() == "PARTSTAT"));
+    assert!(params.iter().any(|p| p.name.to_string() == "ROLE"));
 }
 
 #[test]
@@ -674,9 +652,9 @@ UID:1234567890@example.com\r
 END:VEVENT\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.properties[0].name.resolve().as_ref(), "UID");
+    assert_eq!(comp.properties[0].name.to_string(), "UID");
     assert_eq!(
-        comp.properties[0].value.resolve().as_ref(),
+        comp.properties[0].value.to_string(),
         "1234567890@example.com"
     );
 }
@@ -742,13 +720,13 @@ END:VCALENDAR\r
         event
             .properties
             .iter()
-            .any(|p| p.name.resolve().as_ref() == "SUMMARY")
+            .any(|p| p.name.to_string() == "SUMMARY")
     );
     assert!(
         event
             .properties
             .iter()
-            .any(|p| p.name.resolve().as_ref() == "RRULE")
+            .any(|p| p.name.to_string() == "RRULE")
     );
     assert!(event.children.iter().any(|c| c.name == "VALARM"));
 }

@@ -621,27 +621,27 @@ END:VEVENT\r\n\
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name.resolve(), "SUMMARY");
-        assert_eq!(prop.value.resolve(), "Hello World!");
+        assert_eq!(prop.name.to_string(), "SUMMARY");
+        assert_eq!(prop.value.to_string(), "Hello World!");
 
         let src = "DTSTART;TZID=America/New_York:20251113\r\n T100000\r\n";
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name.resolve(), "DTSTART");
+        assert_eq!(prop.name.to_string(), "DTSTART");
         assert_eq!(prop.parameters.len(), 1);
-        assert_eq!(prop.parameters.first().unwrap().name.resolve(), "TZID");
+        assert_eq!(prop.parameters.first().unwrap().name.to_string(), "TZID");
         assert_eq!(
             prop.parameters
                 .first()
                 .unwrap()
                 .values
                 .iter()
-                .map(|a| a.value.resolve())
+                .map(|a| a.value.to_string())
                 .collect::<Vec<_>>(),
             ["America/New_York"]
         );
-        assert_eq!(prop.value.resolve(), "20251113T100000");
+        assert_eq!(prop.value.to_string(), "20251113T100000");
     }
 
     #[test]
@@ -657,12 +657,12 @@ END:VEVENT\r\n\
         let result = parse(src);
         assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
         let param = result.unwrap();
-        assert_eq!(param.name.resolve(), "TZID");
+        assert_eq!(param.name.to_string(), "TZID");
         assert_eq!(
             param
                 .values
                 .iter()
-                .map(|a| a.value.resolve())
+                .map(|a| a.value.to_string())
                 .collect::<Vec<_>>(),
             ["America/New_York"]
         );

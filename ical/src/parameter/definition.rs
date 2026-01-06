@@ -206,9 +206,7 @@ macro_rules! define_param_enum_with_unknown {
                     $(
                         Self::$Variant => $kw.fmt(f),
                     )*
-                    Self::XName(segs) | Self::Unrecognized(segs) => {
-                        write!(f, "{}", segs.resolve().as_ref())
-                    }
+                    Self::XName(segs) | Self::Unrecognized(segs) => write!(f, "{segs}"),
                 }
             }
         }

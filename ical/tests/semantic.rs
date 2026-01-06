@@ -745,8 +745,8 @@ END:VCALENDAR\r
         CalendarComponent::Event(event) => {
             let summary = event.summary.as_ref().unwrap();
             assert!(
-                summary.content.resolve().contains("会议")
-                    || summary.content.resolve().contains("📅")
+                summary.content.to_string().contains("会议")
+                    || summary.content.to_string().contains("📅")
             );
         }
         _ => panic!("Expected Event component"),
@@ -847,7 +847,7 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::VTimeZone(tz) => {
-            assert_eq!(tz.tz_id.content.resolve(), "America/New_York");
+            assert_eq!(tz.tz_id.content.to_string(), "America/New_York");
         }
         _ => panic!("Expected VTimeZone component"),
     }
