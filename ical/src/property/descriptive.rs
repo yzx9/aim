@@ -278,26 +278,29 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<'src> {
             .to_string();
 
         // Use the typed phase's float parser with semicolon separator
-        let stream = Stream::from_iter(text.chars());
+        let stream = Stream::from_iter(text.chars()); // TODO: fix span
         let parser = values_float_semicolon::<_, extra::Err<Rich<char, _>>>();
 
         match parser.parse(stream).into_result() {
-            Ok(result) => match (result.first(), result.get(1)) {
-                (Some(&lat), Some(&lon)) => Ok(Geo {
-                    lat,
-                    lon,
+            Ok(result) => {
+                if result.len() != 2 {
+                    return Err(vec![TypedError::PropertyInvalidValue {
+                        property: PropertyKind::Geo,
+                        value: format!(
+                            "Expected exactly 2 float values (lat;long), got {}",
+                            result.len()
+                        ),
+                        span: value_span,
+                    }]);
+                }
+
+                Ok(Geo {
+                    lat: result.first().copied().unwrap_or_default(),
+                    lon: result.get(1).copied().unwrap_or_default(),
                     x_parameters,
                     unrecognized_parameters,
-                }),
-                (_, _) => Err(vec![TypedError::PropertyInvalidValue {
-                    property: PropertyKind::Geo,
-                    value: format!(
-                        "Expected exactly 2 float values (lat;long), got {}",
-                        result.len()
-                    ),
-                    span: value_span,
-                }]),
-            },
+                })
+            }
             Err(_) => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Geo,
                 value: format!("Expected 'lat;long' format with semicolon separator, got {text}"),
