@@ -257,3 +257,53 @@ macro_rules! simple_property_wrapper {
         }
     };
 }
+
+/// Macro to define simple enums for property values.
+///
+/// This generates simple enums with Copy semantics for RFC 5545 parameter values
+/// that don't support extensions.
+macro_rules! define_prop_value_enum {
+    (
+        $(#[$meta:meta])*
+        $vis:vis enum $Name:ident {
+            $(
+                $(#[$vmeta:meta])*
+                $Variant:ident => $kw:ident
+            ),* $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[allow(missing_docs)]
+        $vis enum $Name {
+            $(
+                $(#[$vmeta])*
+                $Variant,
+            )*
+        }
+
+
+        impl<'src> TryFrom<crate::value::ValueText<'src>> for $Name {
+            type Error = crate::value::ValueText<'src>;
+
+            fn try_from(segs: crate::value::ValueText<'src>) -> Result<Self, Self::Error> {
+                $(
+                    if segs.eq_str_ignore_ascii_case($kw) {
+                        return Ok(Self::$Variant);
+                    }
+                )*
+                Err(segs)
+            }
+        }
+
+        impl std::fmt::Display for $Name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $(
+                        Self::$Variant => $kw.fmt(f),
+                    )*
+                }
+            }
+        }
+    };
+}

@@ -19,7 +19,6 @@
 
 use std::convert::TryFrom;
 use std::fmt;
-use std::str::FromStr;
 
 use chumsky::{Parser, error::Rich, extra, input::Stream};
 
@@ -30,7 +29,7 @@ use crate::keyword::{
 };
 use crate::parameter::{Encoding, Parameter, ValueType};
 use crate::property::PropertyKind;
-use crate::property::util::{Text, Texts, take_single_string, take_single_value};
+use crate::property::util::{Text, Texts, take_single_text, take_single_value};
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueText, values_float_semicolon};
@@ -148,46 +147,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
     }
 }
 
-/// Classification value (RFC 5545 Section 3.8.1.3)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ClassificationValue {
-    /// Public classification
-    #[default]
-    Public,
+define_prop_value_enum! {
+    /// Classification value (RFC 5545 Section 3.8.1.3)
+    #[derive(Default)]
+    pub enum ClassificationValue {
+        /// Public classification
+        #[default]
+        Public => KW_CLASS_PUBLIC,
 
-    /// Private classification
-    Private,
+        /// Private classification
+        Private => KW_CLASS_PRIVATE,
 
-    /// Confidential classification
-    Confidential,
-}
-
-impl FromStr for ClassificationValue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_CLASS_PUBLIC => Ok(Self::Public),
-            KW_CLASS_PRIVATE => Ok(Self::Private),
-            KW_CLASS_CONFIDENTIAL => Ok(Self::Confidential),
-            _ => Err(format!("Invalid classification: {s}")),
-        }
-    }
-}
-
-impl AsRef<str> for ClassificationValue {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Public => KW_CLASS_PUBLIC,
-            Self::Private => KW_CLASS_PRIVATE,
-            Self::Confidential => KW_CLASS_CONFIDENTIAL,
-        }
-    }
-}
-
-impl fmt::Display for ClassificationValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_ref().fmt(f)
+        /// Confidential classification
+        Confidential => KW_CLASS_CONFIDENTIAL,
     }
 }
 
@@ -234,11 +206,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification<'src> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_string(&PropertyKind::Class, prop.value)?;
-        let value = text.parse().map_err(|e| {
+        let text = take_single_text(&PropertyKind::Class, prop.value)?;
+        let value = text.try_into().map_err(|text| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Class,
-                value: e,
+                value: format!("Invalid classification: {text}"),
                 span: value_span,
             }]
         })?;
@@ -301,7 +273,9 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<'src> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_string(&PropertyKind::Geo, prop.value)?;
+        let text = take_single_text(&PropertyKind::Geo, prop.value)?
+            .resolve()
+            .to_string();
 
         // Use the typed phase's float parser with semicolon separator
         let stream = Stream::from_iter(text.chars());
@@ -338,74 +312,36 @@ simple_property_wrapper!(
     Location<'src>: Text<'src> => Location
 );
 
-/// Status value (RFC 5545 Section 3.8.1.11)
-///
-/// This enum represents the status of calendar components such as events,
-/// to-dos, and journal entries. Each variant corresponds to a specific status
-/// defined in the iCalendar specification.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StatusValue {
-    /// Event is tentative
-    Tentative,
+define_prop_value_enum! {
+    /// Status value (RFC 5545 Section 3.8.1.11)
+    ///
+    /// This enum represents the status of calendar components such as events,
+    /// to-dos, and journal entries. Each variant corresponds to a specific status
+    /// defined in the iCalendar specification.
+    pub enum StatusValue {
+        /// Event is tentative
+        Tentative => KW_STATUS_TENTATIVE,
 
-    /// Event is confirmed
-    Confirmed,
+        /// Event is confirmed
+        Confirmed => KW_STATUS_CONFIRMED,
 
-    /// To-do needs action
-    NeedsAction,
+        /// To-do needs action
+        NeedsAction => KW_STATUS_NEEDS_ACTION,
 
-    /// To-do is completed
-    Completed,
+        /// To-do is completed
+        Completed => KW_STATUS_COMPLETED,
 
-    /// To-do is in process
-    InProcess,
+        /// To-do is in process
+        InProcess => KW_STATUS_IN_PROCESS,
 
-    /// Journal entry is draft
-    Draft,
+        /// Journal entry is draft
+        Draft => KW_STATUS_DRAFT,
 
-    /// Journal entry is final
-    Final,
+        /// Journal entry is final
+        Final => KW_STATUS_FINAL,
 
-    /// Event/To-do/Journal is cancelled
-    Cancelled,
-}
-
-impl FromStr for StatusValue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_STATUS_TENTATIVE => Ok(Self::Tentative),
-            KW_STATUS_CONFIRMED => Ok(Self::Confirmed),
-            KW_STATUS_NEEDS_ACTION => Ok(Self::NeedsAction),
-            KW_STATUS_COMPLETED => Ok(Self::Completed),
-            KW_STATUS_IN_PROCESS => Ok(Self::InProcess),
-            KW_STATUS_DRAFT => Ok(Self::Draft),
-            KW_STATUS_FINAL => Ok(Self::Final),
-            KW_STATUS_CANCELLED => Ok(Self::Cancelled),
-            _ => Err(format!("Invalid status: {s}")),
-        }
-    }
-}
-
-impl AsRef<str> for StatusValue {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Tentative => KW_STATUS_TENTATIVE,
-            Self::Confirmed => KW_STATUS_CONFIRMED,
-            Self::NeedsAction => KW_STATUS_NEEDS_ACTION,
-            Self::Completed => KW_STATUS_COMPLETED,
-            Self::InProcess => KW_STATUS_IN_PROCESS,
-            Self::Draft => KW_STATUS_DRAFT,
-            Self::Final => KW_STATUS_FINAL,
-            Self::Cancelled => KW_STATUS_CANCELLED,
-        }
-    }
-}
-
-impl fmt::Display for StatusValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_ref().fmt(f)
+        /// Event/To-do/Journal is cancelled
+        Cancelled => KW_STATUS_CANCELLED,
     }
 }
 
@@ -452,11 +388,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status<'src> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_string(&PropertyKind::Status, prop.value)?;
-        let value = text.parse().map_err(|e| {
+        let text = take_single_text(&PropertyKind::Status, prop.value)?;
+        let value = text.try_into().map_err(|text| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Status,
-                value: e,
+                value: format!("Invalid status: {text}"),
                 span: value_span,
             }]
         })?;

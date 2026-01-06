@@ -7,9 +7,11 @@
 //! This module handles the parsing and validation of iCalendar parameters
 //! as defined in RFC 5545 Section 3.2.
 
+#[macro_use]
+mod util;
+
 mod definition;
 mod kind;
-mod util;
 
 pub use definition::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,

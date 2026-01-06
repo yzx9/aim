@@ -22,15 +22,17 @@ use crate::keyword::{
 };
 use crate::parameter::Parameter;
 use crate::property::PropertyKind;
-use crate::property::util::take_single_string;
+use crate::property::util::{take_single_text, take_single_string};
 use crate::typed::{ParsedProperty, TypedError};
 
-/// Calendar scale value (RFC 5545 Section 3.7.1)
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum CalendarScaleValue {
-    /// Gregorian calendar
-    #[default]
-    Gregorian,
+define_prop_value_enum! {
+    /// Calendar scale value (RFC 5545 Section 3.7.1)
+    #[derive(Default)]
+    pub enum CalendarScaleValue {
+        /// Gregorian calendar
+        #[default]
+        Gregorian => KW_CALSCALE_GREGORIAN
+    }
 }
 
 /// Calendar scale specification (RFC 5545 Section 3.7.1)
@@ -70,17 +72,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<'src> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_string(&PropertyKind::CalScale, prop.value)?;
-        let value = match text.to_uppercase().as_str() {
-            KW_CALSCALE_GREGORIAN => CalendarScaleValue::Gregorian,
-            _ => {
-                return Err(vec![TypedError::PropertyInvalidValue {
-                    property: PropertyKind::CalScale,
-                    value: format!("Unsupported calendar scale: {text}"),
-                    span: value_span,
-                }]);
-            }
-        };
+        let text = take_single_text(&PropertyKind::CalScale, prop.value)?;
+        let value = text.try_into().map_err(|text| {
+            vec![TypedError::PropertyInvalidValue {
+                property: PropertyKind::CalScale,
+                value: format!("Unsupported calendar scale: {text}"),
+                span: value_span,
+            }]
+        })?;
 
         Ok(CalendarScale {
             value,
@@ -90,33 +89,35 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<'src> {
     }
 }
 
-/// Method value for iCalendar objects (RFC 5545 Section 3.7.2)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum MethodValue {
-    /// Publish an event (most common)
-    #[default]
-    Publish,
+define_prop_value_enum! {
+    /// Method value for iCalendar objects (RFC 5545 Section 3.7.2)
+    #[derive(Default)]
+    pub enum MethodValue {
+        /// Publish an event (most common)
+        #[default]
+        Publish => KW_METHOD_PUBLISH,
 
-    /// Request an event
-    Request,
+        /// Request an event
+        Request => KW_METHOD_REQUEST,
 
-    /// Reply to an event
-    Reply,
+        /// Reply to an event
+        Reply => KW_METHOD_REPLY,
 
-    /// Add an event
-    Add,
+        /// Add an event
+        Add => KW_METHOD_ADD,
 
-    /// Cancel an event
-    Cancel,
+        /// Cancel an event
+        Cancel => KW_METHOD_CANCEL,
 
-    /// Refresh an event
-    Refresh,
+        /// Refresh an event
+        Refresh => KW_METHOD_REFRESH,
 
-    /// Counter an event
-    Counter,
+        /// Counter an event
+        Counter => KW_METHOD_COUNTER,
 
-    /// Decline counter
-    DeclineCounter,
+        /// Decline counter
+        DeclineCounter => KW_METHOD_DECLINECOUNTER,
+    }
 }
 
 /// Method type for iCalendar objects (RFC 5545 Section 3.7.2)
@@ -156,24 +157,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<'src> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_string(&PropertyKind::Method, prop.value)?;
-        let value = match text.to_uppercase().as_str() {
-            KW_METHOD_PUBLISH => MethodValue::Publish,
-            KW_METHOD_REQUEST => MethodValue::Request,
-            KW_METHOD_REPLY => MethodValue::Reply,
-            KW_METHOD_ADD => MethodValue::Add,
-            KW_METHOD_CANCEL => MethodValue::Cancel,
-            KW_METHOD_REFRESH => MethodValue::Refresh,
-            KW_METHOD_COUNTER => MethodValue::Counter,
-            KW_METHOD_DECLINECOUNTER => MethodValue::DeclineCounter,
-            _ => {
-                return Err(vec![TypedError::PropertyInvalidValue {
-                    property: PropertyKind::Method,
-                    value: format!("Unsupported method type: {text}"),
-                    span: value_span,
-                }]);
-            }
-        };
+        let text = take_single_text(&PropertyKind::Method, prop.value)?;
+        let value = text.try_into().map_err(|text| {
+            vec![TypedError::PropertyInvalidValue {
+                property: PropertyKind::Method,
+                value: format!("Unsupported method type: {text}"),
+                span: value_span,
+            }]
+        })?;
 
         Ok(Method {
             value,
@@ -251,12 +242,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<'src> {
     }
 }
 
-/// iCalendar version value (RFC 5545 Section 3.7.4)
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum VersionValue {
-    /// Version 2.0 (most common)
-    #[default]
-    V2_0,
+define_prop_value_enum! {
+    /// iCalendar version value (RFC 5545 Section 3.7.4)
+    #[derive(Default)]
+    pub enum VersionValue {
+        /// Version 2.0 (most common)
+        #[default]
+        V2_0 => KW_VERSION_2_0,
+    }
 }
 
 /// iCalendar version specification (RFC 5545 Section 3.7.4)
@@ -296,17 +289,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Version<'src> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_string(&PropertyKind::Version, prop.value)?;
-        let value = match text.as_str() {
-            KW_VERSION_2_0 => VersionValue::V2_0,
-            _ => {
-                return Err(vec![TypedError::PropertyInvalidValue {
-                    property: PropertyKind::Version,
-                    value: format!("Unsupported iCalendar version: {text}"),
-                    span: value_span,
-                }]);
-            }
-        };
+        let text = take_single_text(&PropertyKind::Version, prop.value)?;
+        let value = text.try_into().map_err(|text| {
+            vec![TypedError::PropertyInvalidValue {
+                property: PropertyKind::Version,
+                value: format!("Unsupported iCalendar version: {text}"),
+                span: value_span,
+            }]
+        })?;
 
         Ok(Version {
             value,

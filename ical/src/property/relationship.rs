@@ -21,10 +21,9 @@
 
 use std::convert::TryFrom;
 
-use crate::DateTime;
 use crate::parameter::{CalendarUserType, Parameter, ParticipationRole, ParticipationStatus};
-use crate::property::PropertyKind;
 use crate::property::util::{Text, take_single_text};
+use crate::property::{DateTime, PropertyKind};
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;

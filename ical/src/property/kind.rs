@@ -62,20 +62,16 @@ macro_rules! property_kind {
 
         impl<'src> From<SpannedSegments<'src>> for PropertyKind<'src> {
             fn from(name: SpannedSegments<'src>) -> Self {
-                // Property names are case-insensitive per RFC 5545
-                // Normalize to uppercase for matching
-                let name_upper = name.resolve().to_uppercase();
-                match name_upper.as_str() {
-                    $(
-                        $kw => PropertyKind::$variant,
-                    )*
-                    _ => {
-                        if name.starts_with_str_ignore_ascii_case("X-") {
-                            PropertyKind::XName(name)
-                        } else {
-                            PropertyKind::Unrecognized(name)
-                        }
+                $(
+                    if name.eq_str_ignore_ascii_case($kw) {
+                        return PropertyKind::$variant;
                     }
+                )*
+
+                if name.starts_with_str_ignore_ascii_case("X-") {
+                    PropertyKind::XName(name)
+                } else {
+                    PropertyKind::Unrecognized(name)
                 }
             }
         }
@@ -84,9 +80,7 @@ macro_rules! property_kind {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     $(PropertyKind::$variant => write!(f, "{}", $kw),)*
-                    PropertyKind::XName(s) | PropertyKind::Unrecognized(s) => {
-                        write!(f, "{}", s)
-                    }
+                    PropertyKind::XName(s) | PropertyKind::Unrecognized(s) => write!(f, "{}", s),
                 }
             }
         }

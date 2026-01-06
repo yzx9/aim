@@ -13,26 +13,27 @@
 //! - 3.8.6.3: `Trigger` - Alarm trigger time or duration
 //!   - `TriggerValue` - Trigger value variant (duration or date-time)
 
-use std::{convert::TryFrom, fmt, str::FromStr};
+use std::convert::TryFrom;
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
 use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueType};
-use crate::property::util::{take_single_string, take_single_value};
+use crate::property::util::{take_single_text, take_single_value};
 use crate::property::{DateTime, PropertyKind};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDuration};
 
-/// Alarm action value (RFC 5545 Section 3.8.6.1)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ActionValue {
-    /// Audio alarm
-    Audio,
+define_prop_value_enum! {
+    /// Alarm action value (RFC 5545 Section 3.8.6.1)
+    pub enum ActionValue {
+        /// Audio alarm
+        Audio => KW_ACTION_AUDIO,
 
-    /// Display alarm
-    Display,
+        /// Display alarm
+        Display => KW_ACTION_DISPLAY,
 
-    /// Email alarm
-    Email,
+        /// Email alarm
+        Email => KW_ACTION_EMAIL,
+    }
 }
 
 impl ActionValue {
@@ -47,29 +48,9 @@ impl ActionValue {
     }
 }
 
-impl FromStr for ActionValue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_ACTION_AUDIO => Ok(Self::Audio),
-            KW_ACTION_DISPLAY => Ok(Self::Display),
-            KW_ACTION_EMAIL => Ok(Self::Email),
-            KW_ACTION_PROCEDURE => Err(format!("{KW_ACTION_PROCEDURE} action has been deprecated")),
-            _ => Err(format!("Invalid alarm action: {s}")),
-        }
-    }
-}
-
 impl AsRef<str> for ActionValue {
     fn as_ref(&self) -> &str {
         self.as_str()
-    }
-}
-
-impl fmt::Display for ActionValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_ref().fmt(f)
     }
 }
 
@@ -110,11 +91,21 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action<'src> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_string(&PropertyKind::Action, prop.value)?;
-        let value = text.parse().map_err(|e| {
+        let text = take_single_text(&PropertyKind::Action, prop.value)?;
+
+        // Check for deprecated PROCEDURE action first
+        if text.eq_str_ignore_ascii_case(KW_ACTION_PROCEDURE) {
+            return Err(vec![TypedError::PropertyInvalidValue {
+                property: PropertyKind::Action,
+                value: format!("{KW_ACTION_PROCEDURE} action has been deprecated"),
+                span: value_span,
+            }]);
+        }
+
+        let value = text.try_into().map_err(|text| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Action,
-                value: e,
+                value: format!("Invalid alarm action: {text}"),
                 span: value_span,
             }]
         })?;

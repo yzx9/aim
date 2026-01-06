@@ -33,18 +33,58 @@ impl ValueText<'_> {
 
         Cow::Owned(self.to_string())
     }
+
+    /// Compare the text value with a string, ignoring ASCII case.
+    ///
+    /// This method iterates through tokens without allocating a new string,
+    /// using string slice comparison for efficiency.
+    #[must_use]
+    pub(crate) fn eq_str_ignore_ascii_case(&self, other: &str) -> bool {
+        let mut remaining = other;
+
+        for token in &self.tokens {
+            if remaining.is_empty() {
+                return false;
+            }
+
+            match token {
+                ValueTextToken::Str(part) => {
+                    if part.len() > remaining.len() {
+                        return false;
+                    }
+                    let Some((head, tail)) = remaining.split_at_checked(part.len()) else {
+                        return false;
+                    };
+                    if !head.eq_ignore_ascii_case(part) {
+                        return false;
+                    }
+                    remaining = tail;
+                }
+                ValueTextToken::Escape(escape_char) => {
+                    // Escape token is exactly 1 character
+                    let Some((first, rest)) = remaining.split_at_checked(1) else {
+                        return false;
+                    };
+                    // Compare first with expected escape character
+                    if !first.eq_ignore_ascii_case(escape_char.as_ref()) {
+                        return false;
+                    }
+                    remaining = rest;
+                }
+            }
+        }
+
+        // Check if we've consumed all characters from other
+        remaining.is_empty()
+    }
 }
 
 impl fmt::Display for ValueText<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for token in &self.tokens {
-            #[expect(clippy::write_with_newline)]
             match token {
                 ValueTextToken::Str(part) => write!(f, "{part}")?,
-                ValueTextToken::Escape(ValueTextEscape::Backslash) => write!(f, "\\")?,
-                ValueTextToken::Escape(ValueTextEscape::Semicolon) => write!(f, ";")?,
-                ValueTextToken::Escape(ValueTextEscape::Comma) => write!(f, ",")?,
-                ValueTextToken::Escape(ValueTextEscape::Newline) => write!(f, "\n")?,
+                ValueTextToken::Escape(c) => write!(f, "{c}")?,
             }
         }
         Ok(())
@@ -63,6 +103,23 @@ enum ValueTextEscape {
     Semicolon,
     Comma,
     Newline,
+}
+
+impl AsRef<str> for ValueTextEscape {
+    fn as_ref(&self) -> &str {
+        match self {
+            ValueTextEscape::Backslash => "\\",
+            ValueTextEscape::Semicolon => ";",
+            ValueTextEscape::Comma => ",",
+            ValueTextEscape::Newline => "\n",
+        }
+    }
+}
+
+impl fmt::Display for ValueTextEscape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.as_ref().fmt(f)
+    }
 }
 
 #[derive(Debug)]
@@ -226,24 +283,28 @@ mod tests {
         })
     }
 
+    fn parse(src: &str) -> ValueText<'_> {
+        let token_stream = lex_analysis(src);
+        let comps = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
+        assert_eq!(comps.len(), 1);
+        let syntax_component = comps.first().unwrap();
+        assert_eq!(syntax_component.properties.len(), 1);
+
+        let segs = syntax_component.properties.first().unwrap().value.clone();
+        let stream = make_input(segs.clone());
+        value_text::<'_, _, extra::Err<Rich<_>>>()
+            .parse(stream)
+            .into_result()
+            .map(|raw_text| raw_text.build(&segs))
+            .unwrap()
+    }
+
+    fn with_component(src: &str) -> String {
+        format!("BEGIN:VEVENT\r\nTEST_PROP:{src}\r\nEND:VEVENT")
+    }
+
     #[test]
     fn parses_text() {
-        fn parse(src: &str) -> ValueText<'_> {
-            let token_stream = lex_analysis(src);
-            let comps = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
-            assert_eq!(comps.len(), 1);
-            let syntax_component = comps.first().unwrap();
-            assert_eq!(syntax_component.properties.len(), 1);
-
-            let segs = syntax_component.properties.first().unwrap().value.clone();
-            let stream = make_input(segs.clone());
-            value_text::<'_, _, extra::Err<Rich<_>>>()
-                .parse(stream)
-                .into_result()
-                .map(|raw_text| raw_text.build(&segs))
-                .unwrap()
-        }
-
         #[rustfmt::skip]
         let success_cases = [
             // examples from RFC 5545 Section 3.3.11
@@ -256,9 +317,101 @@ mod tests {
             ("123\r\n 456\r\n\t789", "123456789"),
         ];
         for (src, expected) in success_cases {
-            let src = format!("BEGIN:VEVENT\r\nTEST_PROP:{src}\r\nEND:VEVENT");
+            let src = with_component(src);
             let result = &parse(&src);
-            assert_eq!(result.to_string(), expected)
+            assert_eq!(result.to_string(), expected);
         }
+    }
+
+    #[test]
+    fn value_text_eq_str_ignore_ascii_case() {
+        // Test basic case insensitive matching
+        {
+            let src = with_component("ABC");
+            let result = parse(&src);
+            assert!(result.eq_str_ignore_ascii_case("abc"));
+            assert!(result.eq_str_ignore_ascii_case("ABC"));
+            assert!(!result.eq_str_ignore_ascii_case("xyz"));
+        }
+
+        // Test with space
+        {
+            let src = with_component("ABC DEF");
+            let result = parse(&src);
+            assert!(result.eq_str_ignore_ascii_case("abc def"));
+            assert!(result.eq_str_ignore_ascii_case("ABC DEF"));
+        }
+
+        // Test with mixed case
+        {
+            let src = with_component("Hello World");
+            let result = parse(&src);
+            assert!(result.eq_str_ignore_ascii_case("hello world"));
+            assert!(result.eq_str_ignore_ascii_case("HELLO WORLD"));
+            assert!(result.eq_str_ignore_ascii_case("HeLlO WoRlD"));
+            assert!(result.eq_str_ignore_ascii_case("Hello World"));
+        }
+
+        // Test with escaped comma
+        {
+            let src = with_component(r"Hello\, World");
+            let result = parse(&src);
+            assert!(result.eq_str_ignore_ascii_case("hello, world"));
+            assert!(result.eq_str_ignore_ascii_case("HELLO, WORLD"));
+        }
+
+        // Test with escaped semicolon
+        {
+            let src = with_component(r"Hello\; World");
+            let result = parse(&src);
+            assert!(result.eq_str_ignore_ascii_case("hello; world"));
+            assert!(result.eq_str_ignore_ascii_case("HELLO; WORLD"));
+        }
+
+        // Test with escaped backslash
+        {
+            let src = with_component(r"C:\\Path");
+            let result = parse(&src);
+            assert!(result.eq_str_ignore_ascii_case("c:\\path"));
+            assert!(result.eq_str_ignore_ascii_case("C:\\PATH"));
+        }
+
+        // Test length difference
+        {
+            let src = with_component("abc");
+            let result = parse(&src);
+            assert!(!result.eq_str_ignore_ascii_case("abcd"));
+            assert!(!result.eq_str_ignore_ascii_case("ab"));
+        }
+
+        // Test with escaped newline (using \N per RFC 5545)
+        {
+            let src = with_component(r"Hello\NWorld");
+            let result = parse(&src);
+            assert!(result.eq_str_ignore_ascii_case("hello\nworld"));
+            assert!(result.eq_str_ignore_ascii_case("HELLO\nWORLD"));
+        }
+
+        // Test with multiple escape sequences
+        {
+            let src = with_component(r"Text\, with\; \\escapes\Nand more");
+            let result = parse(&src);
+            assert!(result.eq_str_ignore_ascii_case("text, with; \\escapes\nand more"));
+            assert!(result.eq_str_ignore_ascii_case("TEXT, WITH; \\ESCAPES\nAND MORE"));
+        }
+    }
+
+    #[test]
+    fn value_text_eq_str_ignore_ascii_case_empty() {
+        let segs = SpannedSegments::default();
+        let stream = make_input(segs.clone());
+        let result = value_text::<'_, _, extra::Err<Rich<_>>>()
+            .parse(stream)
+            .into_result()
+            .map(|raw_text| raw_text.build(&segs))
+            .unwrap();
+
+        assert!(result.eq_str_ignore_ascii_case(""));
+        assert!(!result.eq_str_ignore_ascii_case("a"));
     }
 }

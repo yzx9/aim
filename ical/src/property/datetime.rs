@@ -35,13 +35,11 @@
 //! `ParsedProperty`, ensuring type safety throughout the parsing pipeline.
 
 use std::convert::TryFrom;
-use std::fmt;
-use std::str::FromStr;
 
 use crate::keyword::{KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT};
 use crate::parameter::{FreeBusyType, Parameter, ValueType};
 use crate::property::PropertyKind;
-use crate::property::util::take_single_value;
+use crate::property::util::{take_single_text, take_single_value};
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
@@ -987,49 +985,16 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<'src> {
     }
 }
 
-/// Time transparency value (RFC 5545 Section 3.8.2.7)
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum TimeTransparencyValue {
-    /// Event blocks time
-    #[default]
-    Opaque,
+define_prop_value_enum! {
+    /// Time transparency value (RFC 5545 Section 3.8.2.7)
+    #[derive(Default)]
+    pub enum TimeTransparencyValue {
+        /// Event blocks time
+        #[default]
+        Opaque => KW_TRANSP_OPAQUE,
 
-    /// Event does not block time
-    Transparent,
-}
-
-impl TimeTransparencyValue {
-    /// Get the keyword string for this transparency value
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Opaque => KW_TRANSP_OPAQUE,
-            Self::Transparent => KW_TRANSP_TRANSPARENT,
-        }
-    }
-}
-
-impl FromStr for TimeTransparencyValue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            KW_TRANSP_OPAQUE => Ok(Self::Opaque),
-            KW_TRANSP_TRANSPARENT => Ok(Self::Transparent),
-            _ => Err(format!("Invalid time transparency: {s}")),
-        }
-    }
-}
-
-impl AsRef<str> for TimeTransparencyValue {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-
-impl fmt::Display for TimeTransparencyValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_ref().fmt(f)
+        /// Event does not block time
+        Transparent => KW_TRANSP_TRANSPARENT,
     }
 }
 
@@ -1070,26 +1035,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<'src> {
         }
 
         let value_span = prop.value.span();
-        let text = match take_single_value(&PropertyKind::Transp, prop.value) {
-            Ok(Value::Text { mut values, .. }) if values.len() == 1 => {
-                values.pop().unwrap().to_string()
-            }
-            Ok(v) => {
-                let span = v.span();
-                return Err(vec![TypedError::PropertyUnexpectedValue {
-                    property: prop.kind,
-                    expected: ValueType::Text,
-                    found: v.into_kind(),
-                    span,
-                }]);
-            }
-            Err(e) => return Err(e),
-        };
-
-        let value = text.parse().map_err(|e| {
+        let text = take_single_text(&PropertyKind::Transp, prop.value)?;
+        let value = text.try_into().map_err(|value| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Transp,
-                value: e,
+                value: format!("Invalid time transparency value: {value}"),
                 span: value_span,
             }]
         })?;
