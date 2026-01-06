@@ -13,7 +13,7 @@ mod util;
 
 pub use definition::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,
-    ParticipationStatus, RecurrenceIdRange, RelationshipType, StandardValueType, ValueType,
+    ParticipationStatus, RecurrenceIdRange, RelationshipType, ValueType,
 };
 pub use kind::ParameterKind;
 

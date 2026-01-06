@@ -215,6 +215,25 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
+        impl $Name<'_> {
+            /// Tries to compare two values for equality if both are standard values.
+            /// Returns None if either value is x-name/unrecognized.
+            #[allow(dead_code)]
+            #[must_use]
+            pub(crate) fn try_eq_known(&self, other: &Self) -> Option<bool> {
+                match self {
+                    $(
+                        Self::$Variant => match other {
+                            Self::$Variant => Some(true),
+                            Self::XName(_) | Self::Unrecognized(_) => None, // not standard
+                            _ => Some(false),
+                        },
+                    )*
+                    Self::XName(_) | Self::Unrecognized(_) => None, // not standard
+                }
+            }
+        }
+
         pub fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
             parse_single_not_quoted(&mut param, ParameterKind::$Name).map(|value| {
                 let enum_value = $Name::try_from(value).unwrap(); // Never fails due to XName/Unrecognized variants
@@ -390,97 +409,5 @@ define_param_enum_with_unknown! {
 
     parser {
         fn parse_value_type;
-    }
-}
-
-#[allow(
-    clippy::elidable_lifetime_names,
-    reason = "explicit lifetime is clearer for this type"
-)]
-impl<'src> ValueType<'src> {
-    /// Returns the standard value kind if this is a known type, or None for x-name/unrecognized.
-    #[must_use]
-    pub fn as_standard(&self) -> Option<StandardValueType> {
-        match self {
-            ValueType::Binary => Some(StandardValueType::Binary),
-            ValueType::Boolean => Some(StandardValueType::Boolean),
-            ValueType::CalendarUserAddress => Some(StandardValueType::CalendarUserAddress),
-            ValueType::Date => Some(StandardValueType::Date),
-            ValueType::DateTime => Some(StandardValueType::DateTime),
-            ValueType::Duration => Some(StandardValueType::Duration),
-            ValueType::Float => Some(StandardValueType::Float),
-            ValueType::Integer => Some(StandardValueType::Integer),
-            ValueType::Period => Some(StandardValueType::Period),
-            ValueType::RecurrenceRule => Some(StandardValueType::RecurrenceRule),
-            ValueType::Text => Some(StandardValueType::Text),
-            ValueType::Time => Some(StandardValueType::Time),
-            ValueType::Uri => Some(StandardValueType::Uri),
-            ValueType::UtcOffset => Some(StandardValueType::UtcOffset),
-            ValueType::XName(_) | ValueType::Unrecognized(_) => None,
-        }
-    }
-}
-
-/// Standard value types (no x-name/unrecognized variants).
-///
-/// This enum contains only the RFC 5545 standard value types and is Copy,
-/// making it suitable for use in `PropertyKind` definitions where lifetime
-/// parameters would be cumbersome.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum StandardValueType {
-    /// Binary value type
-    Binary,
-    /// Boolean value type
-    Boolean,
-    /// Calendar user address value type
-    CalendarUserAddress,
-    /// Date value type
-    Date,
-    /// Date-time value type
-    DateTime,
-    /// Duration value type
-    Duration,
-    /// Float value type
-    Float,
-    /// Integer value type
-    Integer,
-    /// Period value type
-    Period,
-    /// Recurrence rule value type
-    RecurrenceRule,
-    /// Text value type
-    Text,
-    /// Time value type
-    Time,
-    /// URI value type
-    Uri,
-    /// UTC offset value type
-    UtcOffset,
-}
-
-impl From<StandardValueType> for ValueType<'_> {
-    fn from(value: StandardValueType) -> Self {
-        match value {
-            StandardValueType::Binary => ValueType::Binary,
-            StandardValueType::Boolean => ValueType::Boolean,
-            StandardValueType::CalendarUserAddress => ValueType::CalendarUserAddress,
-            StandardValueType::Date => ValueType::Date,
-            StandardValueType::DateTime => ValueType::DateTime,
-            StandardValueType::Duration => ValueType::Duration,
-            StandardValueType::Float => ValueType::Float,
-            StandardValueType::Integer => ValueType::Integer,
-            StandardValueType::Period => ValueType::Period,
-            StandardValueType::RecurrenceRule => ValueType::RecurrenceRule,
-            StandardValueType::Text => ValueType::Text,
-            StandardValueType::Time => ValueType::Time,
-            StandardValueType::Uri => ValueType::Uri,
-            StandardValueType::UtcOffset => ValueType::UtcOffset,
-        }
-    }
-}
-
-impl fmt::Display for StandardValueType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        ValueType::from(*self).fmt(f)
     }
 }

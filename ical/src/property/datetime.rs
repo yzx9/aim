@@ -39,7 +39,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::keyword::{KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT};
-use crate::parameter::{FreeBusyType, Parameter, StandardValueType, ValueType};
+use crate::parameter::{FreeBusyType, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::util::take_single_value;
 use crate::syntax::SpannedSegments;
@@ -724,7 +724,7 @@ impl<'src> TryFrom<Value<'src>> for Period<'src> {
             _ => Err(vec![TypedError::ValueTypeDisallowed {
                 property: PropertyKind::FreeBusy,
                 value_type: value.into_kind(),
-                expected_types: &[StandardValueType::Period],
+                expected_types: &[ValueType::Period],
                 span,
             }]),
         }

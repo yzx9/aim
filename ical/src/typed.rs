@@ -14,10 +14,10 @@ use chumsky::error::Rich;
 use thiserror::Error;
 
 use crate::lexer::Span;
-use crate::parameter::{Parameter, ParameterKind, StandardValueType, ValueType};
+use crate::parameter::{Parameter, ParameterKind, ValueType};
 use crate::property::{Property, PropertyKind};
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
-use crate::value::{Value, parse_values};
+use crate::value::{Value, parse_value};
 
 /// Perform typed analysis on raw components, returning typed components or errors.
 ///
@@ -87,7 +87,7 @@ fn parsed_property<'src>(
     let value_types = value_types(&kind, &parameters)?;
 
     // PERF: cache parser
-    let value = parse_values(&value_types, &prop.value).map_err(|errs| {
+    let value = parse_value(&value_types, &prop.value).map_err(|errs| {
         errs.into_iter()
             .map(|err| TypedError::ValueSyntax {
                 value: prop.value.clone(),
@@ -194,7 +194,7 @@ pub enum TypedError<'src> {
         /// The value type that was provided
         value_type: ValueType<'src>,
         /// The expected value types
-        expected_types: &'static [StandardValueType],
+        expected_types: &'src [ValueType<'src>],
         /// The span of the error
         span: Span,
     },
@@ -309,39 +309,47 @@ fn value_types<'src>(
     prop_kind: &PropertyKind<'src>,
     params: &Vec<Parameter<'src>>,
 ) -> Result<Vec<ValueType<'src>>, Vec<TypedError<'src>>> {
-    let allowed_types = prop_kind.value_kinds();
-
     // If VALUE parameter is explicitly specified, use only that type
     if let Some(Parameter::ValueType { value, span }) = params
         .iter()
         .find(|param| matches!(param, Parameter::ValueType { .. }))
     {
-        // Convert ValueType<'src> to StandardValueType for comparison
-        let Some(value_std) = value.as_standard() else {
-            // For x-name/unrecognized value types, allow them if the property allows TEXT
-            // (since TEXT is the most permissive type and can hold any string value)
-            return Ok(vec![value.clone()]);
-        };
+        match prop_kind.value_types() {
+            Some(value_types) => {
+                if value_types
+                    .iter()
+                    .any(|a| a.try_eq_known(value).unwrap_or(false))
+                {
+                    // Return only the explicitly specified type
+                    Ok(vec![value.clone()])
+                } else {
+                    Err(vec![TypedError::ValueTypeDisallowed {
+                        property: prop_kind.clone(),
+                        value_type: value.clone(),
+                        expected_types: value_types,
+                        span: *span,
+                    }])
+                }
+            }
 
-        if allowed_types.contains(&value_std) {
-            // Return only the explicitly specified type
-            Ok(vec![value.clone()])
-        } else {
-            Err(vec![TypedError::ValueTypeDisallowed {
-                property: prop_kind.clone(),
-                value_type: value.clone(),
-                expected_types: allowed_types,
-                span: *span,
-            }])
+            // For x-name/unrecognized properties, allow any value type
+            None => Ok(vec![value.clone()]),
         }
     } else {
-        // No VALUE parameter specified - return all allowed types for type inference,
-        // EXCEPT for BINARY which MUST be explicitly specified with VALUE=BINARY
-        // (per RFC 5545 Section 3.3.1 and 3.8.1.1)
-        Ok(allowed_types
-            .iter()
-            .filter(|&&t| t != StandardValueType::Binary)
-            .map(|&t| t.into())
-            .collect())
+        match prop_kind.value_types() {
+            // No VALUE parameter specified - return all allowed types for type inference,
+            // EXCEPT for BINARY which MUST be explicitly specified with VALUE=BINARY
+            // (per RFC 5545 Section 3.3.1 and 3.8.1.1)
+            Some(value_types) => value_types
+                .iter()
+                .filter(|&t| !matches!(t, ValueType::Binary))
+                .map(|t| Ok(t.clone()))
+                .collect(),
+
+            // NOTE: For x-name/unrecognized properties, allow any value type.
+            // But we don't return all possible types for type inference, since
+            // we cannot infer the allowed types.
+            None => Ok(vec![ValueType::Unrecognized(SpannedSegments::default())]),
+        }
     }
 }

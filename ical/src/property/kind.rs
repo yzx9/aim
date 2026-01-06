@@ -18,7 +18,7 @@ use crate::keyword::{
     KW_SUMMARY, KW_TRANSP, KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZOFFSETFROM, KW_TZOFFSETTO,
     KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
-use crate::parameter::StandardValueType;
+use crate::parameter::ValueType;
 use crate::syntax::SpannedSegments;
 
 /// Macro to define `PropertyKind` with associated value types.
@@ -47,14 +47,15 @@ macro_rules! property_kind {
         }
 
         impl<'src> PropertyKind<'src> {
-            /// Returns the allowed value types for this property kind.
+            /// Returns the allowed value types for this property kind, if known.
+            /// Returns `None` for unrecognized or x-name properties.
             #[must_use]
-            pub fn value_kinds(&self) -> &'static [StandardValueType] {
+            pub(crate) fn value_types(&self) -> Option<&'static [ValueType<'static>]> {
                 match self {
-                    $(PropertyKind::$variant => $value_types,)*
-                    PropertyKind::XName(_) | PropertyKind::Unrecognized(_) => {
-                        &[StandardValueType::Text]
-                    }
+                    $(PropertyKind::$variant => Some($value_types),)*
+
+                    // dont know the exact allowed types for unknown properties
+                    PropertyKind::XName(_) | PropertyKind::Unrecognized(_) =>  None,
                 }
             }
         }
@@ -104,97 +105,97 @@ macro_rules! property_kind {
 // Define PropertyKind with all RFC 5545 properties and their value types
 property_kind! {
     // 3.7.1.  Calendar Scale
-    CalScale    => KW_CALSCALE  => &[StandardValueType::Text],
+    CalScale    => KW_CALSCALE  => &[ValueType::Text],
     // 3.7.2.  Method
-    Method      => KW_METHOD    => &[StandardValueType::Text],
+    Method      => KW_METHOD    => &[ValueType::Text],
     // 3.7.3.  Product Identifier
-    ProdId      => KW_PRODID    => &[StandardValueType::Text],
+    ProdId      => KW_PRODID    => &[ValueType::Text],
     // 3.7.4.  Version
-    Version     => KW_VERSION   => &[StandardValueType::Text],
+    Version     => KW_VERSION   => &[ValueType::Text],
     // 3.8.1.1.  Attachment
-    Attach      => KW_ATTACH    => &[StandardValueType::Uri, StandardValueType::Binary],
+    Attach      => KW_ATTACH    => &[ValueType::Uri, ValueType::Binary],
     // 3.8.1.2.  Categories
-    Categories  => KW_CATEGORIES => &[StandardValueType::Text],
+    Categories  => KW_CATEGORIES => &[ValueType::Text],
     // 3.8.1.3.  Classification
-    Class       => KW_CLASS     => &[StandardValueType::Text],
+    Class       => KW_CLASS     => &[ValueType::Text],
     // 3.8.1.4.  Comment
-    Comment     => KW_COMMENT   => &[StandardValueType::Text],
+    Comment     => KW_COMMENT   => &[ValueType::Text],
     // 3.8.1.5.  Description
-    Description => KW_DESCRIPTION => &[StandardValueType::Text],
+    Description => KW_DESCRIPTION => &[ValueType::Text],
     // 3.8.1.6.  Geographic Position
-    Geo         => KW_GEO       => &[StandardValueType::Text],
+    Geo         => KW_GEO       => &[ValueType::Text],
     // 3.8.1.7.  Location
-    Location    => KW_LOCATION  => &[StandardValueType::Text],
+    Location    => KW_LOCATION  => &[ValueType::Text],
     // 3.8.1.8.  Percent Complete
-    PercentComplete => KW_PERCENT_COMPLETE => &[StandardValueType::Integer],
+    PercentComplete => KW_PERCENT_COMPLETE => &[ValueType::Integer],
     // 3.8.1.9.  Priority
-    Priority    => KW_PRIORITY  => &[StandardValueType::Integer],
+    Priority    => KW_PRIORITY  => &[ValueType::Integer],
     // 3.8.1.10.  Resources
-    Resources   => KW_RESOURCES => &[StandardValueType::Text],
+    Resources   => KW_RESOURCES => &[ValueType::Text],
     // 3.8.1.11.  Status
-    Status      => KW_STATUS    => &[StandardValueType::Text],
+    Status      => KW_STATUS    => &[ValueType::Text],
     // 3.8.1.12.  Summary
-    Summary     => KW_SUMMARY   => &[StandardValueType::Text],
+    Summary     => KW_SUMMARY   => &[ValueType::Text],
     // 3.8.2.1.  Date-Time Completed
-    Completed   => KW_COMPLETED => &[StandardValueType::DateTime],
+    Completed   => KW_COMPLETED => &[ValueType::DateTime],
     // 3.8.2.2.  Date-Time End
-    DtEnd       => KW_DTEND     => &[StandardValueType::DateTime, StandardValueType::Date],
+    DtEnd       => KW_DTEND     => &[ValueType::DateTime, ValueType::Date],
     // 3.8.2.3.  Date-Time Due
-    Due         => KW_DUE       => &[StandardValueType::DateTime, StandardValueType::Date],
+    Due         => KW_DUE       => &[ValueType::DateTime, ValueType::Date],
     // 3.8.2.4.  Date-Time Start
-    DtStart     => KW_DTSTART   => &[StandardValueType::DateTime, StandardValueType::Date],
+    DtStart     => KW_DTSTART   => &[ValueType::DateTime, ValueType::Date],
     // 3.8.2.5.  Duration
-    Duration    => KW_DURATION  => &[StandardValueType::Duration],
+    Duration    => KW_DURATION  => &[ValueType::Duration],
     // 3.8.2.6.  Free/Busy Time
-    FreeBusy    => KW_FREEBUSY  => &[StandardValueType::Period],
+    FreeBusy    => KW_FREEBUSY  => &[ValueType::Period],
     // 3.8.2.7.  Time Transparency
-    Transp      => KW_TRANSP    => &[StandardValueType::Text],
+    Transp      => KW_TRANSP    => &[ValueType::Text],
     // 3.8.3.1.  Time Zone Identifier
-    TzId        => KW_TZID      => &[StandardValueType::Text],
+    TzId        => KW_TZID      => &[ValueType::Text],
     // 3.8.3.2.  Time Zone Name
-    TzName      => KW_TZNAME    => &[StandardValueType::Text],
+    TzName      => KW_TZNAME    => &[ValueType::Text],
     // 3.8.3.3.  Time Zone Offset From
-    TzOffsetFrom => KW_TZOFFSETFROM => &[StandardValueType::UtcOffset],
+    TzOffsetFrom => KW_TZOFFSETFROM => &[ValueType::UtcOffset],
     // 3.8.3.4.  Time Zone Offset To
-    TzOffsetTo  => KW_TZOFFSETTO => &[StandardValueType::UtcOffset],
+    TzOffsetTo  => KW_TZOFFSETTO => &[ValueType::UtcOffset],
     // 3.8.3.5.  Time Zone URL
-    TzUrl       => KW_TZURL     => &[StandardValueType::Uri],
+    TzUrl       => KW_TZURL     => &[ValueType::Uri],
     // 3.8.4.1.  Attendee
-    Attendee    => KW_ATTENDEE  => &[StandardValueType::CalendarUserAddress],
+    Attendee    => KW_ATTENDEE  => &[ValueType::CalendarUserAddress],
     // 3.8.4.2.  Contact
-    Contact     => KW_CONTACT   => &[StandardValueType::Text],
+    Contact     => KW_CONTACT   => &[ValueType::Text],
     // 3.8.4.3.  Organizer
-    Organizer   => KW_ORGANIZER => &[StandardValueType::CalendarUserAddress],
+    Organizer   => KW_ORGANIZER => &[ValueType::CalendarUserAddress],
     // 3.8.4.4.  Recurrence ID
-    RecurrenceId => KW_RECURRENCE_ID => &[StandardValueType::DateTime, StandardValueType::Date],
+    RecurrenceId => KW_RECURRENCE_ID => &[ValueType::DateTime, ValueType::Date],
     // 3.8.4.5.  Related To
-    RelatedTo   => KW_RELATED_TO => &[StandardValueType::Text],
+    RelatedTo   => KW_RELATED_TO => &[ValueType::Text],
     // 3.8.4.6.  Uniform Resource Locator
-    Url         => KW_URL       => &[StandardValueType::Uri],
+    Url         => KW_URL       => &[ValueType::Uri],
     // 3.8.4.7.  Unique Identifier
-    Uid         => KW_UID       => &[StandardValueType::Text],
+    Uid         => KW_UID       => &[ValueType::Text],
     // 3.8.5.1.  Exception Date-Times
-    ExDate      => KW_EXDATE    => &[StandardValueType::DateTime, StandardValueType::Date],
+    ExDate      => KW_EXDATE    => &[ValueType::DateTime, ValueType::Date],
     // 3.8.5.2.  Recurrence Date-Times
-    RDate       => KW_RDATE     => &[StandardValueType::DateTime, StandardValueType::Date, StandardValueType::Period],
+    RDate       => KW_RDATE     => &[ValueType::DateTime, ValueType::Date, ValueType::Period],
     // 3.8.5.3.  Recurrence Rule
-    RRule       => KW_RRULE     => &[StandardValueType::RecurrenceRule],
+    RRule       => KW_RRULE     => &[ValueType::RecurrenceRule],
     // 3.8.6.1.  Action
-    Action      => KW_ACTION    => &[StandardValueType::Text],
+    Action      => KW_ACTION    => &[ValueType::Text],
     // 3.8.6.2.  Repeat Count
-    Repeat      => KW_REPEAT    => &[StandardValueType::Integer],
+    Repeat      => KW_REPEAT    => &[ValueType::Integer],
     // 3.8.6.3.  Trigger
-    Trigger     => KW_TRIGGER   => &[StandardValueType::Duration, StandardValueType::DateTime],
+    Trigger     => KW_TRIGGER   => &[ValueType::Duration, ValueType::DateTime],
     // 3.8.7.1.  Date-Time Created
-    Created     => KW_CREATED   => &[StandardValueType::DateTime],
+    Created     => KW_CREATED   => &[ValueType::DateTime],
     // 3.8.7.2.  Date-Time Stamp
-    DtStamp     => KW_DTSTAMP   => &[StandardValueType::DateTime],
+    DtStamp     => KW_DTSTAMP   => &[ValueType::DateTime],
     // 3.8.7.3.  Last Modified
-    LastModified => KW_LAST_MODIFIED => &[StandardValueType::DateTime],
+    LastModified => KW_LAST_MODIFIED => &[ValueType::DateTime],
     // 3.8.7.4.  Sequence Number
-    Sequence    => KW_SEQUENCE  => &[StandardValueType::Integer],
+    Sequence    => KW_SEQUENCE  => &[ValueType::Integer],
     // 3.8.8.3.  Request Status
-    RequestStatus => KW_REQUEST_STATUS => &[StandardValueType::Text],
+    RequestStatus => KW_REQUEST_STATUS => &[ValueType::Text],
 }
 
 #[cfg(test)]
@@ -208,7 +209,9 @@ mod tests {
                 continue;
             }
 
-            let value_types = kind.value_kinds();
+            let value_types = kind
+                .value_types()
+                .expect("Known property kind must have value types");
             assert!(
                 !value_types.is_empty(),
                 "Property {kind:?}: value_types must not be empty",

@@ -303,17 +303,11 @@ impl<'src> Value<'src> {
 /// will try each type in order, returning the first successful parse. This enables
 /// type inference based on the format of the value.
 ///
-/// # Arguments
-///
-/// * `kinds` - Slice of allowed value types to try, in order of preference
-/// * `value` - The property value to parse
-///
 /// # Errors
 ///
 /// Parse errors from all attempted types
-#[expect(clippy::too_many_lines)]
-pub fn parse_values<'src>(
-    kinds: &[ValueType<'src>],
+pub fn parse_value<'src>(
+    value_types: &Vec<ValueType<'src>>,
     value: &SpannedSegments<'src>,
 ) -> Result<Value<'src>, Vec<Rich<'src, char>>> {
     // Collect errors from all attempted types
@@ -325,228 +319,134 @@ pub fn parse_values<'src>(
     // - DURATION / DATE-TIME: TRIGGER
     //
     // Try each value type in order
-    for kind in kinds {
-        match kind {
-            ValueType::Binary => {
-                let result: Result<(), Vec<Rich<char>>> = value_binary::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-                if result.is_ok() {
-                    let span = value.span();
-                    return Ok(Value::Binary {
-                        raw: value.clone(),
-                        span,
-                    });
-                }
-            }
-
-            ValueType::Boolean => {
-                let result = value_boolean::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-
-                match result {
-                    Ok(bool_value) => {
-                        let span = value.span();
-                        return Ok(Value::Boolean {
-                            value: bool_value,
-                            span,
-                        });
-                    }
-                    Err(errs) => all_errors.extend(errs),
-                }
-            }
-
-            ValueType::Date => {
-                let result = values_date::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-
-                match result {
-                    Ok(dates) => {
-                        let span = value.span();
-                        return Ok(Value::Date {
-                            values: dates,
-                            span,
-                        });
-                    }
-                    Err(errs) => all_errors.extend(errs),
-                }
-            }
-
-            ValueType::DateTime => {
-                let result = values_date_time::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-
-                match result {
-                    Ok(date_times) => {
-                        let span = value.span();
-                        return Ok(Value::DateTime {
-                            values: date_times,
-                            span,
-                        });
-                    }
-                    Err(errs) => all_errors.extend(errs),
-                }
-            }
-
-            ValueType::Duration => {
-                let result = values_duration::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-
-                match result {
-                    Ok(durations) => {
-                        let span = value.span();
-                        return Ok(Value::Duration {
-                            values: durations,
-                            span,
-                        });
-                    }
-                    Err(errs) => all_errors.extend(errs),
-                }
-            }
-
-            ValueType::Float => {
-                let result = values_float::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-                if let Ok(floats) = result {
-                    let span = value.span();
-                    return Ok(Value::Float {
-                        values: floats,
-                        span,
-                    });
-                } else if let Err(errs) = result {
-                    all_errors.extend(errs);
-                }
-            }
-
-            ValueType::Integer => {
-                let result = values_integer::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-                if let Ok(integers) = result {
-                    let span = value.span();
-                    return Ok(Value::Integer {
-                        values: integers,
-                        span,
-                    });
-                } else if let Err(errs) = result {
-                    all_errors.extend(errs);
-                }
-            }
-
-            // URI and CAL-ADDRESS are parsed as text per RFC 5545
-            // (cal-address = uri, and URI values are essentially text strings)
-            ValueType::CalendarUserAddress | ValueType::Text | ValueType::Uri => {
-                let result = values_text::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result()
-                    .map(|texts| texts.into_iter().map(|a| a.build(value)).collect());
-
-                match result {
-                    Ok(texts) => {
-                        let span = value.span();
-                        return Ok(Value::Text {
-                            values: texts,
-                            span,
-                        });
-                    }
-                    Err(errs) => all_errors.extend(errs),
-                }
-            }
-
-            ValueType::Time => {
-                let result = values_time::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-
-                match result {
-                    Ok(times) => {
-                        let span = value.span();
-                        return Ok(Value::Time {
-                            values: times,
-                            span,
-                        });
-                    }
-                    Err(errs) => all_errors.extend(errs),
-                }
-            }
-
-            ValueType::UtcOffset => {
-                let result = value_utc_offset::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-
-                match result {
-                    Ok(offset) => {
-                        let span = value.span();
-                        return Ok(Value::UtcOffset {
-                            value: offset,
-                            span,
-                        });
-                    }
-                    Err(errs) => all_errors.extend(errs),
-                }
-            }
-
-            ValueType::Period => {
-                let result = values_period::<'_, _, extra::Err<_>>()
-                    .parse(make_input(value.clone()))
-                    .into_result();
-
-                match result {
-                    Ok(periods) => {
-                        let span = value.span();
-                        return Ok(Value::Period {
-                            values: periods,
-                            span,
-                        });
-                    }
-                    Err(errs) => all_errors.extend(errs),
-                }
-            }
-
-            // TODO: implement other value types
-            ValueType::RecurrenceRule => {
-                // Return an error for unimplemented types
-                let span = value.span();
-                return Err(vec![Rich::custom(
-                    span.into(),
-                    format!("Parser for {kind} is not implemented"),
-                )]);
-            }
-
-            ValueType::XName(_) | ValueType::Unrecognized(_) => {
-                // For unknown value types, skip parsing and fall through to the fallback
-                // at the end of this function
-            }
+    for value_type in value_types {
+        match parse_value_single_type(value_type, value) {
+            Ok(v) => return Ok(v),
+            Err(errs) => all_errors.extend(errs),
         }
     }
 
-    // All types failed - preserve raw data as XName or Unrecognized value per RFC 5545 Section 3.2.20
-    // TODO: handle X-Name / Unrecognized gracefully
-    // TODO: emit warning for unknown value type
-    let kind = kinds.first().cloned().unwrap_or(ValueType::Text);
-    let span = value.span();
+    Err(all_errors)
+}
 
-    // Determine if this is an x-name or unrecognized based on the ValueType itself
-    let value_variant = match &kind {
-        ValueType::XName(_) => Value::XName {
-            raw: value.clone(),
-            kind,
-            span,
-        },
-        _ => Value::Unrecognized {
-            raw: value.clone(),
-            kind,
-            span,
-        },
-    };
+/// Parse property value for a single specified value type.
+fn parse_value_single_type<'src>(
+    value_type: &ValueType<'src>,
+    value: &SpannedSegments<'src>,
+) -> Result<Value<'src>, Vec<Rich<'src, char>>> {
+    // Try the specified value type
+    match value_type {
+        ValueType::Binary => value_binary::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|()| Value::Binary {
+                span: value.span(),
+                raw: value.clone(),
+            }),
 
-    Ok(value_variant)
+        ValueType::Boolean => value_boolean::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|bool_value| Value::Boolean {
+                span: value.span(),
+                value: bool_value,
+            }),
+
+        ValueType::Date => values_date::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|values| Value::Date {
+                span: value.span(),
+                values,
+            }),
+
+        ValueType::DateTime => values_date_time::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|values| Value::DateTime {
+                span: value.span(),
+                values,
+            }),
+
+        ValueType::Duration => values_duration::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|values| Value::Duration {
+                values,
+                span: value.span(),
+            }),
+
+        ValueType::Float => values_float::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|values| Value::Float {
+                values,
+                span: value.span(),
+            }),
+
+        ValueType::Integer => values_integer::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|values| Value::Integer {
+                values,
+                span: value.span(),
+            }),
+
+        // URI and CAL-ADDRESS are parsed as text per RFC 5545
+        // (cal-address = uri, and URI values are essentially text strings)
+        ValueType::CalendarUserAddress | ValueType::Text | ValueType::Uri => {
+            values_text::<'_, _, extra::Err<_>>()
+                .parse(make_input(value.clone()))
+                .into_result()
+                .map(|texts| Value::Text {
+                    values: texts.into_iter().map(|a| a.build(value)).collect(),
+                    span: value.span(),
+                })
+        }
+
+        ValueType::Time => values_time::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|values| Value::Time {
+                values,
+                span: value.span(),
+            }),
+
+        ValueType::UtcOffset => value_utc_offset::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|offset| Value::UtcOffset {
+                value: offset,
+                span: value.span(),
+            }),
+
+        ValueType::Period => values_period::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|values| Value::Period {
+                values,
+                span: value.span(),
+            }),
+
+        // TODO: implement other value types
+        ValueType::RecurrenceRule => Err(vec![Rich::custom(
+            value.span().into(),
+            format!("Parser for {value_type} is not implemented"),
+        )]), // Return an error for unimplemented types
+
+        // For unknown value types, preserve raw data as XName or Unrecognized
+        // value per RFC 5545 Section 3.2.20
+        ValueType::XName(_) => Ok(Value::XName {
+            raw: value.clone(),
+            kind: value_type.clone(),
+            span: value.span(),
+        }),
+        ValueType::Unrecognized(_) => Ok(Value::Unrecognized {
+            raw: value.clone(),
+            kind: value_type.clone(),
+            span: value.span(),
+        }),
+    }
 }
 
 fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
