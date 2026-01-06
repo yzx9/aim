@@ -10,8 +10,8 @@ use crate::Uid;
 use crate::keyword::{KW_VALARM, KW_VEVENT};
 use crate::property::{
     Attendee, Categories, Classification, DateTime, Description, DtEnd, DtStamp, DtStart, Geo,
-    LastModified, Location, Organizer, Period, Property, PropertyKind, Resources, Status, Summary,
-    TimeTransparency, Url,
+    LastModified, Location, Organizer, Period, Property, PropertyKind, Resources, Status,
+    StatusValue, Summary, TimeTransparency, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::typed::TypedComponent;
@@ -45,7 +45,7 @@ pub struct VEvent<'src> {
     pub location: Option<Location<'src>>,
 
     /// Geographic position
-    pub geo: Option<Geo>,
+    pub geo: Option<Geo<'src>>,
 
     /// URL associated with the event
     pub url: Option<Url<'src>>,
@@ -60,10 +60,10 @@ pub struct VEvent<'src> {
     pub last_modified: Option<LastModified<'src>>,
 
     /// Status of the event
-    pub status: Option<Status>,
+    pub status: Option<Status<'src>>,
 
     /// Time transparency
-    pub transparency: Option<TimeTransparency>,
+    pub transparency: Option<TimeTransparency<'src>>,
 
     /// Sequence number for revisions
     pub sequence: Option<u32>,
@@ -72,7 +72,7 @@ pub struct VEvent<'src> {
     pub priority: Option<u8>,
 
     /// Classification
-    pub classification: Option<Classification>,
+    pub classification: Option<Classification<'src>>,
 
     /// Resources
     pub resources: Option<Resources<'src>>,
@@ -365,14 +365,14 @@ pub enum EventStatus {
     Cancelled,
 }
 
-impl TryFrom<Status> for EventStatus {
+impl<'src> TryFrom<Status<'src>> for EventStatus {
     type Error = String;
 
-    fn try_from(value: Status) -> Result<Self, Self::Error> {
-        match value {
-            Status::Tentative => Ok(Self::Tentative),
-            Status::Confirmed => Ok(Self::Confirmed),
-            Status::Cancelled => Ok(Self::Cancelled),
+    fn try_from(value: Status<'src>) -> Result<Self, Self::Error> {
+        match value.value {
+            StatusValue::Tentative => Ok(Self::Tentative),
+            StatusValue::Confirmed => Ok(Self::Confirmed),
+            StatusValue::Cancelled => Ok(Self::Cancelled),
             _ => Err(format!("Invalid event status: {value}")),
         }
     }
@@ -384,12 +384,16 @@ impl fmt::Display for EventStatus {
     }
 }
 
-impl From<EventStatus> for Status {
+impl From<EventStatus> for Status<'_> {
     fn from(value: EventStatus) -> Self {
-        match value {
-            EventStatus::Tentative => Status::Tentative,
-            EventStatus::Confirmed => Status::Confirmed,
-            EventStatus::Cancelled => Status::Cancelled,
+        Status {
+            value: match value {
+                EventStatus::Tentative => StatusValue::Tentative,
+                EventStatus::Confirmed => StatusValue::Confirmed,
+                EventStatus::Cancelled => StatusValue::Cancelled,
+            },
+            x_parameters: Vec::new(),
+            unrecognized_parameters: Vec::new(),
         }
     }
 }
@@ -406,16 +410,16 @@ struct PropertyCollector<'src> {
     summary:        Option<Summary<'src>>,
     description:    Option<Description<'src>>,
     location:       Option<Location<'src>>,
-    geo:            Option<Geo>,
+    geo:            Option<Geo<'src>>,
     url:            Option<Url<'src>>,
     organizer:      Option<Organizer<'src>>,
     attendees:      Vec<Attendee<'src>>,
     last_modified:  Option<LastModified<'src>>,
-    status:         Option<Status>,
-    transparency:   Option<TimeTransparency>,
+    status:         Option<Status<'src>>,
+    transparency:   Option<TimeTransparency<'src>>,
     sequence:       Option<u32>,
     priority:       Option<u8>,
-    classification: Option<Classification>,
+    classification: Option<Classification<'src>>,
     resources:      Option<Resources<'src>>,
     categories:     Option<Categories<'src>>,
     rrule:          Option<RecurrenceRule>,

@@ -15,7 +15,7 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::ValueType;
+use crate::parameter::{Parameter, ValueType};
 use crate::property::DateTime;
 use crate::property::{PropertyKind, util::take_single_value};
 use crate::typed::{ParsedProperty, TypedError};
@@ -39,13 +39,19 @@ simple_property_wrapper!(
 /// Sequence Number (RFC 5545 Section 3.8.7.4)
 ///
 /// This property defines the revision sequence number for the calendar component.
-#[derive(Debug, Clone, Copy)]
-pub struct Sequence {
+#[derive(Debug, Clone)]
+pub struct Sequence<'src> {
     /// Sequence number
     pub value: i32,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Sequence {
+impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -57,14 +63,34 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence {
             }]);
         }
 
-        match take_single_value(&PropertyKind::Sequence, prop.values) {
-            Ok((Value::Integer(value), _)) => Ok(Self { value }),
-            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
-                property: prop.kind,
-                expected: ValueType::Integer,
-                found: v.into_kind(),
-                span,
-            }]),
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        match take_single_value(&PropertyKind::Sequence, prop.value) {
+            Ok(Value::Integer {
+                values: mut ints, ..
+            }) if ints.len() == 1 => Ok(Self {
+                value: ints.pop().unwrap(),
+                x_parameters,
+                unrecognized_parameters,
+            }),
+            Ok(v) => {
+                let span = v.span();
+                Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind,
+                    expected: ValueType::Integer,
+                    found: v.into_kind(),
+                    span,
+                }])
+            }
             Err(e) => Err(e),
         }
     }

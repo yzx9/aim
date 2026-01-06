@@ -509,8 +509,6 @@ where
                 Either::Right(b) => rights.push(b),
             }
         }
-        lefts.shrink_to_fit();
-        rights.shrink_to_fit();
         (lefts, rights)
     }
 }

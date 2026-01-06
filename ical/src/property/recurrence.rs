@@ -17,8 +17,9 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::ValueType;
+use crate::parameter::{Parameter, ValueType};
 use crate::property::{DateTime, Period, PropertyKind};
+use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate};
 
@@ -50,6 +51,15 @@ pub enum RDateValue<'src> {
 pub struct ExDate<'src> {
     /// List of exception dates/times
     pub dates: Vec<ExDateValue<'src>>,
+
+    /// Timezone identifier (optional)
+    pub tz_id: Option<SpannedSegments<'src>>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
@@ -64,25 +74,58 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
             }]);
         }
 
-        prop.values
-            .into_iter()
-            .map(|v| match v {
-                Value::Date(d) => Ok(ExDateValue::Date(d)),
-                Value::DateTime(dt) => Ok(ExDateValue::DateTime(DateTime::Floating {
-                    date: dt.date,
-                    time: dt.time.into(),
-                    x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
-                })),
-                v => Err(vec![TypedError::PropertyUnexpectedValue {
-                    property: prop.kind.clone(),
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+        let mut tz_id = None;
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::TimeZoneIdentifier { .. } if tz_id.is_some() => {
+                    return Err(vec![TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    }]);
+                }
+                Parameter::TimeZoneIdentifier { value, .. } => tz_id = Some(value),
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let dates = match prop.value {
+            Value::Date { values: dates, .. } => dates
+                .into_iter()
+                .map(|d| Ok(ExDateValue::Date(d)))
+                .collect::<Result<Vec<_>, _>>(),
+            Value::DateTime { values: dts, .. } => dts
+                .into_iter()
+                .map(|dt| {
+                    Ok(ExDateValue::DateTime(DateTime::Floating {
+                        date: dt.date,
+                        time: dt.time.into(),
+                        x_parameters: Vec::new(),
+                        unrecognized_parameters: Vec::new(),
+                    }))
+                })
+                .collect::<Result<Vec<_>, _>>(),
+            v => {
+                let span = v.span();
+                Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind,
                     expected: ValueType::Date,
                     found: v.into_kind(),
-                    span: prop.span,
-                }]),
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map(|dates| Self { dates })
+                    span,
+                }])
+            }
+        }?;
+
+        Ok(Self {
+            dates,
+            tz_id,
+            x_parameters,
+            unrecognized_parameters,
+        })
     }
 }
 
@@ -93,6 +136,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
 pub struct RDate<'src> {
     /// List of recurrence dates/times/periods
     pub dates: Vec<RDateValue<'src>>,
+
+    /// Timezone identifier (optional)
+    pub tz_id: Option<SpannedSegments<'src>>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for RDate<'src> {
@@ -107,33 +159,67 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<'src> {
             }]);
         }
 
-        prop.values
-            .into_iter()
-            .map(|v| match v {
-                Value::Date(d) => Ok(RDateValue::Date(d)),
-                Value::DateTime(dt) => Ok(RDateValue::DateTime(DateTime::Floating {
-                    date: dt.date,
-                    time: dt.time.into(),
-                    x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
-                })),
-                Value::Period(_) => {
-                    // Period values need to be handled at semantic level
-                    // For now, just return an error
-                    Err(vec![TypedError::PropertyInvalidValue {
-                        property: prop.kind.clone(),
-                        value: "Period values must be processed at semantic level".to_string(),
-                        span: prop.span,
-                    }])
+        let value_span = prop.value.span();
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+        let mut tz_id = None;
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::TimeZoneIdentifier { .. } if tz_id.is_some() => {
+                    return Err(vec![TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.into_kind(),
+                    }]);
                 }
-                v => Err(vec![TypedError::PropertyUnexpectedValue {
-                    property: prop.kind.clone(),
+                Parameter::TimeZoneIdentifier { value, .. } => tz_id = Some(value),
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let dates = match prop.value {
+            Value::Date { values: dates, .. } => dates
+                .into_iter()
+                .map(|d| Ok(RDateValue::Date(d)))
+                .collect::<Result<Vec<_>, _>>(),
+            Value::DateTime { values: dts, .. } => dts
+                .into_iter()
+                .map(|dt| {
+                    Ok(RDateValue::DateTime(DateTime::Floating {
+                        date: dt.date,
+                        time: dt.time.into(),
+                        x_parameters: Vec::new(),
+                        unrecognized_parameters: Vec::new(),
+                    }))
+                })
+                .collect::<Result<Vec<_>, _>>(),
+            Value::Period { .. } => {
+                // Period values need to be handled at semantic level
+                // For now, just return an error
+                return Err(vec![TypedError::PropertyInvalidValue {
+                    property: prop.kind,
+                    value: "Period values must be processed at semantic level".to_string(),
+                    span: value_span,
+                }]);
+            }
+            v => {
+                let span = v.span();
+                Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind,
                     expected: ValueType::Period,
                     found: v.into_kind(),
-                    span: prop.span,
-                }]),
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map(|dates| Self { dates })
+                    span,
+                }])
+            }
+        }?;
+
+        Ok(Self {
+            dates,
+            tz_id,
+            x_parameters,
+            unrecognized_parameters,
+        })
     }
 }

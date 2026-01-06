@@ -20,19 +20,33 @@ use crate::keyword::{
     KW_METHOD_DECLINECOUNTER, KW_METHOD_PUBLISH, KW_METHOD_REFRESH, KW_METHOD_REPLY,
     KW_METHOD_REQUEST, KW_VERSION_2_0,
 };
+use crate::parameter::Parameter;
 use crate::property::PropertyKind;
 use crate::property::util::take_single_string;
 use crate::typed::{ParsedProperty, TypedError};
 
-/// Calendar scale specification (RFC 5545 Section 3.7.1)
-#[derive(Debug, Clone, Copy, Default)]
-pub enum CalendarScale {
+/// Calendar scale value (RFC 5545 Section 3.7.1)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CalendarScaleValue {
     /// Gregorian calendar
     #[default]
     Gregorian,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale {
+/// Calendar scale specification (RFC 5545 Section 3.7.1)
+#[derive(Debug, Clone, Default)]
+pub struct CalendarScale<'src> {
+    /// Calendar scale value
+    pub value: CalendarScaleValue,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -44,22 +58,43 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale {
             }]);
         }
 
-        let text = take_single_string(&PropertyKind::CalScale, prop.values)?;
-        match text.to_uppercase().as_str() {
-            KW_CALSCALE_GREGORIAN => Ok(CalendarScale::Gregorian),
-            _ => Err(vec![TypedError::PropertyInvalidValue {
-                property: PropertyKind::CalScale,
-                value: format!("Unsupported calendar scale: {text}"),
-                span: prop.span,
-            }]),
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
         }
+
+        let value_span = prop.value.span();
+        let text = take_single_string(&PropertyKind::CalScale, prop.value)?;
+        let value = match text.to_uppercase().as_str() {
+            KW_CALSCALE_GREGORIAN => CalendarScaleValue::Gregorian,
+            _ => {
+                return Err(vec![TypedError::PropertyInvalidValue {
+                    property: PropertyKind::CalScale,
+                    value: format!("Unsupported calendar scale: {text}"),
+                    span: value_span,
+                }]);
+            }
+        };
+
+        Ok(CalendarScale {
+            value,
+            x_parameters,
+            unrecognized_parameters,
+        })
     }
 }
 
-/// Method types for iCalendar objects (RFC 5545 Section 3.7.2)
-#[derive(Debug, Clone, Copy)]
-pub enum Method {
-    /// Publish an event
+/// Method value for iCalendar objects (RFC 5545 Section 3.7.2)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MethodValue {
+    /// Publish an event (most common)
+    #[default]
     Publish,
 
     /// Request an event
@@ -84,7 +119,20 @@ pub enum Method {
     DeclineCounter,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Method {
+/// Method type for iCalendar objects (RFC 5545 Section 3.7.2)
+#[derive(Debug, Clone, Default)]
+pub struct Method<'src> {
+    /// Method value
+    pub value: MethodValue,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Method<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -96,28 +144,48 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method {
             }]);
         }
 
-        let text = take_single_string(&PropertyKind::Method, prop.values)?;
-        match text.to_uppercase().as_str() {
-            KW_METHOD_PUBLISH => Ok(Method::Publish),
-            KW_METHOD_REQUEST => Ok(Method::Request),
-            KW_METHOD_REPLY => Ok(Method::Reply),
-            KW_METHOD_ADD => Ok(Method::Add),
-            KW_METHOD_CANCEL => Ok(Method::Cancel),
-            KW_METHOD_REFRESH => Ok(Method::Refresh),
-            KW_METHOD_COUNTER => Ok(Method::Counter),
-            KW_METHOD_DECLINECOUNTER => Ok(Method::DeclineCounter),
-            _ => Err(vec![TypedError::PropertyInvalidValue {
-                property: PropertyKind::Method,
-                value: format!("Unsupported method type: {text}"),
-                span: prop.span,
-            }]),
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
         }
+
+        let value_span = prop.value.span();
+        let text = take_single_string(&PropertyKind::Method, prop.value)?;
+        let value = match text.to_uppercase().as_str() {
+            KW_METHOD_PUBLISH => MethodValue::Publish,
+            KW_METHOD_REQUEST => MethodValue::Request,
+            KW_METHOD_REPLY => MethodValue::Reply,
+            KW_METHOD_ADD => MethodValue::Add,
+            KW_METHOD_CANCEL => MethodValue::Cancel,
+            KW_METHOD_REFRESH => MethodValue::Refresh,
+            KW_METHOD_COUNTER => MethodValue::Counter,
+            KW_METHOD_DECLINECOUNTER => MethodValue::DeclineCounter,
+            _ => {
+                return Err(vec![TypedError::PropertyInvalidValue {
+                    property: PropertyKind::Method,
+                    value: format!("Unsupported method type: {text}"),
+                    span: value_span,
+                }]);
+            }
+        };
+
+        Ok(Method {
+            value,
+            x_parameters,
+            unrecognized_parameters,
+        })
     }
 }
 
 /// Product identifier that identifies the software that created the iCalendar data (RFC 5545 Section 3.7.3)
 #[derive(Debug, Clone, Default)]
-pub struct ProductId {
+pub struct ProductId<'src> {
     /// Company identifier
     pub company: String,
 
@@ -126,9 +194,15 @@ pub struct ProductId {
 
     /// Language of the text (optional)
     pub language: Option<String>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for ProductId {
+impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -140,36 +214,65 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId {
             }]);
         }
 
-        let text = take_single_string(&PropertyKind::ProdId, prop.values)?;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let text = take_single_string(&PropertyKind::ProdId, prop.value)?;
 
         // PRODID format: company//product//language
         // e.g., "-//Mozilla.org/NONSGML Mozilla Calendar V1.0//EN"
         let parts: Vec<_> = text.split("//").collect();
-        if parts.len() >= 2 {
-            Ok(ProductId {
-                company: parts.first().map(|s| (*s).to_string()).unwrap_or_default(),
-                product: parts.get(1).map(|s| (*s).to_string()).unwrap_or_default(),
-                language: parts.get(2).map(|s| (*s).to_string()),
-            })
+        let (company, product, language) = if parts.len() >= 2 {
+            (
+                parts.first().map(|s| (*s).to_string()).unwrap_or_default(),
+                parts.get(1).map(|s| (*s).to_string()).unwrap_or_default(),
+                parts.get(2).map(|s| (*s).to_string()),
+            )
         } else {
             // If not in the expected format, use the whole string as product
-            Ok(ProductId {
-                company: String::new(),
-                product: text,
-                language: None,
-            })
-        }
+            (String::new(), text, None)
+        };
+
+        Ok(ProductId {
+            company,
+            product,
+            language,
+            x_parameters,
+            unrecognized_parameters,
+        })
     }
 }
 
-/// iCalendar version specification (RFC 5545 Section 3.7.4)
-#[derive(Debug, Clone, Copy)]
-pub enum Version {
+/// iCalendar version value (RFC 5545 Section 3.7.4)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum VersionValue {
     /// Version 2.0 (most common)
+    #[default]
     V2_0,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Version {
+/// iCalendar version specification (RFC 5545 Section 3.7.4)
+#[derive(Debug, Clone, Default)]
+pub struct Version<'src> {
+    /// Version value
+    pub value: VersionValue,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Version<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -181,14 +284,34 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Version {
             }]);
         }
 
-        let text = take_single_string(&PropertyKind::Version, prop.values)?;
-        match text.as_str() {
-            KW_VERSION_2_0 => Ok(Version::V2_0),
-            _ => Err(vec![TypedError::PropertyInvalidValue {
-                property: PropertyKind::Version,
-                value: format!("Unsupported iCalendar version: {text}"),
-                span: prop.span,
-            }]),
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
         }
+
+        let value_span = prop.value.span();
+        let text = take_single_string(&PropertyKind::Version, prop.value)?;
+        let value = match text.as_str() {
+            KW_VERSION_2_0 => VersionValue::V2_0,
+            _ => {
+                return Err(vec![TypedError::PropertyInvalidValue {
+                    property: PropertyKind::Version,
+                    value: format!("Unsupported iCalendar version: {text}"),
+                    span: value_span,
+                }]);
+            }
+        };
+
+        Ok(Version {
+            value,
+            x_parameters,
+            unrecognized_parameters,
+        })
     }
 }

@@ -9,56 +9,54 @@
 
 use std::convert::TryFrom;
 
-use crate::lexer::Span;
 use crate::parameter::{Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, ValueText, Values};
+use crate::value::{Value, ValueText};
 
-/// Get the first value from a property, or return an error
+/// Get the first value from a property, ensuring it has exactly one value
 ///
 /// # Errors
-/// Returns `SemanticError::ConstraintViolation` if there are multiple values
+/// Returns `TypedError::PropertyInvalidValueCount` if there are multiple or zero values
 pub fn take_single_value<'src>(
     kind: &PropertyKind<'src>,
-    mut values: Values<'src>,
-) -> Result<(Value<'src>, Span), Vec<TypedError<'src>>> {
-    if values.len() > 1 {
+    value: Value<'src>,
+) -> Result<Value<'src>, Vec<TypedError<'src>>> {
+    if !value.len() == 1 {
         return Err(vec![TypedError::PropertyInvalidValueCount {
             property: kind.clone(),
             expected: 1,
-            found: values.len(),
-            span: values.span,
+            found: value.len(),
+            span: value.span(),
         }]);
     }
 
-    match values.pop() {
-        Some(value) => Ok((value, values.span)),
-        None => Err(vec![TypedError::PropertyMissingValue {
-            property: kind.clone(),
-            span: values.span,
-        }]),
-    }
+    Ok(value)
 }
 
 /// Get a single text value from a property
 ///
 /// # Errors
 /// Returns `TypedError::PropertyUnexpectedValue` if the value is not text
+/// Returns `TypedError::PropertyInvalidValueCount` if there are multiple or zero values
 pub fn take_single_text<'src>(
     kind: &PropertyKind<'src>,
-    values: Values<'src>,
+    value: Value<'src>,
 ) -> Result<ValueText<'src>, Vec<TypedError<'src>>> {
-    match take_single_value(kind, values) {
-        Ok((Value::Text(text), _)) => Ok(text),
-        Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
-            property: kind.clone(),
-            expected: ValueType::Text,
-            found: v.into_kind(),
-            span,
-        }]),
-        Err(e) => Err(e),
+    let value = take_single_value(kind, value)?;
+
+    match value {
+        Value::Text { mut values, .. } if values.len() == 1 => Ok(values.pop().unwrap()),
+        v => {
+            let span = v.span();
+            Err(vec![TypedError::PropertyUnexpectedValue {
+                property: kind.clone(),
+                expected: ValueType::Text,
+                found: v.into_kind(),
+                span,
+            }])
+        }
     }
 }
 
@@ -66,20 +64,13 @@ pub fn take_single_text<'src>(
 ///
 /// # Errors
 /// Returns `TypedError::PropertyUnexpectedValue` if the value is not text
+/// Returns `TypedError::PropertyInvalidValueCount` if there are multiple or zero values
 pub fn take_single_string<'src>(
     kind: &PropertyKind<'src>,
-    values: Values<'src>,
+    value: Value<'src>,
 ) -> Result<String, Vec<TypedError<'src>>> {
-    match take_single_value(kind, values) {
-        Ok((Value::Text(v), _)) => Ok(v.resolve().to_string()), // TODO: avoid allocation
-        Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
-            property: kind.clone(),
-            expected: ValueType::Text,
-            found: v.into_kind(),
-            span,
-        }]),
-        Err(e) => Err(e),
-    }
+    let text = take_single_text(kind, value)?;
+    Ok(text.resolve().to_string()) // TODO: avoid allocation
 }
 
 /// Text with language and alternate representation information
@@ -116,7 +107,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let content = take_single_text(&prop.kind, prop.values)?;
+        let content = take_single_text(&prop.kind, prop.value)?;
 
         let mut errors = Vec::new();
 
@@ -175,7 +166,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
 #[derive(Debug, Clone)]
 pub struct Texts<'src> {
     /// List of text values
-    pub values: Vec<Text<'src>>,
+    pub values: Vec<ValueText<'src>>,
+
+    /// Language code (optional, applied to all values)
+    pub language: Option<SpannedSegments<'src>>,
 
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<Parameter<'src>>,
@@ -201,23 +195,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
             }
         }
 
-        let values = prop
-            .values
-            .into_iter()
-            .filter_map(|v| match v {
-                Value::Text(content) => Some(Text {
-                    content,
-                    language: language.clone(),
-                    altrep: None, // ALTREP not applicable to multi-valued text properties
-                    x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
-                }),
-                _ => None,
-            })
-            .collect();
+        let Value::Text { values, .. } = prop.value else {
+            let span = prop.value.span();
+            return Err(vec![TypedError::PropertyUnexpectedValue {
+                property: prop.kind,
+                expected: ValueType::Text,
+                found: prop.value.into_kind(),
+                span,
+            }]);
+        };
 
         Ok(Self {
             values,
+            language,
             x_parameters,
             unrecognized_parameters,
         })

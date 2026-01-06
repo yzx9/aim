@@ -20,7 +20,6 @@
 //! - 3.8.4.7: `Uid` - Unique identifier
 
 use std::convert::TryFrom;
-use std::ops::{Deref, DerefMut};
 
 use crate::DateTime;
 use crate::parameter::{CalendarUserType, Parameter, ParticipationRole, ParticipationStatus};
@@ -203,7 +202,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
         }
 
         // Get cal_address value
-        let cal_address = match take_single_text(&prop.kind, prop.values) {
+        let cal_address = match take_single_text(&prop.kind, prop.value) {
             Ok(text) => Some(text),
             Err(e) => {
                 errors.extend(e);
@@ -333,7 +332,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
         }
 
         // Get cal_address value
-        let cal_address = match take_single_text(&prop.kind, prop.values) {
+        let cal_address = match take_single_text(&prop.kind, prop.value) {
             Ok(text) => Some(text),
             Err(e) => {
                 errors.extend(e);
@@ -358,38 +357,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
     }
 }
 
-/// Recurrence ID property wrapper (RFC 5545 Section 3.8.4.4)
-#[derive(Debug, Clone)]
-pub struct RecurrenceId<'src>(pub DateTime<'src>);
-
-impl<'src> Deref for RecurrenceId<'src> {
-    type Target = DateTime<'src>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for RecurrenceId<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<'src> TryFrom<ParsedProperty<'src>> for RecurrenceId<'src> {
-    type Error = Vec<TypedError<'src>>;
-
-    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        if !matches!(prop.kind, PropertyKind::RecurrenceId) {
-            return Err(vec![TypedError::PropertyUnexpectedKind {
-                expected: PropertyKind::RecurrenceId,
-                found: prop.kind,
-                span: prop.span,
-            }]);
-        }
-        DateTime::try_from(prop).map(RecurrenceId)
-    }
-}
+simple_property_wrapper!(
+    /// Recurrence ID property wrapper (RFC 5545 Section 3.8.4.4)
+    RecurrenceId<'src>: DateTime<'src> => RecurrenceId
+);
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.4.5)

@@ -46,15 +46,18 @@ mod recurrence;
 mod relationship;
 mod timezone;
 
-pub use alarm::{Action, Repeat, Trigger, TriggerValue};
-pub use calendar::{CalendarScale, Method, ProductId, Version};
+pub use alarm::{Action, ActionValue, Repeat, Trigger, TriggerValue};
+pub use calendar::{
+    CalendarScale, CalendarScaleValue, Method, MethodValue, ProductId, Version, VersionValue,
+};
 pub use changemgmt::{Created, DtStamp, LastModified, Sequence};
 pub use datetime::{
     Completed, DateTime, DtEnd, DtStart, Due, Duration, FreeBusy, Period, Time, TimeTransparency,
+    TimeTransparencyValue,
 };
 pub use descriptive::{
-    Attachment, AttachmentValue, Categories, Classification, Comment, Description, Geo, Location,
-    PercentComplete, Priority, Resources, Status, Summary,
+    Attachment, AttachmentValue, Categories, Classification, ClassificationValue, Comment,
+    Description, Geo, Location, PercentComplete, Priority, Resources, Status, StatusValue, Summary,
 };
 pub use kind::PropertyKind;
 pub use miscellaneous::RequestStatus;
@@ -88,16 +91,16 @@ use crate::value::Value;
 pub enum Property<'src> {
     // Section 3.7 - Calendar Properties
     /// 3.7.1 Calendar Scale
-    CalScale(CalendarScale),
+    CalScale(CalendarScale<'src>),
 
     /// 3.7.2 Method
-    Method(Method),
+    Method(Method<'src>),
 
     /// 3.7.3 Product Identifier
-    ProdId(ProductId),
+    ProdId(ProductId<'src>),
 
     /// 3.7.4 Version
-    Version(Version),
+    Version(Version<'src>),
 
     // Section 3.8.1 - Descriptive Component Properties
     /// 3.8.1.1 Attachment
@@ -107,7 +110,7 @@ pub enum Property<'src> {
     Categories(Categories<'src>),
 
     /// 3.8.1.3 Classification
-    Class(Classification),
+    Class(Classification<'src>),
 
     /// 3.8.1.4 Comment
     Comment(Comment<'src>),
@@ -116,22 +119,22 @@ pub enum Property<'src> {
     Description(Description<'src>),
 
     /// 3.8.1.6 Geographic Position
-    Geo(Geo),
+    Geo(Geo<'src>),
 
     /// 3.8.1.7 Location
     Location(Location<'src>),
 
     /// 3.8.1.8 Percent Complete
-    PercentComplete(PercentComplete),
+    PercentComplete(PercentComplete<'src>),
 
     /// 3.8.1.9 Priority
-    Priority(Priority),
+    Priority(Priority<'src>),
 
     /// 3.8.1.10 Resources (multi-valued text)
     Resources(Resources<'src>),
 
     /// 3.8.1.11 Status
-    Status(Status),
+    Status(Status<'src>),
 
     /// 3.8.1.12 Summary
     Summary(Summary<'src>),
@@ -150,13 +153,13 @@ pub enum Property<'src> {
     DtStart(DtStart<'src>),
 
     /// 3.8.2.5 Duration
-    Duration(Duration),
+    Duration(Duration<'src>),
 
     /// 3.8.2.6 Free/Busy Time
     FreeBusy(FreeBusy<'src>),
 
     /// 3.8.2.7 Time Transparency
-    Transp(TimeTransparency),
+    Transp(TimeTransparency<'src>),
 
     // Section 3.8.3 - Time Zone Component Properties
     /// 3.8.3.1 Time Zone Identifier
@@ -166,10 +169,10 @@ pub enum Property<'src> {
     TzName(TzName<'src>),
 
     /// 3.8.3.3 Time Zone Offset From
-    TzOffsetFrom(TzOffsetFrom),
+    TzOffsetFrom(TzOffsetFrom<'src>),
 
     /// 3.8.3.4 Time Zone Offset To
-    TzOffsetTo(TzOffsetTo),
+    TzOffsetTo(TzOffsetTo<'src>),
 
     /// 3.8.3.5 Time Zone URL
     TzUrl(TzUrl<'src>),
@@ -208,10 +211,10 @@ pub enum Property<'src> {
 
     // Section 3.8.6 - Alarm Component Properties
     /// 3.8.6.1 Action
-    Action(Action),
+    Action(Action<'src>),
 
     /// 3.8.6.2 Repeat Count
-    Repeat(Repeat),
+    Repeat(Repeat<'src>),
 
     /// 3.8.6.3 Trigger
     Trigger(Trigger<'src>),
@@ -227,7 +230,7 @@ pub enum Property<'src> {
     LastModified(LastModified<'src>),
 
     /// 3.8.7.4 Sequence Number
-    Sequence(Sequence),
+    Sequence(Sequence<'src>),
 
     // Section 3.8.8 - Miscellaneous Properties
     /// 3.8.8.3 Request Status
@@ -350,40 +353,20 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
             }
 
             // XName properties (experimental x-name properties)
-            PropertyKind::XName(name) => {
-                // Get the first value (unknown properties typically have a single value)
-                let value = prop.values.values.first().ok_or_else(|| {
-                    vec![TypedError::PropertyMissingValue {
-                        property: PropertyKind::XName(name.clone()),
-                        span: prop.span,
-                    }]
-                })?;
-
-                Ok(Property::XName {
-                    name: prop.name,
-                    parameters: prop.parameters,
-                    value: value.clone(),
-                    span: prop.span,
-                })
-            }
+            PropertyKind::XName(_name) => Ok(Property::XName {
+                name: prop.name,
+                parameters: prop.parameters,
+                value: prop.value,
+                span: prop.span,
+            }),
 
             // Unrecognized properties (not a known standard property)
-            PropertyKind::Unrecognized(name) => {
-                // Get the first value (unknown properties typically have a single value)
-                let value = prop.values.values.first().ok_or_else(|| {
-                    vec![TypedError::PropertyMissingValue {
-                        property: PropertyKind::Unrecognized(name.clone()),
-                        span: prop.span,
-                    }]
-                })?;
-
-                Ok(Property::Unrecognized {
-                    name: prop.name,
-                    parameters: prop.parameters,
-                    value: value.clone(),
-                    span: prop.span,
-                })
-            }
+            PropertyKind::Unrecognized(_name) => Ok(Property::Unrecognized {
+                name: prop.name,
+                parameters: prop.parameters,
+                value: prop.value,
+                span: prop.span,
+            }),
         }
     }
 }

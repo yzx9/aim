@@ -143,10 +143,10 @@ pub struct TimeZoneObservance<'src> {
     pub dt_start: DateTime<'src>,
 
     /// Offset from UTC for this observance
-    pub tz_offset_from: TzOffsetFrom,
+    pub tz_offset_from: TzOffsetFrom<'src>,
 
     /// Offset from UTC for this observance
-    pub tz_offset_to: TzOffsetTo,
+    pub tz_offset_to: TzOffsetTo<'src>,
 
     /// Timezone names
     pub tz_name: Vec<Text<'src>>,
@@ -249,8 +249,8 @@ struct PropertyCollector<'src> {
 #[derive(Debug, Default)]
 struct ObservanceCollector<'src> {
     dt_start:       Option<DateTime<'src>>,
-    tz_offset_from: Option<TzOffsetFrom>,
-    tz_offset_to:   Option<TzOffsetTo>,
+    tz_offset_from: Option<TzOffsetFrom<'src>>,
+    tz_offset_to:   Option<TzOffsetTo<'src>>,
     tz_name:        Vec<Text<'src>>,
     rrule:          Option<RecurrenceRule>,
 }

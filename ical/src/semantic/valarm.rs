@@ -14,7 +14,7 @@ use crate::value::ValueDuration;
 #[derive(Debug, Clone)]
 pub struct VAlarm<'src> {
     /// Action to perform when alarm triggers
-    pub action: Action,
+    pub action: Action<'src>,
 
     /// When to trigger the alarm
     pub trigger: Trigger<'src>,
@@ -142,24 +142,35 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         }
 
         // Get action for validation checks
-        let action = props.action.unwrap_or(Action::Audio);
+        let default_action = Action {
+            value: crate::property::ActionValue::Audio,
+            x_parameters: Vec::new(),
+            unrecognized_parameters: Vec::new(),
+        };
+        let action = props.action.as_ref().unwrap_or(&default_action);
 
         // Validate DESCRIPTION is present for DISPLAY and EMAIL actions
-        if props.description.is_none() && matches!(action, Action::Display | Action::Email) {
+        if props.description.is_none()
+            && matches!(
+                action.value,
+                crate::property::ActionValue::Display | crate::property::ActionValue::Email
+            )
+        {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Description,
             });
         }
 
         // Validate SUMMARY is present for EMAIL action
-        if props.summary.is_none() && matches!(action, Action::Email) {
+        if props.summary.is_none() && matches!(action.value, crate::property::ActionValue::Email) {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Summary,
             });
         }
 
         // Validate ATTENDEE is present for EMAIL action
-        if matches!(action, Action::Email) && props.attendees.is_empty() {
+        if matches!(action.value, crate::property::ActionValue::Email) && props.attendees.is_empty()
+        {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Attendee,
             });
@@ -171,7 +182,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         }
 
         Ok(VAlarm {
-            action: props.action.unwrap(),   // SAFETY: checked above
+            action: props.action.unwrap_or_else(|| Action {
+                value: crate::property::ActionValue::Audio,
+                x_parameters: Vec::new(),
+                unrecognized_parameters: Vec::new(),
+            }),
             trigger: props.trigger.unwrap(), // SAFETY: checked above
             repeat: props.repeat,
             duration: props.duration,
@@ -189,7 +204,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    action:     Option<Action>,
+    action:     Option<Action<'src>>,
     trigger:    Option<Trigger<'src>>,
     duration:   Option<ValueDuration>,
     repeat:     Option<u32>,

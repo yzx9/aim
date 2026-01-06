@@ -17,16 +17,16 @@ use crate::typed::TypedComponent;
 #[derive(Debug, Clone)]
 pub struct ICalendar<'src> {
     /// Product identifier that generated the iCalendar data
-    pub prod_id: ProductId,
+    pub prod_id: ProductId<'src>,
 
     /// Version of iCalendar specification
-    pub version: Version,
+    pub version: Version<'src>,
 
     /// Calendar scale (usually GREGORIAN)
-    pub calscale: Option<CalendarScale>,
+    pub calscale: Option<CalendarScale<'src>>,
 
     /// Method for the iCalendar object (e.g., PUBLISH, REQUEST)
-    pub method: Option<Method>,
+    pub method: Option<Method<'src>>,
 
     /// All calendar components (events, todos, journals, etc.)
     pub components: Vec<CalendarComponent<'src>>,
@@ -232,10 +232,10 @@ pub enum CalendarComponent<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    prod_id:            Option<ProductId>,
-    version:            Option<Version>,
-    calscale:           Option<CalendarScale>,
-    method:             Option<Method>,
+    prod_id:            Option<ProductId<'src>>,
+    version:            Option<Version<'src>>,
+    calscale:           Option<CalendarScale<'src>>,
+    method:             Option<Method<'src>>,
     x_properties:       Vec<Property<'src>>,
     unrecognized_properties: Vec<Property<'src>>,
 }

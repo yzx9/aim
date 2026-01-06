@@ -22,9 +22,9 @@ use crate::property::{DateTime, PropertyKind};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDuration};
 
-/// Alarm action (RFC 5545 Section 3.8.6.1)
-#[derive(Debug, Clone, Copy)]
-pub enum Action {
+/// Alarm action value (RFC 5545 Section 3.8.6.1)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionValue {
     /// Audio alarm
     Audio,
 
@@ -35,7 +35,19 @@ pub enum Action {
     Email,
 }
 
-impl FromStr for Action {
+impl ActionValue {
+    /// Get the keyword string for this action value
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Audio => KW_ACTION_AUDIO,
+            Self::Display => KW_ACTION_DISPLAY,
+            Self::Email => KW_ACTION_EMAIL,
+        }
+    }
+}
+
+impl FromStr for ActionValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -49,23 +61,32 @@ impl FromStr for Action {
     }
 }
 
-impl AsRef<str> for Action {
+impl AsRef<str> for ActionValue {
     fn as_ref(&self) -> &str {
-        match self {
-            Self::Audio => KW_ACTION_AUDIO,
-            Self::Display => KW_ACTION_DISPLAY,
-            Self::Email => KW_ACTION_EMAIL,
-        }
+        self.as_str()
     }
 }
 
-impl fmt::Display for Action {
+impl fmt::Display for ActionValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_ref().fmt(f)
     }
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Action {
+/// Alarm action (RFC 5545 Section 3.8.6.1)
+#[derive(Debug, Clone)]
+pub struct Action<'src> {
+    /// Action value
+    pub value: ActionValue,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Action<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -77,13 +98,31 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action {
             }]);
         }
 
-        let text = take_single_string(&PropertyKind::Action, prop.values)?;
-        text.parse().map_err(|e| {
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let value_span = prop.value.span();
+        let text = take_single_string(&PropertyKind::Action, prop.value)?;
+        let value = text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Action,
                 value: e,
-                span: prop.span,
+                span: value_span,
             }]
+        })?;
+
+        Ok(Action {
+            value,
+            x_parameters,
+            unrecognized_parameters,
         })
     }
 }
@@ -91,17 +130,23 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action {
 /// Repeat Count (RFC 5545 Section 3.8.6.2)
 ///
 /// This property defines the number of times the alarm should repeat.
-#[derive(Debug, Clone, Copy)]
-pub struct Repeat {
+#[derive(Debug, Clone)]
+pub struct Repeat<'src> {
     /// Number of repetitions
     pub value: u32,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Repeat {
+impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<'src> {
     type Error = Vec<TypedError<'src>>;
 
     #[allow(clippy::cast_sign_loss)]
-    fn try_from(mut prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         if !matches!(prop.kind, PropertyKind::Repeat) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
                 expected: PropertyKind::Repeat,
@@ -110,31 +155,60 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat {
             }]);
         }
 
-        match prop.values.len() {
-            0 => Err(vec![TypedError::PropertyMissingValue {
-                property: prop.kind,
-                span: prop.span,
-            }]),
-            1 => match prop.values.pop().unwrap() {
-                Value::Integer(i) if i >= 0 => Ok(Self { value: i as u32 }), // SAFETY: i < i32::MAX < u32::MAX
-                Value::Integer(i) => Err(vec![TypedError::PropertyInvalidValue {
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let value_span = prop.value.span();
+        match prop.value {
+            Value::Integer { values, .. } if values.is_empty() => {
+                Err(vec![TypedError::PropertyMissingValue {
                     property: prop.kind,
-                    value: format!("Repeat count must be non-negative: {i}"),
                     span: prop.span,
-                }]),
-                v => Err(vec![TypedError::PropertyUnexpectedValue {
+                }])
+            }
+            Value::Integer {
+                values: mut ints, ..
+            } if ints.len() == 1 => {
+                let i = ints.pop().unwrap();
+                if i >= 0 {
+                    Ok(Repeat {
+                        value: i as u32, // SAFETY: i < i32::MAX < u32::MAX
+                        x_parameters,
+                        unrecognized_parameters,
+                    })
+                } else {
+                    Err(vec![TypedError::PropertyInvalidValue {
+                        property: prop.kind,
+                        value: format!("Repeat count must be non-negative: {i}"),
+                        span: value_span,
+                    }])
+                }
+            }
+            Value::Integer { values: ints, .. } => {
+                Err(vec![TypedError::PropertyInvalidValueCount {
+                    property: PropertyKind::Repeat,
+                    expected: 1,
+                    found: ints.len(),
+                    span: value_span,
+                }])
+            }
+            v => {
+                let span = v.span();
+                Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueType::Integer,
                     found: v.into_kind(),
-                    span: prop.span,
-                }]),
-            },
-            len => Err(vec![TypedError::PropertyInvalidValueCount {
-                property: PropertyKind::Repeat,
-                expected: 1,
-                found: len,
-                span: prop.span,
-            }]),
+                    span,
+                }])
+            }
         }
     }
 }
@@ -200,7 +274,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
             }
         }
 
-        let (value, _) = take_single_value(&PropertyKind::Trigger, prop.values)?;
+        let value = take_single_value(&PropertyKind::Trigger, prop.value)?;
 
         // Return all errors if any occurred
         if !errors.is_empty() {
@@ -208,27 +282,30 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
         }
 
         match value {
-            Value::Duration(dur) => Ok(Trigger {
-                value: TriggerValue::Duration(dur),
+            Value::Duration { values: durs, .. } if durs.len() == 1 => Ok(Trigger {
+                value: TriggerValue::Duration(durs.into_iter().next().unwrap()),
                 related: Some(related.unwrap_or(AlarmTriggerRelationship::Start)),
                 x_parameters,
                 unrecognized_parameters,
             }),
-            Value::DateTime(dt) => Ok(Trigger {
-                value: TriggerValue::DateTime(DateTime::Floating {
-                    date: dt.date,
-                    time: dt.time.into(),
-                    x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
-                }),
-                related: None,
-                x_parameters,
-                unrecognized_parameters,
-            }),
+            Value::DateTime { values: dts, .. } if dts.len() == 1 => {
+                let dt = dts.into_iter().next().unwrap();
+                Ok(Trigger {
+                    value: TriggerValue::DateTime(DateTime::Floating {
+                        date: dt.date,
+                        time: dt.time.into(),
+                        x_parameters: Vec::new(),
+                        unrecognized_parameters: Vec::new(),
+                    }),
+                    related: None,
+                    x_parameters,
+                    unrecognized_parameters,
+                })
+            }
             _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Trigger,
                 value: "Expected duration or date-time value".to_string(),
-                span: prop.span,
+                span: value.span(),
             }]),
         }
     }

@@ -11,7 +11,7 @@ use crate::keyword::{KW_VALARM, KW_VTODO};
 use crate::property::{
     Attendee, Categories, Classification, Completed, DateTime, Description, DtStamp, DtStart, Due,
     ExDateValue, Geo, LastModified, Location, Organizer, Period, Property, PropertyKind,
-    RDateValue, Resources, Status, Summary, Url,
+    RDateValue, Resources, Status, StatusValue, Summary, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::typed::TypedComponent;
@@ -48,7 +48,7 @@ pub struct VTodo<'src> {
     pub location: Option<Location<'src>>,
 
     /// Geographic position
-    pub geo: Option<Geo>,
+    pub geo: Option<Geo<'src>>,
 
     /// URL associated with the todo
     pub url: Option<Url<'src>>,
@@ -75,7 +75,7 @@ pub struct VTodo<'src> {
     pub percent_complete: Option<u8>,
 
     /// Classification
-    pub classification: Option<Classification>,
+    pub classification: Option<Classification<'src>>,
 
     /// Resources
     pub resources: Option<Resources<'src>>,
@@ -379,14 +379,14 @@ pub enum TodoStatus {
     Cancelled,
 }
 
-impl TryFrom<Status> for TodoStatus {
+impl<'src> TryFrom<Status<'src>> for TodoStatus {
     type Error = String;
-    fn try_from(value: Status) -> Result<Self, Self::Error> {
-        match value {
-            Status::NeedsAction => Ok(Self::NeedsAction),
-            Status::Completed => Ok(Self::Completed),
-            Status::InProcess => Ok(Self::InProcess),
-            Status::Cancelled => Ok(Self::Cancelled),
+    fn try_from(value: Status<'src>) -> Result<Self, Self::Error> {
+        match value.value {
+            StatusValue::NeedsAction => Ok(Self::NeedsAction),
+            StatusValue::Completed => Ok(Self::Completed),
+            StatusValue::InProcess => Ok(Self::InProcess),
+            StatusValue::Cancelled => Ok(Self::Cancelled),
             _ => Err(format!("Invalid todo status: {value}")),
         }
     }
@@ -398,13 +398,17 @@ impl fmt::Display for TodoStatus {
     }
 }
 
-impl From<TodoStatus> for Status {
+impl From<TodoStatus> for Status<'_> {
     fn from(value: TodoStatus) -> Self {
-        match value {
-            TodoStatus::NeedsAction => Status::NeedsAction,
-            TodoStatus::Completed => Status::Completed,
-            TodoStatus::InProcess => Status::InProcess,
-            TodoStatus::Cancelled => Status::Cancelled,
+        Status {
+            value: match value {
+                TodoStatus::NeedsAction => StatusValue::NeedsAction,
+                TodoStatus::Completed => StatusValue::Completed,
+                TodoStatus::InProcess => StatusValue::InProcess,
+                TodoStatus::Cancelled => StatusValue::Cancelled,
+            },
+            x_parameters: Vec::new(),
+            unrecognized_parameters: Vec::new(),
         }
     }
 }
@@ -422,7 +426,7 @@ struct PropertyCollector<'src> {
     summary:        Option<Summary<'src>>,
     description:    Option<Description<'src>>,
     location:       Option<Location<'src>>,
-    geo:            Option<Geo>,
+    geo:            Option<Geo<'src>>,
     url:            Option<Url<'src>>,
     organizer:      Option<Organizer<'src>>,
     attendees:      Vec<Attendee<'src>>,
@@ -431,7 +435,7 @@ struct PropertyCollector<'src> {
     sequence:       Option<u32>,
     priority:       Option<u8>,
     percent_complete: Option<u8>,
-    classification: Option<Classification>,
+    classification: Option<Classification<'src>>,
     resources:      Option<Resources<'src>>,
     categories:     Option<Categories<'src>>,
     rrule:          Option<RecurrenceRule>,

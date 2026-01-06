@@ -17,7 +17,7 @@ use crate::lexer::Span;
 use crate::parameter::{Parameter, ParameterKind, StandardValueType, ValueType};
 use crate::property::{Property, PropertyKind};
 use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
-use crate::value::{Values, parse_values};
+use crate::value::{Value, parse_values};
 
 /// Perform typed analysis on raw components, returning typed components or errors.
 ///
@@ -87,7 +87,7 @@ fn parsed_property<'src>(
     let value_types = value_types(&kind, &parameters)?;
 
     // PERF: cache parser
-    let values = parse_values(&value_types, &prop.value).map_err(|errs| {
+    let value = parse_values(&value_types, &prop.value).map_err(|errs| {
         errs.into_iter()
             .map(|err| TypedError::ValueSyntax {
                 value: prop.value.clone(),
@@ -99,7 +99,7 @@ fn parsed_property<'src>(
     Ok(ParsedProperty {
         kind,
         parameters,
-        values,
+        value,
         span: prop.name.span(),
         name: prop.name,
     })
@@ -123,8 +123,8 @@ pub struct ParsedProperty<'src> {
     pub kind: PropertyKind<'src>,
     /// Property parameters
     pub parameters: Vec<Parameter<'src>>,
-    /// Property values
-    pub values: Values<'src>,
+    /// Property value
+    pub value: Value<'src>,
     /// The span of the property name (for error reporting)
     pub span: Span,
     /// Property name (preserved for unknown properties)

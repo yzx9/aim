@@ -14,7 +14,10 @@ use aimcal_ical::semantic::{CalendarComponent, SemanticError, semantic_analysis}
 use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
 use aimcal_ical::value::ValueDuration;
-use aimcal_ical::{CalendarScale, ICalendar, Method, Period, Version};
+use aimcal_ical::{
+    CalendarScale, CalendarScaleValue, ICalendar, Method, MethodValue, Period, Version,
+    VersionValue,
+};
 
 /// Test helper to parse iCalendar source through semantic phase
 fn parse_semantic(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError<'_>>> {
@@ -45,7 +48,13 @@ END:VCALENDAR\r
 ";
     let calendars = parse_semantic(src).unwrap();
     let calendar = &calendars[0];
-    assert!(matches!(calendar.version, Version::V2_0));
+    assert!(matches!(
+        calendar.version,
+        Version {
+            value: VersionValue::V2_0,
+            ..
+        }
+    ));
     assert_eq!(calendar.prod_id.company, "-");
     assert_eq!(calendar.prod_id.product, "Example Corp.");
     assert_eq!(calendar.prod_id.language.as_ref().unwrap(), "CalDAV Client");
@@ -68,7 +77,10 @@ END:VCALENDAR\r
     assert!(calendar.calscale.is_some());
     assert!(matches!(
         calendar.calscale.as_ref().unwrap(),
-        CalendarScale::Gregorian
+        CalendarScale {
+            value: CalendarScaleValue::Gregorian,
+            ..
+        }
     ));
 }
 
@@ -775,7 +787,13 @@ END:VCALENDAR\r
     let calendars = parse_semantic(src).unwrap();
     let calendar = &calendars[0];
     assert!(calendar.method.is_some());
-    assert!(matches!(calendar.method.as_ref().unwrap(), Method::Publish));
+    assert!(matches!(
+        calendar.method.as_ref().unwrap(),
+        Method {
+            value: MethodValue::Publish,
+            ..
+        }
+    ));
 }
 
 #[test]

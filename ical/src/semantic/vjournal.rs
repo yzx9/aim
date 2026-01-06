@@ -9,11 +9,12 @@ use std::fmt;
 use crate::keyword::KW_VJOURNAL;
 use crate::property::{
     Attendee, Classification, DateTime, ExDateValue, Organizer, Period, Property, PropertyKind,
-    RDateValue, Status, Text,
+    RDateValue, Status, StatusValue, Text,
 };
 use crate::semantic::SemanticError;
 use crate::typed::TypedComponent;
 use crate::value::RecurrenceRule;
+use crate::value::ValueText;
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]
@@ -31,7 +32,7 @@ pub struct VJournal<'src> {
     pub summary: Option<Text<'src>>,
 
     /// Description of the journal entry (can appear multiple times)
-    pub descriptions: Vec<Text<'src>>,
+    pub descriptions: Vec<ValueText<'src>>,
 
     /// Organizer of the journal entry
     pub organizer: Option<Organizer<'src>>,
@@ -46,10 +47,10 @@ pub struct VJournal<'src> {
     pub status: Option<JournalStatus>,
 
     /// Classification
-    pub classification: Option<Classification>,
+    pub classification: Option<Classification<'src>>,
 
     /// Categories
-    pub categories: Vec<Text<'src>>,
+    pub categories: Vec<ValueText<'src>>,
 
     /// Recurrence rule
     pub rrule: Option<RecurrenceRule>,
@@ -115,7 +116,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                 },
                 Property::Description(desc) => {
                     // VJOURNAL allows multiple DESCRIPTION properties
-                    props.descriptions.push(desc.0.clone());
+                    props.descriptions.push(desc.content.clone());
                 }
                 Property::Organizer(org) => match props.organizer {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -253,13 +254,13 @@ pub enum JournalStatus {
     Cancelled,
 }
 
-impl TryFrom<Status> for JournalStatus {
+impl<'src> TryFrom<Status<'src>> for JournalStatus {
     type Error = String;
-    fn try_from(value: Status) -> Result<Self, Self::Error> {
-        match value {
-            Status::Draft => Ok(Self::Draft),
-            Status::Final => Ok(Self::Final),
-            Status::Cancelled => Ok(Self::Cancelled),
+    fn try_from(value: Status<'src>) -> Result<Self, Self::Error> {
+        match value.value {
+            StatusValue::Draft => Ok(Self::Draft),
+            StatusValue::Final => Ok(Self::Final),
+            StatusValue::Cancelled => Ok(Self::Cancelled),
             _ => Err(format!("Invalid journal status: {value}")),
         }
     }
@@ -271,12 +272,16 @@ impl fmt::Display for JournalStatus {
     }
 }
 
-impl From<JournalStatus> for Status {
+impl From<JournalStatus> for Status<'_> {
     fn from(value: JournalStatus) -> Self {
-        match value {
-            JournalStatus::Draft => Status::Draft,
-            JournalStatus::Final => Status::Final,
-            JournalStatus::Cancelled => Status::Cancelled,
+        Status {
+            value: match value {
+                JournalStatus::Draft => StatusValue::Draft,
+                JournalStatus::Final => StatusValue::Final,
+                JournalStatus::Cancelled => StatusValue::Cancelled,
+            },
+            x_parameters: Vec::new(),
+            unrecognized_parameters: Vec::new(),
         }
     }
 }
@@ -289,13 +294,13 @@ struct PropertyCollector<'src> {
     dt_stamp:       Option<DateTime<'src>>,
     dt_start:       Option<DateTime<'src>>,
     summary:        Option<Text<'src>>,
-    descriptions:   Vec<Text<'src>>,
+    descriptions:   Vec<ValueText<'src>>,
     organizer:      Option<Organizer<'src>>,
     attendees:      Vec<Attendee<'src>>,
     last_modified:  Option<DateTime<'src>>,
     status:         Option<JournalStatus>,
-    classification: Option<Classification>,
-    categories:     Option<Vec<Text<'src>>>,
+    classification: Option<Classification<'src>>,
+    categories:     Option<Vec<ValueText<'src>>>,
     rrule:          Option<RecurrenceRule>,
     rdate:          Vec<Period<'src>>,
     ex_dates:       Vec<DateTime<'src>>,

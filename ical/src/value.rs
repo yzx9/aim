@@ -15,8 +15,6 @@ mod period;
 mod rrule;
 mod text;
 
-use std::ops::{Deref, DerefMut};
-
 pub use datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
 pub use duration::ValueDuration;
 pub use miscellaneous::ValueExpected;
@@ -38,50 +36,6 @@ use crate::value::numeric::{values_float, values_integer};
 use crate::value::period::values_period;
 use crate::value::text::values_text;
 
-/// Represents multiple property values with their source span.
-///
-/// This type wraps a vector of parsed values with span information,
-/// enabling error reporting that references the original source location.
-#[derive(Debug, Clone)]
-pub struct Values<'src> {
-    /// The parsed values
-    pub values: Vec<Value<'src>>,
-    /// The span covering all values in the source
-    pub span: Span,
-}
-
-impl<'src> Deref for Values<'src> {
-    type Target = Vec<Value<'src>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.values
-    }
-}
-
-impl DerefMut for Values<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.values
-    }
-}
-
-impl<'src> IntoIterator for Values<'src> {
-    type Item = Value<'src>;
-    type IntoIter = std::vec::IntoIter<Value<'src>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.values.into_iter()
-    }
-}
-
-impl<'a, 'src> IntoIterator for &'a Values<'src> {
-    type Item = &'a Value<'src>;
-    type IntoIter = std::slice::Iter<'a, Value<'src>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.values.iter()
-    }
-}
-
 /// The properties in an iCalendar object are strongly typed.  The definition
 /// of each property restricts the value to be one of the value data types, or
 /// simply value types, defined in this section. The value type for a property
@@ -98,43 +52,92 @@ pub enum Value<'src> {
     /// document might be included in an iCalendar object.
     ///
     /// See RFC 5545 Section 3.3.1 for more details.
-    Binary(SpannedSegments<'src>),
+    ///
+    /// Note: This is a single-value type (comma-separated values not allowed).
+    Binary {
+        /// The binary data
+        raw: SpannedSegments<'src>,
+        /// The span of the value
+        span: Span,
+    },
 
     /// This value type is used to identify properties that contain either a
     /// "TRUE" or "FALSE" Boolean value.
     ///
     /// See RFC 5545 Section 3.3.2 for more details.
-    Boolean(bool),
+    ///
+    /// Note: This is a single-value type (comma-separated values not allowed).
+    Boolean {
+        /// The boolean value
+        value: bool,
+        /// The span of the value
+        span: Span,
+    },
 
     // TODO: 3.3.3. Calendar User Address
     //
     /// This value type is used to identify values that contain a calendar date.
     ///
     /// See RFC 5545 Section 3.3.4 for more details.
-    Date(ValueDate),
+    ///
+    /// Note: This type supports multiple comma-separated values.
+    Date {
+        /// The date values
+        values: Vec<ValueDate>,
+        /// The span of the values
+        span: Span,
+    },
 
     /// This value type is used to identify properties that contain a date with
     ///
     /// See RFC 5545 Section 3.3.5 for more details.
-    DateTime(ValueDateTime),
+    ///
+    /// Note: This type supports multiple comma-separated values.
+    DateTime {
+        /// The date-time values
+        values: Vec<ValueDateTime>,
+        /// The span of the values
+        span: Span,
+    },
 
     /// This value type is used to identify properties that contain a duration
     /// of time.
     ///
     /// See RFC 5545 Section 3.3.6 for more details.
-    Duration(ValueDuration),
+    ///
+    /// Note: This type supports multiple comma-separated values.
+    Duration {
+        /// The duration values
+        values: Vec<ValueDuration>,
+        /// The span of the values
+        span: Span,
+    },
 
     /// This value type is used to identify properties that contain a real-
     /// number value.
     ///
     /// See RFC 5545 Section 3.3.7 for more details.
-    Float(f64),
+    ///
+    /// Note: This type supports multiple comma-separated values.
+    Float {
+        /// The float values
+        values: Vec<f64>,
+        /// The span of the values
+        span: Span,
+    },
 
     /// This value type is used to identify properties that contain a signed
     /// integer value.
     ///
     /// See RFC 5545 Section 3.3.8 for more details.
-    Integer(i32),
+    ///
+    /// Note: This type supports multiple comma-separated values.
+    Integer {
+        /// The integer values
+        values: Vec<i32>,
+        /// The span of the values
+        span: Span,
+    },
 
     // TODO: 3.3.10. Recurrence Rule
     //
@@ -142,16 +145,37 @@ pub enum Value<'src> {
     /// period of time.
     ///
     /// See RFC 5545 Section 3.3.9 for more details.
-    Period(ValuePeriod),
+    ///
+    /// Note: This type supports multiple comma-separated values.
+    Period {
+        /// The period values
+        values: Vec<ValuePeriod>,
+        /// The span of the values
+        span: Span,
+    },
 
     /// This value type is used to identify values that contain human-readable
     /// text.
     ///
     /// See RFC 5545 Section 3.3.11 for more details.
-    Text(ValueText<'src>),
+    ///
+    /// Note: This type supports multiple comma-separated values.
+    Text {
+        /// The text values
+        values: Vec<ValueText<'src>>,
+        /// The span of the values
+        span: Span,
+    },
 
     /// This value type is used to identify values that contain a time of day.
-    Time(ValueTime),
+    ///
+    /// Note: This type supports multiple comma-separated values.
+    Time {
+        /// The time values
+        values: Vec<ValueTime>,
+        /// The span of the values
+        span: Span,
+    },
 
     // TODO: 3.3.13. URI
     //
@@ -159,7 +183,14 @@ pub enum Value<'src> {
     /// from UTC to local time.
     ///
     /// See RFC 5545 Section 3.3.14 for more details.
-    UtcOffset(ValueUtcOffset),
+    ///
+    /// Note: This is a single-value type (comma-separated values not allowed).
+    UtcOffset {
+        /// The UTC offset value
+        value: ValueUtcOffset,
+        /// The span of the value
+        span: Span,
+    },
 
     /// Custom experimental x-name value type (must start with "X-" or "x-").
     ///
@@ -173,6 +204,8 @@ pub enum Value<'src> {
         raw: SpannedSegments<'src>,
         /// The value type that was specified
         kind: ValueType<'src>,
+        /// The span of the value
+        span: Span,
     },
 
     /// Unrecognized value type (not a known standard value type).
@@ -187,10 +220,32 @@ pub enum Value<'src> {
         raw: SpannedSegments<'src>,
         /// The value type that was specified
         kind: ValueType<'src>,
+        /// The span of the value
+        span: Span,
     },
 }
 
 impl<'src> Value<'src> {
+    /// Get the span of this value.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        match self {
+            Value::Binary { span, .. }
+            | Value::Boolean { span, .. }
+            | Value::Date { span, .. }
+            | Value::DateTime { span, .. }
+            | Value::Duration { span, .. }
+            | Value::Float { span, .. }
+            | Value::Integer { span, .. }
+            | Value::Period { span, .. }
+            | Value::Text { span, .. }
+            | Value::Time { span, .. }
+            | Value::UtcOffset { span, .. }
+            | Value::XName { span, .. }
+            | Value::Unrecognized { span, .. } => *span,
+        }
+    }
+
     /// Get the kind of this value, consuming the value in the process.
     ///
     /// This is useful when you need to move the kind out of a value that will
@@ -198,19 +253,47 @@ impl<'src> Value<'src> {
     #[must_use]
     pub fn into_kind(self) -> ValueType<'src> {
         match self {
-            Value::Binary(_) => ValueType::Binary,
-            Value::Boolean(_) => ValueType::Boolean,
-            Value::Date(_) => ValueType::Date,
-            Value::DateTime(_) => ValueType::DateTime,
-            Value::Duration(_) => ValueType::Duration,
-            Value::Float(_) => ValueType::Float,
-            Value::Integer(_) => ValueType::Integer,
-            Value::Period(_) => ValueType::Period,
-            Value::Text(_) => ValueType::Text,
-            Value::Time(_) => ValueType::Time,
-            Value::UtcOffset(_) => ValueType::UtcOffset,
+            Value::Binary { .. } => ValueType::Binary,
+            Value::Boolean { .. } => ValueType::Boolean,
+            Value::Date { .. } => ValueType::Date,
+            Value::DateTime { .. } => ValueType::DateTime,
+            Value::Duration { .. } => ValueType::Duration,
+            Value::Float { .. } => ValueType::Float,
+            Value::Integer { .. } => ValueType::Integer,
+            Value::Period { .. } => ValueType::Period,
+            Value::Text { .. } => ValueType::Text,
+            Value::Time { .. } => ValueType::Time,
+            Value::UtcOffset { .. } => ValueType::UtcOffset,
             Value::XName { kind, .. } | Value::Unrecognized { kind, .. } => kind,
         }
+    }
+
+    /// Get the number of values in this value variant.
+    ///
+    /// Single-value types return 1, multi-value types return the length of the vector.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        match self {
+            Value::Date { values, .. } => values.len(),
+            Value::DateTime { values, .. } => values.len(),
+            Value::Duration { values, .. } => values.len(),
+            Value::Float { values, .. } => values.len(),
+            Value::Integer { values, .. } => values.len(),
+            Value::Period { values, .. } => values.len(),
+            Value::Text { values, .. } => values.len(),
+            Value::Time { values, .. } => values.len(),
+            Value::Binary { .. }
+            | Value::Boolean { .. }
+            | Value::UtcOffset { .. }
+            | Value::XName { .. }
+            | Value::Unrecognized { .. } => 1,
+        }
+    }
+
+    /// Check if this value is empty (has 0 values).
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -232,7 +315,7 @@ impl<'src> Value<'src> {
 pub fn parse_values<'src>(
     kinds: &[ValueType<'src>],
     value: &SpannedSegments<'src>,
-) -> Result<Values<'src>, Vec<Rich<'src, char>>> {
+) -> Result<Value<'src>, Vec<Rich<'src, char>>> {
     // Collect errors from all attempted types
     let mut all_errors: Vec<Rich<'src, char>> = Vec::new();
 
@@ -249,24 +332,25 @@ pub fn parse_values<'src>(
                     .parse(make_input(value.clone()))
                     .into_result();
                 if result.is_ok() {
-                    return Ok(Values {
-                        values: vec![Value::Binary(value.clone())],
-                        span: value.span(),
+                    let span = value.span();
+                    return Ok(Value::Binary {
+                        raw: value.clone(),
+                        span,
                     });
                 }
             }
 
             ValueType::Boolean => {
                 let result = value_boolean::<'_, _, extra::Err<_>>()
-                    .map(|a| vec![Value::Boolean(a)])
                     .parse(make_input(value.clone()))
                     .into_result();
 
                 match result {
-                    Ok(values) => {
-                        return Ok(Values {
-                            values,
-                            span: value.span(),
+                    Ok(bool_value) => {
+                        let span = value.span();
+                        return Ok(Value::Boolean {
+                            value: bool_value,
+                            span,
                         });
                     }
                     Err(errs) => all_errors.extend(errs),
@@ -275,15 +359,15 @@ pub fn parse_values<'src>(
 
             ValueType::Date => {
                 let result = values_date::<'_, _, extra::Err<_>>()
-                    .map(|a| a.into_iter().map(Value::Date).collect())
                     .parse(make_input(value.clone()))
                     .into_result();
 
                 match result {
-                    Ok(values) => {
-                        return Ok(Values {
-                            values,
-                            span: value.span(),
+                    Ok(dates) => {
+                        let span = value.span();
+                        return Ok(Value::Date {
+                            values: dates,
+                            span,
                         });
                     }
                     Err(errs) => all_errors.extend(errs),
@@ -292,15 +376,15 @@ pub fn parse_values<'src>(
 
             ValueType::DateTime => {
                 let result = values_date_time::<'_, _, extra::Err<_>>()
-                    .map(|a| a.into_iter().map(Value::DateTime).collect())
                     .parse(make_input(value.clone()))
                     .into_result();
 
                 match result {
-                    Ok(values) => {
-                        return Ok(Values {
-                            values,
-                            span: value.span(),
+                    Ok(date_times) => {
+                        let span = value.span();
+                        return Ok(Value::DateTime {
+                            values: date_times,
+                            span,
                         });
                     }
                     Err(errs) => all_errors.extend(errs),
@@ -309,15 +393,15 @@ pub fn parse_values<'src>(
 
             ValueType::Duration => {
                 let result = values_duration::<'_, _, extra::Err<_>>()
-                    .map(|a| a.into_iter().map(Value::Duration).collect())
                     .parse(make_input(value.clone()))
                     .into_result();
 
                 match result {
-                    Ok(values) => {
-                        return Ok(Values {
-                            values,
-                            span: value.span(),
+                    Ok(durations) => {
+                        let span = value.span();
+                        return Ok(Value::Duration {
+                            values: durations,
+                            span,
                         });
                     }
                     Err(errs) => all_errors.extend(errs),
@@ -326,13 +410,13 @@ pub fn parse_values<'src>(
 
             ValueType::Float => {
                 let result = values_float::<'_, _, extra::Err<_>>()
-                    .map(|a| a.into_iter().map(Value::Float).collect())
                     .parse(make_input(value.clone()))
                     .into_result();
-                if let Ok(values) = result {
-                    return Ok(Values {
-                        values,
-                        span: value.span(),
+                if let Ok(floats) = result {
+                    let span = value.span();
+                    return Ok(Value::Float {
+                        values: floats,
+                        span,
                     });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
@@ -341,13 +425,13 @@ pub fn parse_values<'src>(
 
             ValueType::Integer => {
                 let result = values_integer::<'_, _, extra::Err<_>>()
-                    .map(|a| a.into_iter().map(Value::Integer).collect())
                     .parse(make_input(value.clone()))
                     .into_result();
-                if let Ok(values) = result {
-                    return Ok(Values {
-                        values,
-                        span: value.span(),
+                if let Ok(integers) = result {
+                    let span = value.span();
+                    return Ok(Value::Integer {
+                        values: integers,
+                        span,
                     });
                 } else if let Err(errs) = result {
                     all_errors.extend(errs);
@@ -360,18 +444,14 @@ pub fn parse_values<'src>(
                 let result = values_text::<'_, _, extra::Err<_>>()
                     .parse(make_input(value.clone()))
                     .into_result()
-                    .map(|texts| {
-                        texts
-                            .into_iter()
-                            .map(|a| Value::Text(a.build(value)))
-                            .collect()
-                    });
+                    .map(|texts| texts.into_iter().map(|a| a.build(value)).collect());
 
                 match result {
-                    Ok(values) => {
-                        return Ok(Values {
-                            values,
-                            span: value.span(),
+                    Ok(texts) => {
+                        let span = value.span();
+                        return Ok(Value::Text {
+                            values: texts,
+                            span,
                         });
                     }
                     Err(errs) => all_errors.extend(errs),
@@ -380,15 +460,15 @@ pub fn parse_values<'src>(
 
             ValueType::Time => {
                 let result = values_time::<'_, _, extra::Err<_>>()
-                    .map(|a| a.into_iter().map(Value::Time).collect())
                     .parse(make_input(value.clone()))
                     .into_result();
 
                 match result {
-                    Ok(values) => {
-                        return Ok(Values {
-                            values,
-                            span: value.span(),
+                    Ok(times) => {
+                        let span = value.span();
+                        return Ok(Value::Time {
+                            values: times,
+                            span,
                         });
                     }
                     Err(errs) => all_errors.extend(errs),
@@ -397,15 +477,15 @@ pub fn parse_values<'src>(
 
             ValueType::UtcOffset => {
                 let result = value_utc_offset::<'_, _, extra::Err<_>>()
-                    .map(|a| vec![Value::UtcOffset(a)])
                     .parse(make_input(value.clone()))
                     .into_result();
 
                 match result {
-                    Ok(values) => {
-                        return Ok(Values {
-                            values,
-                            span: value.span(),
+                    Ok(offset) => {
+                        let span = value.span();
+                        return Ok(Value::UtcOffset {
+                            value: offset,
+                            span,
                         });
                     }
                     Err(errs) => all_errors.extend(errs),
@@ -414,15 +494,15 @@ pub fn parse_values<'src>(
 
             ValueType::Period => {
                 let result = values_period::<'_, _, extra::Err<_>>()
-                    .map(|a| a.into_iter().map(Value::Period).collect())
                     .parse(make_input(value.clone()))
                     .into_result();
 
                 match result {
-                    Ok(values) => {
-                        return Ok(Values {
-                            values,
-                            span: value.span(),
+                    Ok(periods) => {
+                        let span = value.span();
+                        return Ok(Value::Period {
+                            values: periods,
+                            span,
                         });
                     }
                     Err(errs) => all_errors.extend(errs),
@@ -450,23 +530,23 @@ pub fn parse_values<'src>(
     // TODO: handle X-Name / Unrecognized gracefully
     // TODO: emit warning for unknown value type
     let kind = kinds.first().cloned().unwrap_or(ValueType::Text);
+    let span = value.span();
 
     // Determine if this is an x-name or unrecognized based on the ValueType itself
     let value_variant = match &kind {
         ValueType::XName(_) => Value::XName {
             raw: value.clone(),
             kind,
+            span,
         },
         _ => Value::Unrecognized {
             raw: value.clone(),
             kind,
+            span,
         },
     };
 
-    Ok(Values {
-        values: vec![value_variant],
-        span: value.span(),
-    })
+    Ok(value_variant)
 }
 
 fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {

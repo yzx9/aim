@@ -109,7 +109,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
         }
 
         // Get value
-        let (value, _) = match take_single_value(&PropertyKind::Attach, prop.values) {
+        let value = match take_single_value(&PropertyKind::Attach, prop.value) {
             Ok(v) => v,
             Err(e) => {
                 errors.extend(e);
@@ -123,14 +123,16 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
         }
 
         match value {
-            Value::Text(uri) => Ok(Attachment {
-                value: AttachmentValue::Uri(uri.clone()),
+            Value::Text {
+                values: mut uris, ..
+            } if uris.len() == 1 => Ok(Attachment {
+                value: AttachmentValue::Uri(uris.pop().unwrap()),
                 fmt_type,
                 encoding,
                 x_parameters,
                 unrecognized_parameters,
             }),
-            Value::Binary(data) => Ok(Attachment {
+            Value::Binary { raw: data, .. } => Ok(Attachment {
                 value: AttachmentValue::Binary(data.clone()),
                 fmt_type,
                 encoding,
@@ -140,15 +142,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
             _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Attach,
                 value: "Expected URI or binary value".to_string(),
-                span: prop.span,
+                span: value.span(),
             }]),
         }
     }
 }
 
-/// Classification of calendar data (RFC 5545 Section 3.8.1.3)
+/// Classification value (RFC 5545 Section 3.8.1.3)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Classification {
+pub enum ClassificationValue {
     /// Public classification
     #[default]
     Public,
@@ -160,7 +162,7 @@ pub enum Classification {
     Confidential,
 }
 
-impl FromStr for Classification {
+impl FromStr for ClassificationValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -173,7 +175,7 @@ impl FromStr for Classification {
     }
 }
 
-impl AsRef<str> for Classification {
+impl AsRef<str> for ClassificationValue {
     fn as_ref(&self) -> &str {
         match self {
             Self::Public => KW_CLASS_PUBLIC,
@@ -183,13 +185,32 @@ impl AsRef<str> for Classification {
     }
 }
 
-impl fmt::Display for Classification {
+impl fmt::Display for ClassificationValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_ref().fmt(f)
     }
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Classification {
+/// Classification of calendar data (RFC 5545 Section 3.8.1.3)
+#[derive(Debug, Clone)]
+pub struct Classification<'src> {
+    /// Classification value
+    pub value: ClassificationValue,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
+}
+
+impl fmt::Display for Classification<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Classification<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -201,13 +222,31 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification {
             }]);
         }
 
-        let text = take_single_string(&PropertyKind::Class, prop.values)?;
-        text.parse().map_err(|e| {
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let value_span = prop.value.span();
+        let text = take_single_string(&PropertyKind::Class, prop.value)?;
+        let value = text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Class,
                 value: e,
-                span: prop.span,
+                span: value_span,
             }]
+        })?;
+
+        Ok(Self {
+            value,
+            x_parameters,
+            unrecognized_parameters,
         })
     }
 }
@@ -223,16 +262,22 @@ simple_property_wrapper!(
 );
 
 /// Geographic position (RFC 5545 Section 3.8.1.6)
-#[derive(Debug, Clone, Copy)]
-pub struct Geo {
+#[derive(Debug, Clone)]
+pub struct Geo<'src> {
     /// Latitude
     pub lat: f64,
 
     /// Longitude
     pub lon: f64,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Geo {
+impl<'src> TryFrom<ParsedProperty<'src>> for Geo<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -244,7 +289,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo {
             }]);
         }
 
-        let text = take_single_string(&PropertyKind::Geo, prop.values)?;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let value_span = prop.value.span();
+        let text = take_single_string(&PropertyKind::Geo, prop.value)?;
 
         // Use the typed phase's float parser with semicolon separator
         let stream = Stream::from_iter(text.chars());
@@ -252,20 +309,25 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo {
 
         match parser.parse(stream).into_result() {
             Ok(result) => match (result.first(), result.get(1)) {
-                (Some(&lat), Some(&lon)) => Ok(Geo { lat, lon }),
+                (Some(&lat), Some(&lon)) => Ok(Geo {
+                    lat,
+                    lon,
+                    x_parameters,
+                    unrecognized_parameters,
+                }),
                 (_, _) => Err(vec![TypedError::PropertyInvalidValue {
                     property: PropertyKind::Geo,
                     value: format!(
                         "Expected exactly 2 float values (lat;long), got {}",
                         result.len()
                     ),
-                    span: prop.span,
+                    span: value_span,
                 }]),
             },
             Err(_) => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Geo,
                 value: format!("Expected 'lat;long' format with semicolon separator, got {text}"),
-                span: prop.span,
+                span: value_span,
             }]),
         }
     }
@@ -276,13 +338,13 @@ simple_property_wrapper!(
     Location<'src>: Text<'src> => Location
 );
 
-/// Event/To-do/Journal status (RFC 5545 Section 3.8.1.11)
+/// Status value (RFC 5545 Section 3.8.1.11)
 ///
 /// This enum represents the status of calendar components such as events,
 /// to-dos, and journal entries. Each variant corresponds to a specific status
 /// defined in the iCalendar specification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Status {
+pub enum StatusValue {
     /// Event is tentative
     Tentative,
 
@@ -308,7 +370,7 @@ pub enum Status {
     Cancelled,
 }
 
-impl FromStr for Status {
+impl FromStr for StatusValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -326,7 +388,7 @@ impl FromStr for Status {
     }
 }
 
-impl AsRef<str> for Status {
+impl AsRef<str> for StatusValue {
     fn as_ref(&self) -> &str {
         match self {
             Self::Tentative => KW_STATUS_TENTATIVE,
@@ -341,13 +403,32 @@ impl AsRef<str> for Status {
     }
 }
 
-impl fmt::Display for Status {
+impl fmt::Display for StatusValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_ref().fmt(f)
     }
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Status {
+/// Event/To-do/Journal status (RFC 5545 Section 3.8.1.11)
+#[derive(Debug, Clone)]
+pub struct Status<'src> {
+    /// Status value
+    pub value: StatusValue,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
+}
+
+impl fmt::Display for Status<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Status<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -359,13 +440,31 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status {
             }]);
         }
 
-        let text = take_single_string(&PropertyKind::Status, prop.values)?;
-        text.parse().map_err(|e| {
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let value_span = prop.value.span();
+        let text = take_single_string(&PropertyKind::Status, prop.value)?;
+        let value = text.parse().map_err(|e| {
             vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Status,
                 value: e,
-                span: prop.span,
+                span: value_span,
             }]
+        })?;
+
+        Ok(Self {
+            value,
+            x_parameters,
+            unrecognized_parameters,
         })
     }
 }
@@ -374,13 +473,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status {
 ///
 /// This property defines the percent complete for a todo.
 /// Value must be between 0 and 100.
-#[derive(Debug, Clone, Copy)]
-pub struct PercentComplete {
+#[derive(Debug, Clone)]
+pub struct PercentComplete<'src> {
     /// Percent complete (0-100)
     pub value: u8,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete {
+impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -392,20 +497,52 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete {
             }]);
         }
 
-        match take_single_value(&PropertyKind::PercentComplete, prop.values) {
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let value_span = prop.value.span();
+        match take_single_value(&PropertyKind::PercentComplete, prop.value) {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            Ok((Value::Integer(i), _)) if (0..=100).contains(&i) => Ok(Self { value: i as u8 }),
-            Ok((Value::Integer(_), span)) => Err(vec![TypedError::PropertyInvalidValue {
+            Ok(Value::Integer {
+                values: mut ints, ..
+            }) if ints.len() == 1 => {
+                let i = ints.pop().unwrap();
+                if (0..=100).contains(&i) {
+                    Ok(Self {
+                        value: i as u8,
+                        x_parameters,
+                        unrecognized_parameters,
+                    })
+                } else {
+                    Err(vec![TypedError::PropertyInvalidValue {
+                        property: prop.kind,
+                        value: "Percent complete must be 0-100".to_string(),
+                        span: value_span,
+                    }])
+                }
+            }
+            Ok(Value::Integer { .. }) => Err(vec![TypedError::PropertyInvalidValue {
                 property: prop.kind,
                 value: "Percent complete must be 0-100".to_string(),
-                span,
+                span: value_span,
             }]),
-            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
-                property: prop.kind,
-                expected: ValueType::Integer,
-                found: v.into_kind(),
-                span,
-            }]),
+            Ok(v) => {
+                let span = v.span();
+                Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind,
+                    expected: ValueType::Integer,
+                    found: v.into_kind(),
+                    span,
+                }])
+            }
             Err(e) => Err(e),
         }
     }
@@ -415,13 +552,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete {
 ///
 /// This property defines the priority for a calendar component.
 /// Value must be between 0 and 9, where 0 defines an undefined priority.
-#[derive(Debug, Clone, Copy)]
-pub struct Priority {
+#[derive(Debug, Clone)]
+pub struct Priority<'src> {
     /// Priority value (0-9, where 0 is undefined)
     pub value: u8,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<'src>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Priority {
+impl<'src> TryFrom<ParsedProperty<'src>> for Priority<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -433,20 +576,52 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority {
             }]);
         }
 
-        match take_single_value(&PropertyKind::Priority, prop.values) {
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                _ => {}
+            }
+        }
+
+        let value_span = prop.value.span();
+        match take_single_value(&PropertyKind::Priority, prop.value) {
             #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            Ok((Value::Integer(i), _)) if (0..=9).contains(&i) => Ok(Self { value: i as u8 }),
-            Ok((Value::Integer(_), span)) => Err(vec![TypedError::PropertyInvalidValue {
+            Ok(Value::Integer {
+                values: mut ints, ..
+            }) if ints.len() == 1 => {
+                let i = ints.pop().unwrap();
+                if (0..=9).contains(&i) {
+                    Ok(Self {
+                        value: i as u8,
+                        x_parameters,
+                        unrecognized_parameters,
+                    })
+                } else {
+                    Err(vec![TypedError::PropertyInvalidValue {
+                        property: prop.kind,
+                        value: "Priority must be 0-9".to_string(),
+                        span: value_span,
+                    }])
+                }
+            }
+            Ok(Value::Integer { .. }) => Err(vec![TypedError::PropertyInvalidValue {
                 property: prop.kind,
                 value: "Priority must be 0-9".to_string(),
-                span,
+                span: value_span,
             }]),
-            Ok((v, span)) => Err(vec![TypedError::PropertyUnexpectedValue {
-                property: prop.kind,
-                expected: ValueType::Integer,
-                found: v.into_kind(),
-                span,
-            }]),
+            Ok(v) => {
+                let span = v.span();
+                Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind,
+                    expected: ValueType::Integer,
+                    found: v.into_kind(),
+                    span,
+                }])
+            }
             Err(e) => Err(e),
         }
     }

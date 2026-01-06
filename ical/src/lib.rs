@@ -38,12 +38,13 @@ pub mod value;
 
 pub use crate::parser::{ParseError, parse};
 pub use crate::property::{
-    Action, Attachment, AttachmentValue, Attendee, CalendarScale, Categories, Classification,
-    Comment, Completed, Contact, Created, DateTime, Description, DtEnd, DtStamp, DtStart, Due,
-    Duration, ExDate, ExDateValue, FreeBusy, Geo, LastModified, Location, Method, Organizer,
-    PercentComplete, Period, Priority, ProductId, RDateValue, RecurrenceId, RelatedTo, Repeat,
-    RequestStatus, Resources, Sequence, Status, Summary, Text, Time, TimeTransparency, Trigger,
-    TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, Url, Version,
+    Action, ActionValue, Attachment, AttachmentValue, Attendee, CalendarScale, CalendarScaleValue,
+    Categories, Classification, ClassificationValue, Comment, Completed, Contact, Created,
+    DateTime, Description, DtEnd, DtStamp, DtStart, Due, Duration, ExDate, ExDateValue, FreeBusy,
+    Geo, LastModified, Location, Method, MethodValue, Organizer, PercentComplete, Period, Priority,
+    ProductId, RDateValue, RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence,
+    Status, StatusValue, Summary, Text, Time, TimeTransparency, TimeTransparencyValue, Trigger,
+    TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, Url, Version, VersionValue,
 };
 pub use crate::semantic::{CalendarComponent, ICalendar, VEvent, VFreeBusy, VJournal, VTodo};
 pub use crate::value::{
