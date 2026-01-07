@@ -8,14 +8,13 @@ use std::fmt;
 
 use crate::keyword::{KW_VALARM, KW_VEVENT};
 use crate::property::{
-    Attendee, Categories, Classification, DateTime, Description, DtEnd, DtStamp, DtStart, Geo,
-    LastModified, Location, Organizer, Period, Property, PropertyKind, Resources, Status,
-    StatusValue, Summary, TimeTransparency, Url,
+    Attendee, Categories, Classification, DateTime, Description, DtEnd, DtStamp, DtStart,
+    ExDateValue, Geo, LastModified, Location, Organizer, Period, Priority, Property, PropertyKind,
+    RDateValue, Resources, Sequence, Status, StatusValue, Summary, TimeTransparency, Uid, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::typed::TypedComponent;
 use crate::value::{RecurrenceRule, ValueDuration};
-use crate::{ExDateValue, RDateValue, Uid};
 
 /// Event component (VEVENT)
 #[derive(Debug, Clone)]
@@ -66,10 +65,10 @@ pub struct VEvent<'src> {
     pub transparency: Option<TimeTransparency<'src>>,
 
     /// Sequence number for revisions
-    pub sequence: Option<u32>,
+    pub sequence: Option<Sequence<'src>>,
 
     /// Priority (1-9, 1 is highest)
-    pub priority: Option<u8>,
+    pub priority: Option<Priority<'src>>,
 
     /// Classification
     pub classification: Option<Classification<'src>>,
@@ -227,21 +226,14 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                         property: PropertyKind::Sequence,
                         span: comp.span,
                     }),
-                    None => match u32::try_from(seq.value) {
-                        Ok(v) => props.sequence = Some(v),
-                        Err(_) => errors.push(SemanticError::InvalidValue {
-                            property: PropertyKind::Sequence,
-                            value: "Sequence must be non-negative".to_string(),
-                            span: comp.span, // TODO: Use property span instead
-                        }),
-                    },
+                    None => props.sequence = Some(seq),
                 },
                 Property::Priority(pri) => match props.priority {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Priority,
                         span: comp.span,
                     }),
-                    None => props.priority = Some(pri.value),
+                    None => props.priority = Some(pri),
                 },
                 Property::Class(class) => match props.classification {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -465,8 +457,8 @@ struct PropertyCollector<'src> {
     last_modified:  Option<LastModified<'src>>,
     status:         Option<EventStatus<'src>>,
     transparency:   Option<TimeTransparency<'src>>,
-    sequence:       Option<u32>,
-    priority:       Option<u8>,
+    sequence:       Option<Sequence<'src>>,
+    priority:       Option<Priority<'src>>,
     classification: Option<Classification<'src>>,
     resources:      Option<Resources<'src>>,
     categories:     Option<Categories<'src>>,

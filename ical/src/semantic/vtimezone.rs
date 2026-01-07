@@ -6,7 +6,7 @@
 
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
 use crate::property::{
-    DateTime, LastModified, Property, PropertyKind, Text, TzOffsetFrom, TzOffsetTo,
+    DtStart, LastModified, Property, PropertyKind, Text, TzId, TzOffsetFrom, TzOffsetTo, TzUrl,
 };
 use crate::semantic::SemanticError;
 use crate::typed::TypedComponent;
@@ -16,13 +16,13 @@ use crate::value::RecurrenceRule;
 #[derive(Debug, Clone)]
 pub struct VTimeZone<'src> {
     /// Timezone identifier
-    pub tz_id: Text<'src>,
+    pub tz_id: TzId<'src>,
 
     /// Last modification date/time
     pub last_modified: Option<LastModified<'src>>,
 
     /// Timezone URL
-    pub tz_url: Option<Text<'src>>,
+    pub tz_url: Option<TzUrl<'src>>,
 
     /// Standard time observances
     pub standard: Vec<TimeZoneObservance<'src>>,
@@ -62,7 +62,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                         property: PropertyKind::TzId,
                         span: comp.span,
                     }),
-                    None => props.tz_id = Some(tz_id.0.clone()),
+                    None => props.tz_id = Some(tz_id),
                 },
                 Property::LastModified(dt) => match props.last_modified {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -76,7 +76,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                         property: PropertyKind::TzUrl,
                         span: comp.span,
                     }),
-                    None => props.tz_url = Some(tz_url.0.clone()),
+                    None => props.tz_url = Some(tz_url),
                 },
                 // Preserve unknown properties for round-trip
                 prop @ Property::XName { .. } => props.x_properties.push(prop),
@@ -143,7 +143,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
 #[derive(Debug, Clone)]
 pub struct TimeZoneObservance<'src> {
     /// Start date/time for this observance
-    pub dt_start: DateTime<'src>,
+    pub dt_start: DtStart<'src>,
 
     /// Offset from UTC for this observance
     pub tz_offset_from: TzOffsetFrom<'src>,
@@ -177,7 +177,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
                         span: comp.span,
                         property: PropertyKind::DtStart,
                     }),
-                    None => props.dt_start = Some(dt.0.clone()),
+                    None => props.dt_start = Some(dt),
                 },
                 Property::TzOffsetFrom(offset) => match props.tz_offset_from {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -248,9 +248,9 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    tz_id:            Option<Text<'src>>,
+    tz_id:            Option<TzId<'src>>,
     last_modified:    Option<LastModified<'src>>,
-    tz_url:           Option<Text<'src>>,
+    tz_url:           Option<TzUrl<'src>>,
     x_properties:     Vec<Property<'src>>,
     unrecognized_properties: Vec<Property<'src>>,
 }
@@ -259,7 +259,7 @@ struct PropertyCollector<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct ObservanceCollector<'src> {
-    dt_start:       Option<DateTime<'src>>,
+    dt_start:       Option<DtStart<'src>>,
     tz_offset_from: Option<TzOffsetFrom<'src>>,
     tz_offset_to:   Option<TzOffsetTo<'src>>,
     tz_name:        Vec<Text<'src>>,

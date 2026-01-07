@@ -8,31 +8,30 @@ use std::fmt;
 
 use crate::keyword::KW_VJOURNAL;
 use crate::property::{
-    Attendee, Classification, DateTime, ExDateValue, Organizer, Period, Property, PropertyKind,
-    RDateValue, Status, StatusValue, Text,
+    Attendee, Classification, DateTime, Description, DtStamp, DtStart, ExDateValue, LastModified,
+    Organizer, Period, Property, PropertyKind, RDateValue, Status, StatusValue, Summary, Uid, Url,
 };
 use crate::semantic::SemanticError;
 use crate::typed::TypedComponent;
-use crate::value::RecurrenceRule;
-use crate::value::ValueText;
+use crate::value::{RecurrenceRule, ValueText};
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]
 pub struct VJournal<'src> {
     /// Unique identifier for the journal entry
-    pub uid: Text<'src>,
+    pub uid: Uid<'src>,
 
     /// Date/time the journal entry was created
-    pub dt_stamp: DateTime<'src>,
+    pub dt_stamp: DtStamp<'src>,
 
     /// Date/time of the journal entry
-    pub dt_start: DateTime<'src>,
+    pub dt_start: DtStart<'src>,
 
     /// Summary/title of the journal entry
-    pub summary: Option<Text<'src>>,
+    pub summary: Option<Summary<'src>>,
 
     /// Description of the journal entry (can appear multiple times)
-    pub descriptions: Vec<ValueText<'src>>,
+    pub descriptions: Vec<Description<'src>>,
 
     /// Organizer of the journal entry
     pub organizer: Option<Organizer<'src>>,
@@ -41,7 +40,7 @@ pub struct VJournal<'src> {
     pub attendees: Vec<Attendee<'src>>,
 
     /// Last modification date/time
-    pub last_modified: Option<DateTime<'src>>,
+    pub last_modified: Option<LastModified<'src>>,
 
     /// Status of the journal entry
     pub status: Option<JournalStatus<'src>>,
@@ -62,7 +61,7 @@ pub struct VJournal<'src> {
     pub ex_date: Vec<DateTime<'src>>,
 
     /// URL associated with the journal entry
-    pub url: Option<Text<'src>>,
+    pub url: Option<Url<'src>>,
 
     /// Custom X- properties (preserved for round-trip)
     pub x_properties: Vec<Property<'src>>,
@@ -97,31 +96,31 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                         property: PropertyKind::Uid,
                         span: comp.span,
                     }),
-                    None => props.uid = Some(uid.0.clone()),
+                    None => props.uid = Some(uid),
                 },
                 Property::DtStamp(dt) => match props.dt_stamp {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStamp,
                         span: comp.span,
                     }),
-                    None => props.dt_stamp = Some(dt.0.clone()),
+                    None => props.dt_stamp = Some(dt),
                 },
                 Property::DtStart(dt) => match props.dt_start {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStart,
                         span: comp.span,
                     }),
-                    None => props.dt_start = Some(dt.0.clone()),
+                    None => props.dt_start = Some(dt),
                 },
                 Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
                         span: comp.span,
                     }),
-                    None => props.summary = Some(s.0.clone()),
+                    None => props.summary = Some(s),
                 },
                 // VJOURNAL allows multiple DESCRIPTION properties
-                Property::Description(desc) => props.descriptions.push(desc.content.clone()),
+                Property::Description(desc) => props.descriptions.push(desc),
                 Property::Organizer(org) => match props.organizer {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Organizer,
@@ -135,7 +134,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                         property: PropertyKind::LastModified,
                         span: comp.span,
                     }),
-                    None => props.last_modified = Some(dt.0.clone()),
+                    None => props.last_modified = Some(dt),
                 },
                 Property::Status(status) => match props.status {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -189,7 +188,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                         span: comp.span,
                         property: PropertyKind::Url,
                     }),
-                    None => props.url = Some(url.0.clone()),
+                    None => props.url = Some(url),
                 },
                 // Preserve unknown properties for round-trip
                 prop @ Property::XName { .. } => props.x_properties.push(prop),
@@ -323,21 +322,21 @@ impl<'src> TryFrom<Status<'src>> for JournalStatus<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    uid:            Option<Text<'src>>,
-    dt_stamp:       Option<DateTime<'src>>,
-    dt_start:       Option<DateTime<'src>>,
-    summary:        Option<Text<'src>>,
-    descriptions:   Vec<ValueText<'src>>,
+    uid:            Option<Uid<'src>>,
+    dt_stamp:       Option<DtStamp<'src>>,
+    dt_start:       Option<DtStart<'src>>,
+    summary:        Option<Summary<'src>>,
+    descriptions:   Vec<Description<'src>>,
     organizer:      Option<Organizer<'src>>,
     attendees:      Vec<Attendee<'src>>,
-    last_modified:  Option<DateTime<'src>>,
+    last_modified:  Option<LastModified<'src>>,
     status:         Option<JournalStatus<'src>>,
     classification: Option<Classification<'src>>,
     categories:     Option<Vec<ValueText<'src>>>,
     rrule:          Option<RecurrenceRule>,
     rdate:          Vec<Period<'src>>,
     ex_dates:       Vec<DateTime<'src>>,
-    url:            Option<Text<'src>>,
+    url:            Option<Url<'src>>,
     x_properties:   Vec<Property<'src>>,
     unrecognized_properties: Vec<Property<'src>>,
 }

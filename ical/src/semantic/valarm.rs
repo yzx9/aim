@@ -6,7 +6,8 @@
 
 use crate::keyword::KW_VALARM;
 use crate::property::{
-    Action, ActionValue, Attachment, Attendee, Property, PropertyKind, Text, Trigger,
+    Action, ActionValue, Attachment, Attendee, Description, Property, PropertyKind, Repeat,
+    Summary, Trigger,
 };
 use crate::semantic::SemanticError;
 use crate::typed::TypedComponent;
@@ -22,16 +23,16 @@ pub struct VAlarm<'src> {
     pub trigger: Trigger<'src>,
 
     /// Repeat count for the alarm
-    pub repeat: Option<u32>,
+    pub repeat: Option<Repeat<'src>>,
 
     /// Duration between repeats
     pub duration: Option<ValueDuration>,
 
     /// Description for display alarm
-    pub description: Option<Text<'src>>,
+    pub description: Option<Description<'src>>,
 
     /// Summary for email alarm
-    pub summary: Option<Text<'src>>,
+    pub summary: Option<Summary<'src>>,
 
     /// Attendees for email alarm
     pub attendees: Vec<Attendee<'src>>,
@@ -93,21 +94,21 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
                         property: PropertyKind::Repeat,
                         span: comp.span,
                     }),
-                    None => props.repeat = Some(repeat.value),
+                    None => props.repeat = Some(repeat),
                 },
                 Property::Description(desc) => match props.description {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Description,
                         span: comp.span,
                     }),
-                    None => props.description = Some(desc.0.clone()),
+                    None => props.description = Some(desc),
                 },
                 Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
                         span: comp.span,
                     }),
-                    None => props.summary = Some(s.0.clone()),
+                    None => props.summary = Some(s),
                 },
                 Property::Attendee(attendee) => props.attendees.push(attendee),
                 Property::Attach(attach) => match props.attach {
@@ -210,9 +211,9 @@ struct PropertyCollector<'src> {
     action:     Option<Action<'src>>,
     trigger:    Option<Trigger<'src>>,
     duration:   Option<ValueDuration>,
-    repeat:     Option<u32>,
-    description: Option<Text<'src>>,
-    summary:    Option<Text<'src>>,
+    repeat:     Option<Repeat<'src>>,
+    description: Option<Description<'src>>,
+    summary:    Option<Summary<'src>>,
     attendees:  Vec<Attendee<'src>>,
     attach:     Option<Attachment<'src>>,
     x_properties: Vec<Property<'src>>,

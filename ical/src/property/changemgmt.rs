@@ -42,7 +42,7 @@ simple_property_wrapper!(
 #[derive(Debug, Clone)]
 pub struct Sequence<'src> {
     /// Sequence number
-    pub value: i32,
+    pub value: u32,
 
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<Parameter<'src>>,
@@ -77,11 +77,32 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<'src> {
         match take_single_value(&PropertyKind::Sequence, prop.value) {
             Ok(Value::Integer {
                 values: mut ints, ..
-            }) if ints.len() == 1 => Ok(Self {
-                value: ints.pop().unwrap(),
-                x_parameters,
-                unrecognized_parameters,
-            }),
+            }) => {
+                if ints.len() != 1 {
+                    return Err(vec![TypedError::PropertyInvalidValueCount {
+                        property: prop.kind,
+                        expected: 1,
+                        found: ints.len(),
+                        span: prop.span,
+                    }]);
+                }
+
+                let value = ints.pop().unwrap(); // SAFETY: checked length above
+                if value < 0 {
+                    return Err(vec![TypedError::PropertyInvalidValue {
+                        property: PropertyKind::Sequence,
+                        value: format!("Sequence must be non-negative: {value}"),
+                        span: prop.span,
+                    }]);
+                }
+
+                #[allow(clippy::cast_sign_loss)]
+                Ok(Self {
+                    value: value as u32, // SAFETY: i < i32::MAX < u32::MAX
+                    x_parameters,
+                    unrecognized_parameters,
+                })
+            }
             Ok(v) => {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {

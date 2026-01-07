@@ -499,7 +499,7 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
-            assert_eq!(event.priority, Some(5));
+            assert_eq!(event.priority.as_ref().map(|p| p.value), Some(5));
         }
         _ => panic!("Expected Event component"),
     }
@@ -525,7 +525,7 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::Event(event) => {
-            assert_eq!(event.sequence, Some(2));
+            assert_eq!(event.sequence.as_ref().map(|s| s.value), Some(2));
         }
         _ => panic!("Expected Event component"),
     }
@@ -680,7 +680,7 @@ END:VCALENDAR\r
 
     match &calendar.components[0] {
         CalendarComponent::Todo(todo) => {
-            assert_eq!(todo.percent_complete, Some(75));
+            assert_eq!(todo.percent_complete.as_ref().map(|p| p.value), Some(75));
         }
         _ => panic!("Expected Todo component"),
     }
