@@ -60,7 +60,7 @@ pub struct VEvent<'src> {
     pub last_modified: Option<LastModified<'src>>,
 
     /// Status of the event
-    pub status: Option<Status<'src>>,
+    pub status: Option<EventStatus<'src>>,
 
     /// Time transparency
     pub transparency: Option<TimeTransparency<'src>>,
@@ -210,7 +210,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                         property: PropertyKind::Status,
                         span: comp.span,
                     }),
-                    None => props.status = Some(status),
+                    None => match status.try_into() {
+                        Ok(v) => props.status = Some(v),
+                        Err(e) => errors.push(e),
+                    },
                 },
                 Property::Transp(transp) => match props.transparency {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -370,9 +373,9 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
     }
 }
 
-/// Event status (RFC 5545 Section 3.8.1.11)
+/// Event status value (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EventStatus {
+pub enum EventStatusValue {
     /// Event is tentative
     Tentative,
 
@@ -383,36 +386,63 @@ pub enum EventStatus {
     Cancelled,
 }
 
-impl<'src> TryFrom<Status<'src>> for EventStatus {
-    type Error = String;
+impl TryFrom<StatusValue> for EventStatusValue {
+    type Error = ();
 
-    fn try_from(value: Status<'src>) -> Result<Self, Self::Error> {
-        match value.value {
+    fn try_from(value: StatusValue) -> Result<Self, Self::Error> {
+        match value {
             StatusValue::Tentative => Ok(Self::Tentative),
             StatusValue::Confirmed => Ok(Self::Confirmed),
             StatusValue::Cancelled => Ok(Self::Cancelled),
-            _ => Err(format!("Invalid event status: {value}")),
+            _ => Err(()),
         }
     }
 }
 
-impl fmt::Display for EventStatus {
+impl fmt::Display for EventStatusValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Status::from(*self).fmt(f)
+        StatusValue::from(*self).fmt(f)
     }
 }
 
-impl From<EventStatus> for Status<'_> {
-    fn from(value: EventStatus) -> Self {
-        Status {
-            value: match value {
-                EventStatus::Tentative => StatusValue::Tentative,
-                EventStatus::Confirmed => StatusValue::Confirmed,
-                EventStatus::Cancelled => StatusValue::Cancelled,
-            },
-            x_parameters: Vec::new(),
-            unrecognized_parameters: Vec::new(),
+impl From<EventStatusValue> for StatusValue {
+    fn from(value: EventStatusValue) -> Self {
+        match value {
+            EventStatusValue::Tentative => StatusValue::Tentative,
+            EventStatusValue::Confirmed => StatusValue::Confirmed,
+            EventStatusValue::Cancelled => StatusValue::Cancelled,
         }
+    }
+}
+
+/// Event status (RFC 5545 Section 3.8.1.11)
+#[derive(Debug, Clone)]
+pub struct EventStatus<'src> {
+    /// Status value
+    pub value: EventStatusValue,
+    /// Custom X- parameters (preserved for round-trip)
+    pub x_parameters: Vec<crate::parameter::Parameter<'src>>,
+    /// Unknown IANA parameters (preserved for round-trip)
+    pub unrecognized_parameters: Vec<crate::parameter::Parameter<'src>>,
+}
+
+impl<'src> TryFrom<Status<'src>> for EventStatus<'src> {
+    type Error = SemanticError<'src>;
+
+    fn try_from(property: Status<'src>) -> Result<Self, Self::Error> {
+        let Ok(value) = property.value.try_into() else {
+            return Err(SemanticError::InvalidValue {
+                property: PropertyKind::Status,
+                value: format!("Invalid event status value: {}", property.value),
+                span: property.span,
+            });
+        };
+
+        Ok(EventStatus {
+            value,
+            x_parameters: property.x_parameters,
+            unrecognized_parameters: property.unrecognized_parameters,
+        })
     }
 }
 
@@ -433,7 +463,7 @@ struct PropertyCollector<'src> {
     organizer:      Option<Organizer<'src>>,
     attendees:      Vec<Attendee<'src>>,
     last_modified:  Option<LastModified<'src>>,
-    status:         Option<Status<'src>>,
+    status:         Option<EventStatus<'src>>,
     transparency:   Option<TimeTransparency<'src>>,
     sequence:       Option<u32>,
     priority:       Option<u8>,

@@ -27,6 +27,7 @@ use crate::keyword::{
     KW_STATUS_COMPLETED, KW_STATUS_CONFIRMED, KW_STATUS_DRAFT, KW_STATUS_FINAL,
     KW_STATUS_IN_PROCESS, KW_STATUS_NEEDS_ACTION, KW_STATUS_TENTATIVE,
 };
+use crate::lexer::Span;
 use crate::parameter::{Encoding, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::util::{Text, Texts, take_single_text, take_single_value};
@@ -359,12 +360,9 @@ pub struct Status<'src> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<'src>>,
-}
 
-impl fmt::Display for Status<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(f)
-    }
+    /// Span of the property in the source
+    pub span: Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Status<'src> {
@@ -404,6 +402,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status<'src> {
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }

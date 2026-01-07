@@ -44,7 +44,7 @@ pub struct VJournal<'src> {
     pub last_modified: Option<DateTime<'src>>,
 
     /// Status of the journal entry
-    pub status: Option<JournalStatus>,
+    pub status: Option<JournalStatus<'src>>,
 
     /// Classification
     pub classification: Option<Classification<'src>>,
@@ -137,19 +137,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                     }),
                     None => props.last_modified = Some(dt.0.clone()),
                 },
-                Property::Status(status) => match JournalStatus::try_from(status) {
-                    Ok(journal_status) => match props.status {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Status,
-                            span: comp.span,
-                        }),
-                        None => props.status = Some(journal_status),
-                    },
-                    Err(e) => errors.push(SemanticError::InvalidValue {
+                Property::Status(status) => match props.status {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Status,
-                        value: e,
-                        span: comp.span, // TODO: Should use property span
+                        span: comp.span,
                     }),
+                    None => match status.try_into() {
+                        Ok(v) => props.status = Some(v),
+                        Err(e) => errors.push(e),
+                    },
                 },
                 Property::Class(class) => match props.classification {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -250,9 +246,9 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
     }
 }
 
-/// Journal status (RFC 5545 Section 3.8.1.11)
+/// Journal status value (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum JournalStatus {
+pub enum JournalStatusValue {
     /// Journal entry is draft
     Draft,
 
@@ -263,35 +259,63 @@ pub enum JournalStatus {
     Cancelled,
 }
 
-impl<'src> TryFrom<Status<'src>> for JournalStatus {
-    type Error = String;
-    fn try_from(value: Status<'src>) -> Result<Self, Self::Error> {
-        match value.value {
+impl TryFrom<StatusValue> for JournalStatusValue {
+    type Error = ();
+
+    fn try_from(value: StatusValue) -> Result<Self, Self::Error> {
+        match value {
             StatusValue::Draft => Ok(Self::Draft),
             StatusValue::Final => Ok(Self::Final),
             StatusValue::Cancelled => Ok(Self::Cancelled),
-            _ => Err(format!("Invalid journal status: {value}")),
+            _ => Err(()),
         }
     }
 }
 
-impl fmt::Display for JournalStatus {
+impl fmt::Display for JournalStatusValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Status::from(*self).fmt(f)
+        StatusValue::from(*self).fmt(f)
     }
 }
 
-impl From<JournalStatus> for Status<'_> {
-    fn from(value: JournalStatus) -> Self {
-        Status {
-            value: match value {
-                JournalStatus::Draft => StatusValue::Draft,
-                JournalStatus::Final => StatusValue::Final,
-                JournalStatus::Cancelled => StatusValue::Cancelled,
-            },
-            x_parameters: Vec::new(),
-            unrecognized_parameters: Vec::new(),
+impl From<JournalStatusValue> for StatusValue {
+    fn from(value: JournalStatusValue) -> Self {
+        match value {
+            JournalStatusValue::Draft => StatusValue::Draft,
+            JournalStatusValue::Final => StatusValue::Final,
+            JournalStatusValue::Cancelled => StatusValue::Cancelled,
         }
+    }
+}
+
+/// Journal status (RFC 5545 Section 3.8.1.11)
+#[derive(Debug, Clone)]
+pub struct JournalStatus<'src> {
+    /// Status value
+    pub value: JournalStatusValue,
+    /// Custom X- parameters (preserved for round-trip)
+    pub x_parameters: Vec<crate::parameter::Parameter<'src>>,
+    /// Unknown IANA parameters (preserved for round-trip)
+    pub unrecognized_parameters: Vec<crate::parameter::Parameter<'src>>,
+}
+
+impl<'src> TryFrom<Status<'src>> for JournalStatus<'src> {
+    type Error = SemanticError<'src>;
+
+    fn try_from(property: Status<'src>) -> Result<Self, Self::Error> {
+        let Ok(value) = property.value.try_into() else {
+            return Err(SemanticError::InvalidValue {
+                property: PropertyKind::Status,
+                value: format!("Invalid journal status value: {}", property.value),
+                span: property.span,
+            });
+        };
+
+        Ok(JournalStatus {
+            value,
+            x_parameters: property.x_parameters,
+            unrecognized_parameters: property.unrecognized_parameters,
+        })
     }
 }
 
@@ -307,7 +331,7 @@ struct PropertyCollector<'src> {
     organizer:      Option<Organizer<'src>>,
     attendees:      Vec<Attendee<'src>>,
     last_modified:  Option<DateTime<'src>>,
-    status:         Option<JournalStatus>,
+    status:         Option<JournalStatus<'src>>,
     classification: Option<Classification<'src>>,
     categories:     Option<Vec<ValueText<'src>>>,
     rrule:          Option<RecurrenceRule>,

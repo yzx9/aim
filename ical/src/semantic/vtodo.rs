@@ -8,6 +8,7 @@ use std::fmt;
 
 use crate::Uid;
 use crate::keyword::{KW_VALARM, KW_VTODO};
+use crate::parameter::Parameter;
 use crate::property::{
     Attendee, Categories, Classification, Completed, DateTime, Description, DtStamp, DtStart, Due,
     ExDateValue, Geo, LastModified, Location, Organizer, Period, Property, PropertyKind,
@@ -63,7 +64,7 @@ pub struct VTodo<'src> {
     pub last_modified: Option<LastModified<'src>>,
 
     /// Status of the todo
-    pub status: Option<TodoStatus>,
+    pub status: Option<TodoStatus<'src>>,
 
     /// Sequence number for revisions
     pub sequence: Option<u32>,
@@ -215,19 +216,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
                     }),
                     None => props.last_modified = Some(dt),
                 },
-                Property::Status(status) => match TodoStatus::try_from(status) {
-                    Ok(todo_status) => match props.status {
-                        Some(_) => errors.push(SemanticError::DuplicateProperty {
-                            property: PropertyKind::Status,
-                            span: comp.span,
-                        }),
-                        None => props.status = Some(todo_status),
-                    },
-                    Err(e) => errors.push(SemanticError::InvalidValue {
+                Property::Status(status) => match props.status {
+                    Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Status,
-                        value: e,
-                        span: comp.span, // TODO: use property span
+                        span: comp.span,
                     }),
+                    None => match status.try_into() {
+                        Ok(v) => props.status = Some(v),
+                        Err(e) => errors.push(e),
+                    },
                 },
                 Property::Sequence(seq) => match props.sequence {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -380,9 +377,9 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
     }
 }
 
-/// To-do status (RFC 5545 Section 3.8.1.11)
+/// To-do status value (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TodoStatus {
+pub enum TodoStatusValue {
     /// To-do needs action
     NeedsAction,
 
@@ -396,37 +393,64 @@ pub enum TodoStatus {
     Cancelled,
 }
 
-impl<'src> TryFrom<Status<'src>> for TodoStatus {
-    type Error = String;
-    fn try_from(value: Status<'src>) -> Result<Self, Self::Error> {
-        match value.value {
+impl TryFrom<StatusValue> for TodoStatusValue {
+    type Error = ();
+    fn try_from(value: StatusValue) -> Result<Self, Self::Error> {
+        match value {
             StatusValue::NeedsAction => Ok(Self::NeedsAction),
             StatusValue::Completed => Ok(Self::Completed),
             StatusValue::InProcess => Ok(Self::InProcess),
             StatusValue::Cancelled => Ok(Self::Cancelled),
-            _ => Err(format!("Invalid todo status: {value}")),
+            _ => Err(()),
         }
     }
 }
 
-impl fmt::Display for TodoStatus {
+impl fmt::Display for TodoStatusValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Status::from(*self).fmt(f)
+        StatusValue::from(*self).fmt(f)
     }
 }
 
-impl From<TodoStatus> for Status<'_> {
-    fn from(value: TodoStatus) -> Self {
-        Status {
-            value: match value {
-                TodoStatus::NeedsAction => StatusValue::NeedsAction,
-                TodoStatus::Completed => StatusValue::Completed,
-                TodoStatus::InProcess => StatusValue::InProcess,
-                TodoStatus::Cancelled => StatusValue::Cancelled,
-            },
-            x_parameters: Vec::new(),
-            unrecognized_parameters: Vec::new(),
+impl From<TodoStatusValue> for StatusValue {
+    fn from(value: TodoStatusValue) -> Self {
+        match value {
+            TodoStatusValue::NeedsAction => StatusValue::NeedsAction,
+            TodoStatusValue::Completed => StatusValue::Completed,
+            TodoStatusValue::InProcess => StatusValue::InProcess,
+            TodoStatusValue::Cancelled => StatusValue::Cancelled,
         }
+    }
+}
+
+/// To-do status (RFC 5545 Section 3.8.1.11)
+#[derive(Debug, Clone)]
+pub struct TodoStatus<'src> {
+    /// Status value
+    pub value: TodoStatusValue,
+    /// Custom X- parameters (preserved for round-trip)
+    pub x_parameters: Vec<Parameter<'src>>,
+    /// Unknown IANA parameters (preserved for round-trip)
+    pub unrecognized_parameters: Vec<Parameter<'src>>,
+}
+
+impl<'src> TryFrom<Status<'src>> for TodoStatus<'src> {
+    type Error = SemanticError<'src>;
+
+    fn try_from(property: Status<'src>) -> Result<Self, Self::Error> {
+        let Ok(value) = property.value.try_into() else {
+            return Err(SemanticError::InvalidValue {
+                property: PropertyKind::Status,
+                value: format!("Invalid todo status value: {}", property.value),
+                span: property.span,
+            });
+        };
+
+        Ok(TodoStatus {
+            value,
+            x_parameters: property.x_parameters,
+            unrecognized_parameters: property.unrecognized_parameters,
+        })
     }
 }
 
@@ -448,7 +472,7 @@ struct PropertyCollector<'src> {
     organizer:      Option<Organizer<'src>>,
     attendees:      Vec<Attendee<'src>>,
     last_modified:  Option<LastModified<'src>>,
-    status:         Option<TodoStatus>,
+    status:         Option<TodoStatus<'src>>,
     sequence:       Option<u32>,
     priority:       Option<u8>,
     percent_complete: Option<u8>,
