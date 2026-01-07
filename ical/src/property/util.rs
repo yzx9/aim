@@ -124,7 +124,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
 
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -178,7 +181,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
                 Parameter::Language { value, .. } => language = Some(value),
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 

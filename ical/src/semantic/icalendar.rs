@@ -101,8 +101,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
                 prop @ Property::Unrecognized { .. } => {
                     props.unrecognized_properties.push(prop);
                 }
-                // Ignore other properties not used by ICalendar
-                _ => {}
+                prop => {
+                    // Preserve other properties not used by ICalendar for round-trip
+                    props.unrecognized_properties.push(prop);
+                }
             }
         }
 

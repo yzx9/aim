@@ -68,7 +68,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -153,7 +156,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -208,7 +214,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -263,7 +272,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Version<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 

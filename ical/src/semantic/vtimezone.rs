@@ -81,8 +81,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
                 // Preserve unknown properties for round-trip
                 prop @ Property::XName { .. } => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
-                // Ignore other properties not used by VTimeZone
-                _ => {}
+                prop => {
+                    // Preserve other properties not used by VTimeZone for round-trip
+                    props.unrecognized_properties.push(prop);
+                }
             }
         }
 
@@ -156,6 +158,12 @@ pub struct TimeZoneObservance<'src> {
 
     /// Recurrence rule for this observance
     pub rrule: Option<RecurrenceRule>,
+
+    /// Custom X- properties (preserved for round-trip)
+    pub x_properties: Vec<Property<'src>>,
+
+    /// Unknown IANA properties (preserved for round-trip)
+    pub unrecognized_properties: Vec<Property<'src>>,
 }
 
 impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
@@ -204,8 +212,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
                     }),
                     None => props.rrule = Some(rrule),
                 },
-                // Ignore other properties not used by TimeZoneObservance
-                _ => {}
+                // Preserve unknown properties for round-trip
+                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
+                prop => {
+                    // Preserve other properties not used by TimeZoneObservance for round-trip
+                    props.unrecognized_properties.push(prop);
+                }
             }
         }
 
@@ -240,6 +253,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
             tz_offset_to: props.tz_offset_to.unwrap(), // SAFETY: checked above
             tz_name: props.tz_name,
             rrule: props.rrule,
+            x_properties: props.x_properties,
+            unrecognized_properties: props.unrecognized_properties,
         })
     }
 }
@@ -264,4 +279,6 @@ struct ObservanceCollector<'src> {
     tz_offset_to:   Option<TzOffsetTo<'src>>,
     tz_name:        Vec<Text<'src>>,
     rrule:          Option<RecurrenceRule>,
+    x_properties:   Vec<Property<'src>>,
+    unrecognized_properties: Vec<Property<'src>>,
 }

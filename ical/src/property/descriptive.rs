@@ -104,7 +104,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
 
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -202,7 +205,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -269,7 +275,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -384,7 +393,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -442,7 +454,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -521,7 +536,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 

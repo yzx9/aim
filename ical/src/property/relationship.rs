@@ -196,7 +196,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
 
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -326,7 +329,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
 
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 

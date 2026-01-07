@@ -193,8 +193,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                 // Preserve unknown properties for round-trip
                 prop @ Property::XName { .. } => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
-                // Ignore other properties not used by VJournal
-                _ => {}
+                prop => {
+                    // Preserve other properties not used by VJournal for round-trip
+                    props.unrecognized_properties.push(prop);
+                }
             }
         }
 

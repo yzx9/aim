@@ -180,6 +180,7 @@ impl<'src> DateTime<'src> {
 impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
     type Error = Vec<TypedError<'src>>;
 
+    #[expect(clippy::too_many_lines)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let value = take_single_value(&prop.kind, prop.value)?;
 
@@ -214,7 +215,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
                 }
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -822,7 +826,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -899,7 +906,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<'src> {
                 }
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
@@ -1030,7 +1040,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<'src> {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
                 p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                _ => {}
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
             }
         }
 
