@@ -51,15 +51,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         if comp.name != KW_VCALENDAR {
-            return Err(vec![SemanticError::ExpectedComponent {
+            errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VCALENDAR,
                 got: comp.name,
                 span: comp.span,
-            }]);
+            });
         }
-
-        let mut errors = Vec::new();
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
@@ -132,20 +132,19 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
             }
         };
 
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
+        if errors.is_empty() {
+            Ok(ICalendar {
+                prod_id: props.prod_id.unwrap(), // SAFETY: checked above
+                version: props.version.unwrap(), // SAFETY: checked above
+                calscale: props.calscale,
+                method: props.method,
+                components,
+                x_properties: props.x_properties,
+                unrecognized_properties: props.unrecognized_properties,
+            })
+        } else {
+            Err(errors)
         }
-
-        Ok(ICalendar {
-            prod_id: props.prod_id.unwrap(), // SAFETY: checked above
-            version: props.version.unwrap(), // SAFETY: checked above
-            calscale: props.calscale,
-            method: props.method,
-            components,
-            x_properties: props.x_properties,
-            unrecognized_properties: props.unrecognized_properties,
-        })
     }
 }
 

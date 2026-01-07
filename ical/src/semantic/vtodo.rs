@@ -109,15 +109,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
 
     #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         if comp.name != KW_VTODO {
-            return Err(vec![SemanticError::ExpectedComponent {
+            errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VTODO,
                 got: comp.name,
                 span: comp.span,
-            }]);
+            });
         }
-
-        let mut errors = Vec::new();
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
@@ -335,40 +335,39 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
             })
             .collect();
 
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
+        if errors.is_empty() {
+            Ok(VTodo {
+                uid: props.uid.unwrap(),           // SAFETY: checked above
+                dt_stamp: props.dt_stamp.unwrap(), // SAFETY: checked above
+                dt_start: props.dt_start,
+                due: props.due,
+                completed: props.completed,
+                duration: props.duration,
+                summary: props.summary,
+                description: props.description,
+                location: props.location,
+                geo: props.geo,
+                url: props.url,
+                organizer: props.organizer,
+                attendees: props.attendees,
+                last_modified: props.last_modified,
+                status: props.status,
+                sequence: props.sequence,
+                priority: props.priority,
+                percent_complete: props.percent_complete,
+                classification: props.classification,
+                resources: props.resources,
+                categories: props.categories,
+                rrule: props.rrule,
+                rdate: props.rdate,
+                ex_date: props.ex_dates,
+                x_properties: props.x_properties,
+                unrecognized_properties: props.unrecognized_properties,
+                alarms,
+            })
+        } else {
+            Err(errors)
         }
-
-        Ok(VTodo {
-            uid: props.uid.unwrap(),           // SAFETY: checked above
-            dt_stamp: props.dt_stamp.unwrap(), // SAFETY: checked above
-            dt_start: props.dt_start,
-            due: props.due,
-            completed: props.completed,
-            duration: props.duration,
-            summary: props.summary,
-            description: props.description,
-            location: props.location,
-            geo: props.geo,
-            url: props.url,
-            organizer: props.organizer,
-            attendees: props.attendees,
-            last_modified: props.last_modified,
-            status: props.status,
-            sequence: props.sequence,
-            priority: props.priority,
-            percent_complete: props.percent_complete,
-            classification: props.classification,
-            resources: props.resources,
-            categories: props.categories,
-            rrule: props.rrule,
-            rdate: props.rdate,
-            ex_date: props.ex_dates,
-            x_properties: props.x_properties,
-            unrecognized_properties: props.unrecognized_properties,
-            alarms,
-        })
     }
 }
 

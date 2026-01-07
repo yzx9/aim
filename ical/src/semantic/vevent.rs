@@ -104,15 +104,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
 
     #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         if comp.name != KW_VEVENT {
-            return Err(vec![SemanticError::ExpectedComponent {
+            errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VEVENT,
                 got: comp.name,
                 span: comp.span,
-            }]);
+            });
         }
-
-        let mut errors = Vec::new();
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
@@ -331,39 +331,38 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
             })
             .collect();
 
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
+        if errors.is_empty() {
+            Ok(VEvent {
+                uid: props.uid.unwrap(),
+                dt_stamp: props.dt_stamp.unwrap(),
+                dt_start: props.dt_start.unwrap(),
+                dt_end: props.dt_end,
+                duration: props.duration,
+                summary: props.summary,
+                description: props.description,
+                location: props.location,
+                geo: props.geo,
+                url: props.url,
+                organizer: props.organizer,
+                attendees: props.attendees,
+                last_modified: props.last_modified,
+                status: props.status,
+                transparency: props.transparency,
+                sequence: props.sequence,
+                priority: props.priority,
+                classification: props.classification,
+                resources: props.resources,
+                categories: props.categories,
+                rrule: props.rrule,
+                rdate: props.rdate,
+                ex_date: props.ex_dates,
+                x_properties: props.x_properties,
+                unrecognized_properties: props.unrecognized_properties,
+                alarms,
+            })
+        } else {
+            Err(errors)
         }
-
-        Ok(VEvent {
-            uid: props.uid.unwrap(),
-            dt_stamp: props.dt_stamp.unwrap(),
-            dt_start: props.dt_start.unwrap(),
-            dt_end: props.dt_end,
-            duration: props.duration,
-            summary: props.summary,
-            description: props.description,
-            location: props.location,
-            geo: props.geo,
-            url: props.url,
-            organizer: props.organizer,
-            attendees: props.attendees,
-            last_modified: props.last_modified,
-            status: props.status,
-            transparency: props.transparency,
-            sequence: props.sequence,
-            priority: props.priority,
-            classification: props.classification,
-            resources: props.resources,
-            categories: props.categories,
-            rrule: props.rrule,
-            rdate: props.rdate,
-            ex_date: props.ex_dates,
-            x_properties: props.x_properties,
-            unrecognized_properties: props.unrecognized_properties,
-            alarms,
-        })
     }
 }
 

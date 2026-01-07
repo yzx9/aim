@@ -76,15 +76,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         if comp.name != KW_VJOURNAL {
-            return Err(vec![SemanticError::ExpectedComponent {
+            errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VJOURNAL,
                 got: comp.name,
                 span: comp.span,
-            }]);
+            });
         }
-
-        let mut errors = Vec::new();
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
@@ -220,30 +220,29 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
             });
         }
 
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
+        if errors.is_empty() {
+            Ok(VJournal {
+                uid: props.uid.unwrap(),
+                dt_stamp: props.dt_stamp.unwrap(),
+                dt_start: props.dt_start.unwrap(),
+                summary: props.summary,
+                descriptions: props.descriptions,
+                organizer: props.organizer,
+                attendees: props.attendees,
+                last_modified: props.last_modified,
+                status: props.status,
+                classification: props.classification,
+                categories: props.categories.unwrap_or_default(),
+                rrule: props.rrule,
+                rdate: props.rdate,
+                ex_date: props.ex_dates,
+                url: props.url,
+                x_properties: props.x_properties,
+                unrecognized_properties: props.unrecognized_properties,
+            })
+        } else {
+            Err(errors)
         }
-
-        Ok(VJournal {
-            uid: props.uid.unwrap(),
-            dt_stamp: props.dt_stamp.unwrap(),
-            dt_start: props.dt_start.unwrap(),
-            summary: props.summary,
-            descriptions: props.descriptions,
-            organizer: props.organizer,
-            attendees: props.attendees,
-            last_modified: props.last_modified,
-            status: props.status,
-            classification: props.classification,
-            categories: props.categories.unwrap_or_default(),
-            rrule: props.rrule,
-            rdate: props.rdate,
-            ex_date: props.ex_dates,
-            url: props.url,
-            x_properties: props.x_properties,
-            unrecognized_properties: props.unrecognized_properties,
-        })
     }
 }
 

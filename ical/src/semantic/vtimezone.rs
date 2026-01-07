@@ -42,15 +42,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         if comp.name != KW_VTIMEZONE {
-            return Err(vec![SemanticError::ExpectedComponent {
+            errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VTIMEZONE,
                 got: comp.name,
                 span: comp.span,
-            }]);
+            });
         }
-
-        let mut errors = Vec::new();
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
@@ -124,20 +124,19 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
             }
         }
 
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
+        if errors.is_empty() {
+            Ok(VTimeZone {
+                tz_id: props.tz_id.unwrap(), // SAFETY: checked above
+                last_modified: props.last_modified,
+                tz_url: props.tz_url,
+                standard,
+                daylight,
+                x_properties: props.x_properties,
+                unrecognized_properties: props.unrecognized_properties,
+            })
+        } else {
+            Err(errors)
         }
-
-        Ok(VTimeZone {
-            tz_id: props.tz_id.unwrap(), // SAFETY: checked above
-            last_modified: props.last_modified,
-            tz_url: props.tz_url,
-            standard,
-            daylight,
-            x_properties: props.x_properties,
-            unrecognized_properties: props.unrecognized_properties,
-        })
     }
 }
 

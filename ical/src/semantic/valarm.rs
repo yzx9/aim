@@ -53,15 +53,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
 
     #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         if comp.name != KW_VALARM {
-            return Err(vec![SemanticError::ExpectedComponent {
+            errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VALARM,
                 got: comp.name,
                 span: comp.span,
-            }]);
+            });
         }
-
-        let mut errors = Vec::new();
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
@@ -186,23 +186,22 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
             });
         }
 
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
+        if errors.is_empty() {
+            Ok(VAlarm {
+                action: props.action.unwrap_or(default_action),
+                trigger: props.trigger.unwrap(), // SAFETY: checked above
+                repeat: props.repeat,
+                duration: props.duration,
+                description: props.description,
+                summary: props.summary,
+                attendees: props.attendees,
+                attach: props.attach,
+                x_properties: props.x_properties,
+                unrecognized_properties: props.unrecognized_properties,
+            })
+        } else {
+            Err(errors)
         }
-
-        Ok(VAlarm {
-            action: props.action.unwrap_or(default_action),
-            trigger: props.trigger.unwrap(), // SAFETY: checked above
-            repeat: props.repeat,
-            duration: props.duration,
-            description: props.description,
-            summary: props.summary,
-            attendees: props.attendees,
-            attach: props.attach,
-            x_properties: props.x_properties,
-            unrecognized_properties: props.unrecognized_properties,
-        })
     }
 }
 

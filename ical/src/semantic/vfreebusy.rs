@@ -66,15 +66,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
 
     #[expect(clippy::too_many_lines)]
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
+        let mut errors = Vec::new();
+
         if comp.name != KW_VFREEBUSY {
-            return Err(vec![SemanticError::ExpectedComponent {
+            errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VFREEBUSY,
                 got: comp.name,
                 span: comp.span,
-            }]);
+            });
         }
-
-        let mut errors = Vec::new();
 
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
@@ -190,27 +190,26 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
             });
         }
 
-        // Return all errors if any occurred
-        if !errors.is_empty() {
-            return Err(errors);
+        if errors.is_empty() {
+            Ok(VFreeBusy {
+                uid: props.uid.unwrap(),           // SAFETY: checked above
+                dt_stamp: props.dt_stamp.unwrap(), // SAFETY: checked above
+                dt_start: props.dt_start.unwrap(), // SAFETY: checked above
+                dt_end: props.dt_end,
+                duration: props.duration,
+                organizer: props.organizer.unwrap(), // SAFETY: checked above
+                contact: props.contact,
+                url: props.url,
+                busy: props.busy,
+                free: props.free,
+                busy_tentative: props.busy_tentative,
+                busy_unavailable: props.busy_unavailable,
+                x_properties: props.x_properties,
+                unrecognized_properties: props.unrecognized_properties,
+            })
+        } else {
+            Err(errors)
         }
-
-        Ok(VFreeBusy {
-            uid: props.uid.unwrap(),           // SAFETY: checked above
-            dt_stamp: props.dt_stamp.unwrap(), // SAFETY: checked above
-            dt_start: props.dt_start.unwrap(), // SAFETY: checked above
-            dt_end: props.dt_end,
-            duration: props.duration,
-            organizer: props.organizer.unwrap(), // SAFETY: checked above
-            contact: props.contact,
-            url: props.url,
-            busy: props.busy,
-            free: props.free,
-            busy_tentative: props.busy_tentative,
-            busy_unavailable: props.busy_unavailable,
-            x_properties: props.x_properties,
-            unrecognized_properties: props.unrecognized_properties,
-        })
     }
 }
 
