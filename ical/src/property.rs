@@ -326,15 +326,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
             // Section 3.8.5 - Recurrence Properties
             PropertyKind::ExDate => ExDate::try_from(prop).map(Property::ExDate),
             PropertyKind::RDate => RDate::try_from(prop).map(Property::RDate),
-            PropertyKind::RRule => {
-                // TODO: Parse RRULE from text (Value::Text)
-                // For now, return an error since RecurrenceRule parsing is not yet implemented
-                Err(vec![TypedError::PropertyInvalidValue {
-                    property: prop.kind,
-                    value: "RRULE parsing not yet implemented".to_string(),
-                    span: prop.span,
-                }])
-            }
+
+            // TODO: Parse RRULE from text (Value::Text)
+            // For now, return an error since RecurrenceRule parsing is not yet implemented
+            PropertyKind::RRule => Err(vec![TypedError::PropertyInvalidValue {
+                property: prop.kind,
+                value: "RRULE parsing not yet implemented".to_string(),
+                span: prop.span,
+            }]),
 
             // Section 3.8.6 - Alarm Component Properties
             PropertyKind::Action => Action::try_from(prop).map(Property::Action),

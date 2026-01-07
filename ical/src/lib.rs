@@ -43,11 +43,14 @@ pub use crate::property::{
     DateTime, Description, DtEnd, DtStamp, DtStart, Due, Duration, ExDate, ExDateValue, FreeBusy,
     Geo, LastModified, Location, Method, MethodValue, Organizer, PercentComplete, Period, Priority,
     ProductId, RDateValue, RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence,
-    Status, StatusValue, Summary, Text, Time, TimeTransparency, TimeTransparencyValue, Trigger,
-    TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, Url, Version, VersionValue,
+    Summary, Text, Time, TimeTransparency, TimeTransparencyValue, Trigger, TriggerValue, TzId,
+    TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, Url, Version, VersionValue,
 };
-pub use crate::semantic::{CalendarComponent, ICalendar, VEvent, VFreeBusy, VJournal, VTodo};
+pub use crate::semantic::{
+    CalendarComponent, EventStatus, ICalendar, JournalStatus, TimeZoneObservance, TodoStatus,
+    VAlarm, VEvent, VFreeBusy, VJournal, VTodo,
+};
 pub use crate::value::{
-    Day, RecurrenceFrequency, RecurrenceRule, ValueDate, ValueDateTime, ValueDuration,
-    ValueExpected, ValuePeriod, ValueText, ValueTime, ValueUtcOffset, WeekDay,
+    Day, RecurrenceFrequency, RecurrenceRule, ValueDate, ValueDateTime, ValueDuration, ValuePeriod,
+    ValueText, ValueTime, ValueUtcOffset, WeekDay,
 };

@@ -46,6 +46,8 @@ pub struct SyntaxComponent<'src> {
     pub properties: Vec<SyntaxProperty<'src>>,
     /// Nested child components
     pub children: Vec<SyntaxComponent<'src>>,
+    /// Span of the entire component (from BEGIN to END)
+    pub span: Span,
 }
 
 /// A parsed iCalendar property (name, optional parameters, and value)
@@ -95,6 +97,7 @@ struct RawComponent<'src> {
     pub name: &'src str,
     pub properties: Vec<RawProperty>,
     pub children: Vec<RawComponent<'src>>,
+    pub span: Span,
 }
 
 impl<'src> RawComponent<'src> {
@@ -103,6 +106,7 @@ impl<'src> RawComponent<'src> {
             name: self.name,
             properties: self.properties.into_iter().map(|p| p.build(src)).collect(),
             children: self.children.into_iter().map(|c| c.build(src)).collect(),
+            span: self.span,
         }
     }
 }
@@ -121,10 +125,11 @@ where
 
         begin()
             .ignore_with_ctx(map_ctx(|_| (), body).then(end()))
-            .map(|((properties, children), name)| RawComponent {
+            .map_with(|((properties, children), name), extra| RawComponent {
                 name,
                 properties,
                 children,
+                span: Span::from(extra.span()),
             })
     })
 }

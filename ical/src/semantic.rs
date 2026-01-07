@@ -17,13 +17,14 @@ mod vtodo;
 
 pub use icalendar::{CalendarComponent, ICalendar};
 pub use valarm::VAlarm;
-pub use vevent::VEvent;
+pub use vevent::{EventStatus, VEvent};
 pub use vfreebusy::VFreeBusy;
-pub use vjournal::VJournal;
+pub use vjournal::{JournalStatus, VJournal};
 pub use vtimezone::{TimeZoneObservance, VTimeZone};
-pub use vtodo::VTodo;
+pub use vtodo::{TodoStatus, VTodo};
 
 use crate::keyword::KW_VCALENDAR;
+use crate::lexer::Span;
 use crate::property::PropertyKind;
 use crate::typed::TypedComponent;
 
@@ -40,6 +41,7 @@ pub fn semantic_analysis(
     // Return error only if no calendars
     if typed_components.is_empty() {
         return Err(vec![SemanticError::ConstraintViolation {
+            span: Span { start: 0, end: 0 },
             message: format!("No {KW_VCALENDAR} components found"),
         }]);
     }
@@ -64,44 +66,54 @@ pub fn semantic_analysis(
 /// Error type for parsing operations
 #[non_exhaustive]
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum SemanticError<'a> {
+pub enum SemanticError<'src> {
     /// Unknown component type
     #[error("Unknown component type: {component}")]
     UnknownComponent {
         /// The unknown component name
         component: String,
+        /// The span of the error
+        span: Span,
     },
 
     /// Expected a different component type
     #[error("Expected '{expected}' component, got '{got}'")]
     ExpectedComponent {
         /// The expected component name
-        expected: &'static str,
+        expected: &'src str,
         /// The actual component name that was found
-        got: String,
+        got: &'src str,
+        /// The span of the error
+        span: Span,
     },
 
     /// Duplicate property
     #[error("Duplicate property '{property}'")]
     DuplicateProperty {
         /// The property that is duplicated
-        property: PropertyKind<'a>,
+        property: PropertyKind<'src>,
+        /// The span of the error
+        span: Span,
     },
 
     /// Missing required property
     #[error("Missing required property '{property}'")]
     MissingProperty {
         /// The property that is missing
-        property: PropertyKind<'a>,
+        property: PropertyKind<'src>,
+        /// The span of the error
+        span: Span,
     },
 
     /// Invalid property value
     #[error("Invalid value '{value}' for property: {property}")]
     InvalidValue {
         /// The property that has the invalid value
-        property: PropertyKind<'a>,
+        property: PropertyKind<'src>,
         /// The invalid value description
         value: String,
+        /// The span of the error
+        span: Span,
     },
 
     /// Business rule constraint violation
@@ -109,5 +121,22 @@ pub enum SemanticError<'a> {
     ConstraintViolation {
         /// Error message describing the constraint violation
         message: String,
+        /// The span of the error
+        span: Span,
     },
+}
+
+impl SemanticError<'_> {
+    /// Get the span of this error.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        match self {
+            Self::UnknownComponent { span, .. }
+            | Self::ExpectedComponent { span, .. }
+            | Self::DuplicateProperty { span, .. }
+            | Self::MissingProperty { span, .. }
+            | Self::InvalidValue { span, .. }
+            | Self::ConstraintViolation { span, .. } => *span,
+        }
+    }
 }

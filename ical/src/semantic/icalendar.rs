@@ -54,7 +54,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
         if comp.name != KW_VCALENDAR {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VCALENDAR,
-                got: comp.name.to_string(),
+                got: comp.name,
+                span: comp.span,
             }]);
         }
 
@@ -64,27 +65,32 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop {
+                // TODO: Use property span instead of component span for DuplicateProperty
                 Property::ProdId(value) => match props.prod_id {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::ProdId,
+                        span: comp.span,
                     }),
                     None => props.prod_id = Some(value),
                 },
                 Property::Version(value) => match props.version {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Version,
+                        span: comp.span,
                     }),
                     None => props.version = Some(value),
                 },
                 Property::CalScale(value) => match props.calscale {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::CalScale,
+                        span: comp.span,
                     }),
                     None => props.calscale = Some(value),
                 },
                 Property::Method(value) => match props.method {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Method,
+                        span: comp.span,
                     }),
                     None => props.method = Some(value),
                 },
@@ -104,12 +110,14 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
         if props.prod_id.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::ProdId,
+                span: comp.span,
             });
         }
 
         if props.version.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Version,
+                span: comp.span,
             });
         }
 
@@ -178,6 +186,7 @@ fn parse_component_children(
                 Err(e) => errors.extend(e),
             },
             _ => errors.push(SemanticError::UnknownComponent {
+                span: child.span,
                 component: child.name.to_string(),
             }),
         }
@@ -232,10 +241,10 @@ pub enum CalendarComponent<'src> {
 #[rustfmt::skip]
 #[derive(Debug, Default)]
 struct PropertyCollector<'src> {
-    prod_id:            Option<ProductId<'src>>,
-    version:            Option<Version<'src>>,
-    calscale:           Option<CalendarScale<'src>>,
-    method:             Option<Method<'src>>,
-    x_properties:       Vec<Property<'src>>,
+    prod_id:        Option<ProductId<'src>>,
+    version:        Option<Version<'src>>,
+    calscale:       Option<CalendarScale<'src>>,
+    method:         Option<Method<'src>>,
+    x_properties:   Vec<Property<'src>>,
     unrecognized_properties: Vec<Property<'src>>,
 }

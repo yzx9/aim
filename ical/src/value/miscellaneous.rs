@@ -16,7 +16,7 @@ use chumsky::span::SimpleSpan;
 /// fails. Each variant represents a type that was expected during parsing.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ValueExpected {
+pub(crate) enum ValueExpected {
     /// A date value was expected
     Date,
     /// A 64-bit floating-point value was expected

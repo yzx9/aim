@@ -17,7 +17,6 @@ mod text;
 
 pub use datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
 pub use duration::ValueDuration;
-pub use miscellaneous::ValueExpected;
 pub(crate) use numeric::values_float_semicolon;
 pub use period::ValuePeriod;
 pub use rrule::{Day, RecurrenceFrequency, RecurrenceRule, WeekDay};

@@ -5,7 +5,9 @@
 //! Alarm component (VALARM) for iCalendar semantic components.
 
 use crate::keyword::KW_VALARM;
-use crate::property::{Action, Attachment, Attendee, Property, PropertyKind, Text, Trigger};
+use crate::property::{
+    Action, ActionValue, Attachment, Attendee, Property, PropertyKind, Text, Trigger,
+};
 use crate::semantic::SemanticError;
 use crate::typed::TypedComponent;
 use crate::value::ValueDuration;
@@ -53,7 +55,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         if comp.name != KW_VALARM {
             return Err(vec![SemanticError::ExpectedComponent {
                 expected: KW_VALARM,
-                got: comp.name.to_string(),
+                got: comp.name,
+                span: comp.span,
             }]);
         }
 
@@ -63,58 +66,60 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop {
+                // TODO: Use property span instead of component span for DuplicateProperty
                 Property::Action(action) => match props.action {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Action,
+                        span: comp.span,
                     }),
                     None => props.action = Some(action),
                 },
                 Property::Trigger(trigger) => match props.trigger {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Trigger,
+                        span: comp.span,
                     }),
                     None => props.trigger = Some(trigger),
                 },
                 Property::Duration(duration) => match props.duration {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Duration,
+                        span: comp.span,
                     }),
                     None => props.duration = Some(duration.value),
                 },
                 Property::Repeat(repeat) => match props.repeat {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Repeat,
+                        span: comp.span,
                     }),
                     None => props.repeat = Some(repeat.value),
                 },
                 Property::Description(desc) => match props.description {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Description,
+                        span: comp.span,
                     }),
                     None => props.description = Some(desc.0.clone()),
                 },
                 Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
+                        span: comp.span,
                     }),
                     None => props.summary = Some(s.0.clone()),
                 },
-                Property::Attendee(attendee) => {
-                    props.attendees.push(attendee);
-                }
+                Property::Attendee(attendee) => props.attendees.push(attendee),
                 Property::Attach(attach) => match props.attach {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Attach,
+                        span: comp.span,
                     }),
                     None => props.attach = Some(attach),
                 },
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => {
-                    props.x_properties.push(prop);
-                }
-                prop @ Property::Unrecognized { .. } => {
-                    props.unrecognized_properties.push(prop);
-                }
+                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 // Ignore other properties not used by VAlarm
                 _ => {}
             }
@@ -124,11 +129,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         if props.action.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Action,
+                span: comp.span,
             });
         }
         if props.trigger.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Trigger,
+                span: comp.span,
             });
         }
 
@@ -138,12 +145,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         if has_duration != has_repeat {
             errors.push(SemanticError::ConstraintViolation {
                 message: "DURATION and REPEAT must appear together or not at all".to_string(),
+                span: comp.span,
             });
         }
 
         // Get action for validation checks
         let default_action = Action {
-            value: crate::property::ActionValue::Audio,
+            value: ActionValue::Audio,
             x_parameters: Vec::new(),
             unrecognized_parameters: Vec::new(),
         };
@@ -151,28 +159,27 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
 
         // Validate DESCRIPTION is present for DISPLAY and EMAIL actions
         if props.description.is_none()
-            && matches!(
-                action.value,
-                crate::property::ActionValue::Display | crate::property::ActionValue::Email
-            )
+            && matches!(action.value, ActionValue::Display | ActionValue::Email)
         {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Description,
+                span: comp.span,
             });
         }
 
         // Validate SUMMARY is present for EMAIL action
-        if props.summary.is_none() && matches!(action.value, crate::property::ActionValue::Email) {
+        if props.summary.is_none() && matches!(action.value, ActionValue::Email) {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Summary,
+                span: comp.span,
             });
         }
 
         // Validate ATTENDEE is present for EMAIL action
-        if matches!(action.value, crate::property::ActionValue::Email) && props.attendees.is_empty()
-        {
+        if matches!(action.value, ActionValue::Email) && props.attendees.is_empty() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Attendee,
+                span: comp.span,
             });
         }
 
@@ -182,11 +189,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
         }
 
         Ok(VAlarm {
-            action: props.action.unwrap_or_else(|| Action {
-                value: crate::property::ActionValue::Audio,
-                x_parameters: Vec::new(),
-                unrecognized_parameters: Vec::new(),
-            }),
+            action: props.action.unwrap_or(default_action),
             trigger: props.trigger.unwrap(), // SAFETY: checked above
             repeat: props.repeat,
             duration: props.duration,

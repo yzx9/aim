@@ -83,7 +83,7 @@ use crate::typed::{TypedError, typed_analysis};
 ///          .finish()
 ///     }
 ///     ParseError::Semantic(e) => {
-///         Report::build(ReportKind::Error, 0..0)
+///         Report::build(ReportKind::Error, e.span().into_range())
 ///             .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
 ///             .with_code(3)
 ///             .with_message(e.to_string())

@@ -70,6 +70,7 @@ fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<
             name: comp.name,
             properties,
             children,
+            span: comp.span,
         })
     } else {
         Err(errors)
@@ -114,6 +115,8 @@ pub struct TypedComponent<'src> {
     pub properties: Vec<Property<'src>>,
     /// Nested child components
     pub children: Vec<TypedComponent<'src>>,
+    /// Span of the entire component (from BEGIN to END)
+    pub span: Span,
 }
 
 /// A typed iCalendar property with validated parameters and values.
