@@ -132,60 +132,58 @@ pub fn parse_multiple_quoted<'src>(
 macro_rules! define_param_enum {
     (
         $(#[$meta:meta])*
-        enum $Name:ident {
+        $vis:vis enum $name:ident {
             $(
                 $(#[$vmeta:meta])*
-                $Variant:ident => $kw:ident
+                $variant:ident => $kw:ident
             ),* $(,)?
         }
 
-        parser {
-            fn $parse_fn:ident;
-        }
+        parser = $pvis:vis fn $parse_fn:ident;
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         #[allow(missing_docs)]
-        pub enum $Name {
+        $vis enum $name {
             $(
                 $(#[$vmeta])*
-                $Variant,
+                $variant,
             )*
         }
 
-        impl<'src> TryFrom<SpannedSegments<'src>> for $Name {
+        impl<'src> TryFrom<SpannedSegments<'src>> for $name {
             type Error = SpannedSegments<'src>;
 
             fn try_from(segs: SpannedSegments<'src>) -> Result<Self, Self::Error> {
                 $(
                     if segs.eq_str_ignore_ascii_case($kw) {
-                        return Ok(Self::$Variant);
+                        return Ok(Self::$variant);
                     }
                 )*
                 Err(segs)
             }
         }
 
-        impl fmt::Display for $Name {
+        impl fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     $(
-                        Self::$Variant => $kw.fmt(f),
+                        Self::$variant => $kw.fmt(f),
                     )*
                 }
             }
         }
 
-        pub fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
-            parse_single_not_quoted(&mut param, ParameterKind::$Name).and_then(|value| {
-                match $Name::try_from(value) {
-                    Ok(value) => Ok(Parameter::$Name {
+        $pvis fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
+            parse_single_not_quoted(&mut param, ParameterKind::$name).and_then(|value| {
+                match $name::try_from(value) {
+                    Ok(value) => Ok(Parameter::$name {
                         value,
                         span: param.span(),
                     }),
                     Err(value) => Err(vec![TypedError::ParameterValueInvalid {
                         span: value.span(),
-                        parameter: ParameterKind::$Name,
+                        parameter: ParameterKind::$name,
                         value,
                     }])
                 }
@@ -201,24 +199,22 @@ macro_rules! define_param_enum {
 macro_rules! define_param_enum_with_unknown {
     (
         $(#[$meta:meta])*
-        enum $Name:ident {
+        $vis:vis enum $name:ident {
             $(
                 $(#[$vmeta:meta])*
-                $Variant:ident => $kw:ident
+                $variant:ident => $kw:ident
             ),* $(,)?
         }
 
-        parser {
-            fn $parse_fn:ident;
-        }
+        parser = $pvis:vis fn $parse_fn:ident;
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone)]
         #[allow(missing_docs)]
-        pub enum $Name<'src> {
+        $vis enum $name<'src> {
             $(
                 $(#[$vmeta])*
-                $Variant,
+                $variant,
             )*
             /// Custom experimental x-name value (must start with "X-" or "x-")
             XName(SpannedSegments<'src>),
@@ -226,11 +222,11 @@ macro_rules! define_param_enum_with_unknown {
             Unrecognized(SpannedSegments<'src>),
         }
 
-        impl<'src> From<SpannedSegments<'src>> for $Name<'src> {
+        impl<'src> ::core::convert::From<SpannedSegments<'src>> for $name<'src> {
             fn from(segs: SpannedSegments<'src>) -> Self {
                 $(
                     if segs.eq_str_ignore_ascii_case($kw) {
-                        return Self::$Variant;
+                        return Self::$variant;
                     }
                 )*
 
@@ -244,18 +240,18 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        impl<'src> fmt::Display for $Name<'src> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        impl<'src> ::core::fmt::Display for $name<'src> {
+            fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 match self {
                     $(
-                        Self::$Variant => $kw.fmt(f),
+                        Self::$variant => $kw.fmt(f),
                     )*
                     Self::XName(segs) | Self::Unrecognized(segs) => write!(f, "{segs}"),
                 }
             }
         }
 
-        impl $Name<'_> {
+        impl $name<'_> {
             /// Tries to compare two values for equality if both are standard values.
             /// Returns None if either value is x-name/unrecognized.
             #[allow(dead_code)]
@@ -263,8 +259,8 @@ macro_rules! define_param_enum_with_unknown {
             pub(crate) fn try_eq_known(&self, other: &Self) -> Option<bool> {
                 match self {
                     $(
-                        Self::$Variant => match other {
-                            Self::$Variant => Some(true),
+                        Self::$variant => match other {
+                            Self::$variant => Some(true),
                             Self::XName(_) | Self::Unrecognized(_) => None, // not standard
                             _ => Some(false),
                         },
@@ -274,10 +270,10 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        pub fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
-            parse_single_not_quoted(&mut param, ParameterKind::$Name).map(|value| {
-                let enum_value = $Name::try_from(value).unwrap(); // Never fails due to XName/Unrecognized variants
-                Parameter::$Name {
+        $pvis fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
+            parse_single_not_quoted(&mut param, ParameterKind::$name).map(|value| {
+                let enum_value = $name::try_from(value).unwrap(); // Never fails due to XName/Unrecognized variants
+                Parameter::$name {
                     value: enum_value,
                     span: param.span(),
                 }

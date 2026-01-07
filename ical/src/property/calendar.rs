@@ -99,28 +99,28 @@ define_prop_value_enum! {
     pub enum MethodValue {
         /// Publish an event (most common)
         #[default]
-        Publish => KW_METHOD_PUBLISH,
+        Publish         => KW_METHOD_PUBLISH,
 
         /// Request an event
-        Request => KW_METHOD_REQUEST,
+        Request         => KW_METHOD_REQUEST,
 
         /// Reply to an event
-        Reply => KW_METHOD_REPLY,
+        Reply           => KW_METHOD_REPLY,
 
         /// Add an event
-        Add => KW_METHOD_ADD,
+        Add             => KW_METHOD_ADD,
 
         /// Cancel an event
-        Cancel => KW_METHOD_CANCEL,
+        Cancel          => KW_METHOD_CANCEL,
 
         /// Refresh an event
-        Refresh => KW_METHOD_REFRESH,
+        Refresh         => KW_METHOD_REFRESH,
 
         /// Counter an event
-        Counter => KW_METHOD_COUNTER,
+        Counter         => KW_METHOD_COUNTER,
 
         /// Decline counter
-        DeclineCounter => KW_METHOD_DECLINECOUNTER,
+        DeclineCounter  => KW_METHOD_DECLINECOUNTER,
     }
 }
 
