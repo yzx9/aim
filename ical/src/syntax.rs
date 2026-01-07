@@ -259,7 +259,6 @@ where
                    | Token::Colon
                    | Token::Semicolon
                    | Token::Symbol(_)
-                   | Token::Escape(_)
                    | Token::Word(_)
                    | Token::UnicodeText(_)
                 ) => t,
@@ -278,7 +277,6 @@ where
     let paramtext = select! {
         t @ (
             Token::Symbol(_)
-            | Token::Escape(_)
             | Token::Word(_)
             | Token::UnicodeText(_)
         ) => t,
@@ -314,7 +312,6 @@ where
             | Token::Semicolon
             | Token::Equal
             | Token::Symbol(_)
-            | Token::Escape(_)
             | Token::Word(_)
             | Token::UnicodeText(_)
         ) => t,

@@ -113,15 +113,17 @@ fn lexer_tokenizes_escaped_chars_in_text() {
             Token::Word("a"),
             Token::Symbol(" "),
             Token::Word("test"),
-            Token::Escape(r"\n"),
-            Token::Word("With"),
+            Token::Symbol(r"\"),
+            Token::Word("nWith"), // nWith is merged as one Word since n and W are both alphanumeric
             Token::Symbol(" "),
             Token::Word("newline"),
-            Token::Escape(r"\;"),
+            Token::Symbol(r"\"),
+            Token::Semicolon,
             Token::Word("And"),
             Token::Symbol(" "),
             Token::Word("semicolon"),
-            Token::Escape(r"\,"),
+            Token::Symbol(r"\"),
+            Token::Comma,
             Token::Word("And"),
             Token::Symbol(" "),
             Token::Word("comma"),
@@ -243,15 +245,14 @@ fn lexer_tokenizes_multiple_escape_sequences() {
         vec![
             Token::Word("DESCRIPTION"),
             Token::Colon,
-            Token::Escape(r"\\"),
-            Token::Symbol(" "),
-            Token::Escape(r"\;"),
-            Token::Symbol(" "),
-            Token::Escape(r"\,"),
-            Token::Symbol(" "),
-            Token::Escape(r"\N"),
-            Token::Symbol(" "),
-            Token::Escape(r"\n"),
+            Token::Symbol(r#"\\ \"#), // Two backslashes and space merged into one Symbol
+            Token::Semicolon,
+            Token::Symbol(r#" \"#), // Space and backslash merged
+            Token::Comma,
+            Token::Symbol(r#" \"#), // Space and backslash merged
+            Token::Word("N"),
+            Token::Symbol(r#" \"#), // Space and backslash merged
+            Token::Word("n"),
         ]
     );
 }
@@ -398,8 +399,7 @@ fn lexer_tokenizes_url_property() {
             Token::Colon,
             Token::Word("http"),
             Token::Colon,
-            Token::Symbol("/"),
-            Token::Symbol("/"),
+            Token::Symbol("//"), // Two slashes merged into one Symbol
             Token::Word("example"),
             Token::Symbol("."),
             Token::Word("com"),
@@ -513,7 +513,8 @@ fn lexer_tokenizes_location_with_escaped_comma() {
             Token::Word("Room"),
             Token::Symbol(" "),
             Token::Word("B"),
-            Token::Escape(r"\,"),
+            Token::Symbol(r"\"),
+            Token::Comma,
             Token::Symbol(" "),
             Token::Word("Building"),
             Token::Symbol(" "),

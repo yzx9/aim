@@ -27,7 +27,8 @@ information for error reporting.
 ### Syntax Phase
 
 Builds a tree of components with properties and parameters, validates component
-nesting (BEGIN/END matching), and processes escape sequences.
+nesting (BEGIN/END matching), and collects text for further processing in the
+Value Pass.
 
 ### Typed Analysis Phase
 
@@ -43,6 +44,7 @@ Validates all components against RFC 5545 specifications through three sub-passe
    - Parses and validates property value types per RFC 5545 Section 3.3
    - Converts value strings to appropriate Rust types (dates, durations, integers, etc.)
    - Handles type inference when VALUE parameter is not specified
+   - Processes escape sequences (e.g., `\n`, `\;`, `\,`) in text values
    - Provides `Value` enum and specific value types (`ValueDate`, `ValueDateTime`, etc.)
 
 3. **Property Pass**

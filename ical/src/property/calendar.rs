@@ -22,7 +22,7 @@ use crate::keyword::{
 };
 use crate::parameter::Parameter;
 use crate::property::PropertyKind;
-use crate::property::util::{take_single_text, take_single_string};
+use crate::property::util::{take_single_string, take_single_text};
 use crate::typed::{ParsedProperty, TypedError};
 
 define_prop_value_enum! {

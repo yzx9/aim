@@ -56,26 +56,13 @@ pub enum Token<'a> {
     #[token("=")]
     Equal,
 
-    /// CONTROL = %x00-08 / %x0A-1F / %x7F
-    ///    ; All the controls except HTAB
-    /// NOTE: Only matches single control characters to avoid conflict with `Folding`
-    #[regex(r"[\x00-\x08\x0A-\x1F\x7F]")]
-    Control(&'a str),
-
-    /// ASCII symbols: sequences of printable ASCII characters excluding
-    /// NOTE: only matches single symbol to avoid conflict with `Escape`
-    #[regex(r#"[\t !#$%&'()*+./<>?@\[\\\]\^`\{|\}~]"#)]
+    /// ASCII symbols: sequences of printable ASCII characters
+    #[regex(r#"[\t !#$%&'()*+./<>?@\[\\\]\^`\{|\}~]+"#)]
     Symbol(&'a str),
 
     /// Carriage Return (\r, decimal codepoint 13) followed by Line Feed (\n, decimal codepoint 10)
     #[token("\r\n")]
     Newline,
-
-    /// ESCAPED-CHAR = ("\\" / "\;" / "\," / "\N" / "\n")
-    ///    ; \\ encodes \, \N or \n encodes newline
-    ///    ; \; encodes ;, \, encodes ,
-    #[regex(r"\\[\\;,Nn]")]
-    Escape(&'a str),
 
     /// ASCII word characters: 0-9, A-Z, a-z, underscore
     #[regex("[0-9A-Za-z_-]+")]
@@ -98,13 +85,8 @@ impl fmt::Display for Token<'_> {
             Self::Colon => write!(f, "Colon"),
             Self::Semicolon => write!(f, "Semicolon"),
             Self::Equal => write!(f, "Equal"),
-            Self::Control(s) => match s.as_bytes().first() {
-                Some(i) => write!(f, "Control(U+{i:02X})"),
-                None => write!(f, "Control(<empty>)"),
-            },
             Self::Symbol(s) => write!(f, "Symbol({s})"),
             Self::Newline => write!(f, "Newline"),
-            Self::Escape(s) => write!(f, "Escape({s})"),
             Self::Word(s) => write!(f, "Word({s})"),
             Self::UnicodeText(s) => write!(f, "UnicodeText({s})"),
             Self::Error => write!(f, "Error"),
@@ -227,34 +209,44 @@ mod tests {
             };
         }
 
-        test_ascii_range!(test_ascii_chars_00_08, 0x00..=0x08, Control, true);
-        test_ascii_range!(test_ascii_chars_09_09, 0x09..=0x09, Symbol, true);
-        test_ascii_range!(test_ascii_chars_0a_1f, 0x0A..=0x1F, Control, true);
-        test_ascii_range!(test_ascii_chars_20_21, 0x20..=0x21, Symbol, true);
+        // Control characters (0x00-0x08, 0x0A-0x1F, 0x7F) are not explicitly tokenized
+        // They will be matched as Error tokens
+        // Symbol now matches multiple consecutive characters
+        test_ascii_range!(test_ascii_chars_09_09, 0x09..=0x09, Symbol, false);
+        test_ascii_range!(test_ascii_chars_20_21, 0x20..=0x21, Symbol, false);
         // 0x22 is Quote
-        test_ascii_range!(test_ascii_chars_23_2b, 0x23..=0x2B, Symbol, true);
+        test_ascii_range!(test_ascii_chars_23_2b, 0x23..=0x2B, Symbol, false);
         // 0x2C is Comma
-        test_ascii_range!(test_ascii_chars_2e_2f, 0x2E..=0x2F, Symbol, true);
+        test_ascii_range!(test_ascii_chars_2e_2f, 0x2E..=0x2F, Symbol, false);
         test_ascii_range!(test_ascii_chars_30_39, 0x30..=0x39, Word, false);
         // 0x3A is Colon
         // 0x3B is Semi
-        test_ascii_range!(test_ascii_chars_3c_3c, 0x3C..=0x3C, Symbol, true);
+        test_ascii_range!(test_ascii_chars_3c_3c, 0x3C..=0x3C, Symbol, false);
         // 0x3D is Eq
-        test_ascii_range!(test_ascii_chars_3e_40, 0x3E..=0x40, Symbol, true);
+        test_ascii_range!(test_ascii_chars_3e_40, 0x3E..=0x40, Symbol, false);
         test_ascii_range!(test_ascii_chars_41_5a, 0x41..=0x5A, Word, false);
-        test_ascii_range!(test_ascii_chars_5b_5b, 0x5B..=0x5B, Symbol, true);
-        // 0x5C is Backslash, double backslash is Escape
-        test_ascii_range!(test_ascii_chars_5d_5e, 0x5D..=0x5E, Symbol, true);
+        test_ascii_range!(test_ascii_chars_5b_5b, 0x5B..=0x5B, Symbol, false);
+        // 0x5C is Backslash
+        test_ascii_range!(test_ascii_chars_5d_5e, 0x5D..=0x5E, Symbol, false);
         // 0x5F is Underscore, part of word
-        test_ascii_range!(test_ascii_chars_60_60, 0x60..=0x60, Symbol, true);
+        test_ascii_range!(test_ascii_chars_60_60, 0x60..=0x60, Symbol, false);
         test_ascii_range!(test_ascii_chars_61_7a, 0x61..=0x7A, Word, false);
-        test_ascii_range!(test_ascii_chars_7b_7e, 0x7B..=0x7E, Symbol, true);
-        test_ascii_range!(test_ascii_chars_7f_7f, 0x7F..=0x7F, Control, true);
+        test_ascii_range!(test_ascii_chars_7b_7e, 0x7B..=0x7E, Symbol, false);
     }
 
     fn tokenize(src: &str, expected: &[Token]) {
         let tokens: Vec<_> = Token::lexer(src).map(|t| t.unwrap()).collect();
         assert_eq!(tokens, expected);
+    }
+
+    /// Tokenize and include Error tokens (converts logos errors to `Token::Error`)
+    fn tokenize_with_errors(src: &str) -> Vec<Token<'_>> {
+        Token::lexer(src)
+            .map(|t| match t {
+                Ok(tok) => tok,
+                Err(()) => Error,
+            })
+            .collect()
     }
 
     #[test]
@@ -274,13 +266,15 @@ mod tests {
 
     #[test]
     fn handles_line_folding() {
-        let src = "\r\n \r\n\t\r \n \r\n";
+        // Line folding (CRLF + space/tab) is skipped by logos
+        // The tokens should only include non-folded newlines
+        let src = "WORD1\r\n WORD2\r\n\tWORD3\r\nWORD4";
         let expected = [
-            Control("\r"),
-            Symbol(" "),
-            Control("\n"),
-            Symbol(" "),
+            Word("WORD1"),
+            Word("WORD2"),
+            Word("WORD3"),
             Newline,
+            Word("WORD4"),
         ];
         tokenize(src, &expected);
     }
@@ -289,11 +283,14 @@ mod tests {
     fn tokenizes_escape_sequences() {
         let src = r"\\\;\,\N\n\r";
         let expected = [
-            Escape(r"\\"),
-            Escape(r"\;"),
-            Escape(r"\,"),
-            Escape(r"\N"),
-            Escape(r"\n"),
+            Symbol(r"\\\"), // Three backslashes merged into one Symbol
+            Semicolon,
+            Symbol(r"\"),
+            Comma,
+            Symbol(r"\"),
+            Word("N"),
+            Symbol(r"\"),
+            Word("n"),
             Symbol(r"\"),
             Word("r"),
         ];
@@ -331,5 +328,83 @@ mod tests {
             Word("folding"),
         ];
         tokenize(src, &expected);
+    }
+
+    #[test]
+    fn tokenizes_control_chars_as_error() {
+        // Control characters (except HTAB) should produce Error tokens
+        // CONTROL = %x00-08 / %x0A-1F / %x7F
+
+        // Test NULL (0x00)
+        let tokens = tokenize_with_errors("\x00");
+        assert_eq!(tokens, vec![Error]);
+
+        // Test Bell (0x07)
+        let tokens = tokenize_with_errors("\x07");
+        assert_eq!(tokens, vec![Error]);
+
+        // Test Line Feed alone (0x0A) - not part of CRLF
+        let tokens = tokenize_with_errors("\n");
+        assert_eq!(tokens, vec![Error]);
+
+        // Test Escape (0x1B)
+        let tokens = tokenize_with_errors("\x1B");
+        assert_eq!(tokens, vec![Error]);
+
+        // Test DEL (0x7F)
+        let tokens = tokenize_with_errors("\x7F");
+        assert_eq!(tokens, vec![Error]);
+    }
+
+    #[test]
+    fn tokenizes_mixed_valid_and_invalid_chars() {
+        // Mix of valid tokens and control characters
+        let tokens = tokenize_with_errors("WORD\x01WORD2");
+        assert_eq!(tokens, vec![Word("WORD"), Error, Word("WORD2")]);
+    }
+
+    #[test]
+    fn tokenizes_bare_cr_as_error() {
+        // Bare CR (not followed by LF) should be an error
+        let tokens = tokenize_with_errors("WORD1\rWORD2");
+        assert_eq!(tokens, vec![Word("WORD1"), Error, Word("WORD2")]);
+    }
+
+    #[test]
+    fn tokenizes_lf_without_cr_as_error() {
+        // LF without preceding CR should be an error
+        let tokens = tokenize_with_errors("WORD1\nWORD2");
+        assert_eq!(tokens, vec![Word("WORD1"), Error, Word("WORD2")]);
+    }
+
+    #[test]
+    fn tokenizes_multiple_consecutive_control_chars() {
+        // Multiple consecutive control characters should each produce an Error
+        let tokens = tokenize_with_errors("WORD\x01\x02\x03WORD2");
+        assert_eq!(
+            tokens,
+            vec![Word("WORD"), Error, Error, Error, Word("WORD2")]
+        );
+    }
+
+    #[test]
+    fn tokenizes_valid_crlf_sequence() {
+        // Valid CRLF sequence should produce Newline token
+        let tokens = tokenize_with_errors("WORD1\r\nWORD2");
+        assert_eq!(tokens, vec![Word("WORD1"), Newline, Word("WORD2")]);
+    }
+
+    #[test]
+    fn tokenizes_multiple_crlf_sequences() {
+        // Multiple consecutive CRLF sequences
+        let tokens = tokenize_with_errors("WORD1\r\n\r\nWORD2");
+        assert_eq!(tokens, vec![Word("WORD1"), Newline, Newline, Word("WORD2")]);
+    }
+
+    #[test]
+    fn tokenizes_htab_as_symbol() {
+        // HTAB (0x09) should be tokenized as Symbol, not Error
+        let tokens = tokenize_with_errors("WORD1\tWORD2");
+        assert_eq!(tokens, vec![Word("WORD1"), Symbol("\t"), Word("WORD2")]);
     }
 }
