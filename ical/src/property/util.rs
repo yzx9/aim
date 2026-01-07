@@ -60,19 +60,6 @@ pub fn take_single_text<'src>(
     }
 }
 
-/// Get a single string value from a property
-///
-/// # Errors
-/// Returns `TypedError::PropertyUnexpectedValue` if the value is not text
-/// Returns `TypedError::PropertyInvalidValueCount` if there are multiple or zero values
-pub fn take_single_string<'src>(
-    kind: &PropertyKind<'src>,
-    value: Value<'src>,
-) -> Result<String, Vec<TypedError<'src>>> {
-    let text = take_single_text(kind, value)?;
-    Ok(text.resolve().to_string()) // TODO: avoid allocation
-}
-
 /// Text with language and alternate representation information
 ///
 /// This is a helper type used by many text properties like:

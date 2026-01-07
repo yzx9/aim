@@ -55,9 +55,10 @@ END:VCALENDAR\r
             ..
         }
     ));
-    assert_eq!(calendar.prod_id.company, "-");
-    assert_eq!(calendar.prod_id.product, "Example Corp.");
-    assert_eq!(calendar.prod_id.language.as_ref().unwrap(), "CalDAV Client");
+    assert_eq!(
+        calendar.prod_id.value.to_string(),
+        "-//Example Corp.//CalDAV Client//EN"
+    );
     assert!(calendar.calscale.is_none());
     assert!(calendar.method.is_none());
     assert!(calendar.components.is_empty());
@@ -1012,8 +1013,10 @@ END:VCALENDAR\r
 
     // First calendar
     let calendar1 = &calendars[0];
-    assert_eq!(calendar1.prod_id.company, "-");
-    assert_eq!(calendar1.prod_id.product, "Example Corp.");
+    assert_eq!(
+        calendar1.prod_id.value.to_string(),
+        "-//Example Corp.//CalDAV Client//EN"
+    );
     assert_eq!(calendar1.components.len(), 1);
     match &calendar1.components[0] {
         CalendarComponent::Event(event) => {
@@ -1027,8 +1030,10 @@ END:VCALENDAR\r
 
     // Second calendar
     let calendar2 = &calendars[1];
-    assert_eq!(calendar2.prod_id.company, "-");
-    assert_eq!(calendar2.prod_id.product, "Another Corp.");
+    assert_eq!(
+        calendar2.prod_id.value.to_string(),
+        "-//Another Corp.//CalDAV Client//EN"
+    );
     assert_eq!(calendar2.components.len(), 1);
     match &calendar2.components[0] {
         CalendarComponent::Event(event) => {
@@ -1059,9 +1064,18 @@ END:VCALENDAR\r
 ";
     let calendars = parse_semantic(src).unwrap();
     assert_eq!(calendars.len(), 3);
-    assert_eq!(calendars[0].prod_id.product, "Corp1");
-    assert_eq!(calendars[1].prod_id.product, "Corp2");
-    assert_eq!(calendars[2].prod_id.product, "Corp3");
+    assert_eq!(
+        calendars[0].prod_id.value.to_string(),
+        "-//Corp1//Client//EN"
+    );
+    assert_eq!(
+        calendars[1].prod_id.value.to_string(),
+        "-//Corp2//Client//EN"
+    );
+    assert_eq!(
+        calendars[2].prod_id.value.to_string(),
+        "-//Corp3//Client//EN"
+    );
 }
 
 #[test]

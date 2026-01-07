@@ -40,7 +40,7 @@ use crate::typed::{TypedError, typed_analysis};
 /// END:VCALENDAR\r\n\
 /// ";
 /// let calendars = parse(ical_src).unwrap();
-/// println!("Calendar: {}", calendars[0].prod_id.product);
+/// assert_eq!(calendars[0].prod_id.value.to_string(), "-//Example Corp.//CalDAV Client//EN");
 /// ```
 ///
 /// Parsing invalid iCalendar source will return error reports:

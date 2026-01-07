@@ -22,8 +22,9 @@ use crate::keyword::{
 };
 use crate::parameter::Parameter;
 use crate::property::PropertyKind;
-use crate::property::util::{take_single_string, take_single_text};
+use crate::property::util::take_single_text;
 use crate::typed::{ParsedProperty, TypedError};
+use crate::value::ValueText;
 
 define_prop_value_enum! {
     /// Calendar scale value (RFC 5545 Section 3.7.1)
@@ -177,14 +178,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<'src> {
 /// Product identifier that identifies the software that created the iCalendar data (RFC 5545 Section 3.7.3)
 #[derive(Debug, Clone, Default)]
 pub struct ProductId<'src> {
-    /// Company identifier
-    pub company: String,
-
-    /// Product identifier
-    pub product: String,
-
-    /// Language of the text (optional)
-    pub language: Option<String>,
+    /// The vendor of the implementation SHOULD assure that this is a globally
+    /// unique identifier; using some technique such as an FPI value, as
+    /// defined in [ISO.9070.1991].
+    pub value: ValueText<'src>,
 
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<Parameter<'src>>,
@@ -207,7 +204,6 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<'src> {
 
         let mut x_parameters = Vec::new();
         let mut unrecognized_parameters = Vec::new();
-
         for param in prop.parameters {
             match param {
                 p @ Parameter::XName { .. } => x_parameters.push(p),
@@ -216,26 +212,9 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<'src> {
             }
         }
 
-        let text = take_single_string(&PropertyKind::ProdId, prop.value)?;
-
-        // PRODID format: company//product//language
-        // e.g., "-//Mozilla.org/NONSGML Mozilla Calendar V1.0//EN"
-        let parts: Vec<_> = text.split("//").collect();
-        let (company, product, language) = if parts.len() >= 2 {
-            (
-                parts.first().map(|s| (*s).to_string()).unwrap_or_default(),
-                parts.get(1).map(|s| (*s).to_string()).unwrap_or_default(),
-                parts.get(2).map(|s| (*s).to_string()),
-            )
-        } else {
-            // If not in the expected format, use the whole string as product
-            (String::new(), text, None)
-        };
-
+        let value = take_single_text(&PropertyKind::ProdId, prop.value)?;
         Ok(ProductId {
-            company,
-            product,
-            language,
+            value,
             x_parameters,
             unrecognized_parameters,
         })
