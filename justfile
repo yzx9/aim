@@ -11,6 +11,9 @@ test:
 lint:
   cargo clippy --workspace --all-targets --all-features -- -D warnings
 
+fmt:
+  cargo fmt
+
 # Release new version without publish
 release version:
   # Update CHANGELOG.md
