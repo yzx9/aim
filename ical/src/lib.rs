@@ -36,21 +36,43 @@ pub mod syntax;
 pub mod typed;
 pub mod value;
 
+pub use crate::parameter::{
+    AlarmTriggerRelationship, CalendarUserType, CalendarUserTypeOwned, CalendarUserTypeRef,
+    Encoding, FreeBusyType, FreeBusyTypeOwned, FreeBusyTypeRef, Parameter, ParameterKind,
+    ParameterKindOwned, ParameterKindRef, ParameterOwned, ParameterRef, ParticipationRole,
+    ParticipationRoleOwned, ParticipationRoleRef, ParticipationStatus, ParticipationStatusOwned,
+    ParticipationStatusRef, RecurrenceIdRange, RelationshipType, RelationshipTypeOwned,
+    RelationshipTypeRef, ValueType, ValueTypeOwned, ValueTypeRef,
+};
 pub use crate::parser::{ParseError, parse};
 pub use crate::property::{
-    Action, ActionValue, Attachment, AttachmentValue, Attendee, CalendarScale, CalendarScaleValue,
-    Categories, Classification, ClassificationValue, Comment, Completed, Contact, Created,
-    DateTime, Description, DtEnd, DtStamp, DtStart, Due, Duration, ExDate, ExDateValue, FreeBusy,
-    Geo, LastModified, Location, Method, MethodValue, Organizer, PercentComplete, Period, Priority,
-    ProductId, RDateValue, RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence,
-    Summary, Text, Time, TimeTransparency, TimeTransparencyValue, Trigger, TriggerValue, TzId,
-    TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, Url, Version, VersionValue,
+    Action, ActionValue, Attachment, AttachmentValue, AttachmentValueOwned, AttachmentValueRef,
+    Attendee, CalendarScale, CalendarScaleValue, Categories, CategoriesOwned, CategoriesRef,
+    Classification, ClassificationValue, Comment, CommentOwned, CommentRef, Completed,
+    CompletedOwned, CompletedRef, Contact, ContactOwned, ContactRef, Created, CreatedOwned,
+    CreatedRef, DateTime, Description, DescriptionOwned, DescriptionRef, DtEnd, DtEndOwned,
+    DtEndRef, DtStamp, DtStampOwned, DtStampRef, DtStart, DtStartOwned, DtStartRef, Due, DueOwned,
+    DueRef, Duration, ExDate, ExDateValueOwned, ExDateValueRef, FreeBusy, Geo, LastModified,
+    LastModifiedOwned, LastModifiedRef, Location, LocationOwned, LocationRef, Method, MethodValue,
+    Organizer, PercentComplete, Period, Priority, ProductId, Property, PropertyKind,
+    PropertyKindOwned, PropertyKindRef, PropertyOwned, PropertyRef, RDateValueOwned, RDateValueRef,
+    RecurrenceId, RecurrenceIdOwned, RecurrenceIdRef, RelatedTo, RelatedToOwned, RelatedToRef,
+    Repeat, RequestStatus, RequestStatusOwned, RequestStatusRef, Resources, ResourcesOwned,
+    ResourcesRef, Sequence, Status, StatusValue, Summary, SummaryOwned, SummaryRef, Text, Texts,
+    Time, TimeTransparency, TimeTransparencyValue, Trigger, TriggerValueOwned, TriggerValueRef,
+    TzId, TzIdOwned, TzIdRef, TzName, TzNameOwned, TzNameRef, TzOffsetFrom, TzOffsetFromOwned,
+    TzOffsetFromRef, TzOffsetTo, TzOffsetToOwned, TzOffsetToRef, TzUrl, TzUrlOwned, TzUrlRef, Uid,
+    UidOwned, UidRef, Url, UrlOwned, UrlRef, Version, VersionValue,
 };
 pub use crate::semantic::{
-    CalendarComponent, EventStatus, ICalendar, JournalStatus, TimeZoneObservance, TodoStatus,
-    VAlarm, VEvent, VFreeBusy, VJournal, VTodo,
+    CalendarComponent, EventStatus, EventStatusOwned, EventStatusRef, ICalendar, ICalendarOwned,
+    ICalendarRef, JournalStatus, TimeZoneObservance, TodoStatus, VAlarm, VAlarmOwned, VAlarmRef,
+    VEvent, VEventOwned, VEventRef, VFreeBusy, VFreeBusyOwned, VFreeBusyRef, VJournal,
+    VJournalOwned, VJournalRef, VTimeZone, VTimeZoneOwned, VTimeZoneRef, VTodo, VTodoOwned,
+    VTodoRef,
 };
 pub use crate::value::{
-    Day, RecurrenceFrequency, RecurrenceRule, ValueDate, ValueDateTime, ValueDuration, ValuePeriod,
-    ValueText, ValueTime, ValueUtcOffset, WeekDay,
+    Day, RecurrenceFrequency, RecurrenceRule, Value, ValueDate, ValueDateTime, ValueDuration,
+    ValueOwned, ValuePeriod, ValueRef, ValueText, ValueTextOwned, ValueTextRef, ValueTime,
+    ValueUtcOffset, WeekDay,
 };

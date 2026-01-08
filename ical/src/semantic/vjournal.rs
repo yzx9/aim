@@ -6,73 +6,83 @@
 
 use std::fmt;
 
+use crate::ValueText;
 use crate::keyword::KW_VJOURNAL;
+use crate::parameter::Parameter;
 use crate::property::{
-    Attendee, Classification, DateTime, Description, DtStamp, DtStart, ExDateValue, LastModified,
-    Organizer, Period, Property, PropertyKind, RDateValue, Status, StatusValue, Summary, Uid, Url,
+    Attendee, Classification, DateTime, Description, DtStamp, DtStart, ExDateValueRef,
+    LastModified, Organizer, Period, Property, PropertyKind, RDateValueRef, Status, StatusValue,
+    Summary, Uid, Url,
 };
 use crate::semantic::SemanticError;
+use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
-use crate::value::{RecurrenceRule, ValueText};
+use crate::value::RecurrenceRule;
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]
-pub struct VJournal<'src> {
+pub struct VJournal<S: Clone + fmt::Display> {
     /// Unique identifier for the journal entry
-    pub uid: Uid<'src>,
+    pub uid: Uid<S>,
 
     /// Date/time the journal entry was created
-    pub dt_stamp: DtStamp<'src>,
+    pub dt_stamp: DtStamp<S>,
 
     /// Date/time of the journal entry
-    pub dt_start: DtStart<'src>,
+    pub dt_start: DtStart<S>,
 
     /// Summary/title of the journal entry
-    pub summary: Option<Summary<'src>>,
+    pub summary: Option<Summary<S>>,
 
     /// Description of the journal entry (can appear multiple times)
-    pub descriptions: Vec<Description<'src>>,
+    pub descriptions: Vec<Description<S>>,
 
     /// Organizer of the journal entry
-    pub organizer: Option<Organizer<'src>>,
+    pub organizer: Option<Organizer<S>>,
 
     /// Attendees of the journal entry
-    pub attendees: Vec<Attendee<'src>>,
+    pub attendees: Vec<Attendee<S>>,
 
     /// Last modification date/time
-    pub last_modified: Option<LastModified<'src>>,
+    pub last_modified: Option<LastModified<S>>,
 
     /// Status of the journal entry
-    pub status: Option<JournalStatus<'src>>,
+    pub status: Option<JournalStatus<S>>,
 
     /// Classification
-    pub classification: Option<Classification<'src>>,
+    pub classification: Option<Classification<S>>,
 
     /// Categories
-    pub categories: Vec<ValueText<'src>>,
+    pub categories: Vec<ValueText<S>>,
 
     /// Recurrence rule
     pub rrule: Option<RecurrenceRule>,
 
     /// Recurrence dates
-    pub rdate: Vec<Period<'src>>,
+    pub rdate: Vec<Period<S>>,
 
     /// Exception dates
-    pub ex_date: Vec<DateTime<'src>>,
+    pub ex_date: Vec<DateTime<S>>,
 
     /// URL associated with the journal entry
-    pub url: Option<Url<'src>>,
+    pub url: Option<Url<S>>,
 
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<'src>>,
+    pub x_properties: Vec<Property<S>>,
 
     /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<'src>>,
+    pub unrecognized_properties: Vec<Property<S>>,
 }
+
+/// Type alias for `VJournal` with borrowed data
+pub type VJournalRef<'src> = VJournal<SpannedSegments<'src>>;
+
+/// Type alias for `VJournal` with owned data
+pub type VJournalOwned = VJournal<String>;
 
 /// Parse a `TypedComponent` into a `VJournal`
 #[expect(clippy::too_many_lines)]
-impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
@@ -169,7 +179,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                 },
                 Property::RDate(rdates) => {
                     for rdate in rdates.dates {
-                        if let RDateValue::Period(p) = rdate {
+                        if let RDateValueRef::Period(p) = rdate {
                             props.rdate.push(p);
                         }
                         // TODO: RDate Date/DateTime not yet implemented for journals
@@ -177,7 +187,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<'src> {
                 }
                 Property::ExDate(exdates) => {
                     for exdate in exdates.dates {
-                        if let ExDateValue::DateTime(dt) = exdate {
+                        if let ExDateValueRef::DateTime(dt) = exdate {
                             props.ex_dates.push(dt);
                         }
                         // TODO: ExDate Date-only not yet implemented for journals
@@ -290,19 +300,19 @@ impl From<JournalStatusValue> for StatusValue {
 
 /// Journal status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
-pub struct JournalStatus<'src> {
+pub struct JournalStatus<S: Clone + fmt::Display> {
     /// Status value
     pub value: JournalStatusValue,
     /// Custom X- parameters (preserved for round-trip)
-    pub x_parameters: Vec<crate::parameter::Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
     /// Unknown IANA parameters (preserved for round-trip)
-    pub unrecognized_parameters: Vec<crate::parameter::Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<Status<'src>> for JournalStatus<'src> {
+impl<'src> TryFrom<Status<SpannedSegments<'src>>> for JournalStatus<SpannedSegments<'src>> {
     type Error = SemanticError<'src>;
 
-    fn try_from(property: Status<'src>) -> Result<Self, Self::Error> {
+    fn try_from(property: Status<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
         let Ok(value) = property.value.try_into() else {
             return Err(SemanticError::InvalidValue {
                 property: PropertyKind::Status,
@@ -322,22 +332,22 @@ impl<'src> TryFrom<Status<'src>> for JournalStatus<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'src> {
-    uid:            Option<Uid<'src>>,
-    dt_stamp:       Option<DtStamp<'src>>,
-    dt_start:       Option<DtStart<'src>>,
-    summary:        Option<Summary<'src>>,
-    descriptions:   Vec<Description<'src>>,
-    organizer:      Option<Organizer<'src>>,
-    attendees:      Vec<Attendee<'src>>,
-    last_modified:  Option<LastModified<'src>>,
-    status:         Option<JournalStatus<'src>>,
-    classification: Option<Classification<'src>>,
-    categories:     Option<Vec<ValueText<'src>>>,
+struct PropertyCollector<S: Clone + fmt::Display> {
+    uid:            Option<Uid<S>>,
+    dt_stamp:       Option<DtStamp<S>>,
+    dt_start:       Option<DtStart<S>>,
+    summary:        Option<Summary<S>>,
+    descriptions:   Vec<Description<S>>,
+    organizer:      Option<Organizer<S>>,
+    attendees:      Vec<Attendee<S>>,
+    last_modified:  Option<LastModified<S>>,
+    status:         Option<JournalStatus<S>>,
+    classification: Option<Classification<S>>,
+    categories:     Option<Vec<ValueText<S>>>,
     rrule:          Option<RecurrenceRule>,
-    rdate:          Vec<Period<'src>>,
-    ex_dates:       Vec<DateTime<'src>>,
-    url:            Option<Url<'src>>,
-    x_properties:   Vec<Property<'src>>,
-    unrecognized_properties: Vec<Property<'src>>,
+    rdate:          Vec<Period<S>>,
+    ex_dates:       Vec<DateTime<S>>,
+    url:            Option<Url<S>>,
+    x_properties:   Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }

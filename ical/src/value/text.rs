@@ -16,22 +16,30 @@ use crate::syntax::SpannedSegments;
 
 /// Text value type defined in RFC 5545 Section 3.3.11.
 #[derive(Default, Debug, Clone)]
-pub struct ValueText<'src> {
-    tokens: Vec<ValueTextToken<'src>>,
+pub struct ValueText<S: Clone + fmt::Display> {
+    tokens: Vec<ValueTextToken<S>>,
 }
 
-impl ValueText<'_> {
+/// Type alias for borrowed text value
+pub type ValueTextRef<'src> = ValueText<SpannedSegments<'src>>;
+
+/// Type alias for owned text value
+pub type ValueTextOwned = ValueText<String>;
+
+impl<'src> ValueTextRef<'src> {
     /// Resolve the text value into a single string, processing escapes.
+    ///
+    /// This version tries to avoid allocation when there's only a single string token.
     #[must_use]
-    pub fn resolve(&self) -> Cow<'_, str> {
+    pub fn resolve(&self) -> Cow<'src, str> {
         #[expect(clippy::indexing_slicing)]
         if self.tokens.len() == 1
             && let ValueTextToken::Str(part) = &self.tokens[0]
         {
-            return Cow::Borrowed(part);
+            part.resolve()
+        } else {
+            Cow::Owned(self.to_string())
         }
-
-        Cow::Owned(self.to_string())
     }
 
     /// Compare the text value with a string, ignoring ASCII case.
@@ -55,7 +63,7 @@ impl ValueText<'_> {
                     let Some((head, tail)) = remaining.split_at_checked(part.len()) else {
                         return false;
                     };
-                    if !head.eq_ignore_ascii_case(part) {
+                    if !part.eq_str_ignore_ascii_case(head) {
                         return false;
                     }
                     remaining = tail;
@@ -79,7 +87,7 @@ impl ValueText<'_> {
     }
 }
 
-impl fmt::Display for ValueText<'_> {
+impl<S: Clone + fmt::Display> fmt::Display for ValueText<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for token in &self.tokens {
             match token {
@@ -92,8 +100,8 @@ impl fmt::Display for ValueText<'_> {
 }
 
 #[derive(Debug, Clone)]
-enum ValueTextToken<'src> {
-    Str(&'src str),
+enum ValueTextToken<S: Clone + fmt::Display> {
+    Str(S),
     Escape(ValueTextEscape),
 }
 
@@ -126,7 +134,7 @@ impl fmt::Display for ValueTextEscape {
 pub struct RawValueText(Vec<Either<SpanCollector, ValueTextEscape>>);
 
 impl RawValueText {
-    pub fn build<'src>(self, src: &SpannedSegments<'src>) -> ValueText<'src> {
+    pub fn build<'src>(self, src: &SpannedSegments<'src>) -> ValueTextRef<'src> {
         let size = self.0.iter().fold(0, |acc, t| match t {
             Either::Left(collector) => acc + collector.0.len(),
             Either::Right(_) => acc + 1,
@@ -202,7 +210,7 @@ where
 struct SpanCollector(Vec<SimpleSpan>);
 
 impl SpanCollector {
-    fn build<'src>(self, src: &SpannedSegments<'src>) -> Vec<&'src str> {
+    fn build<'src>(self, src: &SpannedSegments<'src>) -> Vec<SpannedSegments<'src>> {
         // assume src segments are non-overlapping and sorted
         let mut iter = src.segments.iter();
         let Some(mut item) = iter.next() else {
@@ -227,13 +235,14 @@ impl SpanCollector {
                         Some(a) => item = a,
                         None => flag = false, // no more segments
                     }
-                    vec.push(s);
+                    vec.push(SpannedSegments::new(vec![(s, span.into())]));
                 } else {
                     // within this segment
                     flag = false;
                     let i = span.start - item.1.start;
                     let j = span.end - item.1.start;
-                    vec.push(item.0.get(i..j).unwrap()); // SAFETY: since i,j are in range
+                    let s = item.0.get(i..j).unwrap(); // SAFETY: since i,j are in range
+                    vec.push(SpannedSegments::new(vec![(s, span.into())]));
                 }
             }
         }
@@ -283,7 +292,7 @@ mod tests {
         })
     }
 
-    fn parse(src: &str) -> ValueText<'_> {
+    fn parse(src: &str) -> ValueTextRef<'_> {
         let token_stream = lex_analysis(src);
         let comps = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
         assert_eq!(comps.len(), 1);

@@ -5,7 +5,7 @@
 use chumsky::error::Rich;
 
 use crate::lexer::{Token, lex_analysis};
-use crate::semantic::{ICalendar, SemanticError, semantic_analysis};
+use crate::semantic::{ICalendarRef, SemanticError, semantic_analysis};
 use crate::syntax::syntax_analysis;
 use crate::typed::{TypedError, typed_analysis};
 
@@ -97,7 +97,7 @@ use crate::typed::{TypedError, typed_analysis};
 ///   report.eprint(Source::from(invalid_ical_src));
 /// }
 /// ```
-pub fn parse(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<ParseError<'_>>> {
+pub fn parse(src: &'_ str) -> Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>> {
     let token_stream = lex_analysis(src);
 
     let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream)

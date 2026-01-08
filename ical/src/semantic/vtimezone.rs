@@ -4,41 +4,50 @@
 
 //! Timezone component (VTIMEZONE) for iCalendar semantic components.
 
+use std::fmt::Display;
+
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
 use crate::property::{
     DtStart, LastModified, Property, PropertyKind, Text, TzId, TzOffsetFrom, TzOffsetTo, TzUrl,
 };
 use crate::semantic::SemanticError;
+use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
 use crate::value::RecurrenceRule;
 
 /// Timezone component (VTIMEZONE)
 #[derive(Debug, Clone)]
-pub struct VTimeZone<'src> {
+pub struct VTimeZone<S: Clone + Display> {
     /// Timezone identifier
-    pub tz_id: TzId<'src>,
+    pub tz_id: TzId<S>,
 
     /// Last modification date/time
-    pub last_modified: Option<LastModified<'src>>,
+    pub last_modified: Option<LastModified<S>>,
 
     /// Timezone URL
-    pub tz_url: Option<TzUrl<'src>>,
+    pub tz_url: Option<TzUrl<S>>,
 
     /// Standard time observances
-    pub standard: Vec<TimeZoneObservance<'src>>,
+    pub standard: Vec<TimeZoneObservance<S>>,
 
     /// Daylight saving time observances
-    pub daylight: Vec<TimeZoneObservance<'src>>,
+    pub daylight: Vec<TimeZoneObservance<S>>,
 
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<'src>>,
+    pub x_properties: Vec<Property<S>>,
 
     /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<'src>>,
+    pub unrecognized_properties: Vec<Property<S>>,
 }
 
+/// Type alias for `VTimeZone` with borrowed data
+pub type VTimeZoneRef<'src> = VTimeZone<SpannedSegments<'src>>;
+
+/// Type alias for `VTimeZone` with owned data
+pub type VTimeZoneOwned = VTimeZone<String>;
+
 /// Parse a `TypedComponent` into a `VTimeZone`
-impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
@@ -142,36 +151,34 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<'src> {
 
 /// Timezone observance (standard or daylight)
 #[derive(Debug, Clone)]
-pub struct TimeZoneObservance<'src> {
+pub struct TimeZoneObservance<S: Clone + Display> {
     /// Start date/time for this observance
-    pub dt_start: DtStart<'src>,
+    pub dt_start: DtStart<S>,
 
     /// Offset from UTC for this observance
-    pub tz_offset_from: TzOffsetFrom<'src>,
+    pub tz_offset_from: TzOffsetFrom<S>,
 
     /// Offset from UTC for this observance
-    pub tz_offset_to: TzOffsetTo<'src>,
+    pub tz_offset_to: TzOffsetTo<S>,
 
     /// Timezone names
-    pub tz_name: Vec<Text<'src>>,
+    pub tz_name: Vec<Text<S>>,
 
     /// Recurrence rule for this observance
     pub rrule: Option<RecurrenceRule>,
 
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<'src>>,
+    pub x_properties: Vec<Property<S>>,
 
     /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<'src>>,
+    pub unrecognized_properties: Vec<Property<S>>,
 }
 
-impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     /// Parse a timezone observance (STANDARD or DAYLIGHT) component
-    fn try_from(
-        comp: TypedComponent<'src>,
-    ) -> Result<TimeZoneObservance<'src>, Vec<SemanticError<'src>>> {
+    fn try_from(comp: TypedComponent<'src>) -> Result<Self, Vec<SemanticError<'src>>> {
         let mut errors = Vec::new();
 
         // Collect all properties in a single pass
@@ -261,23 +268,23 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'src> {
-    tz_id:            Option<TzId<'src>>,
-    last_modified:    Option<LastModified<'src>>,
-    tz_url:           Option<TzUrl<'src>>,
-    x_properties:     Vec<Property<'src>>,
-    unrecognized_properties: Vec<Property<'src>>,
+struct PropertyCollector<S: Clone + Display> {
+    tz_id:            Option<TzId<S>>,
+    last_modified:    Option<LastModified<S>>,
+    tz_url:           Option<TzUrl<S>>,
+    x_properties:     Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }
 
 /// Helper struct to collect observance properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct ObservanceCollector<'src> {
-    dt_start:       Option<DtStart<'src>>,
-    tz_offset_from: Option<TzOffsetFrom<'src>>,
-    tz_offset_to:   Option<TzOffsetTo<'src>>,
-    tz_name:        Vec<Text<'src>>,
+struct ObservanceCollector<S: Clone + Display> {
+    dt_start:       Option<DtStart<S>>,
+    tz_offset_from: Option<TzOffsetFrom<S>>,
+    tz_offset_to:   Option<TzOffsetTo<S>>,
+    tz_name:        Vec<Text<S>>,
     rrule:          Option<RecurrenceRule>,
-    x_properties:   Vec<Property<'src>>,
-    unrecognized_properties: Vec<Property<'src>>,
+    x_properties:   Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }

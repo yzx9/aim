@@ -13,5 +13,8 @@ use crate::property::util::Text;
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.8.3)
-    RequestStatus<'src>: Text<'src> => RequestStatus
+    pub RequestStatus<S> => Text
+
+    ref   = pub type RequestStatusRef;
+    owned = pub type RequestStatusOwned;
 );

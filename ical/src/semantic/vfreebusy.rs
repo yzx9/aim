@@ -4,64 +4,73 @@
 
 //! Free/busy time component (VFREEBUSY) for iCalendar semantic components.
 
-use crate::Uid;
+use std::fmt::Display;
+
 use crate::keyword::KW_VFREEBUSY;
 use crate::parameter::FreeBusyType;
+use crate::property::Uid;
 use crate::property::{
     Contact, DtEnd, DtStamp, DtStart, Organizer, Period, Property, PropertyKind, Url,
 };
 use crate::semantic::SemanticError;
+use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
 use crate::value::ValueDuration;
 
 /// Free/busy time component (VFREEBUSY)
 #[derive(Debug, Clone)]
-pub struct VFreeBusy<'src> {
+pub struct VFreeBusy<S: Clone + Display> {
     /// Unique identifier for the free/busy info
-    pub uid: Uid<'src>,
+    pub uid: Uid<S>,
 
     /// Date/time the free/busy info was created
-    pub dt_stamp: DtStamp<'src>,
+    pub dt_stamp: DtStamp<S>,
 
     /// Start of the free/busy period
-    pub dt_start: DtStart<'src>,
+    pub dt_start: DtStart<S>,
 
     /// End of the free/busy period
-    pub dt_end: Option<DtEnd<'src>>,
+    pub dt_end: Option<DtEnd<S>>,
 
     /// Duration of the free/busy period
     pub duration: Option<ValueDuration>,
 
     /// Organizer of the free/busy info
-    pub organizer: Organizer<'src>,
+    pub organizer: Organizer<S>,
 
     /// Contact information
-    pub contact: Option<Contact<'src>>,
+    pub contact: Option<Contact<S>>,
 
     /// URL for additional free/busy info
-    pub url: Option<Url<'src>>,
+    pub url: Option<Url<S>>,
 
     /// Busy periods
-    pub busy: Vec<Period<'src>>,
+    pub busy: Vec<Period<S>>,
 
     /// Free periods
-    pub free: Vec<Period<'src>>,
+    pub free: Vec<Period<S>>,
 
     /// Busy-tentative periods
-    pub busy_tentative: Vec<Period<'src>>,
+    pub busy_tentative: Vec<Period<S>>,
 
     /// Unavailable periods
-    pub busy_unavailable: Vec<Period<'src>>,
+    pub busy_unavailable: Vec<Period<S>>,
 
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<'src>>,
+    pub x_properties: Vec<Property<S>>,
 
     /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<'src>>,
+    pub unrecognized_properties: Vec<Property<S>>,
 }
 
+/// Type alias for `VFreeBusy` with borrowed data
+pub type VFreeBusyRef<'src> = VFreeBusy<SpannedSegments<'src>>;
+
+/// Type alias for `VFreeBusy` with owned data
+pub type VFreeBusyOwned<'src> = VFreeBusy<String>;
+
 /// Parse a `TypedComponent` into a `VFreeBusy`
-impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -216,19 +225,19 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'src> {
-    uid:                Option<Uid<'src>>,
-    dt_stamp:           Option<DtStamp<'src>>,
-    dt_start:           Option<DtStart<'src>>,
-    dt_end:             Option<DtEnd<'src>>,
+struct PropertyCollector<S: Clone + Display> {
+    uid:                Option<Uid<S>>,
+    dt_stamp:           Option<DtStamp<S>>,
+    dt_start:           Option<DtStart<S>>,
+    dt_end:             Option<DtEnd<S>>,
     duration:           Option<ValueDuration>,
-    organizer:          Option<Organizer<'src>>,
-    contact:            Option<Contact<'src>>,
-    url:                Option<Url<'src>>,
-    busy:               Vec<Period<'src>>,
-    free:               Vec<Period<'src>>,
-    busy_tentative:     Vec<Period<'src>>,
-    busy_unavailable:   Vec<Period<'src>>,
-    x_properties:       Vec<Property<'src>>,
-    unrecognized_properties: Vec<Property<'src>>,
+    organizer:          Option<Organizer<S>>,
+    contact:            Option<Contact<S>>,
+    url:                Option<Url<S>>,
+    busy:               Vec<Period<S>>,
+    free:               Vec<Period<S>>,
+    busy_tentative:     Vec<Period<S>>,
+    busy_unavailable:   Vec<Period<S>>,
+    x_properties:       Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }

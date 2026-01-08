@@ -5,106 +5,114 @@
 //! To-do component (VTODO) for iCalendar semantic components.
 
 use std::fmt;
+use std::fmt::Display;
 
 use crate::Uid;
 use crate::keyword::{KW_VALARM, KW_VTODO};
 use crate::parameter::Parameter;
 use crate::property::{
     Attendee, Categories, Classification, Completed, DateTime, Description, DtStamp, DtStart, Due,
-    ExDateValue, Geo, LastModified, Location, Organizer, PercentComplete, Period, Priority,
-    Property, PropertyKind, RDateValue, Resources, Sequence, Status, StatusValue, Summary, Url,
+    ExDateValueRef, Geo, LastModified, Location, Organizer, PercentComplete, Period, Priority,
+    Property, PropertyKind, RDateValueRef, Resources, Sequence, Status, StatusValue, Summary, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
+use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
 use crate::value::{RecurrenceRule, ValueDuration};
 
 /// To-do component (VTODO)
 #[derive(Debug, Clone)]
-pub struct VTodo<'src> {
+pub struct VTodo<S: Clone + Display> {
     /// Unique identifier for the todo
-    pub uid: Uid<'src>,
+    pub uid: Uid<S>,
 
     /// Date/time the todo was created
-    pub dt_stamp: DtStamp<'src>,
+    pub dt_stamp: DtStamp<S>,
 
     /// Date/time to start the todo
-    pub dt_start: Option<DtStart<'src>>,
+    pub dt_start: Option<DtStart<S>>,
 
     /// Date/time the todo is due
-    pub due: Option<Due<'src>>,
+    pub due: Option<Due<S>>,
 
     /// Completion date/time
-    pub completed: Option<Completed<'src>>,
+    pub completed: Option<Completed<S>>,
 
     /// Duration of the todo
     pub duration: Option<ValueDuration>,
 
     /// Summary/title of the todo
-    pub summary: Option<Summary<'src>>,
+    pub summary: Option<Summary<S>>,
 
     /// Description of the todo
-    pub description: Option<Description<'src>>,
+    pub description: Option<Description<S>>,
 
     /// Location of the todo
-    pub location: Option<Location<'src>>,
+    pub location: Option<Location<S>>,
 
     /// Geographic position
-    pub geo: Option<Geo<'src>>,
+    pub geo: Option<Geo<S>>,
 
     /// URL associated with the todo
-    pub url: Option<Url<'src>>,
+    pub url: Option<Url<S>>,
 
     /// Organizer of the todo
-    pub organizer: Option<Organizer<'src>>,
+    pub organizer: Option<Organizer<S>>,
 
     /// Attendees of the todo
-    pub attendees: Vec<Attendee<'src>>,
+    pub attendees: Vec<Attendee<S>>,
 
     /// Last modification date/time
-    pub last_modified: Option<LastModified<'src>>,
+    pub last_modified: Option<LastModified<S>>,
 
     /// Status of the todo
-    pub status: Option<TodoStatus<'src>>,
+    pub status: Option<TodoStatus<S>>,
 
     /// Sequence number for revisions
-    pub sequence: Option<Sequence<'src>>,
+    pub sequence: Option<Sequence<S>>,
 
     /// Priority (1-9, 1 is highest)
-    pub priority: Option<Priority<'src>>,
+    pub priority: Option<Priority<S>>,
 
     /// Percentage complete (0-100)
-    pub percent_complete: Option<PercentComplete<'src>>,
+    pub percent_complete: Option<PercentComplete<S>>,
 
     /// Classification
-    pub classification: Option<Classification<'src>>,
+    pub classification: Option<Classification<S>>,
 
     /// Resources
-    pub resources: Option<Resources<'src>>,
+    pub resources: Option<Resources<S>>,
 
     /// Categories
-    pub categories: Option<Categories<'src>>,
+    pub categories: Option<Categories<S>>,
 
     /// Recurrence rule
     pub rrule: Option<RecurrenceRule>,
 
     /// Recurrence dates
-    pub rdate: Vec<Period<'src>>,
+    pub rdate: Vec<Period<S>>,
 
     /// Exception dates
-    pub ex_date: Vec<DateTime<'src>>,
+    pub ex_date: Vec<DateTime<S>>,
 
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<'src>>,
+    pub x_properties: Vec<Property<S>>,
 
     /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<'src>>,
+    pub unrecognized_properties: Vec<Property<S>>,
 
     /// Sub-components (like alarms)
-    pub alarms: Vec<VAlarm<'src>>,
+    pub alarms: Vec<VAlarm<S>>,
 }
 
+/// Type alias for `VTodo` with borrowed data
+pub type VTodoRef<'src> = VTodo<SpannedSegments<'src>>;
+
+/// Type alias for `VTodo` with owned data
+pub type VTodoOwned = VTodo<String>;
+
 /// Parse a `TypedComponent` into a `VTodo`
-impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -277,7 +285,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
                 },
                 Property::RDate(rdates) => {
                     for rdate in rdates.dates {
-                        if let RDateValue::Period(p) = rdate {
+                        if let RDateValueRef::Period(p) = rdate {
                             props.rdate.push(p);
                         }
                         // RDate Date/DateTime not yet implemented for todos
@@ -285,7 +293,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<'src> {
                 }
                 Property::ExDate(exdates) => {
                     for exdate in exdates.dates {
-                        if let ExDateValue::DateTime(dt) = exdate {
+                        if let ExDateValueRef::DateTime(dt) = exdate {
                             props.ex_dates.push(dt);
                         }
                         // ExDate Date-only not yet implemented for todos
@@ -400,7 +408,7 @@ impl TryFrom<StatusValue> for TodoStatusValue {
     }
 }
 
-impl fmt::Display for TodoStatusValue {
+impl Display for TodoStatusValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         StatusValue::from(*self).fmt(f)
     }
@@ -419,19 +427,19 @@ impl From<TodoStatusValue> for StatusValue {
 
 /// To-do status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
-pub struct TodoStatus<'src> {
+pub struct TodoStatus<S: Clone + Display> {
     /// Status value
     pub value: TodoStatusValue,
     /// Custom X- parameters (preserved for round-trip)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
     /// Unknown IANA parameters (preserved for round-trip)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<Status<'src>> for TodoStatus<'src> {
+impl<'src> TryFrom<Status<SpannedSegments<'src>>> for TodoStatus<SpannedSegments<'src>> {
     type Error = SemanticError<'src>;
 
-    fn try_from(property: Status<'src>) -> Result<Self, Self::Error> {
+    fn try_from(property: Status<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
         let Ok(value) = property.value.try_into() else {
             return Err(SemanticError::InvalidValue {
                 property: PropertyKind::Status,
@@ -451,31 +459,31 @@ impl<'src> TryFrom<Status<'src>> for TodoStatus<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'src> {
-    uid:            Option<Uid<'src>>,
-    dt_stamp:       Option<DtStamp<'src>>,
-    dt_start:       Option<DtStart<'src>>,
-    due:            Option<Due<'src>>,
-    completed:      Option<Completed<'src>>,
+struct PropertyCollector<S: Clone + Display> {
+    uid:            Option<Uid<S>>,
+    dt_stamp:       Option<DtStamp<S>>,
+    dt_start:       Option<DtStart<S>>,
+    due:            Option<Due<S>>,
+    completed:      Option<Completed<S>>,
     duration:       Option<ValueDuration>,
-    summary:        Option<Summary<'src>>,
-    description:    Option<Description<'src>>,
-    location:       Option<Location<'src>>,
-    geo:            Option<Geo<'src>>,
-    url:            Option<Url<'src>>,
-    organizer:      Option<Organizer<'src>>,
-    attendees:      Vec<Attendee<'src>>,
-    last_modified:  Option<LastModified<'src>>,
-    status:         Option<TodoStatus<'src>>,
-    sequence:       Option<Sequence<'src>>,
-    priority:       Option<Priority<'src>>,
-    percent_complete: Option<PercentComplete<'src>>,
-    classification: Option<Classification<'src>>,
-    resources:      Option<Resources<'src>>,
-    categories:     Option<Categories<'src>>,
+    summary:        Option<Summary<S>>,
+    description:    Option<Description<S>>,
+    location:       Option<Location<S>>,
+    geo:            Option<Geo<S>>,
+    url:            Option<Url<S>>,
+    organizer:      Option<Organizer<S>>,
+    attendees:      Vec<Attendee<S>>,
+    last_modified:  Option<LastModified<S>>,
+    status:         Option<TodoStatus<S>>,
+    sequence:       Option<Sequence<S>>,
+    priority:       Option<Priority<S>>,
+    percent_complete: Option<PercentComplete<S>>,
+    classification: Option<Classification<S>>,
+    resources:      Option<Resources<S>>,
+    categories:     Option<Categories<S>>,
     rrule:          Option<RecurrenceRule>,
-    rdate:          Vec<Period<'src>>,
-    ex_dates:       Vec<DateTime<'src>>,
-    x_properties:   Vec<Property<'src>>,
-    unrecognized_properties: Vec<Property<'src>>,
+    rdate:          Vec<Period<S>>,
+    ex_dates:       Vec<DateTime<S>>,
+    x_properties:   Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }

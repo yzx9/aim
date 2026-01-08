@@ -11,7 +11,7 @@ use chumsky::error::Rich;
 
 use aimcal_ical::lexer::lex_analysis;
 use aimcal_ical::semantic::{CalendarComponent, SemanticError, semantic_analysis};
-use aimcal_ical::syntax::syntax_analysis;
+use aimcal_ical::syntax::{SpannedSegments, syntax_analysis};
 use aimcal_ical::typed::typed_analysis;
 use aimcal_ical::value::ValueDuration;
 use aimcal_ical::{
@@ -20,7 +20,9 @@ use aimcal_ical::{
 };
 
 /// Test helper to parse iCalendar source through semantic phase
-fn parse_semantic(src: &'_ str) -> Result<Vec<ICalendar<'_>>, Vec<SemanticError<'_>>> {
+fn parse_semantic(
+    src: &'_ str,
+) -> Result<Vec<ICalendar<SpannedSegments<'_>>>, Vec<SemanticError<'_>>> {
     let token_stream = lex_analysis(src);
     let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
     let typed_components = typed_analysis(syntax_components).unwrap();

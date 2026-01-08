@@ -4,7 +4,7 @@
 
 //! Lexer for iCalendar files as defined in RFC 5545
 
-use std::fmt;
+use std::fmt::{self, Display};
 use std::ops::Range;
 
 use chumsky::input::{Input, MapExtra, Stream, ValueInput};
@@ -77,7 +77,7 @@ pub enum Token<'a> {
     Error,
 }
 
-impl fmt::Display for Token<'_> {
+impl Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DQuote => write!(f, "DQuote"),
@@ -96,7 +96,7 @@ impl fmt::Display for Token<'_> {
 
 impl fmt::Debug for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self, f)
+        Display::fmt(self, f)
     }
 }
 
@@ -148,7 +148,7 @@ impl From<Span> for SimpleSpan<usize> {
     }
 }
 
-impl fmt::Display for Span {
+impl Display for Span {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}..{}", self.start, self.end)
     }
@@ -173,7 +173,7 @@ impl<'src> SpannedToken<'src> {
     }
 }
 
-impl fmt::Display for SpannedToken<'_> {
+impl Display for SpannedToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}@{:?}", self.0, self.1)
     }

@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::parameter::{Parameter, ParameterKind};
-use crate::syntax::{SpannedSegments, SyntaxParameter, SyntaxParameterValue};
+use crate::parameter::{ParameterKindRef, ParameterRef};
+use crate::syntax::{SpannedSegments, SyntaxParameterRef, SyntaxParameterValueRef};
 use crate::typed::TypedError;
 
-pub type ParseResult<'src> = Result<Parameter<'src>, Vec<TypedError<'src>>>;
+pub type ParseResult<'src> = Result<ParameterRef<'src>, Vec<TypedError<'src>>>;
 
 /// Parse a single value from a parameter.
 ///
@@ -20,9 +20,9 @@ pub type ParseResult<'src> = Result<Parameter<'src>, Vec<TypedError<'src>>>;
 /// This should never happen in practice as the length check ensures there is
 /// exactly one value.
 pub fn parse_single<'src>(
-    param: &mut SyntaxParameter<'src>,
-    kind: ParameterKind<'src>,
-) -> Result<SyntaxParameterValue<'src>, Vec<TypedError<'src>>> {
+    param: &mut SyntaxParameterRef<'src>,
+    kind: ParameterKindRef<'src>,
+) -> Result<SyntaxParameterValueRef<'src>, Vec<TypedError<'src>>> {
     match param.values.len() {
         1 => Ok(param.values.pop().unwrap()),
         _ => Err(vec![TypedError::ParameterMultipleValuesDisallowed {
@@ -40,8 +40,8 @@ pub fn parse_single<'src>(
 /// - The parameter does not have exactly one value
 /// - The value is not quoted
 pub fn parse_single_quoted<'src>(
-    param: &mut SyntaxParameter<'src>,
-    kind: ParameterKind<'src>,
+    param: &mut SyntaxParameterRef<'src>,
+    kind: ParameterKindRef<'src>,
 ) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
     match param.values.len() {
         1 => {
@@ -71,8 +71,8 @@ pub fn parse_single_quoted<'src>(
 /// - The parameter does not have exactly one value
 /// - The value is quoted
 pub fn parse_single_not_quoted<'src>(
-    param: &mut SyntaxParameter<'src>,
-    kind: ParameterKind<'src>,
+    param: &mut SyntaxParameterRef<'src>,
+    kind: ParameterKindRef<'src>,
 ) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
     // TODO: avoid clone kind
     match param.values.len() {
@@ -101,8 +101,8 @@ pub fn parse_single_not_quoted<'src>(
 ///
 /// Returns an error if any of the values are not quoted.
 pub fn parse_multiple_quoted<'src>(
-    param: SyntaxParameter<'src>,
-    kind: &ParameterKind<'src>,
+    param: SyntaxParameterRef<'src>,
+    kind: &ParameterKindRef<'src>,
 ) -> Result<Vec<SpannedSegments<'src>>, Vec<TypedError<'src>>> {
     let mut values = Vec::with_capacity(param.values.len());
     let mut errors = Vec::new();
@@ -164,7 +164,7 @@ macro_rules! define_param_enum {
             }
         }
 
-        impl fmt::Display for $name {
+        impl ::core::fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     $(
@@ -174,16 +174,16 @@ macro_rules! define_param_enum {
             }
         }
 
-        $pvis fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
-            parse_single_not_quoted(&mut param, ParameterKind::$name).and_then(|value| {
+        $pvis fn $parse_fn(mut param: crate::syntax::SyntaxParameterRef<'_>) -> ParseResult<'_> {
+            parse_single_not_quoted(&mut param, crate::parameter::ParameterKind::$name).and_then(|value| {
                 match $name::try_from(value) {
-                    Ok(value) => Ok(Parameter::$name {
+                    Ok(value) => Ok(crate::parameter::Parameter::$name {
                         value,
                         span: param.span(),
                     }),
                     Err(value) => Err(vec![TypedError::ParameterValueInvalid {
                         span: value.span(),
-                        parameter: ParameterKind::$name,
+                        parameter: crate::parameter::ParameterKind::$name,
                         value,
                     }])
                 }
@@ -206,41 +206,30 @@ macro_rules! define_param_enum_with_unknown {
             ),* $(,)?
         }
 
+        ref    = $rvis:vis type $name_ref:ident;
+        owned  = $ovis:vis type $name_owned:ident;
         parser = $pvis:vis fn $parse_fn:ident;
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone)]
         #[allow(missing_docs)]
-        $vis enum $name<'src> {
+        $vis enum $name<S: Clone + ::core::fmt::Display> {
             $(
                 $(#[$vmeta])*
                 $variant,
             )*
             /// Custom experimental x-name value (must start with "X-" or "x-")
-            XName(SpannedSegments<'src>),
+            XName(S),
             /// Unrecognized value (not a known standard value)
-            Unrecognized(SpannedSegments<'src>),
+            Unrecognized(S),
         }
 
-        impl<'src> ::core::convert::From<SpannedSegments<'src>> for $name<'src> {
-            fn from(segs: SpannedSegments<'src>) -> Self {
-                $(
-                    if segs.eq_str_ignore_ascii_case($kw) {
-                        return Self::$variant;
-                    }
-                )*
+        /// Borrowed type alias for parameter with lifetime `'src`
+        $rvis type $name_ref<'src> = $name<SpannedSegments<'src>>;
+        /// Owned type alias for parameter
+        $ovis type $name_owned = $name<String>;
 
-                // Check for x-name prefix
-                if segs.starts_with_str_ignore_ascii_case("X-") {
-                    Self::XName(segs.clone())
-                } else {
-                    // Otherwise, treat as unrecognized value
-                    Self::Unrecognized(segs.clone())
-                }
-            }
-        }
-
-        impl<'src> ::core::fmt::Display for $name<'src> {
+        impl<T: Clone + ::core::fmt::Display> ::core::fmt::Display for $name<T> {
             fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 match self {
                     $(
@@ -251,7 +240,7 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        impl $name<'_> {
+        impl<T: Clone + ::core::fmt::Display> $name<T> {
             /// Tries to compare two values for equality if both are standard values.
             /// Returns None if either value is x-name/unrecognized.
             #[allow(dead_code)]
@@ -270,7 +259,26 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        $pvis fn $parse_fn(mut param: SyntaxParameter<'_>) -> ParseResult<'_> {
+        impl<'src> ::core::convert::From<SpannedSegments<'src>> for $name_ref<'src> {
+            fn from(segs: SpannedSegments<'src>) -> Self {
+                $(
+                    if segs.eq_str_ignore_ascii_case($kw) {
+                        return Self::$variant;
+                    }
+                )*
+
+                // Check for x-name prefix
+                if segs.starts_with_str_ignore_ascii_case("X-") {
+                    Self::XName(segs.clone())
+                } else {
+                    // Otherwise, treat as unrecognized value
+                    Self::Unrecognized(segs.clone())
+                }
+            }
+        }
+
+
+        $pvis fn $parse_fn(mut param: SyntaxParameterRef<'_>) -> ParseResult<'_> {
             parse_single_not_quoted(&mut param, ParameterKind::$name).map(|value| {
                 let enum_value = $name::try_from(value).unwrap(); // Never fails due to XName/Unrecognized variants
                 Parameter::$name {

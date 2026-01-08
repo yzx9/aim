@@ -46,32 +46,55 @@ mod recurrence;
 mod relationship;
 mod timezone;
 
-pub use alarm::{Action, ActionValue, Repeat, Trigger, TriggerValue};
+pub use alarm::{Action, ActionValue, Repeat, Trigger, TriggerValueOwned, TriggerValueRef};
 pub use calendar::{
     CalendarScale, CalendarScaleValue, Method, MethodValue, ProductId, Version, VersionValue,
 };
-pub use changemgmt::{Created, DtStamp, LastModified, Sequence};
+pub use changemgmt::{
+    Created, CreatedOwned, CreatedRef, DtStamp, DtStampOwned, DtStampRef, LastModified,
+    LastModifiedOwned, LastModifiedRef, Sequence,
+};
 pub use datetime::{
-    Completed, DateTime, DtEnd, DtStart, Due, Duration, FreeBusy, Period, Time, TimeTransparency,
-    TimeTransparencyValue,
+    Completed, CompletedOwned, CompletedRef, DateTime, DtEnd, DtEndOwned, DtEndRef, DtStart,
+    DtStartOwned, DtStartRef, Due, DueOwned, DueRef, Duration, FreeBusy, Period, Time,
+    TimeTransparency, TimeTransparencyValue,
 };
 pub use descriptive::{
-    Attachment, AttachmentValue, Categories, Classification, ClassificationValue, Comment,
-    Description, Geo, Location, PercentComplete, Priority, Resources, Status, StatusValue, Summary,
+    Attachment, AttachmentValue, AttachmentValueOwned, AttachmentValueRef, Categories,
+    CategoriesOwned, CategoriesRef, Classification, ClassificationValue, Comment, CommentOwned,
+    CommentRef, Description, DescriptionOwned, DescriptionRef, Geo, Location, LocationOwned,
+    LocationRef, PercentComplete, Priority, Resources, ResourcesOwned, ResourcesRef, Status,
+    StatusValue, Summary, SummaryOwned, SummaryRef,
 };
-pub use kind::PropertyKind;
-pub use miscellaneous::RequestStatus;
-pub use recurrence::{ExDate, ExDateValue, RDate, RDateValue};
-pub use relationship::{Attendee, Contact, Organizer, RecurrenceId, RelatedTo, Uid, Url};
-pub use timezone::{TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl};
+pub use kind::{PropertyKind, PropertyKindOwned, PropertyKindRef};
+pub use miscellaneous::{RequestStatus, RequestStatusOwned, RequestStatusRef};
+pub use recurrence::{
+    ExDate, ExDateValueOwned, ExDateValueRef, RDate, RDateValueOwned, RDateValueRef,
+};
+pub use relationship::{
+    Attendee, Contact, ContactOwned, ContactRef, Organizer, RecurrenceId, RecurrenceIdOwned,
+    RecurrenceIdRef, RelatedTo, RelatedToOwned, RelatedToRef, Uid, UidOwned, UidRef, Url, UrlOwned,
+    UrlRef,
+};
+pub use timezone::{
+    TzId, TzIdOwned, TzIdRef, TzName, TzNameOwned, TzNameRef, TzOffsetFrom, TzOffsetFromOwned,
+    TzOffsetFromRef, TzOffsetTo, TzOffsetToOwned, TzOffsetToRef, TzUrl, TzUrlOwned, TzUrlRef,
+};
 pub use util::{Text, Texts};
+
+use std::fmt::Display;
 
 use crate::lexer::Span;
 use crate::parameter::Parameter;
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::RecurrenceRule;
-use crate::value::Value;
+use crate::value::{RecurrenceRule, Value};
+
+/// Type alias for borrowed property
+pub type PropertyRef<'src> = Property<SpannedSegments<'src>>;
+
+/// Type alias for owned property (not yet implemented, would require owned semantic types)
+pub type PropertyOwned = Property<String>;
 
 /// Unified property enum with one variant per `PropertyKind`.
 ///
@@ -88,153 +111,153 @@ use crate::value::Value;
 /// }
 /// ```
 #[derive(Debug, Clone)]
-pub enum Property<'src> {
+pub enum Property<S: Clone + Display> {
     // Section 3.7 - Calendar Properties
     /// 3.7.1 Calendar Scale
-    CalScale(CalendarScale<'src>),
+    CalScale(CalendarScale<S>),
 
     /// 3.7.2 Method
-    Method(Method<'src>),
+    Method(Method<S>),
 
     /// 3.7.3 Product Identifier
-    ProdId(ProductId<'src>),
+    ProdId(ProductId<S>),
 
     /// 3.7.4 Version
-    Version(Version<'src>),
+    Version(Version<S>),
 
     // Section 3.8.1 - Descriptive Component Properties
     /// 3.8.1.1 Attachment
-    Attach(Attachment<'src>),
+    Attach(Attachment<S>),
 
     /// 3.8.1.2 Categories (multi-valued text)
-    Categories(Categories<'src>),
+    Categories(Categories<S>),
 
     /// 3.8.1.3 Classification
-    Class(Classification<'src>),
+    Class(Classification<S>),
 
     /// 3.8.1.4 Comment
-    Comment(Comment<'src>),
+    Comment(Comment<S>),
 
     /// 3.8.1.5 Description
-    Description(Description<'src>),
+    Description(Description<S>),
 
     /// 3.8.1.6 Geographic Position
-    Geo(Geo<'src>),
+    Geo(Geo<S>),
 
     /// 3.8.1.7 Location
-    Location(Location<'src>),
+    Location(Location<S>),
 
     /// 3.8.1.8 Percent Complete
-    PercentComplete(PercentComplete<'src>),
+    PercentComplete(PercentComplete<S>),
 
     /// 3.8.1.9 Priority
-    Priority(Priority<'src>),
+    Priority(Priority<S>),
 
     /// 3.8.1.10 Resources (multi-valued text)
-    Resources(Resources<'src>),
+    Resources(Resources<S>),
 
     /// 3.8.1.11 Status
-    Status(Status<'src>),
+    Status(Status<S>),
 
     /// 3.8.1.12 Summary
-    Summary(Summary<'src>),
+    Summary(Summary<S>),
 
     // Section 3.8.2 - Date and Time Properties
     /// 3.8.2.1 Date-Time Completed
-    Completed(Completed<'src>),
+    Completed(Completed<S>),
 
     /// 3.8.2.2 Date-Time End
-    DtEnd(DtEnd<'src>),
+    DtEnd(DtEnd<S>),
 
     /// 3.8.2.3 Date-Time Due
-    Due(Due<'src>),
+    Due(Due<S>),
 
     /// 3.8.2.4 Date-Time Start
-    DtStart(DtStart<'src>),
+    DtStart(DtStart<S>),
 
     /// 3.8.2.5 Duration
-    Duration(Duration<'src>),
+    Duration(Duration<S>),
 
     /// 3.8.2.6 Free/Busy Time
-    FreeBusy(FreeBusy<'src>),
+    FreeBusy(FreeBusy<S>),
 
     /// 3.8.2.7 Time Transparency
-    Transp(TimeTransparency<'src>),
+    Transp(TimeTransparency<S>),
 
     // Section 3.8.3 - Time Zone Component Properties
     /// 3.8.3.1 Time Zone Identifier
-    TzId(TzId<'src>),
+    TzId(TzId<S>),
 
     /// 3.8.3.2 Time Zone Name
-    TzName(TzName<'src>),
+    TzName(TzName<S>),
 
     /// 3.8.3.3 Time Zone Offset From
-    TzOffsetFrom(TzOffsetFrom<'src>),
+    TzOffsetFrom(TzOffsetFrom<S>),
 
     /// 3.8.3.4 Time Zone Offset To
-    TzOffsetTo(TzOffsetTo<'src>),
+    TzOffsetTo(TzOffsetTo<S>),
 
     /// 3.8.3.5 Time Zone URL
-    TzUrl(TzUrl<'src>),
+    TzUrl(TzUrl<S>),
 
     // Section 3.8.4 - Component Relationship Properties
     /// 3.8.4.1 Attendee
-    Attendee(Attendee<'src>),
+    Attendee(Attendee<S>),
 
     /// 3.8.4.2 Contact
-    Contact(Contact<'src>),
+    Contact(Contact<S>),
 
     /// 3.8.4.3 Organizer
-    Organizer(Organizer<'src>),
+    Organizer(Organizer<S>),
 
     /// 3.8.4.4 Recurrence ID
-    RecurrenceId(RecurrenceId<'src>),
+    RecurrenceId(RecurrenceId<S>),
 
     /// 3.8.4.5 Related To
-    RelatedTo(RelatedTo<'src>),
+    RelatedTo(RelatedTo<S>),
 
     /// 3.8.4.6 URL
-    Url(Url<'src>),
+    Url(Url<S>),
 
     /// 3.8.4.7 Unique Identifier
-    Uid(Uid<'src>),
+    Uid(Uid<S>),
 
     // Section 3.8.5 - Recurrence Properties
     /// 3.8.5.1 Exception Date-Times
-    ExDate(ExDate<'src>),
+    ExDate(ExDate<S>),
 
     /// 3.8.5.2 Recurrence Date-Times
-    RDate(RDate<'src>),
+    RDate(RDate<S>),
 
     /// 3.8.5.3 Recurrence Rule
     RRule(RecurrenceRule),
 
     // Section 3.8.6 - Alarm Component Properties
     /// 3.8.6.1 Action
-    Action(Action<'src>),
+    Action(Action<S>),
 
     /// 3.8.6.2 Repeat Count
-    Repeat(Repeat<'src>),
+    Repeat(Repeat<S>),
 
     /// 3.8.6.3 Trigger
-    Trigger(Trigger<'src>),
+    Trigger(Trigger<S>),
 
     // Section 3.8.7 - Change Management Properties
     /// 3.8.7.1 Date-Time Created
-    Created(Created<'src>),
+    Created(Created<S>),
 
     /// 3.8.7.2 Date-Time Stamp
-    DtStamp(DtStamp<'src>),
+    DtStamp(DtStamp<S>),
 
     /// 3.8.7.3 Last Modified
-    LastModified(LastModified<'src>),
+    LastModified(LastModified<S>),
 
     /// 3.8.7.4 Sequence Number
-    Sequence(Sequence<'src>),
+    Sequence(Sequence<S>),
 
     // Section 3.8.8 - Miscellaneous Properties
     /// 3.8.8.3 Request Status
-    RequestStatus(RequestStatus<'src>),
+    RequestStatus(RequestStatus<S>),
 
     /// Custom experimental x-name property (must start with "X-" or "x-").
     ///
@@ -244,11 +267,11 @@ pub enum Property<'src> {
     /// This variant preserves the original data for round-trip compatibility.
     XName {
         /// Property name (e.g., "X-CUSTOM", "x-custom")
-        name: SpannedSegments<'src>,
+        name: S,
         /// Parsed parameters (may include Unknown parameters)
-        parameters: Vec<Parameter<'src>>,
+        parameters: Vec<Parameter<S>>,
         /// Parsed value(s)
-        value: Value<'src>,
+        value: Value<S>,
         /// The span of the property
         span: Span,
     },
@@ -261,17 +284,17 @@ pub enum Property<'src> {
     /// This variant preserves the original data for round-trip compatibility.
     Unrecognized {
         /// Property name (e.g., "SOME-IANA-PROP")
-        name: SpannedSegments<'src>,
+        name: S,
         /// Parsed parameters (may include Unknown parameters)
-        parameters: Vec<Parameter<'src>>,
+        parameters: Vec<Parameter<S>>,
         /// Parsed value(s)
-        value: Value<'src>,
+        value: Value<S>,
         /// The span of the property
         span: Span,
     },
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for PropertyRef<'src> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -370,10 +393,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Property<'src> {
     }
 }
 
-impl Property<'_> {
+impl<S: Clone + Display> Property<S> {
     /// Returns the `PropertyKind` for this property
     #[must_use]
-    pub fn kind(&self) -> PropertyKind<'_> {
+    pub fn kind(&self) -> PropertyKind<S>
+    where
+        S: Clone,
+    {
         match self {
             // Section 3.7 - Calendar Properties
             Self::CalScale(_) => PropertyKind::CalScale,

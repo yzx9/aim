@@ -14,10 +14,10 @@ use chumsky::error::Rich;
 use thiserror::Error;
 
 use crate::lexer::Span;
-use crate::parameter::{Parameter, ParameterKind, ValueType};
-use crate::property::{Property, PropertyKind};
-use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameter, SyntaxProperty};
-use crate::value::{Value, parse_value};
+use crate::parameter::{Parameter, ParameterKindRef, ParameterRef, ValueTypeRef};
+use crate::property::{Property, PropertyKindRef, PropertyRef};
+use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameterRef, SyntaxProperty};
+use crate::value::{ValueRef, parse_value};
 
 /// Perform typed analysis on raw components, returning typed components or errors.
 ///
@@ -82,7 +82,7 @@ fn parsed_property<'src>(
     prop: SyntaxProperty<'src>,
 ) -> Result<ParsedProperty<'src>, Vec<TypedError<'src>>> {
     // Determine property kind from name (infallible - always returns a kind)
-    let kind = PropertyKind::from(prop.name.clone());
+    let kind = PropertyKindRef::from(prop.name.clone());
 
     let parameters = parameters(prop.parameters)?;
     let value_types = value_types(&kind, &parameters)?;
@@ -112,7 +112,7 @@ pub struct TypedComponent<'src> {
     /// Component name (e.g., "VCALENDAR", "VEVENT", "VTIMEZONE", "VALARM")
     pub name: &'src str,
     /// Properties in original order
-    pub properties: Vec<Property<'src>>,
+    pub properties: Vec<PropertyRef<'src>>,
     /// Nested child components
     pub children: Vec<TypedComponent<'src>>,
     /// Span of the entire component (from BEGIN to END)
@@ -123,11 +123,11 @@ pub struct TypedComponent<'src> {
 #[derive(Debug, Clone)]
 pub struct ParsedProperty<'src> {
     /// Property kind
-    pub kind: PropertyKind<'src>,
+    pub kind: PropertyKindRef<'src>,
     /// Property parameters
-    pub parameters: Vec<Parameter<'src>>,
+    pub parameters: Vec<ParameterRef<'src>>,
     /// Property value
-    pub value: Value<'src>,
+    pub value: ValueRef<'src>,
     /// The span of the property name (for error reporting)
     pub span: Span,
     /// Property name (preserved for unknown properties)
@@ -142,7 +142,7 @@ pub enum TypedError<'src> {
     #[error("Parameter '{parameter}' occurs multiple times")]
     ParameterDuplicated {
         /// The parameter name
-        parameter: ParameterKind<'src>,
+        parameter: ParameterKindRef<'src>,
         /// The span of the error
         span: Span,
     },
@@ -151,7 +151,7 @@ pub enum TypedError<'src> {
     #[error("Parameter '{parameter}' does not allow multiple values")]
     ParameterMultipleValuesDisallowed {
         /// The parameter name
-        parameter: ParameterKind<'src>,
+        parameter: ParameterKindRef<'src>,
         /// The span of the error
         span: Span,
     },
@@ -160,7 +160,7 @@ pub enum TypedError<'src> {
     #[error("Parameter '{parameter}={value}' value must be quoted")]
     ParameterValueMustBeQuoted {
         /// The parameter name
-        parameter: ParameterKind<'src>,
+        parameter: ParameterKindRef<'src>,
         /// The parameter value
         value: SpannedSegments<'src>,
         /// The span of the error
@@ -171,7 +171,7 @@ pub enum TypedError<'src> {
     #[error("Parameter '{parameter}=\"{value}\"' value must not be quoted")]
     ParameterValueMustNotBeQuoted {
         /// The parameter name
-        parameter: ParameterKind<'src>,
+        parameter: ParameterKindRef<'src>,
         /// The parameter value
         value: SpannedSegments<'src>,
         /// The span of the error
@@ -182,7 +182,7 @@ pub enum TypedError<'src> {
     #[error("Invalid value for parameter '{parameter}={value}'")]
     ParameterValueInvalid {
         /// The parameter name
-        parameter: ParameterKind<'src>,
+        parameter: ParameterKindRef<'src>,
         /// The parameter value
         value: SpannedSegments<'src>,
         /// The span of the error
@@ -193,11 +193,11 @@ pub enum TypedError<'src> {
     #[error("Invalid value type '{value_type}' for property '{property}'")]
     ValueTypeDisallowed {
         /// The property name
-        property: PropertyKind<'src>,
+        property: PropertyKindRef<'src>,
         /// The value type that was provided
-        value_type: ValueType<'src>,
+        value_type: ValueTypeRef<'src>,
         /// The expected value types
-        expected_types: &'src [ValueType<'src>],
+        expected_types: &'src [ValueTypeRef<'src>],
         /// The span of the error
         span: Span,
     },
@@ -215,9 +215,9 @@ pub enum TypedError<'src> {
     #[error("Expected property kind '{expected}', found '{found}'")]
     PropertyUnexpectedKind {
         /// Expected property kind
-        expected: PropertyKind<'src>,
+        expected: PropertyKindRef<'src>,
         /// Actual property kind found
-        found: PropertyKind<'src>,
+        found: PropertyKindRef<'src>,
         /// The span of the error
         span: Span,
     },
@@ -226,7 +226,7 @@ pub enum TypedError<'src> {
     #[error("Property '{property}' has no values")]
     PropertyMissingValue {
         /// The property that is missing values
-        property: PropertyKind<'src>,
+        property: PropertyKindRef<'src>,
         /// The span of the error
         span: Span,
     },
@@ -235,7 +235,7 @@ pub enum TypedError<'src> {
     #[error("Property '{property}' requires exactly {expected} value(s), but found {found}")]
     PropertyInvalidValueCount {
         /// The property kind
-        property: PropertyKind<'src>,
+        property: PropertyKindRef<'src>,
         /// Expected number of values
         expected: usize,
         /// Actual number of values found
@@ -248,7 +248,7 @@ pub enum TypedError<'src> {
     #[error("Invalid value '{value}' for property '{property}'")]
     PropertyInvalidValue {
         /// The property that has the invalid value
-        property: PropertyKind<'src>,
+        property: PropertyKindRef<'src>,
         /// Description of why the value is invalid
         value: String,
         /// The span of the error
@@ -259,11 +259,11 @@ pub enum TypedError<'src> {
     #[error("Expected {expected} value for property '{property}', found {found}")]
     PropertyUnexpectedValue {
         /// The property that has the wrong type
-        property: PropertyKind<'src>,
+        property: PropertyKindRef<'src>,
         /// Expected value type
-        expected: ValueType<'src>,
+        expected: ValueTypeRef<'src>,
         /// Actual value type found
-        found: ValueType<'src>,
+        found: ValueTypeRef<'src>,
         /// The span of the error
         span: Span,
     },
@@ -291,11 +291,13 @@ impl TypedError<'_> {
     }
 }
 
-fn parameters(params: Vec<SyntaxParameter<'_>>) -> Result<Vec<Parameter<'_>>, Vec<TypedError<'_>>> {
+fn parameters(
+    params: Vec<SyntaxParameterRef<'_>>,
+) -> Result<Vec<ParameterRef<'_>>, Vec<TypedError<'_>>> {
     let mut parsed = Vec::with_capacity(params.len());
     let mut errors = Vec::new();
     for param in params {
-        match Parameter::try_from(param) {
+        match ParameterRef::try_from(param) {
             Ok(typed) => parsed.push(typed),
             Err(errs) => errors.extend(errs),
         }
@@ -309,9 +311,9 @@ fn parameters(params: Vec<SyntaxParameter<'_>>) -> Result<Vec<Parameter<'_>>, Ve
 }
 
 fn value_types<'src>(
-    prop_kind: &PropertyKind<'src>,
-    params: &Vec<Parameter<'src>>,
-) -> Result<Vec<ValueType<'src>>, Vec<TypedError<'src>>> {
+    prop_kind: &PropertyKindRef<'src>,
+    params: &Vec<ParameterRef<'src>>,
+) -> Result<Vec<ValueTypeRef<'src>>, Vec<TypedError<'src>>> {
     // If VALUE parameter is explicitly specified, use only that type
     if let Some(Parameter::ValueType { value, span }) = params
         .iter()
@@ -345,14 +347,14 @@ fn value_types<'src>(
             // (per RFC 5545 Section 3.3.1 and 3.8.1.1)
             Some(value_types) => value_types
                 .iter()
-                .filter(|&t| !matches!(t, ValueType::Binary))
+                .filter(|&t| !matches!(t, ValueTypeRef::Binary))
                 .map(|t| Ok(t.clone()))
                 .collect(),
 
             // NOTE: For x-name/unrecognized properties, allow any value type.
             // But we don't return all possible types for type inference, since
             // we cannot infer the allowed types.
-            None => Ok(vec![ValueType::Unrecognized(SpannedSegments::default())]),
+            None => Ok(vec![ValueTypeRef::Unrecognized(SpannedSegments::default())]),
         }
     }
 }

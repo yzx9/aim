@@ -16,8 +16,9 @@
 //! - `RDateValue` - Recurrence date/time value (DATE, DATE-TIME, or PERIOD)
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
-use crate::parameter::{Parameter, ValueType};
+use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::{DateTime, Period, PropertyKind};
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
@@ -25,44 +26,56 @@ use crate::value::{Value, ValueDate};
 
 /// Exception date-time value (can be DATE or DATE-TIME).
 #[derive(Debug, Clone)]
-pub enum ExDateValue<'src> {
+pub enum ExDateValue<S: Clone + Display> {
     /// Date-only value
     Date(ValueDate),
     /// Date-time value
-    DateTime(DateTime<'src>),
+    DateTime(DateTime<S>),
 }
+
+/// Type alias for borrowed exception date-time value
+pub type ExDateValueRef<'src> = ExDateValue<SpannedSegments<'src>>;
+
+/// Type alias for owned exception date-time value
+pub type ExDateValueOwned = ExDateValue<String>;
 
 /// Recurrence date-time value (can be DATE, DATE-TIME, or PERIOD).
 #[derive(Debug, Clone)]
-pub enum RDateValue<'src> {
+pub enum RDateValue<S: Clone + Display> {
     /// Date-only value
     Date(ValueDate),
     /// Date-time value
-    DateTime(DateTime<'src>),
+    DateTime(DateTime<S>),
     /// Period value
-    Period(Period<'src>),
+    Period(Period<S>),
 }
+
+/// Type alias for borrowed recurrence date-time value
+pub type RDateValueRef<'src> = RDateValue<SpannedSegments<'src>>;
+
+/// Type alias for owned recurrence date-time value
+pub type RDateValueOwned = RDateValue<String>;
 
 /// Exception Date-Times (RFC 5545 Section 3.8.5.1)
 ///
 /// This property defines the list of date-time exceptions for a recurring
 /// calendar component.
 #[derive(Debug, Clone)]
-pub struct ExDate<'src> {
+pub struct ExDate<S: Clone + Display> {
     /// List of exception dates/times
-    pub dates: Vec<ExDateValue<'src>>,
+    pub dates: Vec<ExDateValue<S>>,
 
     /// Timezone identifier (optional)
-    pub tz_id: Option<SpannedSegments<'src>>,
+    pub tz_id: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -116,7 +129,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Date,
+                    expected: ValueTypeRef::Date,
                     found: v.into_kind(),
                     span,
                 }])
@@ -136,21 +149,21 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<'src> {
 ///
 /// This property defines the list of date-times for a recurring calendar component.
 #[derive(Debug, Clone)]
-pub struct RDate<'src> {
+pub struct RDate<S: Clone + Display> {
     /// List of recurrence dates/times/periods
-    pub dates: Vec<RDateValue<'src>>,
+    pub dates: Vec<RDateValue<S>>,
 
     /// Timezone identifier (optional)
-    pub tz_id: Option<SpannedSegments<'src>>,
+    pub tz_id: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for RDate<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -214,7 +227,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<'src> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Period,
+                    expected: ValueTypeRef::Period,
                     found: v.into_kind(),
                     span,
                 }])

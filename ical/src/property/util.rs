@@ -8,21 +8,22 @@
 //! and converting property values from typed properties to semantic types.
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
-use crate::parameter::{Parameter, ValueType};
-use crate::property::PropertyKind;
+use crate::parameter::{Parameter, ValueTypeRef};
+use crate::property::PropertyKindRef;
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, ValueText};
+use crate::value::{Value, ValueRef, ValueText, ValueTextRef};
 
 /// Get the first value from a property, ensuring it has exactly one value
 ///
 /// # Errors
 /// Returns `TypedError::PropertyInvalidValueCount` if there are multiple or zero values
 pub fn take_single_value<'src>(
-    kind: &PropertyKind<'src>,
-    value: Value<'src>,
-) -> Result<Value<'src>, Vec<TypedError<'src>>> {
+    kind: &PropertyKindRef<'src>,
+    value: ValueRef<'src>,
+) -> Result<ValueRef<'src>, Vec<TypedError<'src>>> {
     if !value.len() == 1 {
         return Err(vec![TypedError::PropertyInvalidValueCount {
             property: kind.clone(),
@@ -41,9 +42,9 @@ pub fn take_single_value<'src>(
 /// Returns `TypedError::PropertyUnexpectedValue` if the value is not text
 /// Returns `TypedError::PropertyInvalidValueCount` if there are multiple or zero values
 pub fn take_single_text<'src>(
-    kind: &PropertyKind<'src>,
-    value: Value<'src>,
-) -> Result<ValueText<'src>, Vec<TypedError<'src>>> {
+    kind: &PropertyKindRef<'src>,
+    value: ValueRef<'src>,
+) -> Result<ValueTextRef<'src>, Vec<TypedError<'src>>> {
     let value = take_single_value(kind, value)?;
 
     match value {
@@ -52,7 +53,7 @@ pub fn take_single_text<'src>(
             let span = v.span();
             Err(vec![TypedError::PropertyUnexpectedValue {
                 property: kind.clone(),
-                expected: ValueType::Text,
+                expected: ValueTypeRef::Text,
                 found: v.into_kind(),
                 span,
             }])
@@ -69,28 +70,28 @@ pub fn take_single_text<'src>(
 /// - 3.8.4.2: `Contact`
 /// - 3.8.3.2: `TzName`
 #[derive(Debug, Clone)]
-pub struct Text<'src> {
+pub struct Text<S: Clone + Display> {
     /// The actual text content
-    pub content: ValueText<'src>,
+    pub content: ValueText<S>,
 
     /// Language code (optional)
-    pub language: Option<SpannedSegments<'src>>,
+    pub language: Option<S>,
 
     /// Alternate text representation URI (optional)
     ///
     /// Per RFC 5545, this parameter is not applicable to TZNAME and CATEGORIES
     /// properties, but may be present in other text properties like DESCRIPTION,
     /// SUMMARY, LOCATION, CONTACT, and RESOURCES.
-    pub altrep: Option<SpannedSegments<'src>>,
+    pub altrep: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Text<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -154,21 +155,21 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<'src> {
 /// Note: Per RFC 5545, ALTREP is not applicable to CATEGORIES and RESOURCES,
 /// so only the language parameter is extracted.
 #[derive(Debug, Clone)]
-pub struct Texts<'src> {
+pub struct Texts<S: Clone + Display> {
     /// List of text values
-    pub values: Vec<ValueText<'src>>,
+    pub values: Vec<ValueText<S>>,
 
     /// Language code (optional, applied to all values)
-    pub language: Option<SpannedSegments<'src>>,
+    pub language: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Texts<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -192,7 +193,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
             let span = prop.value.span();
             return Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueType::Text,
+                expected: ValueTypeRef::Text,
                 found: prop.value.into_kind(),
                 span,
             }]);
@@ -207,45 +208,76 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<'src> {
     }
 }
 
+/// Macro to define simple property wrappers with generic storage parameter.
+///
+/// This is similar to `simple_property_wrapper!` but generates generic wrappers
+/// that accept a storage parameter `S: Clone + Display` instead of hardcoding
+/// the lifetime `'src`.
+///
+/// Usage:
+///
+/// ```ignore
+/// simple_property_wrapper!(
+///     Comment<S>: Text => Comment
+/// );
+/// ```
+///
+/// This generates:
+///
+/// ```ignore
+/// pub struct Comment<S: Clone + Display>(pub Text<S>);
+/// ```
 macro_rules! simple_property_wrapper {
     (
         $(#[$meta:meta])*
-        $name:ident <'src> : $inner:ty => $kind:ident
-        $(, derives = [$($derive:ident),* $(,)?])?
+        $vis:vis $name:ident <S> => $inner:ident
+
+        $(#[$rmeta:meta])*
+        ref   = $rvis:vis type $name_ref:ident;
+        $(#[$ometa:meta])*
+        owned = $ovis:vis type $name_owned:ident;
     ) => {
         $(#[$meta])*
-        #[derive(Debug, Clone $(, $($($derive),*)? )?)]
-        pub struct $name<'src>(pub $inner);
+        #[derive(Debug, Clone)]
+        $vis struct $name<S: Clone + ::core::fmt::Display>(pub $inner<S>);
 
-        impl<'src> ::core::ops::Deref for $name<'src> {
-            type Target = $inner;
+        #[doc = concat!("Borrowed type alias for [`", stringify!($name), "`]")]
+        $(#[$rmeta])*
+        $rvis type $name_ref<'src> = $name<crate::syntax::SpannedSegments<'src>>;
+        #[doc = concat!("Owned type alias for [`", stringify!($name), "`]")]
+        $(#[$ometa])*
+        $ovis type $name_owned = $name<String>;
+
+        impl<S: ::core::clone::Clone + ::core::fmt::Display> ::core::ops::Deref for $name<S> {
+            type Target = $inner<S>;
+
             fn deref(&self) -> &Self::Target {
                 &self.0
             }
         }
 
-        impl ::core::ops::DerefMut for $name<'_> {
+        impl<S: ::core::clone::Clone + ::core::fmt::Display> ::core::ops::DerefMut for $name<S> {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 &mut self.0
             }
         }
 
-        impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name<'src>
+        impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name_ref<'src>
         where
-            $inner: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
+            $inner<crate::syntax::SpannedSegments<'src>>: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
         {
             type Error = Vec<crate::typed::TypedError<'src>>;
 
             fn try_from(prop: crate::typed::ParsedProperty<'src>) -> Result<Self, Self::Error> {
-                if !matches!(prop.kind, crate::property::PropertyKind::$kind) {
+                if !matches!(prop.kind, crate::property::PropertyKindRef::$name) {
                     return Err(vec![crate::typed::TypedError::PropertyUnexpectedKind {
-                        expected: crate::property::PropertyKind::$kind,
+                        expected: crate::property::PropertyKindRef::$name,
                         found: prop.kind,
                         span: prop.span,
                     }]);
                 }
 
-                <$inner>::try_from(prop).map($name)
+                <$inner<crate::syntax::SpannedSegments<'src>>>::try_from(prop).map($name)
             }
         }
     };
@@ -276,10 +308,10 @@ macro_rules! define_prop_value_enum {
         }
 
 
-        impl<'src> TryFrom<crate::value::ValueText<'src>> for $Name {
-            type Error = crate::value::ValueText<'src>;
+        impl<'src> TryFrom<crate::value::ValueTextRef<'src>> for $Name {
+            type Error = crate::value::ValueTextRef<'src>;
 
-            fn try_from(segs: crate::value::ValueText<'src>) -> Result<Self, Self::Error> {
+            fn try_from(segs: crate::value::ValueTextRef<'src>) -> Result<Self, Self::Error> {
                 $(
                     if segs.eq_str_ignore_ascii_case($kw) {
                         return Ok(Self::$Variant);

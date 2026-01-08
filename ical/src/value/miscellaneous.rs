@@ -13,7 +13,7 @@ use chumsky::input::Input;
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 
-/// fails. Each variant represents a type that was expected during parsing.
+/// Failure reasons when a specific value type was expected but not found.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ValueExpected {

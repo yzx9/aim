@@ -20,6 +20,7 @@
 //! - 3.8.4.7: `Uid` - Unique identifier
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
 use crate::parameter::{CalendarUserType, Parameter, ParticipationRole, ParticipationStatus};
 use crate::property::util::{Text, take_single_text};
@@ -30,51 +31,51 @@ use crate::value::ValueText;
 
 /// Attendee information (RFC 5545 Section 3.8.4.1)
 #[derive(Debug, Clone)]
-pub struct Attendee<'src> {
+pub struct Attendee<S: Clone + Display> {
     /// Calendar user address (mailto: or other URI)
-    pub cal_address: ValueText<'src>,
+    pub cal_address: ValueText<S>,
 
     /// Common name (optional)
-    pub cn: Option<SpannedSegments<'src>>,
+    pub cn: Option<S>,
 
     /// Participation role
-    pub role: ParticipationRole<'src>,
+    pub role: ParticipationRole<S>,
 
     /// Participation status
-    pub part_stat: ParticipationStatus<'src>,
+    pub part_stat: ParticipationStatus<S>,
 
     /// RSVP expectation
     pub rsvp: Option<bool>,
 
     /// Whether the attendee is required
-    pub cutype: CalendarUserType<'src>,
+    pub cutype: CalendarUserType<S>,
 
     /// Member of a group (optional, multi-valued)
-    pub member: Option<Vec<SpannedSegments<'src>>>,
+    pub member: Option<Vec<S>>,
 
     /// Delegated to (optional, multi-valued)
-    pub delegated_to: Option<Vec<SpannedSegments<'src>>>,
+    pub delegated_to: Option<Vec<S>>,
 
     /// Delegated from (optional, multi-valued)
-    pub delegated_from: Option<Vec<SpannedSegments<'src>>>,
+    pub delegated_from: Option<Vec<S>>,
 
     /// Directory entry reference (optional)
-    pub dir: Option<SpannedSegments<'src>>,
+    pub dir: Option<S>,
 
     /// Sent by (optional)
-    pub sent_by: Option<SpannedSegments<'src>>,
+    pub sent_by: Option<S>,
 
     /// Language (optional)
-    pub language: Option<SpannedSegments<'src>>,
+    pub language: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -243,35 +244,38 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<'src> {
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.4.2)
-    Contact<'src>: Text<'src> => Contact
+    pub Contact<S> => Text
+
+    ref   = pub type ContactRef;
+    owned = pub type ContactOwned;
 );
 
 /// Organizer information (RFC 5545 Section 3.8.4.3)
 #[derive(Debug, Clone)]
-pub struct Organizer<'src> {
+pub struct Organizer<S: Clone + Display> {
     /// Calendar user address (mailto: or other URI)
-    pub cal_address: ValueText<'src>, // TODO: parse mailto:
+    pub cal_address: ValueText<S>, // TODO: parse mailto:
 
     /// Common name (optional)
-    pub cn: Option<SpannedSegments<'src>>,
+    pub cn: Option<S>,
 
     /// Directory entry reference (optional)
-    pub dir: Option<SpannedSegments<'src>>,
+    pub dir: Option<S>,
 
     /// Sent by (optional)
-    pub sent_by: Option<SpannedSegments<'src>>,
+    pub sent_by: Option<S>,
 
     /// Language (optional)
-    pub language: Option<SpannedSegments<'src>>,
+    pub language: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -364,20 +368,32 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<'src> {
 
 simple_property_wrapper!(
     /// Recurrence ID property wrapper (RFC 5545 Section 3.8.4.4)
-    RecurrenceId<'src>: DateTime<'src> => RecurrenceId
+    pub RecurrenceId<S> => DateTime
+
+    ref   = pub type RecurrenceIdRef;
+    owned = pub type RecurrenceIdOwned;
 );
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.4.5)
-    RelatedTo<'src>: Text<'src> => RelatedTo
+    pub RelatedTo<S> => Text
+
+    ref   = pub type RelatedToRef;
+    owned = pub type RelatedToOwned;
 );
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.4.6)
-    Url<'src>: Text<'src> => Url
+    pub Url<S> => Text
+
+    ref   = pub type UrlRef;
+    owned = pub type UrlOwned;
 );
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.4.7)
-    Uid<'src>: Text<'src> => Uid
+    pub Uid<S> => Text
+
+    ref   = pub type UidRef;
+    owned = pub type UidOwned;
 );

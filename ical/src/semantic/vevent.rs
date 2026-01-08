@@ -4,102 +4,111 @@
 
 //! Event component (VEVENT) for iCalendar semantic components.
 
-use std::fmt;
+use std::fmt::{self, Display};
 
 use crate::keyword::{KW_VALARM, KW_VEVENT};
+use crate::parameter::Parameter;
 use crate::property::{
     Attendee, Categories, Classification, DateTime, Description, DtEnd, DtStamp, DtStart,
-    ExDateValue, Geo, LastModified, Location, Organizer, Period, Priority, Property, PropertyKind,
-    RDateValue, Resources, Sequence, Status, StatusValue, Summary, TimeTransparency, Uid, Url,
+    ExDateValueRef, Geo, LastModified, Location, Organizer, Period, Priority, Property,
+    PropertyKind, RDateValueRef, Resources, Sequence, Status, StatusValue, Summary,
+    TimeTransparency, Uid, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
+use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
 use crate::value::{RecurrenceRule, ValueDuration};
 
 /// Event component (VEVENT)
 #[derive(Debug, Clone)]
-pub struct VEvent<'src> {
+pub struct VEvent<S: Clone + Display> {
     /// Unique identifier for the event
-    pub uid: Uid<'src>,
+    pub uid: Uid<S>,
 
     /// Date/time the event was created
-    pub dt_stamp: DtStamp<'src>,
+    pub dt_stamp: DtStamp<S>,
 
     /// Date/time the event starts
-    pub dt_start: DtStart<'src>,
+    pub dt_start: DtStart<S>,
 
     /// Date/time the event ends
-    pub dt_end: Option<DtEnd<'src>>,
+    pub dt_end: Option<DtEnd<S>>,
 
     /// Duration of the event (alternative to `dt_end`)
     pub duration: Option<ValueDuration>,
 
     /// Summary/title of the event
-    pub summary: Option<Summary<'src>>,
+    pub summary: Option<Summary<S>>,
 
     /// Description of the event
-    pub description: Option<Description<'src>>,
+    pub description: Option<Description<S>>,
 
     /// Location of the event
-    pub location: Option<Location<'src>>,
+    pub location: Option<Location<S>>,
 
     /// Geographic position
-    pub geo: Option<Geo<'src>>,
+    pub geo: Option<Geo<S>>,
 
     /// URL associated with the event
-    pub url: Option<Url<'src>>,
+    pub url: Option<Url<S>>,
 
     /// Organizer of the event
-    pub organizer: Option<Organizer<'src>>,
+    pub organizer: Option<Organizer<S>>,
 
     /// Attendees of the event
-    pub attendees: Vec<Attendee<'src>>,
+    pub attendees: Vec<Attendee<S>>,
 
     /// Last modification date/time
-    pub last_modified: Option<LastModified<'src>>,
+    pub last_modified: Option<LastModified<S>>,
 
     /// Status of the event
-    pub status: Option<EventStatus<'src>>,
+    pub status: Option<EventStatus<S>>,
 
     /// Time transparency
-    pub transparency: Option<TimeTransparency<'src>>,
+    pub transparency: Option<TimeTransparency<S>>,
 
     /// Sequence number for revisions
-    pub sequence: Option<Sequence<'src>>,
+    pub sequence: Option<Sequence<S>>,
 
     /// Priority (1-9, 1 is highest)
-    pub priority: Option<Priority<'src>>,
+    pub priority: Option<Priority<S>>,
 
     /// Classification
-    pub classification: Option<Classification<'src>>,
+    pub classification: Option<Classification<S>>,
 
     /// Resources
-    pub resources: Option<Resources<'src>>,
+    pub resources: Option<Resources<S>>,
 
     /// Categories
-    pub categories: Option<Categories<'src>>,
+    pub categories: Option<Categories<S>>,
 
     /// Recurrence rule
     pub rrule: Option<RecurrenceRule>,
 
     /// Recurrence dates
-    pub rdate: Vec<Period<'src>>,
+    pub rdate: Vec<Period<S>>,
 
     /// Exception dates
-    pub ex_date: Vec<DateTime<'src>>,
+    pub ex_date: Vec<DateTime<S>>,
 
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<'src>>,
+    pub x_properties: Vec<Property<S>>,
 
     /// Unrecognized properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<'src>>,
+    pub unrecognized_properties: Vec<Property<S>>,
 
     /// Sub-components (like alarms)
-    pub alarms: Vec<VAlarm<'src>>,
+    pub alarms: Vec<VAlarm<S>>,
 }
 
+/// Type alias for `VEvent` with borrowed data
+pub type VEventRef<'src> = VEvent<SpannedSegments<'src>>;
+
+/// Type alias for `VEvent` with owned data
+pub type VEventOwned = VEvent<String>;
+
 /// Parse a `TypedComponent` into a `VEvent`
-impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for VEvent<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -266,7 +275,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                 Property::RDate(rdates) => {
                     for rdate in rdates.dates {
                         match rdate {
-                            RDateValue::Period(p) => props.rdate.push(p),
+                            RDateValueRef::Period(p) => props.rdate.push(p),
                             _ => {
                                 // TODO: RDate Date/DateTime not yet implemented for events
                             }
@@ -275,7 +284,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<'src> {
                 }
                 Property::ExDate(exdates) => {
                     for exdate in exdates.dates {
-                        if let ExDateValue::DateTime(dt) = exdate {
+                        if let ExDateValueRef::DateTime(dt) = exdate {
                             props.ex_dates.push(dt);
                         }
                         // ExDate Date-only not yet implemented for events
@@ -392,7 +401,7 @@ impl TryFrom<StatusValue> for EventStatusValue {
     }
 }
 
-impl fmt::Display for EventStatusValue {
+impl Display for EventStatusValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         StatusValue::from(*self).fmt(f)
     }
@@ -408,21 +417,27 @@ impl From<EventStatusValue> for StatusValue {
     }
 }
 
+/// Type alias for `EventStatus` with borrowed data
+pub type EventStatusRef<'src> = EventStatus<SpannedSegments<'src>>;
+
+/// Type alias for `EventStatus` with owned data
+pub type EventStatusOwned = EventStatus<String>;
+
 /// Event status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
-pub struct EventStatus<'src> {
+pub struct EventStatus<S: Clone + Display> {
     /// Status value
     pub value: EventStatusValue,
     /// Custom X- parameters (preserved for round-trip)
-    pub x_parameters: Vec<crate::parameter::Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
     /// Unknown IANA parameters (preserved for round-trip)
-    pub unrecognized_parameters: Vec<crate::parameter::Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<Status<'src>> for EventStatus<'src> {
+impl<'src> TryFrom<Status<SpannedSegments<'src>>> for EventStatus<SpannedSegments<'src>> {
     type Error = SemanticError<'src>;
 
-    fn try_from(property: Status<'src>) -> Result<Self, Self::Error> {
+    fn try_from(property: Status<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
         let Ok(value) = property.value.try_into() else {
             return Err(SemanticError::InvalidValue {
                 property: PropertyKind::Status,
@@ -442,30 +457,30 @@ impl<'src> TryFrom<Status<'src>> for EventStatus<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'src> {
-    uid:            Option<Uid<'src>>,
-    dt_stamp:       Option<DtStamp<'src>>,
-    dt_start:       Option<DtStart<'src>>,
-    dt_end:         Option<DtEnd<'src>>,
+struct PropertyCollector< S: Clone + Display> {
+    uid:            Option<Uid<S>>,
+    dt_stamp:       Option<DtStamp<S>>,
+    dt_start:       Option<DtStart<S>>,
+    dt_end:         Option<DtEnd<S>>,
     duration:       Option<ValueDuration>,
-    summary:        Option<Summary<'src>>,
-    description:    Option<Description<'src>>,
-    location:       Option<Location<'src>>,
-    geo:            Option<Geo<'src>>,
-    url:            Option<Url<'src>>,
-    organizer:      Option<Organizer<'src>>,
-    attendees:      Vec<Attendee<'src>>,
-    last_modified:  Option<LastModified<'src>>,
-    status:         Option<EventStatus<'src>>,
-    transparency:   Option<TimeTransparency<'src>>,
-    sequence:       Option<Sequence<'src>>,
-    priority:       Option<Priority<'src>>,
-    classification: Option<Classification<'src>>,
-    resources:      Option<Resources<'src>>,
-    categories:     Option<Categories<'src>>,
+    summary:        Option<Summary<S>>,
+    description:    Option<Description<S>>,
+    location:       Option<Location<S>>,
+    geo:            Option<Geo<S>>,
+    url:            Option<Url<S>>,
+    organizer:      Option<Organizer<S>>,
+    attendees:      Vec<Attendee<S>>,
+    last_modified:  Option<LastModified<S>>,
+    status:         Option<EventStatus<S>>,
+    transparency:   Option<TimeTransparency<S>>,
+    sequence:       Option<Sequence<S>>,
+    priority:       Option<Priority<S>>,
+    classification: Option<Classification<S>>,
+    resources:      Option<Resources<S>>,
+    categories:     Option<Categories<S>>,
     rrule:          Option<RecurrenceRule>,
-    rdate:          Vec<Period<'src>>,
-    ex_dates:       Vec<DateTime<'src>>,
-    x_properties:   Vec<Property<'src>>,
-    unrecognized_properties: Vec<Property<'src>>,
+    rdate:          Vec<Period<S>>,
+    ex_dates:       Vec<DateTime<S>>,
+    x_properties:   Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }

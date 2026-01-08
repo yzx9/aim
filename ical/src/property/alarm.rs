@@ -14,11 +14,13 @@
 //!   - `TriggerValue` - Trigger value variant (duration or date-time)
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
-use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueType};
+use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueTypeRef};
 use crate::property::util::{take_single_text, take_single_value};
 use crate::property::{DateTime, PropertyKind};
+use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDuration};
 
@@ -56,18 +58,18 @@ impl AsRef<str> for ActionValue {
 
 /// Alarm action (RFC 5545 Section 3.8.6.1)
 #[derive(Debug, Clone)]
-pub struct Action<'src> {
+pub struct Action<S: Clone + Display> {
     /// Action value
     pub value: ActionValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Action<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Action<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -125,18 +127,18 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action<'src> {
 ///
 /// This property defines the number of times the alarm should repeat.
 #[derive(Debug, Clone)]
-pub struct Repeat<'src> {
+pub struct Repeat<S: Clone + Display> {
     /// Number of repetitions
     pub value: u32,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[allow(clippy::cast_sign_loss)]
@@ -201,7 +203,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<'src> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Integer,
+                    expected: ValueTypeRef::Integer,
                     found: v.into_kind(),
                     span,
                 }])
@@ -212,31 +214,37 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<'src> {
 
 /// Trigger for alarms (RFC 5545 Section 3.8.6.3)
 #[derive(Debug, Clone)]
-pub struct Trigger<'src> {
+pub struct Trigger<S: Clone + Display> {
     /// When to trigger (relative or absolute)
-    pub value: TriggerValue<'src>,
+    pub value: TriggerValue<S>,
 
     /// Related parameter for relative triggers
     pub related: Option<AlarmTriggerRelationship>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
 /// Trigger value (relative duration or absolute date/time)
 #[derive(Debug, Clone)]
-pub enum TriggerValue<'src> {
+pub enum TriggerValue<S: Clone + Display> {
     /// Relative duration before/after the event
     Duration(ValueDuration),
 
     /// Absolute date/time
-    DateTime(DateTime<'src>),
+    DateTime(DateTime<S>),
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<'src> {
+/// Type alias for borrowed trigger value
+pub type TriggerValueRef<'src> = TriggerValue<SpannedSegments<'src>>;
+
+/// Type alias for owned trigger value
+pub type TriggerValueOwned = TriggerValue<String>;
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {

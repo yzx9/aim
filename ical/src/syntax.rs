@@ -5,7 +5,7 @@
 //! Parser for iCalendar syntax as defined in RFC 5545, built on top of the lexer, no type.
 
 use std::borrow::Cow;
-use std::fmt;
+use std::fmt::{self, Display};
 use std::iter::Peekable;
 use std::str::CharIndices;
 
@@ -56,21 +56,21 @@ pub struct SyntaxProperty<'src> {
     /// Property name (case-insensitive, original casing preserved)
     pub name: SpannedSegments<'src>,
     /// Property parameters (allow duplicates & multi-values)
-    pub parameters: Vec<SyntaxParameter<'src>>,
+    pub parameters: Vec<SyntaxParameterRef<'src>>,
     /// Raw property value (may need further parsing by typed analysis)
     pub value: SpannedSegments<'src>,
 }
 
 /// A parsed iCalendar parameter (e.g., `TZID=America/New_York`)
 #[derive(Debug, Clone)]
-pub struct SyntaxParameter<'src> {
+pub struct SyntaxParameter<S: Clone + Display> {
     /// Parameter name (e.g., "TZID", "VALUE", "CN", "ROLE", "PARTSTAT")
-    pub name: SpannedSegments<'src>,
+    pub name: S,
     /// Parameter values split by commas
-    pub values: Vec<SyntaxParameterValue<'src>>,
+    pub values: Vec<SyntaxParameterValue<S>>,
 }
 
-impl SyntaxParameter<'_> {
+impl SyntaxParameter<SpannedSegments<'_>> {
     /// Get the full span of this parameter (from name to last value)
     #[must_use]
     pub fn span(&self) -> Span {
@@ -86,12 +86,24 @@ impl SyntaxParameter<'_> {
 
 /// A single parameter value with optional quoting
 #[derive(Debug, Clone)]
-pub struct SyntaxParameterValue<'src> {
+pub struct SyntaxParameterValue<S: Clone + Display> {
     /// The parameter value
-    pub value: SpannedSegments<'src>,
+    pub value: S,
     /// Whether the value was quoted in the source
     pub quoted: bool,
 }
+
+/// Type alias for borrowed syntax parameter
+pub type SyntaxParameterRef<'src> = SyntaxParameter<SpannedSegments<'src>>;
+
+/// Type alias for owned syntax parameter
+pub type SyntaxParameterOwned = SyntaxParameter<String>;
+
+/// Type alias for borrowed syntax parameter value
+pub type SyntaxParameterValueRef<'src> = SyntaxParameterValue<SpannedSegments<'src>>;
+
+/// Type alias for owned syntax parameter value
+pub type SyntaxParameterValueOwned = SyntaxParameterValue<String>;
 
 struct RawComponent<'src> {
     pub name: &'src str,
@@ -221,7 +233,7 @@ struct RawParameter {
 }
 
 impl RawParameter {
-    fn build(self, src: &'_ str) -> SyntaxParameter<'_> {
+    fn build(self, src: &'_ str) -> SyntaxParameterRef<'_> {
         SyntaxParameter {
             name: self.name.build(src),
             values: self.values.into_iter().map(|v| v.build(src)).collect(),
@@ -235,7 +247,7 @@ struct RawParameterValue {
 }
 
 impl RawParameterValue {
-    fn build(self, src: &'_ str) -> SyntaxParameterValue<'_> {
+    fn build(self, src: &'_ str) -> SyntaxParameterValueRef<'_> {
         SyntaxParameterValue {
             value: self.value.build(src),
             quoted: self.quoted,
@@ -338,6 +350,13 @@ pub struct SpannedSegments<'src> {
 }
 
 impl<'src> SpannedSegments<'src> {
+    /// Create a new `SpannedSegments` from a vector of segments
+    #[must_use]
+    pub(crate) fn new(segments: Vec<SpannedSegment<'src>>) -> Self {
+        let len = segments.iter().map(|(s, _)| s.len()).sum();
+        Self { segments, len }
+    }
+
     /// Get the total length in bytes of all segments
     #[must_use]
     pub const fn len(&self) -> usize {
@@ -437,7 +456,7 @@ impl<'src> SpannedSegments<'src> {
     }
 }
 
-impl fmt::Display for SpannedSegments<'_> {
+impl Display for SpannedSegments<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (seg, _) in &self.segments {
             seg.fmt(f)?;
@@ -648,7 +667,7 @@ END:VEVENT\r\n\
 
     #[test]
     fn parses_parameter() {
-        fn parse(src: &str) -> Result<SyntaxParameter<'_>, Vec<Rich<'_, Token<'_>>>> {
+        fn parse(src: &str) -> Result<SyntaxParameterRef<'_>, Vec<Rich<'_, Token<'_>>>> {
             parameter::<'_, '_, _, extra::Err<_>>()
                 .parse(lex_analysis(src))
                 .into_result()

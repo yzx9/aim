@@ -13,11 +13,16 @@ mod util;
 mod definition;
 mod kind;
 
+use std::fmt::Display;
+
 pub use definition::{
-    AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,
-    ParticipationStatus, RecurrenceIdRange, RelationshipType, ValueType,
+    AlarmTriggerRelationship, CalendarUserType, CalendarUserTypeOwned, CalendarUserTypeRef,
+    Encoding, FreeBusyType, FreeBusyTypeOwned, FreeBusyTypeRef, ParticipationRole,
+    ParticipationRoleOwned, ParticipationRoleRef, ParticipationStatus, ParticipationStatusOwned,
+    ParticipationStatusRef, RecurrenceIdRange, RelationshipType, RelationshipTypeOwned,
+    RelationshipTypeRef, ValueType, ValueTypeOwned, ValueTypeRef,
 };
-pub use kind::ParameterKind;
+pub use kind::{ParameterKind, ParameterKindOwned, ParameterKindRef};
 
 use crate::lexer::Span;
 use crate::parameter::definition::{
@@ -25,23 +30,20 @@ use crate::parameter::definition::{
     parse_range, parse_reltype, parse_role, parse_rsvp, parse_tzid, parse_value_type,
 };
 use crate::parameter::util::{parse_multiple_quoted, parse_single, parse_single_quoted};
-use crate::syntax::{SpannedSegments, SyntaxParameter};
+use crate::syntax::{SpannedSegments, SyntaxParameter, SyntaxParameterRef};
 use crate::typed::TypedError;
 
 /// A typed iCalendar parameter with validated values.
 #[derive(Debug, Clone)]
 #[expect(missing_docs)]
-pub enum Parameter<'src> {
+pub enum Parameter<S: Clone + Display> {
     /// This parameter specifies a URI that points to an alternate
     /// representation for a textual property value. A property specifying
     /// this parameter MUST also include a value that reflects the default
     /// representation of the text value
     ///
     /// See also: RFC 5545 Section 3.2.1. Alternate Text Representation
-    AlternateText {
-        value: SpannedSegments<'src>,
-        span: Span,
-    },
+    AlternateText { value: S, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter specifies the common name to be associated with
@@ -50,10 +52,7 @@ pub enum Parameter<'src> {
     /// with the calendar address specified by the property.
     ///
     /// See also: RFC 5545 Section 3.2.2. Common Name
-    CommonName {
-        value: SpannedSegments<'src>,
-        span: Span,
-    },
+    CommonName { value: S, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter identifies the type of calendar user specified by
@@ -62,7 +61,7 @@ pub enum Parameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.3. Calendar User Type
     CalendarUserType {
-        value: CalendarUserType<'src>,
+        value: CalendarUserType<S>,
         span: Span,
     },
 
@@ -72,10 +71,7 @@ pub enum Parameter<'src> {
     /// user specified by the property.
     ///
     /// See also: RFC 5545 Section 3.2.4. Delegators
-    Delegators {
-        values: Vec<SpannedSegments<'src>>,
-        span: Span,
-    },
+    Delegators { values: Vec<S>, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. This parameter specifies those calendar users whom have been
@@ -83,10 +79,7 @@ pub enum Parameter<'src> {
     /// calendar user specified by the property.
     ///
     /// See also: RFC 5545 Section 3.2.5. Delegatees
-    Delegatees {
-        values: Vec<SpannedSegments<'src>>,
-        span: Span,
-    },
+    Delegatees { values: Vec<S>, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter specifies a reference to the directory entry
@@ -94,10 +87,7 @@ pub enum Parameter<'src> {
     /// parameter value is a URI.
     ///
     /// See also: RFC 5545 Section 3.2.6. Directory Entry Reference
-    Directory {
-        value: SpannedSegments<'src>,
-        span: Span,
-    },
+    Directory { value: S, span: Span },
 
     /// This property parameter identifies the inline encoding used in a
     /// property value.
@@ -114,20 +104,14 @@ pub enum Parameter<'src> {
     /// type.
     ///
     /// See also: RFC 5545 Section 3.2.8. Format Type
-    FormatType {
-        value: SpannedSegments<'src>,
-        span: Span,
-    },
+    FormatType { value: S, span: Span },
 
     /// This parameter specifies the free or busy time type. Applications MUST
     /// treat x-name and iana-token values they don't recognize the same way as
     /// they would the BUSY value.
     ///
     /// See also: RFC 5545 Section 3.2.9. Free/Busy Time Type
-    FreeBusyType {
-        value: FreeBusyType<'src>,
-        span: Span,
-    },
+    FreeBusyType { value: FreeBusyType<S>, span: Span },
 
     /// This parameter identifies the language of the text in the property
     /// value and of all property parameter values of the property. The value
@@ -138,10 +122,7 @@ pub enum Parameter<'src> {
     /// no default language is assumed.
     ///
     /// See also: RFC 5545 Section 3.2.10. Language
-    Language {
-        value: SpannedSegments<'src>,
-        span: Span,
-    },
+    Language { value: S, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter identifies the groups or list membership for the
@@ -151,10 +132,7 @@ pub enum Parameter<'src> {
     /// address parameter values MUST each be specified in a quoted-string.
     ///
     /// See also: RFC 5545 Section 3.2.11. Group or List Membership
-    GroupOrListMembership {
-        values: Vec<SpannedSegments<'src>>,
-        span: Span,
-    },
+    GroupOrListMembership { values: Vec<S>, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter identifies the participation status for the
@@ -168,7 +146,7 @@ pub enum Parameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.12. Participation Status
     ParticipationStatus {
-        value: ParticipationStatus<'src>,
+        value: ParticipationStatus<S>,
         span: Span,
     },
 
@@ -205,7 +183,7 @@ pub enum Parameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.15. Relationship Type
     RelationshipType {
-        value: RelationshipType<'src>,
+        value: RelationshipType<S>,
         span: Span,
     },
 
@@ -217,7 +195,7 @@ pub enum Parameter<'src> {
     ///
     /// See also: RFC 5545 Section 3.2.16. Participation Role
     ParticipationRole {
-        value: ParticipationRole<'src>,
+        value: ParticipationRole<S>,
         span: Span,
     },
 
@@ -228,10 +206,7 @@ pub enum Parameter<'src> {
     /// parameter values MUST each be specified in a quoted-string.
     ///
     /// See also: RFC 5545 Section 3.2.18. Sent By
-    SendBy {
-        value: SpannedSegments<'src>,
-        span: Span,
-    },
+    SendBy { value: S, span: Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter identifies the expectation of a reply from the
@@ -257,7 +232,7 @@ pub enum Parameter<'src> {
     /// See also: RFC 5545 Section 3.2.19. Time Zone Identifier
     TimeZoneIdentifier {
         /// The TZID parameter value
-        value: SpannedSegments<'src>,
+        value: S,
         /// The time zone definition associated with this TZID
         #[cfg(feature = "jiff")]
         tz: jiff::tz::TimeZone,
@@ -276,7 +251,7 @@ pub enum Parameter<'src> {
     /// MUST be specified.
     ///
     /// See also: RFC 5545 Section 3.2.20. Value Data Types
-    ValueType { value: ValueType<'src>, span: Span },
+    ValueType { value: ValueType<S>, span: Span },
 
     /// Custom experimental x-name parameter.
     ///
@@ -286,9 +261,9 @@ pub enum Parameter<'src> {
     /// See also: RFC 5545 Section 3.2 (Parameter definition)
     XName {
         /// Parameter name (including the "X-" prefix)
-        name: SpannedSegments<'src>,
+        name: S,
         /// Raw parameter (unparsed)
-        raw: SyntaxParameter<'src>,
+        raw: SyntaxParameter<S>,
     },
 
     /// Unrecognized iana-token parameter.
@@ -299,16 +274,22 @@ pub enum Parameter<'src> {
     /// See also: RFC 5545 Section 3.2 (Parameter definition)
     Unrecognized {
         /// Parameter name
-        name: SpannedSegments<'src>,
+        name: S,
         /// Raw parameter (unparsed)
-        raw: SyntaxParameter<'src>,
+        raw: SyntaxParameter<S>,
     },
 }
 
-impl<'src> Parameter<'src> {
+/// Type alias for borrowed parameter
+pub type ParameterRef<'src> = Parameter<SpannedSegments<'src>>;
+
+/// Type alias for owned parameter
+pub type ParameterOwned = Parameter<String>;
+
+impl<'src> ParameterRef<'src> {
     /// Returns the type of the parameter
     #[must_use]
-    pub fn into_kind(self) -> ParameterKind<'src> {
+    pub fn into_kind(self) -> ParameterKindRef<'src> {
         match self {
             Parameter::AlternateText { .. } => ParameterKind::AlternateText,
             Parameter::CommonName { .. } => ParameterKind::CommonName,
@@ -365,10 +346,10 @@ impl<'src> Parameter<'src> {
     }
 }
 
-impl<'src> TryFrom<SyntaxParameter<'src>> for Parameter<'src> {
+impl<'src> TryFrom<SyntaxParameterRef<'src>> for ParameterRef<'src> {
     type Error = Vec<TypedError<'src>>;
 
-    fn try_from(mut param: SyntaxParameter<'src>) -> Result<Self, Self::Error> {
+    fn try_from(mut param: SyntaxParameterRef<'src>) -> Result<Self, Self::Error> {
         // Parse the parameter kind
         let kind = ParameterKind::from(param.name.clone());
 

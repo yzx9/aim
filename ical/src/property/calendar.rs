@@ -14,6 +14,7 @@
 //! - 3.7.4: `Version` - iCalendar version (2.0)
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
 use crate::keyword::{
     KW_CALSCALE_GREGORIAN, KW_METHOD_ADD, KW_METHOD_CANCEL, KW_METHOD_COUNTER,
@@ -23,6 +24,7 @@ use crate::keyword::{
 use crate::parameter::Parameter;
 use crate::property::PropertyKind;
 use crate::property::util::take_single_text;
+use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
 
@@ -38,18 +40,18 @@ define_prop_value_enum! {
 
 /// Calendar scale specification (RFC 5545 Section 3.7.1)
 #[derive(Debug, Clone, Default)]
-pub struct CalendarScale<'src> {
+pub struct CalendarScale<S: Clone + Display> {
     /// Calendar scale value
     pub value: CalendarScaleValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -126,18 +128,18 @@ define_prop_value_enum! {
 
 /// Method type for iCalendar objects (RFC 5545 Section 3.7.2)
 #[derive(Debug, Clone, Default)]
-pub struct Method<'src> {
+pub struct Method<S: Clone + Display> {
     /// Method value
     pub value: MethodValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Method<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Method<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -183,20 +185,20 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<'src> {
 
 /// Product identifier that identifies the software that created the iCalendar data (RFC 5545 Section 3.7.3)
 #[derive(Debug, Clone, Default)]
-pub struct ProductId<'src> {
+pub struct ProductId<S: Clone + Display> {
     /// The vendor of the implementation SHOULD assure that this is a globally
     /// unique identifier; using some technique such as an FPI value, as
     /// defined in [ISO.9070.1991].
-    pub value: ValueText<'src>,
+    pub value: ValueText<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -242,18 +244,18 @@ define_prop_value_enum! {
 
 /// iCalendar version specification (RFC 5545 Section 3.7.4)
 #[derive(Debug, Clone, Default)]
-pub struct Version<'src> {
+pub struct Version<S: Clone + Display> {
     /// Version value
     pub value: VersionValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Version<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Version<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {

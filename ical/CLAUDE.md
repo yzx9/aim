@@ -36,23 +36,31 @@ Validates all components against RFC 5545 specifications through three sub-passe
 
 1. **Parameter Pass**
    - Parses and validates iCalendar parameters per RFC 5545 Section 3.2
-   - Converts parameter strings to strongly-typed representations
+   - Converts parameter strings to strongly-typed representations using generic
+     storage parameter `S: Clone + Display`
    - Validates parameter values (e.g., enum values for CUTYPE, ENCODING, etc.)
-   - Provides `Parameter` enum and `ParameterKind` type for type-safe parameter handling
+   - Provides `Parameter<S>` enum with convenience aliases:
+     - `ParameterRef<'src>` for zero-copy parsing
+     - `ParameterOwned` for owned data
+   - `ParameterKind<S>` for type-safe parameter kind handling
 
 2. **Value Pass**
    - Parses and validates property value types per RFC 5545 Section 3.3
    - Converts value strings to appropriate Rust types (dates, durations, integers, etc.)
    - Handles type inference when VALUE parameter is not specified
    - Processes escape sequences (e.g., `\n`, `\;`, `\,`) in text values
-   - Provides `Value` enum and specific value types (`ValueDate`, `ValueDateTime`, etc.)
+   - Provides `Value<S>` enum with convenience aliases:
+     - `ValueRef<'src>` for zero-copy parsing
+     - `ValueOwned` for owned data
+   - Specific value types (`ValueDate`, `ValueDateTime`, etc.) using the same pattern
 
 3. **Property Pass**
    - Validates property-specific constraints and relationships
    - Handles property cardinality and multiplicity rules
    - Validates inter-property dependencies
    - Implements property kind validation to ensure type safety
-   - Creates strongly-typed wrapper types for each property
+   - Creates strongly-typed wrapper types for each property using `Property<S>` with
+     `PropertyRef` and `PropertyOwned` aliases
 
 **Property Organization**: Property type definitions are organized in the `property/`
 module by RFC 5545 sections. Each property type has:
@@ -75,9 +83,10 @@ business rules and constraints defined in the specification.
 Coordinates all phases, aggregates errors from each phase, and provides a
 single entry point for parsing operations.
 
-The main `parse()` function returns `Result<Vec<ICalendar>, Vec<ParseError>>`,
-where the vector contains all successfully parsed VCALENDAR objects from the
-input stream.
+The main `parse()` function returns `Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>>`,
+where `ICalendarRef<'_>` is a convenience alias for `ICalendar<SpannedSegments<'_>>`.
+This provides zero-copy parsing by default, with the option to convert to owned
+types using the `Owned` variants (e.g., `ICalendarOwned`).
 
 ## Module Structure
 
@@ -170,6 +179,21 @@ ical/
 - **Error Aggregation**: Collects and reports errors from all phases
 - **Type Safety**: Strongly typed representation of iCalendar data with
   dedicated wrapper types for each property (e.g., `Created`, `DtStart`, `Summary`)
+- **Generic Storage Parameter System**: Unified type system using generic storage
+  parameter `S: Clone + Display` for flexibility:
+  - **Parameters**: `Parameter<S: Clone + Display>` with convenience aliases:
+    - `ParameterRef<'src>` = `Parameter<SpannedSegments<'src>>` for zero-copy parsing
+    - `ParameterOwned` = `Parameter<String>` for owned data
+  - **Properties**: `Property<S: Clone + Display>` with convenience aliases:
+    - `PropertyRef<'src>` = `Property<SpannedSegments<'src>>`
+    - `PropertyOwned` = `Property<String>`
+  - **Values**: `Value<S: Clone + Display>` with convenience aliases:
+    - `ValueRef<'src>` = `Value<SpannedSegments<'src>>`
+    - `ValueOwned` = `Value<String>`
+  - **Semantic Types**: All component types (e.g., `VEvent`, `VTodo`, `ICalendar`)
+    use the same pattern with `Ref` and `Owned` variants
+  - This enables both zero-copy parsing (borrowed data) and owned data
+    representations with a unified API
 - **Performance**: Zero-copy parsing where possible, minimal allocations
 - **Optional datetime dependencies**: All types use the value module's
   `ValueDate`, `ValueTime`, and `ValueDateTime` instead of directly using
@@ -185,9 +209,15 @@ The architecture provides comprehensive error reporting with:
 
 ## Feature Support
 
-- **Property Kind System**: Complete `PropertyKind` enum with value type mappings
+- **Generic Storage Parameter System**: Unified type system using `S: Clone + Display`
+  across all layers:
+  - All types (parameters, properties, values, semantic components) use the same pattern
+  - `Ref` variants for zero-copy parsing with borrowed data
+  - `Owned` variants for data ownership and serialization
+  - Single codebase supporting both use cases without duplication
+- **Property Kind System**: Complete `PropertyKind<S>` enum with value type mappings
   for all RFC 5545 properties, enabling compile-time type safety
-- **Unified Property Enum**: Single `Property` enum providing type-safe access to
+- **Unified Property Enum**: Single `Property<S>` enum providing type-safe access to
   all property variants with `TryFrom<ParsedProperty>` validation
 - **Unknown/Custom Property Support**: Full RFC 5545 compliance for extensibility:
   - Parsing never fails due to unknown content (per RFC 5545 Section 4.1)
@@ -199,4 +229,4 @@ The architecture provides comprehensive error reporting with:
 - **RFC 5545 Compliance**: Complete support for all required value types and
   parameters
 - **Semantic Type System**: High-level semantic representations of iCalendar
-  components
+  components with `Ref` and `Owned` variants for all component types

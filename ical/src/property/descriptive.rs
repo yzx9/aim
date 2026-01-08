@@ -19,6 +19,7 @@
 
 use std::convert::TryFrom;
 use std::fmt;
+use std::fmt::Display;
 
 use chumsky::{Parser, error::Rich, extra, input::Stream};
 
@@ -28,7 +29,7 @@ use crate::keyword::{
     KW_STATUS_IN_PROCESS, KW_STATUS_NEEDS_ACTION, KW_STATUS_TENTATIVE,
 };
 use crate::lexer::Span;
-use crate::parameter::{Encoding, Parameter, ValueType};
+use crate::parameter::{Encoding, Parameter, ValueTypeRef};
 use crate::property::PropertyKind;
 use crate::property::util::{Text, Texts, take_single_text, take_single_value};
 use crate::syntax::SpannedSegments;
@@ -37,34 +38,40 @@ use crate::value::{Value, ValueText, values_float_semicolon};
 
 /// Attachment information (RFC 5545 Section 3.8.1.1)
 #[derive(Debug, Clone)]
-pub struct Attachment<'src> {
+pub struct Attachment<S: Clone + Display> {
     /// URI or binary data
-    pub value: AttachmentValue<'src>,
+    pub value: AttachmentValue<S>,
 
     /// Format type (optional)
-    pub fmt_type: Option<SpannedSegments<'src>>,
+    pub fmt_type: Option<S>,
 
     /// Encoding (optional)
     pub encoding: Option<Encoding>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
 /// Attachment value (URI or binary)
 #[derive(Debug, Clone)]
-pub enum AttachmentValue<'src> {
+pub enum AttachmentValue<S: Clone + Display> {
     /// URI reference
-    Uri(ValueText<'src>),
+    Uri(ValueText<S>),
 
     /// Binary data
-    Binary(SpannedSegments<'src>),
+    Binary(String),
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
+/// Type alias for borrowed attachment value
+pub type AttachmentValueRef<'src> = AttachmentValue<SpannedSegments<'src>>;
+
+/// Type alias for owned attachment value
+pub type AttachmentValueOwned = AttachmentValue<String>;
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -136,7 +143,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<'src> {
                 unrecognized_parameters,
             }),
             Value::Binary { raw: data, .. } => Ok(Attachment {
-                value: AttachmentValue::Binary(data.clone()),
+                value: AttachmentValue::Binary(data.resolve().to_string()),
                 fmt_type,
                 encoding,
                 x_parameters,
@@ -169,24 +176,24 @@ define_prop_value_enum! {
 
 /// Classification of calendar data (RFC 5545 Section 3.8.1.3)
 #[derive(Debug, Clone)]
-pub struct Classification<'src> {
+pub struct Classification<S: Clone + Display> {
     /// Classification value
     pub value: ClassificationValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl fmt::Display for Classification<'_> {
+impl<S: Display + Clone> Display for Classification<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.value.fmt(f)
     }
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Classification<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Classification<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -232,17 +239,23 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification<'src> {
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.4)
-    Comment<'src>: Text<'src> => Comment
+    pub Comment<S> => Text
+
+    ref   = pub type CommentRef;
+    owned = pub type CommentOwned;
 );
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.5)
-    Description<'src>: Text<'src> => Description
+    pub Description<S> => Text
+
+    ref   = pub type DescriptionRef;
+    owned = pub type DescriptionOwned;
 );
 
 /// Geographic position (RFC 5545 Section 3.8.1.6)
 #[derive(Debug, Clone)]
-pub struct Geo<'src> {
+pub struct Geo<S: Clone + Display> {
     /// Latitude
     pub lat: f64,
 
@@ -250,13 +263,13 @@ pub struct Geo<'src> {
     pub lon: f64,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Geo<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -322,7 +335,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<'src> {
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.7)
-    Location<'src>: Text<'src> => Location
+    pub Location<S> => Text
+
+    ref   = pub type LocationRef;
+    owned = pub type LocationOwned;
 );
 
 define_prop_value_enum! {
@@ -360,21 +376,21 @@ define_prop_value_enum! {
 
 /// Event/To-do/Journal status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
-pub struct Status<'src> {
+pub struct Status<S: Clone + Display> {
     /// Status value
     pub value: StatusValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Status<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Status<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -424,18 +440,18 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status<'src> {
 /// This property defines the percent complete for a todo.
 /// Value must be between 0 and 100.
 #[derive(Debug, Clone)]
-pub struct PercentComplete<'src> {
+pub struct PercentComplete<S: Clone + Display> {
     /// Percent complete (0-100)
     pub value: u8,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -491,7 +507,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<'src> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Integer,
+                    expected: ValueTypeRef::Integer,
                     found: v.into_kind(),
                     span,
                 }])
@@ -506,18 +522,18 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<'src> {
 /// This property defines the priority for a calendar component.
 /// Value must be between 0 and 9, where 0 defines an undefined priority.
 #[derive(Debug, Clone)]
-pub struct Priority<'src> {
+pub struct Priority<S: Clone + Display> {
     /// Priority value (0-9, where 0 is undefined)
     pub value: u8,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Priority<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -573,7 +589,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<'src> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Integer,
+                    expected: ValueTypeRef::Integer,
                     found: v.into_kind(),
                     span,
                 }])
@@ -585,15 +601,24 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<'src> {
 
 simple_property_wrapper!(
     /// Multi-valued text property wrapper (RFC 5545 Section 3.8.1.10)
-    Resources<'src>: Texts<'src> => Resources
+    pub Resources<S> => Texts
+
+    ref   = pub type ResourcesRef;
+    owned = pub type ResourcesOwned;
 );
 
 simple_property_wrapper!(
     /// Multi-valued text property wrapper (RFC 5545 Section 3.8.1.2)
-    Categories<'src>: Texts<'src> => Categories
+    pub Categories<S> => Texts
+
+    ref   = pub type CategoriesRef;
+    owned = pub type CategoriesOwned;
 );
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.12)
-    Summary<'src>: Text<'src> => Summary
+    pub Summary<S> => Text
+
+    ref   = pub type SummaryRef;
+    owned = pub type SummaryOwned;
 );

@@ -5,38 +5,46 @@
 //! iCalendar container types.
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
 use crate::keyword::{
     KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
 use crate::property::{CalendarScale, Method, ProductId, Property, PropertyKind, Version};
 use crate::semantic::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
+use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]
-pub struct ICalendar<'src> {
+pub struct ICalendar<S: Clone + Display> {
     /// Product identifier that generated the iCalendar data
-    pub prod_id: ProductId<'src>,
+    pub prod_id: ProductId<S>,
 
     /// Version of iCalendar specification
-    pub version: Version<'src>,
+    pub version: Version<S>,
 
     /// Calendar scale (usually GREGORIAN)
-    pub calscale: Option<CalendarScale<'src>>,
+    pub calscale: Option<CalendarScale<S>>,
 
     /// Method for the iCalendar object (e.g., PUBLISH, REQUEST)
-    pub method: Option<Method<'src>>,
+    pub method: Option<Method<S>>,
 
     /// All calendar components (events, todos, journals, etc.)
-    pub components: Vec<CalendarComponent<'src>>,
+    pub components: Vec<CalendarComponent<S>>,
 
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<'src>>,
+    pub x_properties: Vec<Property<S>>,
 
     /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<'src>>,
+    pub unrecognized_properties: Vec<Property<S>>,
 }
+
+/// Type alias for `ICalendar` with borrowed data
+pub type ICalendarRef<'src> = ICalendar<SpannedSegments<'src>>;
+
+/// Type alias for `ICalendar` with owned data
+pub type ICalendarOwned = ICalendar<String>;
 
 /// Parse a `TypedComponent` into typed `ICalendar`
 ///
@@ -47,7 +55,7 @@ pub struct ICalendar<'src> {
 /// - Required properties (PRODID, VERSION) are missing
 /// - Property values are invalid or malformed
 /// - Child components cannot be parsed
-impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
@@ -156,7 +164,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<'src> {
 /// Individual component parsing errors are collected and included in the result.
 fn parse_component_children(
     children: Vec<TypedComponent<'_>>,
-) -> Result<Vec<CalendarComponent<'_>>, Vec<SemanticError<'_>>> {
+) -> Result<Vec<CalendarComponent<SpannedSegments<'_>>>, Vec<SemanticError<'_>>> {
     let mut components = Vec::with_capacity(children.len());
     let mut errors = Vec::new();
 
@@ -203,24 +211,24 @@ fn parse_component_children(
 
 /// Calendar components that can appear in an iCalendar object
 #[derive(Debug, Clone)]
-pub enum CalendarComponent<'src> {
+pub enum CalendarComponent<S: Clone + Display> {
     /// Event component
-    Event(VEvent<'src>),
+    Event(VEvent<S>),
 
     /// To-do component
-    Todo(VTodo<'src>),
+    Todo(VTodo<S>),
 
     /// Journal entry component
-    VJournal(VJournal<'src>),
+    VJournal(VJournal<S>),
 
     /// Free/busy time component
-    VFreeBusy(VFreeBusy<'src>),
+    VFreeBusy(VFreeBusy<S>),
 
     /// Timezone definition component
-    VTimeZone(VTimeZone<'src>),
+    VTimeZone(VTimeZone<S>),
 
     /// Alarm component
-    VAlarm(VAlarm<'src>),
+    VAlarm(VAlarm<S>),
     // /// Custom component
     // Custom(CustomComponent),
 }
@@ -241,11 +249,11 @@ pub enum CalendarComponent<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'src> {
-    prod_id:        Option<ProductId<'src>>,
-    version:        Option<Version<'src>>,
-    calscale:       Option<CalendarScale<'src>>,
-    method:         Option<Method<'src>>,
-    x_properties:   Vec<Property<'src>>,
-    unrecognized_properties: Vec<Property<'src>>,
+struct PropertyCollector<S: Clone + Display> {
+    prod_id:        Option<ProductId<S>>,
+    version:        Option<Version<S>>,
+    calscale:       Option<CalendarScale<S>>,
+    method:         Option<Method<S>>,
+    x_properties:   Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }

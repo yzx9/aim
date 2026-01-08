@@ -22,16 +22,16 @@ macro_rules! impl_typed_parameter_kind_mapping {
     ) => {
         #[derive(Debug, Clone)]
         $(#[$attr])*
-        pub enum $ty<'src> {
+        pub enum $ty<S: ::core::clone::Clone + ::core::fmt::Display> {
             $( $variant, )+
             /// Custom experimental x-name value (must start with "X-" or "x-")
-            XName(SpannedSegments<'src>),
+            XName(S),
             /// Unrecognized value (not a known standard value)
-            Unrecognized(SpannedSegments<'src>),
+            Unrecognized(S),
         }
 
-        impl<'src> From<SpannedSegments<'src>> for $ty<'src> {
-            fn from(name: SpannedSegments<'src>) -> Self {
+        impl<'src> ::core::convert::From<SpannedSegments<'src>> for $ty<crate::syntax::SpannedSegments<'src>> {
+            fn from(name: crate::syntax::SpannedSegments<'src>) -> Self {
                 $(
                     if name.eq_str_ignore_ascii_case($kw) {
                         return Self::$variant;
@@ -46,7 +46,7 @@ macro_rules! impl_typed_parameter_kind_mapping {
             }
         }
 
-        impl fmt::Display for $ty<'_> {
+        impl<S: Clone + ::core::fmt::Display> ::core::fmt::Display for $ty<S> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     $(
@@ -85,3 +85,9 @@ impl_typed_parameter_kind_mapping! {
         ValueType           => KW_VALUE,
     }
 }
+
+/// Type alias for borrowed parameter kind
+pub type ParameterKindRef<'src> = ParameterKind<SpannedSegments<'src>>;
+
+/// Type alias for owned parameter kind
+pub type ParameterKindOwned = ParameterKind<String>;

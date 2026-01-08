@@ -11,20 +11,28 @@
 //! - 3.8.3.5: `TzUrl` - Time zone URL
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
-use crate::parameter::{Parameter, ValueType};
+use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::util::{Text, take_single_value};
+use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueUtcOffset};
 
 simple_property_wrapper!(
     /// Simple text property wrapper for `TzId` (RFC 5545 Section 3.8.3.1)
-    TzId<'src>: Text<'src> => TzId
+    pub TzId<S> => Text
+
+    ref   = pub type TzIdRef;
+    owned = pub type TzIdOwned;
 );
 
 simple_property_wrapper!(
     /// Simple text property wrapper for `TzName` (RFC 5545 Section 3.8.3.2)
-    TzName<'src>: Text<'src> => TzName
+    pub TzName<S> => Text
+
+    ref   = pub type TzNameRef;
+    owned = pub type TzNameOwned;
 );
 
 /// UTC offset property with parameters (RFC 5545 Section 3.8.3.3 & 3.8.3.4)
@@ -32,18 +40,18 @@ simple_property_wrapper!(
 /// This type implements `TryFrom<ParsedProperty>` for use with
 /// the `simple_property_wrapper!` macro.
 #[derive(Debug, Clone)]
-pub struct UtcOffsetProperty<'src> {
+pub struct UtcOffsetProperty<S: Clone + Display> {
     /// UTC offset value
     pub value: ValueUtcOffset,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -73,7 +81,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<'src> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: kind,
-                    expected: ValueType::UtcOffset,
+                    expected: ValueTypeRef::UtcOffset,
                     found: v.into_kind(),
                     span,
                 }])
@@ -85,15 +93,24 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<'src> {
 
 simple_property_wrapper!(
     /// Time Zone Offset From property wrapper (RFC 5545 Section 3.8.3.3)
-    TzOffsetFrom<'src>: UtcOffsetProperty<'src> => TzOffsetFrom
+    pub TzOffsetFrom<S> => UtcOffsetProperty
+
+    ref   = pub type TzOffsetFromRef;
+    owned = pub type TzOffsetFromOwned;
 );
 
 simple_property_wrapper!(
     /// Time Zone Offset To property wrapper (RFC 5545 Section 3.8.3.4)
-    TzOffsetTo<'src>: UtcOffsetProperty<'src> => TzOffsetTo
+    pub TzOffsetTo<S> => UtcOffsetProperty
+
+    ref   = pub type TzOffsetToRef;
+    owned = pub type TzOffsetToOwned;
 );
 
 simple_property_wrapper!(
     /// Simple text property wrapper for `TzUrl` (RFC 5545 Section 3.8.3.5)
-    TzUrl<'src>: Text<'src> => TzUrl
+    pub TzUrl<S> => Text
+
+    ref   = pub type TzUrlRef;
+    owned = pub type TzUrlOwned;
 );

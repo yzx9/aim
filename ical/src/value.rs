@@ -20,13 +20,15 @@ pub use duration::ValueDuration;
 pub(crate) use numeric::values_float_semicolon;
 pub use period::ValuePeriod;
 pub use rrule::{Day, RecurrenceFrequency, RecurrenceRule, WeekDay};
-pub use text::ValueText;
+pub use text::{ValueText, ValueTextOwned, ValueTextRef};
+
+use std::fmt::Display;
 
 use chumsky::input::Stream;
 use chumsky::prelude::*;
 
 use crate::lexer::Span;
-use crate::parameter::ValueType;
+use crate::parameter::{ValueType, ValueTypeRef};
 use crate::syntax::SpannedSegments;
 use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
 use crate::value::duration::values_duration;
@@ -45,7 +47,7 @@ use crate::value::text::values_text;
 ///
 /// See RFC 5545 Section 3.3 for more details.
 #[derive(Debug, Clone)]
-pub enum Value<'src> {
+pub enum Value<S: Clone + Display> {
     /// This value type is used to identify properties that contain a character
     /// encoding of inline binary data.  For example, an inline attachment of a
     /// document might be included in an iCalendar object.
@@ -55,7 +57,7 @@ pub enum Value<'src> {
     /// Note: This is a single-value type (comma-separated values not allowed).
     Binary {
         /// The binary data
-        raw: SpannedSegments<'src>,
+        raw: S,
         /// The span of the value
         span: Span,
     },
@@ -161,7 +163,7 @@ pub enum Value<'src> {
     /// Note: This type supports multiple comma-separated values.
     Text {
         /// The text values
-        values: Vec<ValueText<'src>>,
+        values: Vec<ValueText<S>>,
         /// The span of the values
         span: Span,
     },
@@ -200,9 +202,9 @@ pub enum Value<'src> {
     /// See also: RFC 5545 Section 3.2.20 (Value Data Types)
     XName {
         /// The raw value string (unparsed)
-        raw: SpannedSegments<'src>,
+        raw: S,
         /// The value type that was specified
-        kind: ValueType<'src>,
+        kind: ValueType<S>,
         /// The span of the value
         span: Span,
     },
@@ -216,15 +218,21 @@ pub enum Value<'src> {
     /// See also: RFC 5545 Section 3.2.20 (Value Data Types)
     Unrecognized {
         /// The raw value string (unparsed)
-        raw: SpannedSegments<'src>,
+        raw: S,
         /// The value type that was specified
-        kind: ValueType<'src>,
+        kind: ValueType<S>,
         /// The span of the value
         span: Span,
     },
 }
 
-impl<'src> Value<'src> {
+/// Type alias for borrowed value
+pub type ValueRef<'src> = Value<SpannedSegments<'src>>;
+
+/// Type alias for owned value
+pub type ValueOwned = Value<String>;
+
+impl<'src> ValueRef<'src> {
     /// Get the span of this value.
     #[must_use]
     pub const fn span(&self) -> Span {
@@ -250,7 +258,7 @@ impl<'src> Value<'src> {
     /// This is useful when you need to move the kind out of a value that will
     /// be dropped anyway (e.g., in error handling).
     #[must_use]
-    pub fn into_kind(self) -> ValueType<'src> {
+    pub fn into_kind(self) -> ValueType<SpannedSegments<'src>> {
         match self {
             Value::Binary { .. } => ValueType::Binary,
             Value::Boolean { .. } => ValueType::Boolean,
@@ -306,9 +314,9 @@ impl<'src> Value<'src> {
 ///
 /// Parse errors from all attempted types
 pub fn parse_value<'src>(
-    value_types: &Vec<ValueType<'src>>,
+    value_types: &Vec<ValueTypeRef<'src>>,
     value: &SpannedSegments<'src>,
-) -> Result<Value<'src>, Vec<Rich<'src, char>>> {
+) -> Result<ValueRef<'src>, Vec<Rich<'src, char>>> {
     // Collect errors from all attempted types
     let mut all_errors: Vec<Rich<'src, char>> = Vec::new();
 
@@ -330,9 +338,9 @@ pub fn parse_value<'src>(
 
 /// Parse property value for a single specified value type.
 fn parse_value_single_type<'src>(
-    value_type: &ValueType<'src>,
+    value_type: &ValueTypeRef<'src>,
     value: &SpannedSegments<'src>,
-) -> Result<Value<'src>, Vec<Rich<'src, char>>> {
+) -> Result<ValueRef<'src>, Vec<Rich<'src, char>>> {
     // Try the specified value type
     match value_type {
         ValueType::Binary => value_binary::<'_, _, extra::Err<_>>()

@@ -35,6 +35,7 @@
 //! `ParsedProperty`, ensuring type safety throughout the parsing pipeline.
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
 use crate::keyword::{KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT};
 use crate::parameter::{FreeBusyType, Parameter, ValueType};
@@ -46,7 +47,7 @@ use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
 
 /// Date and time representation
 #[derive(Debug, Clone)]
-pub enum DateTime<'src> {
+pub enum DateTime<S: Clone + Display> {
     /// Date and time without timezone (floating time)
     Floating {
         /// Date part
@@ -54,9 +55,9 @@ pub enum DateTime<'src> {
         /// Time part
         time: Time,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<Parameter<'src>>,
+        x_parameters: Vec<Parameter<S>>,
         /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-        unrecognized_parameters: Vec<Parameter<'src>>,
+        unrecognized_parameters: Vec<Parameter<S>>,
     },
 
     /// Date and time with specific timezone
@@ -66,14 +67,14 @@ pub enum DateTime<'src> {
         /// Time part
         time: Time,
         /// Timezone identifier
-        tz_id: SpannedSegments<'src>,
+        tz_id: S,
         /// Cached parsed timezone (available with jiff feature)
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<Parameter<'src>>,
+        x_parameters: Vec<Parameter<S>>,
         /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-        unrecognized_parameters: Vec<Parameter<'src>>,
+        unrecognized_parameters: Vec<Parameter<S>>,
     },
 
     /// Date and time in UTC
@@ -83,9 +84,9 @@ pub enum DateTime<'src> {
         /// Time part
         time: Time,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<Parameter<'src>>,
+        x_parameters: Vec<Parameter<S>>,
         /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-        unrecognized_parameters: Vec<Parameter<'src>>,
+        unrecognized_parameters: Vec<Parameter<S>>,
     },
 
     /// Date-only value
@@ -93,13 +94,13 @@ pub enum DateTime<'src> {
         /// Date part
         date: ValueDate,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<Parameter<'src>>,
+        x_parameters: Vec<Parameter<S>>,
         /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-        unrecognized_parameters: Vec<Parameter<'src>>,
+        unrecognized_parameters: Vec<Parameter<S>>,
     },
 }
 
-impl<'src> DateTime<'src> {
+impl<S: Clone + Display> DateTime<S> {
     /// Get the date part of this `DateTime`
     #[must_use]
     pub fn date(&self) -> ValueDate {
@@ -124,7 +125,7 @@ impl<'src> DateTime<'src> {
 
     /// Get the timezone ID if this is a zoned value
     #[must_use]
-    pub fn tz_id(&self) -> Option<&SpannedSegments<'src>> {
+    pub fn tz_id(&self) -> Option<&S> {
         match self {
             DateTime::Zoned { tz_id, .. } => Some(tz_id),
             _ => None,
@@ -177,7 +178,7 @@ impl<'src> DateTime<'src> {
     }
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -364,7 +365,7 @@ impl From<ValueTime> for Time {
 /// - Explicit: start and end date-times
 /// - Duration: start date-time and duration
 #[derive(Debug, Clone)]
-pub enum Period<'src> {
+pub enum Period<S: Clone + Display> {
     /// Start and end date/time in UTC
     ExplicitUtc {
         /// Start date
@@ -400,7 +401,7 @@ pub enum Period<'src> {
         /// End time
         end_time: Time,
         /// Timezone ID (same for both start and end)
-        tz_id: SpannedSegments<'src>,
+        tz_id: S,
         /// Cached parsed timezone (available with jiff feature)
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
@@ -435,17 +436,17 @@ pub enum Period<'src> {
         /// Duration from the start
         duration: ValueDuration,
         /// Start timezone ID
-        tz_id: SpannedSegments<'src>,
+        tz_id: S,
         /// Cached parsed timezone (available with jiff feature)
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
     },
 }
 
-impl<'src> Period<'src> {
+impl<S: Clone + Display> Period<S> {
     /// Get the timezone ID if this is a zoned period
     #[must_use]
-    pub fn tz_id(&self) -> Option<&SpannedSegments<'src>> {
+    pub fn tz_id(&self) -> Option<&S> {
         match self {
             Period::ExplicitZoned { tz_id, .. } | Period::DurationZoned { tz_id, .. } => {
                 Some(tz_id)
@@ -467,7 +468,7 @@ impl<'src> Period<'src> {
 
     /// Get the start as a `DateTime`.
     #[must_use]
-    pub fn start(&self) -> DateTime<'src> {
+    pub fn start(&self) -> DateTime<S> {
         match self {
             Period::ExplicitUtc {
                 start_date,
@@ -532,7 +533,7 @@ impl<'src> Period<'src> {
     #[cfg(feature = "jiff")]
     #[expect(clippy::missing_panics_doc, clippy::too_many_lines)]
     #[must_use]
-    pub fn end(&self) -> DateTime<'src> {
+    pub fn end(&self) -> DateTime<S> {
         match self {
             Period::ExplicitUtc {
                 end_date, end_time, ..
@@ -671,10 +672,10 @@ impl<'src> Period<'src> {
     }
 }
 
-impl<'src> TryFrom<Value<'src>> for Period<'src> {
+impl<'src> TryFrom<Value<SpannedSegments<'src>>> for Period<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
-    fn try_from(value: Value<'src>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
         let span = value.span();
         match value {
             Value::Period { mut values, .. } if values.len() == 1 => {
@@ -774,40 +775,52 @@ fn add_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff:
 
 simple_property_wrapper!(
     /// Date-Time Completed property wrapper (RFC 5545 Section 3.8.2.1)
-    Completed<'src>: DateTime<'src> => Completed
+    pub Completed<S> => DateTime
+
+    ref   = pub type CompletedRef;
+    owned = pub type CompletedOwned;
 );
 
 simple_property_wrapper!(
     /// Date-Time End property wrapper (RFC 5545 Section 3.8.2.2)
-    DtEnd<'src>: DateTime<'src> => DtEnd
+    pub DtEnd<S> => DateTime
+
+    ref   = pub type DtEndRef;
+    owned = pub type DtEndOwned;
 );
 
 simple_property_wrapper!(
     /// Time Transparency property wrapper (RFC 5545 Section 3.8.2.3)
-    Due<'src>: DateTime<'src> => Due
+    pub Due<S> => DateTime
+
+    ref   = pub type DueRef;
+    owned = pub type DueOwned;
 );
 
 simple_property_wrapper!(
     /// Date-Time Start property wrapper (RFC 5545 Section 3.8.2.4)
-    DtStart<'src>: DateTime<'src> => DtStart
+    pub DtStart<S> => DateTime
+
+    ref   = pub type DtStartRef;
+    owned = pub type DtStartOwned;
 );
 
 /// Duration (RFC 5545 Section 3.8.2.5)
 ///
 /// This property specifies a duration of time.
 #[derive(Debug, Clone)]
-pub struct Duration<'src> {
+pub struct Duration<S: Clone + Display> {
     /// Duration value
     pub value: ValueDuration,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Duration<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -871,18 +884,18 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<'src> {
 ///
 /// This property defines one or more free or busy time intervals.
 #[derive(Debug, Clone)]
-pub struct FreeBusy<'src> {
+pub struct FreeBusy<S: Clone + Display> {
     /// Free/Busy type parameter
-    pub fb_type: FreeBusyType<'src>,
+    pub fb_type: FreeBusyType<S>,
     /// List of free/busy time periods
-    pub values: Vec<Period<'src>>,
+    pub values: Vec<Period<S>>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -895,7 +908,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<'src> {
         }
 
         // Extract FBTYPE parameter (defaults to BUSY)
-        let mut fb_type: FreeBusyType<'src> = FreeBusyType::Busy;
+        let mut fb_type: FreeBusyType<SpannedSegments<'src>> = FreeBusyType::Busy;
         let mut x_parameters = Vec::new();
         let mut unrecognized_parameters = Vec::new();
 
@@ -1010,18 +1023,18 @@ define_prop_value_enum! {
 
 /// Time transparency for events (RFC 5545 Section 3.8.2.7)
 #[derive(Debug, Clone, Default)]
-pub struct TimeTransparency<'src> {
+pub struct TimeTransparency<S: Clone + Display> {
     /// Transparency value
     pub value: TimeTransparencyValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {

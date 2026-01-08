@@ -4,51 +4,60 @@
 
 //! Alarm component (VALARM) for iCalendar semantic components.
 
+use std::fmt::Display;
+
 use crate::keyword::KW_VALARM;
 use crate::property::{
     Action, ActionValue, Attachment, Attendee, Description, Property, PropertyKind, Repeat,
     Summary, Trigger,
 };
 use crate::semantic::SemanticError;
+use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
 use crate::value::ValueDuration;
 
 /// Alarm component (VALARM)
 #[derive(Debug, Clone)]
-pub struct VAlarm<'src> {
+pub struct VAlarm<S: Clone + Display> {
     /// Action to perform when alarm triggers
-    pub action: Action<'src>,
+    pub action: Action<S>,
 
     /// When to trigger the alarm
-    pub trigger: Trigger<'src>,
+    pub trigger: Trigger<S>,
 
     /// Repeat count for the alarm
-    pub repeat: Option<Repeat<'src>>,
+    pub repeat: Option<Repeat<S>>,
 
     /// Duration between repeats
     pub duration: Option<ValueDuration>,
 
     /// Description for display alarm
-    pub description: Option<Description<'src>>,
+    pub description: Option<Description<S>>,
 
     /// Summary for email alarm
-    pub summary: Option<Summary<'src>>,
+    pub summary: Option<Summary<S>>,
 
     /// Attendees for email alarm
-    pub attendees: Vec<Attendee<'src>>,
+    pub attendees: Vec<Attendee<S>>,
 
     /// Attachment for audio/procedure alarm
-    pub attach: Option<Attachment<'src>>,
+    pub attach: Option<Attachment<S>>,
 
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<'src>>,
+    pub x_properties: Vec<Property<S>>,
 
     /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<'src>>,
+    pub unrecognized_properties: Vec<Property<S>>,
 }
 
+/// Type alias for `VAlarm` with borrowed data
+pub type VAlarmRef<'src> = VAlarm<SpannedSegments<'src>>;
+
+/// Type alias for `VAlarm` with owned data
+pub type VAlarmOwned<'src> = VAlarm<String>;
+
 /// Parse a `TypedComponent` into a `VAlarm`
-impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -208,15 +217,15 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<'src> {
-    action:     Option<Action<'src>>,
-    trigger:    Option<Trigger<'src>>,
+struct PropertyCollector<S: Clone + Display> {
+    action:     Option<Action<S>>,
+    trigger:    Option<Trigger<S>>,
     duration:   Option<ValueDuration>,
-    repeat:     Option<Repeat<'src>>,
-    description: Option<Description<'src>>,
-    summary:    Option<Summary<'src>>,
-    attendees:  Vec<Attendee<'src>>,
-    attach:     Option<Attachment<'src>>,
-    x_properties: Vec<Property<'src>>,
-    unrecognized_properties: Vec<Property<'src>>,
+    repeat:     Option<Repeat<S>>,
+    description: Option<Description<S>>,
+    summary:    Option<Summary<S>>,
+    attendees:  Vec<Attendee<S>>,
+    attach:     Option<Attachment<S>>,
+    x_properties: Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }

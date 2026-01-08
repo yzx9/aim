@@ -14,44 +14,55 @@
 //! - 3.8.7.4: `Sequence` - Revision sequence number
 
 use std::convert::TryFrom;
+use std::fmt::Display;
 
-use crate::parameter::{Parameter, ValueType};
+use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::DateTime;
 use crate::property::{PropertyKind, util::take_single_value};
+use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
 
 simple_property_wrapper!(
     /// Created property wrapper (RFC 5545 Section 3.8.7.1)
-    Created<'src>: DateTime<'src> => Created
+    pub Created<S> => DateTime
+
+    ref   = pub type CreatedRef;
+    owned = pub type CreatedOwned;
 );
 
 simple_property_wrapper!(
     /// Date-Time Stamp property wrapper (RFC 5545 Section 3.8.7.2)
-    DtStamp<'src>: DateTime<'src> => DtStamp
+    pub DtStamp<S> => DateTime
+
+    ref   = pub type DtStampRef;
+    owned = pub type DtStampOwned;
 );
 
 simple_property_wrapper!(
     /// Last Modified property wrapper (RFC 5545 Section 3.8.7.3)
-    LastModified<'src>: DateTime<'src> => LastModified
+    pub LastModified<S> => DateTime
+
+    ref   = pub type LastModifiedRef;
+    owned = pub type LastModifiedOwned;
 );
 
 /// Sequence Number (RFC 5545 Section 3.8.7.4)
 ///
 /// This property defines the revision sequence number for the calendar component.
 #[derive(Debug, Clone)]
-pub struct Sequence<'src> {
+pub struct Sequence<S: Clone + Display> {
     /// Sequence number
     pub value: u32,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<'src>>,
+    pub x_parameters: Vec<Parameter<S>>,
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<'src>>,
+    pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -110,7 +121,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<'src> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Integer,
+                    expected: ValueTypeRef::Integer,
                     found: v.into_kind(),
                     span,
                 }])
