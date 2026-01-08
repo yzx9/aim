@@ -95,6 +95,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<SpannedSegments<'src>
     }
 }
 
+impl CalendarScale<SpannedSegments<'_>> {
+    /// Convert borrowed `CalendarScale` to owned `CalendarScale`
+    #[must_use]
+    pub fn to_owned(&self) -> CalendarScale<String> {
+        CalendarScale {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 define_prop_value_enum! {
     /// Method value for iCalendar objects (RFC 5545 Section 3.7.2)
     #[derive(Default)]
@@ -183,6 +199,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<SpannedSegments<'src>> {
     }
 }
 
+impl Method<SpannedSegments<'_>> {
+    /// Convert borrowed `Method` to owned `Method`
+    #[must_use]
+    pub fn to_owned(&self) -> Method<String> {
+        Method {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Product identifier that identifies the software that created the iCalendar data (RFC 5545 Section 3.7.3)
 #[derive(Debug, Clone, Default)]
 pub struct ProductId<S: Clone + Display> {
@@ -229,6 +261,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<SpannedSegments<'src>> {
             x_parameters,
             unrecognized_parameters,
         })
+    }
+}
+
+impl ProductId<SpannedSegments<'_>> {
+    /// Convert borrowed `ProductId` to owned `ProductId`
+    #[must_use]
+    pub fn to_owned(&self) -> ProductId<String> {
+        ProductId {
+            value: self.value.to_owned(),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
     }
 }
 
@@ -296,5 +344,21 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Version<SpannedSegments<'src>> {
             x_parameters,
             unrecognized_parameters,
         })
+    }
+}
+
+impl Version<SpannedSegments<'_>> {
+    /// Convert borrowed `Version` to owned `Version`
+    #[must_use]
+    pub fn to_owned(&self) -> Version<String> {
+        Version {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
     }
 }

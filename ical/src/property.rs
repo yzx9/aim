@@ -471,3 +471,99 @@ impl<S: Clone + Display> Property<S> {
         }
     }
 }
+
+impl PropertyRef<'_> {
+    /// Convert borrowed type to owned type
+    #[must_use]
+    pub fn to_owned(&self) -> PropertyOwned {
+        match self {
+            // Section 3.7 - Calendar Properties
+            Property::CalScale(v) => PropertyOwned::CalScale(v.to_owned()),
+            Property::Method(v) => PropertyOwned::Method(v.to_owned()),
+            Property::ProdId(v) => PropertyOwned::ProdId(v.to_owned()),
+            Property::Version(v) => PropertyOwned::Version(v.to_owned()),
+
+            // Section 3.8.1 - Descriptive Component Properties
+            Property::Attach(v) => PropertyOwned::Attach(v.to_owned()),
+            Property::Categories(v) => PropertyOwned::Categories(v.to_owned()),
+            Property::Class(v) => PropertyOwned::Class(v.to_owned()),
+            Property::Comment(v) => PropertyOwned::Comment(v.to_owned()),
+            Property::Description(v) => PropertyOwned::Description(v.to_owned()),
+            Property::Geo(v) => PropertyOwned::Geo(v.to_owned()),
+            Property::Location(v) => PropertyOwned::Location(v.to_owned()),
+            Property::PercentComplete(v) => PropertyOwned::PercentComplete(v.to_owned()),
+            Property::Priority(v) => PropertyOwned::Priority(v.to_owned()),
+            Property::Resources(v) => PropertyOwned::Resources(v.to_owned()),
+            Property::Status(v) => PropertyOwned::Status(v.to_owned()),
+            Property::Summary(v) => PropertyOwned::Summary(v.to_owned()),
+
+            // Section 3.8.2 - Date and Time Properties
+            Property::Completed(v) => PropertyOwned::Completed(v.to_owned()),
+            Property::DtEnd(v) => PropertyOwned::DtEnd(v.to_owned()),
+            Property::Due(v) => PropertyOwned::Due(v.to_owned()),
+            Property::DtStart(v) => PropertyOwned::DtStart(v.to_owned()),
+            Property::Duration(v) => PropertyOwned::Duration(v.to_owned()),
+            Property::FreeBusy(v) => PropertyOwned::FreeBusy(v.to_owned()),
+            Property::Transp(v) => PropertyOwned::Transp(v.to_owned()),
+
+            // Section 3.8.3 - Time Zone Component Properties
+            Property::TzId(v) => PropertyOwned::TzId(v.to_owned()),
+            Property::TzName(v) => PropertyOwned::TzName(v.to_owned()),
+            Property::TzOffsetFrom(v) => PropertyOwned::TzOffsetFrom(v.to_owned()),
+            Property::TzOffsetTo(v) => PropertyOwned::TzOffsetTo(v.to_owned()),
+            Property::TzUrl(v) => PropertyOwned::TzUrl(v.to_owned()),
+
+            // Section 3.8.4 - Component Relationship Properties
+            Property::Attendee(v) => PropertyOwned::Attendee(v.to_owned()),
+            Property::Contact(v) => PropertyOwned::Contact(v.to_owned()),
+            Property::Organizer(v) => PropertyOwned::Organizer(v.to_owned()),
+            Property::RecurrenceId(v) => PropertyOwned::RecurrenceId(v.to_owned()),
+            Property::RelatedTo(v) => PropertyOwned::RelatedTo(v.to_owned()),
+            Property::Url(v) => PropertyOwned::Url(v.to_owned()),
+            Property::Uid(v) => PropertyOwned::Uid(v.to_owned()),
+
+            // Section 3.8.5 - Recurrence Properties
+            Property::ExDate(v) => PropertyOwned::ExDate(v.to_owned()),
+            Property::RDate(v) => PropertyOwned::RDate(v.to_owned()),
+            Property::RRule(v) => PropertyOwned::RRule(v.clone()),
+
+            // Section 3.8.6 - Alarm Component Properties
+            Property::Action(v) => PropertyOwned::Action(v.to_owned()),
+            Property::Repeat(v) => PropertyOwned::Repeat(v.to_owned()),
+            Property::Trigger(v) => PropertyOwned::Trigger(v.to_owned()),
+
+            // Section 3.8.7 - Change Management Properties
+            Property::Created(v) => PropertyOwned::Created(v.to_owned()),
+            Property::DtStamp(v) => PropertyOwned::DtStamp(v.to_owned()),
+            Property::LastModified(v) => PropertyOwned::LastModified(v.to_owned()),
+            Property::Sequence(v) => PropertyOwned::Sequence(v.to_owned()),
+
+            // Section 3.8.8 - Miscellaneous Properties
+            Property::RequestStatus(v) => PropertyOwned::RequestStatus(v.to_owned()),
+
+            // XName and Unrecognized properties
+            Property::XName {
+                name,
+                parameters,
+                value,
+                span,
+            } => PropertyOwned::XName {
+                name: name.concatnate(),
+                parameters: parameters.iter().map(Parameter::to_owned).collect(),
+                value: value.to_owned(),
+                span: *span,
+            },
+            Property::Unrecognized {
+                name,
+                parameters,
+                value,
+                span,
+            } => PropertyOwned::Unrecognized {
+                name: name.concatnate(),
+                parameters: parameters.iter().map(Parameter::to_owned).collect(),
+                value: value.to_owned(),
+                span: *span,
+            },
+        }
+    }
+}

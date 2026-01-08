@@ -62,7 +62,7 @@ pub enum AttachmentValue<S: Clone + Display> {
     Uri(ValueText<S>),
 
     /// Binary data
-    Binary(String),
+    Binary(String), // TODO: change to S
 }
 
 /// Type alias for borrowed attachment value
@@ -143,7 +143,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
                 unrecognized_parameters,
             }),
             Value::Binary { raw: data, .. } => Ok(Attachment {
-                value: AttachmentValue::Binary(data.resolve().to_string()),
+                value: AttachmentValue::Binary(data.to_string()),
                 fmt_type,
                 encoding,
                 x_parameters,
@@ -154,6 +154,35 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
                 value: "Expected URI or binary value".to_string(),
                 span: value.span(),
             }]),
+        }
+    }
+}
+
+impl Attachment<SpannedSegments<'_>> {
+    /// Convert borrowed `Attachment` to owned `Attachment`
+    #[must_use]
+    pub fn to_owned(&self) -> Attachment<String> {
+        Attachment {
+            value: self.value.to_owned(),
+            fmt_type: self.fmt_type.as_ref().map(SpannedSegments::concatnate),
+            encoding: self.encoding,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
+impl AttachmentValue<SpannedSegments<'_>> {
+    /// Convert borrowed `AttachmentValue` to owned `AttachmentValue`
+    #[must_use]
+    pub fn to_owned(&self) -> AttachmentValue<String> {
+        match self {
+            AttachmentValue::Uri(uri) => AttachmentValue::Uri(uri.to_owned()),
+            AttachmentValue::Binary(data) => AttachmentValue::Binary(data.clone()),
         }
     }
 }
@@ -237,6 +266,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification<SpannedSegments<'src
     }
 }
 
+impl Classification<SpannedSegments<'_>> {
+    /// Convert borrowed `Classification` to owned `Classification`
+    #[must_use]
+    pub fn to_owned(&self) -> Classification<String> {
+        Classification {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.4)
     pub Comment<S> => Text
@@ -296,9 +341,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_text(&PropertyKind::Geo, prop.value)?
-            .resolve()
-            .to_string();
+        let text = take_single_text(&PropertyKind::Geo, prop.value)?.to_string();
 
         // Use the typed phase's float parser with semicolon separator
         let stream = Stream::from_iter(text.chars()); // TODO: fix span
@@ -329,6 +372,23 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
                 value: format!("Expected 'lat;long' format with semicolon separator, got {text}"),
                 span: value_span,
             }]),
+        }
+    }
+}
+
+impl Geo<SpannedSegments<'_>> {
+    /// Convert borrowed `Geo` to owned `Geo`
+    #[must_use]
+    pub fn to_owned(&self) -> Geo<String> {
+        Geo {
+            lat: self.lat,
+            lon: self.lon,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
         }
     }
 }
@@ -435,6 +495,23 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status<SpannedSegments<'src>> {
     }
 }
 
+impl Status<SpannedSegments<'_>> {
+    /// Convert borrowed `Status` to owned `Status`
+    #[must_use]
+    pub fn to_owned(&self) -> Status<String> {
+        Status {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+            span: self.span,
+        }
+    }
+}
+
 /// Percent Complete (RFC 5545 Section 3.8.1.8)
 ///
 /// This property defines the percent complete for a todo.
@@ -517,6 +594,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'sr
     }
 }
 
+impl PercentComplete<SpannedSegments<'_>> {
+    /// Convert borrowed `PercentComplete` to owned `PercentComplete`
+    #[must_use]
+    pub fn to_owned(&self) -> PercentComplete<String> {
+        PercentComplete {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Priority (RFC 5545 Section 3.8.1.9)
 ///
 /// This property defines the priority for a calendar component.
@@ -595,6 +688,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
                 }])
             }
             Err(e) => Err(e),
+        }
+    }
+}
+
+impl Priority<SpannedSegments<'_>> {
+    /// Convert borrowed `Priority` to owned `Priority`
+    #[must_use]
+    pub fn to_owned(&self) -> Priority<String> {
+        Priority {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
         }
     }
 }

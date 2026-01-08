@@ -242,6 +242,42 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
     }
 }
 
+impl Attendee<SpannedSegments<'_>> {
+    /// Convert borrowed `Attendee` to owned `Attendee`
+    #[must_use]
+    pub fn to_owned(&self) -> Attendee<String> {
+        Attendee {
+            cal_address: self.cal_address.to_owned(),
+            cn: self.cn.as_ref().map(SpannedSegments::concatnate),
+            role: self.role.to_owned(),
+            part_stat: self.part_stat.to_owned(),
+            rsvp: self.rsvp,
+            cutype: self.cutype.to_owned(),
+            member: self
+                .member
+                .as_ref()
+                .map(|v| v.iter().map(SpannedSegments::concatnate).collect()),
+            delegated_to: self
+                .delegated_to
+                .as_ref()
+                .map(|v| v.iter().map(SpannedSegments::concatnate).collect()),
+            delegated_from: self
+                .delegated_from
+                .as_ref()
+                .map(|v| v.iter().map(SpannedSegments::concatnate).collect()),
+            dir: self.dir.as_ref().map(SpannedSegments::concatnate),
+            sent_by: self.sent_by.as_ref().map(SpannedSegments::concatnate),
+            language: self.language.as_ref().map(SpannedSegments::concatnate),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.4.2)
     pub Contact<S> => Text
@@ -363,6 +399,26 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
             x_parameters,
             unrecognized_parameters,
         })
+    }
+}
+
+impl Organizer<SpannedSegments<'_>> {
+    /// Convert borrowed `Organizer` to owned `Organizer`
+    #[must_use]
+    pub fn to_owned(&self) -> Organizer<String> {
+        Organizer {
+            cal_address: self.cal_address.to_owned(),
+            cn: self.cn.as_ref().map(SpannedSegments::concatnate),
+            dir: self.dir.as_ref().map(SpannedSegments::concatnate),
+            sent_by: self.sent_by.as_ref().map(SpannedSegments::concatnate),
+            language: self.language.as_ref().map(SpannedSegments::concatnate),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
     }
 }
 

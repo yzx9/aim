@@ -302,6 +302,67 @@ impl<'src> ValueRef<'src> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Convert borrowed type to owned type
+    #[must_use]
+    pub fn to_owned(&self) -> ValueOwned {
+        match self {
+            Value::Binary { raw, span } => ValueOwned::Binary {
+                raw: raw.concatnate(),
+                span: *span,
+            },
+            Value::Boolean { value, span } => ValueOwned::Boolean {
+                value: *value,
+                span: *span,
+            },
+            Value::Date { values, span } => ValueOwned::Date {
+                values: values.clone(),
+                span: *span,
+            },
+            Value::DateTime { values, span } => ValueOwned::DateTime {
+                values: values.clone(),
+                span: *span,
+            },
+            Value::Duration { values, span } => ValueOwned::Duration {
+                values: values.clone(),
+                span: *span,
+            },
+            Value::Float { values, span } => ValueOwned::Float {
+                values: values.clone(),
+                span: *span,
+            },
+            Value::Integer { values, span } => ValueOwned::Integer {
+                values: values.clone(),
+                span: *span,
+            },
+            Value::Period { values, span } => ValueOwned::Period {
+                values: values.clone(),
+                span: *span,
+            },
+            Value::Text { values, span } => ValueOwned::Text {
+                values: values.iter().map(ValueText::to_owned).collect(),
+                span: *span,
+            },
+            Value::Time { values, span } => ValueOwned::Time {
+                values: values.clone(),
+                span: *span,
+            },
+            Value::UtcOffset { value, span } => ValueOwned::UtcOffset {
+                value: *value,
+                span: *span,
+            },
+            Value::XName { raw, kind, span } => ValueOwned::XName {
+                raw: raw.concatnate(),
+                kind: kind.to_owned(),
+                span: *span,
+            },
+            Value::Unrecognized { raw, kind, span } => ValueOwned::Unrecognized {
+                raw: raw.concatnate(),
+                kind: kind.to_owned(),
+                span: *span,
+            },
+        }
+    }
 }
 
 /// Parse property values, attempting each allowed value type until one succeeds.

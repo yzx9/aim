@@ -241,3 +241,29 @@ struct PropertyCollector<S: Clone + Display> {
     x_properties:       Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }
+
+impl<'src> VFreeBusyRef<'src> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VFreeBusyOwned<'src> {
+        VFreeBusyOwned {
+            uid: self.uid.to_owned(),
+            dt_stamp: self.dt_stamp.to_owned(),
+            dt_start: self.dt_start.to_owned(),
+            dt_end: self.dt_end.as_ref().map(DtEnd::to_owned),
+            duration: self.duration,
+            organizer: self.organizer.to_owned(),
+            contact: self.contact.as_ref().map(Contact::to_owned),
+            url: self.url.as_ref().map(Url::to_owned),
+            busy: self.busy.iter().map(Period::to_owned).collect(),
+            free: self.free.iter().map(Period::to_owned).collect(),
+            busy_tentative: self.busy_tentative.iter().map(Period::to_owned).collect(),
+            busy_unavailable: self.busy_unavailable.iter().map(Period::to_owned).collect(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}

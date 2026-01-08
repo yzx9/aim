@@ -130,3 +130,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
         }
     }
 }
+
+impl Sequence<SpannedSegments<'_>> {
+    /// Convert borrowed `Sequence` to owned `Sequence`
+    #[must_use]
+    pub fn to_owned(&self) -> Sequence<String> {
+        Sequence {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}

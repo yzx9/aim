@@ -39,6 +39,17 @@ pub type ExDateValueRef<'src> = ExDateValue<SpannedSegments<'src>>;
 /// Type alias for owned exception date-time value
 pub type ExDateValueOwned = ExDateValue<String>;
 
+impl ExDateValue<SpannedSegments<'_>> {
+    /// Convert borrowed `ExDateValue` to owned `ExDateValue`
+    #[must_use]
+    pub fn to_owned(&self) -> ExDateValue<String> {
+        match self {
+            ExDateValue::Date(date) => ExDateValue::Date(*date),
+            ExDateValue::DateTime(dt) => ExDateValue::DateTime(dt.to_owned()),
+        }
+    }
+}
+
 /// Recurrence date-time value (can be DATE, DATE-TIME, or PERIOD).
 #[derive(Debug, Clone)]
 pub enum RDateValue<S: Clone + Display> {
@@ -55,6 +66,18 @@ pub type RDateValueRef<'src> = RDateValue<SpannedSegments<'src>>;
 
 /// Type alias for owned recurrence date-time value
 pub type RDateValueOwned = RDateValue<String>;
+
+impl RDateValue<SpannedSegments<'_>> {
+    /// Convert borrowed `RDateValue` to owned `RDateValue`
+    #[must_use]
+    pub fn to_owned(&self) -> RDateValue<String> {
+        match self {
+            RDateValue::Date(date) => RDateValue::Date(*date),
+            RDateValue::DateTime(dt) => RDateValue::DateTime(dt.to_owned()),
+            RDateValue::Period(period) => RDateValue::Period(period.to_owned()),
+        }
+    }
+}
 
 /// Exception Date-Times (RFC 5545 Section 3.8.5.1)
 ///
@@ -142,6 +165,23 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
             x_parameters,
             unrecognized_parameters,
         })
+    }
+}
+
+impl ExDate<SpannedSegments<'_>> {
+    /// Convert borrowed `ExDate` to owned `ExDate`
+    #[must_use]
+    pub fn to_owned(&self) -> ExDate<String> {
+        ExDate {
+            dates: self.dates.iter().map(ExDateValue::to_owned).collect(),
+            tz_id: self.tz_id.as_ref().map(SpannedSegments::concatnate),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
     }
 }
 
@@ -240,5 +280,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
             x_parameters,
             unrecognized_parameters,
         })
+    }
+}
+
+impl RDate<SpannedSegments<'_>> {
+    /// Convert borrowed `RDate` to owned `RDate`
+    #[must_use]
+    pub fn to_owned(&self) -> RDate<String> {
+        RDate {
+            dates: self.dates.iter().map(RDateValue::to_owned).collect(),
+            tz_id: self.tz_id.as_ref().map(SpannedSegments::concatnate),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
     }
 }

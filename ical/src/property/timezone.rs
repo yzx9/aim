@@ -91,6 +91,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<SpannedSegments<'
     }
 }
 
+impl UtcOffsetProperty<SpannedSegments<'_>> {
+    /// Convert borrowed `UtcOffsetProperty` to owned `UtcOffsetProperty`
+    #[must_use]
+    pub fn to_owned(&self) -> UtcOffsetProperty<String> {
+        UtcOffsetProperty {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 simple_property_wrapper!(
     /// Time Zone Offset From property wrapper (RFC 5545 Section 3.8.3.3)
     pub TzOffsetFrom<S> => UtcOffsetProperty

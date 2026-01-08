@@ -147,6 +147,24 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<SpannedSegments<'src>> {
     }
 }
 
+impl Text<SpannedSegments<'_>> {
+    /// Convert borrowed Text to owned Text
+    #[must_use]
+    pub fn to_owned(&self) -> Text<String> {
+        Text {
+            content: self.content.to_owned(),
+            language: self.language.as_ref().map(SpannedSegments::concatnate),
+            altrep: self.altrep.as_ref().map(SpannedSegments::concatnate),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Multi-valued text properties (CATEGORIES, RESOURCES)
 ///
 /// This type represents properties that can have multiple text values,
@@ -205,6 +223,23 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<SpannedSegments<'src>> {
             x_parameters,
             unrecognized_parameters,
         })
+    }
+}
+
+impl Texts<SpannedSegments<'_>> {
+    /// Convert borrowed Texts to owned Texts
+    #[must_use]
+    pub fn to_owned(&self) -> Texts<String> {
+        Texts {
+            values: self.values.iter().map(ValueText::to_owned).collect(),
+            language: self.language.as_ref().map(SpannedSegments::concatnate),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
     }
 }
 
@@ -278,6 +313,14 @@ macro_rules! simple_property_wrapper {
                 }
 
                 <$inner<crate::syntax::SpannedSegments<'src>>>::try_from(prop).map($name)
+            }
+        }
+
+        impl<'src> $name_ref<'src> {
+            /// Convert borrowed type to owned type
+            #[must_use]
+            pub fn to_owned(&self) -> $name<String> {
+                $name(self.0.to_owned())
             }
         }
     };

@@ -298,6 +298,12 @@ impl From<JournalStatusValue> for StatusValue {
     }
 }
 
+/// Type alias for `JournalStatus` with borrowed data
+pub type JournalStatusRef<'src> = JournalStatus<SpannedSegments<'src>>;
+
+/// Type alias for `JournalStatus` with owned data
+pub type JournalStatusOwned = JournalStatus<String>;
+
 /// Journal status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
 pub struct JournalStatus<S: Clone + fmt::Display> {
@@ -350,4 +356,52 @@ struct PropertyCollector<S: Clone + fmt::Display> {
     url:            Option<Url<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
+}
+
+impl VJournalRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VJournalOwned {
+        VJournalOwned {
+            uid: self.uid.to_owned(),
+            dt_stamp: self.dt_stamp.to_owned(),
+            dt_start: self.dt_start.to_owned(),
+            summary: self.summary.as_ref().map(Summary::to_owned),
+            descriptions: self
+                .descriptions
+                .iter()
+                .map(Description::to_owned)
+                .collect(),
+            organizer: self.organizer.as_ref().map(Organizer::to_owned),
+            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
+            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
+            status: self.status.as_ref().map(JournalStatus::to_owned),
+            classification: self.classification.as_ref().map(Classification::to_owned),
+            categories: self.categories.iter().map(ValueText::to_owned).collect(),
+            rrule: self.rrule.clone(),
+            rdate: self.rdate.iter().map(Period::to_owned).collect(),
+            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
+            url: self.url.as_ref().map(Url::to_owned),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}
+
+impl JournalStatusRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> JournalStatusOwned {
+        JournalStatusOwned {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
 }

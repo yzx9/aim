@@ -108,7 +108,7 @@ pub type VEventRef<'src> = VEvent<SpannedSegments<'src>>;
 pub type VEventOwned = VEvent<String>;
 
 /// Parse a `TypedComponent` into a `VEvent`
-impl<'src> TryFrom<TypedComponent<'src>> for VEvent<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -483,4 +483,57 @@ struct PropertyCollector< S: Clone + Display> {
     ex_dates:       Vec<DateTime<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
+}
+
+impl VEventRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VEventOwned {
+        VEventOwned {
+            uid: self.uid.to_owned(),
+            dt_stamp: self.dt_stamp.to_owned(),
+            dt_start: self.dt_start.to_owned(),
+            dt_end: self.dt_end.as_ref().map(DtEnd::to_owned),
+            duration: self.duration,
+            summary: self.summary.as_ref().map(Summary::to_owned),
+            description: self.description.as_ref().map(Description::to_owned),
+            location: self.location.as_ref().map(Location::to_owned),
+            geo: self.geo.as_ref().map(Geo::to_owned),
+            url: self.url.as_ref().map(Url::to_owned),
+            organizer: self.organizer.as_ref().map(Organizer::to_owned),
+            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
+            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
+            status: self.status.as_ref().map(EventStatus::to_owned),
+            transparency: self.transparency.as_ref().map(TimeTransparency::to_owned),
+            sequence: self.sequence.as_ref().map(Sequence::to_owned),
+            priority: self.priority.as_ref().map(Priority::to_owned),
+            classification: self.classification.as_ref().map(Classification::to_owned),
+            resources: self.resources.as_ref().map(Resources::to_owned),
+            categories: self.categories.as_ref().map(Categories::to_owned),
+            rrule: self.rrule.clone(),
+            rdate: self.rdate.iter().map(Period::to_owned).collect(),
+            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+            alarms: self.alarms.iter().map(VAlarm::to_owned).collect(),
+        }
+    }
+}
+
+impl EventStatusRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> EventStatusOwned {
+        EventStatusOwned {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
 }

@@ -257,3 +257,42 @@ struct PropertyCollector<S: Clone + Display> {
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }
+
+impl ICalendarRef<'_> {
+    /// Convert borrowed data to owned data
+    #[must_use]
+    pub fn to_owned(&self) -> ICalendarOwned {
+        ICalendarOwned {
+            prod_id: self.prod_id.to_owned(),
+            version: self.version.to_owned(),
+            calscale: self.calscale.as_ref().map(CalendarScale::to_owned),
+            method: self.method.as_ref().map(Method::to_owned),
+            components: self
+                .components
+                .iter()
+                .map(CalendarComponent::to_owned)
+                .collect(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}
+
+impl CalendarComponent<SpannedSegments<'_>> {
+    /// Convert borrowed data to owned data
+    #[must_use]
+    pub fn to_owned(&self) -> CalendarComponent<String> {
+        match self {
+            Self::Event(v) => CalendarComponent::Event(v.to_owned()),
+            Self::Todo(v) => CalendarComponent::Todo(v.to_owned()),
+            Self::VJournal(v) => CalendarComponent::VJournal(v.to_owned()),
+            Self::VFreeBusy(v) => CalendarComponent::VFreeBusy(v.to_owned()),
+            Self::VTimeZone(v) => CalendarComponent::VTimeZone(v.to_owned()),
+            Self::VAlarm(v) => CalendarComponent::VAlarm(v.to_owned()),
+        }
+    }
+}

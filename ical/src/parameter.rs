@@ -344,6 +344,115 @@ impl<'src> ParameterRef<'src> {
             Parameter::XName { raw, .. } | Parameter::Unrecognized { raw, .. } => raw.span(),
         }
     }
+
+    /// Convert borrowed type to owned type
+    #[must_use]
+    #[expect(clippy::too_many_lines)]
+    pub fn to_owned(&self) -> ParameterOwned {
+        // TODO: how to remove span from owned type?
+        let span = Span::new(0, 0); // Placeholder span for owned type
+        match self {
+            Parameter::AlternateText { value, .. } => ParameterOwned::AlternateText {
+                value: value.concatnate(),
+                span,
+            },
+            Parameter::CommonName { value, .. } => ParameterOwned::CommonName {
+                value: value.concatnate(),
+                span,
+            },
+            Parameter::CalendarUserType { value, .. } => ParameterOwned::CalendarUserType {
+                value: value.to_owned(),
+                span,
+            },
+            Parameter::Delegators { values, .. } => ParameterOwned::Delegators {
+                values: values.iter().map(SpannedSegments::concatnate).collect(),
+                span,
+            },
+            Parameter::Delegatees { values, .. } => ParameterOwned::Delegatees {
+                values: values.iter().map(SpannedSegments::concatnate).collect(),
+                span,
+            },
+            Parameter::Directory { value, .. } => ParameterOwned::Directory {
+                value: value.concatnate(),
+                span,
+            },
+            Parameter::Encoding { value, .. } => ParameterOwned::Encoding {
+                value: *value,
+                span,
+            },
+            Parameter::FormatType { value, .. } => ParameterOwned::FormatType {
+                value: value.concatnate(),
+                span,
+            },
+            Parameter::FreeBusyType { value, .. } => ParameterOwned::FreeBusyType {
+                value: value.to_owned(),
+                span,
+            },
+            Parameter::Language { value, .. } => ParameterOwned::Language {
+                value: value.concatnate(),
+                span,
+            },
+            Parameter::GroupOrListMembership { values, .. } => {
+                ParameterOwned::GroupOrListMembership {
+                    values: values.iter().map(SpannedSegments::concatnate).collect(),
+                    span,
+                }
+            }
+            Parameter::ParticipationStatus { value, .. } => ParameterOwned::ParticipationStatus {
+                value: value.to_owned(),
+                span,
+            },
+            Parameter::RecurrenceIdRange { value, .. } => ParameterOwned::RecurrenceIdRange {
+                value: *value,
+                span,
+            },
+            Parameter::AlarmTriggerRelationship { value, .. } => {
+                ParameterOwned::AlarmTriggerRelationship {
+                    value: *value,
+                    span,
+                }
+            }
+            Parameter::RelationshipType { value, .. } => ParameterOwned::RelationshipType {
+                value: value.to_owned(),
+                span,
+            },
+            Parameter::ParticipationRole { value, .. } => ParameterOwned::ParticipationRole {
+                value: value.to_owned(),
+                span,
+            },
+            Parameter::SendBy { value, .. } => ParameterOwned::SendBy {
+                value: value.concatnate(),
+                span,
+            },
+            Parameter::RsvpExpectation { value, .. } => ParameterOwned::RsvpExpectation {
+                value: *value,
+                span,
+            },
+            Parameter::TimeZoneIdentifier {
+                value,
+                #[cfg(feature = "jiff")]
+                tz,
+                ..
+            } => ParameterOwned::TimeZoneIdentifier {
+                value: value.concatnate(),
+                #[cfg(feature = "jiff")]
+                tz: tz.clone(),
+                span,
+            },
+            Parameter::ValueType { value, .. } => ParameterOwned::ValueType {
+                value: value.to_owned(),
+                span,
+            },
+            Parameter::XName { name, raw } => ParameterOwned::XName {
+                name: name.concatnate(),
+                raw: raw.to_owned(),
+            },
+            Parameter::Unrecognized { name, raw } => ParameterOwned::Unrecognized {
+                name: name.concatnate(),
+                raw: raw.to_owned(),
+            },
+        }
+    }
 }
 
 impl<'src> TryFrom<SyntaxParameterRef<'src>> for ParameterRef<'src> {

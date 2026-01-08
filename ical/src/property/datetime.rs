@@ -297,6 +297,91 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
     }
 }
 
+impl DateTime<SpannedSegments<'_>> {
+    /// Convert borrowed `DateTime` to owned `DateTime`
+    #[must_use]
+    pub fn to_owned(&self) -> DateTime<String> {
+        match self {
+            DateTime::Floating {
+                date,
+                time,
+                x_parameters,
+                unrecognized_parameters,
+            } => DateTime::Floating {
+                date: *date,
+                time: *time,
+                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
+                unrecognized_parameters: unrecognized_parameters
+                    .iter()
+                    .map(Parameter::to_owned)
+                    .collect(),
+            },
+            #[cfg(feature = "jiff")]
+            DateTime::Zoned {
+                date,
+                time,
+                tz_id,
+                tz_jiff,
+                x_parameters,
+                unrecognized_parameters,
+            } => DateTime::Zoned {
+                date: *date,
+                time: *time,
+                tz_id: tz_id.concatnate(),
+                tz_jiff: tz_jiff.clone(),
+                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
+                unrecognized_parameters: unrecognized_parameters
+                    .iter()
+                    .map(Parameter::to_owned)
+                    .collect(),
+            },
+            #[cfg(not(feature = "jiff"))]
+            DateTime::Zoned {
+                date,
+                time,
+                tz_id,
+                x_parameters,
+                unrecognized_parameters,
+            } => DateTime::Zoned {
+                date: *date,
+                time: *time,
+                tz_id: tz_id.to_string(),
+                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
+                unrecognized_parameters: unrecognized_parameters
+                    .iter()
+                    .map(Parameter::to_owned)
+                    .collect(),
+            },
+            DateTime::Utc {
+                date,
+                time,
+                x_parameters,
+                unrecognized_parameters,
+            } => DateTime::Utc {
+                date: *date,
+                time: *time,
+                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
+                unrecognized_parameters: unrecognized_parameters
+                    .iter()
+                    .map(Parameter::to_owned)
+                    .collect(),
+            },
+            DateTime::Date {
+                date,
+                x_parameters,
+                unrecognized_parameters,
+            } => DateTime::Date {
+                date: *date,
+                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
+                unrecognized_parameters: unrecognized_parameters
+                    .iter()
+                    .map(Parameter::to_owned)
+                    .collect(),
+            },
+        }
+    }
+}
+
 /// Time representation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Time {
@@ -734,6 +819,111 @@ impl<'src> TryFrom<Value<SpannedSegments<'src>>> for Period<SpannedSegments<'src
     }
 }
 
+impl Period<SpannedSegments<'_>> {
+    /// Convert borrowed `Period` to owned `Period`
+    #[must_use]
+    pub fn to_owned(&self) -> Period<String> {
+        match self {
+            Period::ExplicitUtc {
+                start_date,
+                start_time,
+                end_date,
+                end_time,
+            } => Period::ExplicitUtc {
+                start_date: *start_date,
+                start_time: *start_time,
+                end_date: *end_date,
+                end_time: *end_time,
+            },
+            Period::ExplicitFloating {
+                start_date,
+                start_time,
+                end_date,
+                end_time,
+            } => Period::ExplicitFloating {
+                start_date: *start_date,
+                start_time: *start_time,
+                end_date: *end_date,
+                end_time: *end_time,
+            },
+            #[cfg(feature = "jiff")]
+            Period::ExplicitZoned {
+                start_date,
+                start_time,
+                end_date,
+                end_time,
+                tz_id,
+                tz_jiff,
+            } => Period::ExplicitZoned {
+                start_date: *start_date,
+                start_time: *start_time,
+                end_date: *end_date,
+                end_time: *end_time,
+                tz_id: tz_id.concatnate(),
+                tz_jiff: tz_jiff.clone(),
+            },
+            #[cfg(not(feature = "jiff"))]
+            Period::ExplicitZoned {
+                start_date,
+                start_time,
+                end_date,
+                end_time,
+                tz_id,
+            } => Period::ExplicitZoned {
+                start_date: *start_date,
+                start_time: *start_time,
+                end_date: *end_date,
+                end_time: *end_time,
+                tz_id: tz_id.to_string(),
+            },
+            Period::DurationUtc {
+                start_date,
+                start_time,
+                duration,
+            } => Period::DurationUtc {
+                start_date: *start_date,
+                start_time: *start_time,
+                duration: *duration,
+            },
+            Period::DurationFloating {
+                start_date,
+                start_time,
+                duration,
+            } => Period::DurationFloating {
+                start_date: *start_date,
+                start_time: *start_time,
+                duration: *duration,
+            },
+            #[cfg(feature = "jiff")]
+            Period::DurationZoned {
+                start_date,
+                start_time,
+                duration,
+                tz_id,
+                tz_jiff,
+            } => Period::DurationZoned {
+                start_date: *start_date,
+                start_time: *start_time,
+                duration: *duration,
+                tz_id: tz_id.concatnate(),
+                tz_jiff: tz_jiff.clone(),
+            },
+            #[cfg(not(feature = "jiff"))]
+            Period::DurationZoned {
+                start_date,
+                start_time,
+                duration,
+                tz_id,
+            } => Period::DurationZoned {
+                start_date: *start_date,
+                start_time: *start_time,
+                duration: *duration,
+                tz_id: tz_id.concatnate(),
+            },
+        }
+    }
+}
+
 #[cfg(feature = "jiff")]
 fn add_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff::civil::DateTime {
     match duration {
@@ -880,6 +1070,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
     }
 }
 
+impl Duration<SpannedSegments<'_>> {
+    /// Convert borrowed `Duration` to owned `Duration`
+    #[must_use]
+    pub fn to_owned(&self) -> Duration<String> {
+        Duration {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Free/Busy Time (RFC 5545 Section 3.8.2.6)
 ///
 /// This property defines one or more free or busy time intervals.
@@ -1008,6 +1214,23 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
     }
 }
 
+impl FreeBusy<SpannedSegments<'_>> {
+    /// Convert borrowed `FreeBusy` to owned `FreeBusy`
+    #[must_use]
+    pub fn to_owned(&self) -> FreeBusy<String> {
+        FreeBusy {
+            fb_type: self.fb_type.to_owned(),
+            values: self.values.iter().map(Period::to_owned).collect(),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 define_prop_value_enum! {
     /// Time transparency value (RFC 5545 Section 3.8.2.7)
     #[derive(Default)]
@@ -1075,5 +1298,21 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<SpannedSegments<'s
             x_parameters,
             unrecognized_parameters,
         })
+    }
+}
+
+impl TimeTransparency<SpannedSegments<'_>> {
+    /// Convert borrowed `TimeTransparency` to owned `TimeTransparency`
+    #[must_use]
+    pub fn to_owned(&self) -> TimeTransparency<String> {
+        TimeTransparency {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
     }
 }

@@ -425,6 +425,12 @@ impl From<TodoStatusValue> for StatusValue {
     }
 }
 
+/// Type alias for `TodoStatus` with borrowed data
+pub type TodoStatusRef<'src> = TodoStatus<SpannedSegments<'src>>;
+
+/// Type alias for `TodoStatus` with owned data
+pub type TodoStatusOwned = TodoStatus<String>;
+
 /// To-do status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
 pub struct TodoStatus<S: Clone + Display> {
@@ -486,4 +492,61 @@ struct PropertyCollector<S: Clone + Display> {
     ex_dates:       Vec<DateTime<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
+}
+
+impl VTodoRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VTodoOwned {
+        VTodoOwned {
+            uid: self.uid.to_owned(),
+            dt_stamp: self.dt_stamp.to_owned(),
+            dt_start: self.dt_start.as_ref().map(DtStart::to_owned),
+            due: self.due.as_ref().map(Due::to_owned),
+            completed: self.completed.as_ref().map(Completed::to_owned),
+            duration: self.duration,
+            summary: self.summary.as_ref().map(Summary::to_owned),
+            description: self.description.as_ref().map(Description::to_owned),
+            location: self.location.as_ref().map(Location::to_owned),
+            geo: self.geo.as_ref().map(Geo::to_owned),
+            url: self.url.as_ref().map(Url::to_owned),
+            organizer: self.organizer.as_ref().map(Organizer::to_owned),
+            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
+            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
+            status: self.status.as_ref().map(TodoStatus::to_owned),
+            sequence: self.sequence.as_ref().map(Sequence::to_owned),
+            priority: self.priority.as_ref().map(Priority::to_owned),
+            percent_complete: self
+                .percent_complete
+                .as_ref()
+                .map(PercentComplete::to_owned),
+            classification: self.classification.as_ref().map(Classification::to_owned),
+            resources: self.resources.as_ref().map(Resources::to_owned),
+            categories: self.categories.as_ref().map(Categories::to_owned),
+            rrule: self.rrule.clone(),
+            rdate: self.rdate.iter().map(Period::to_owned).collect(),
+            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+            alarms: self.alarms.iter().map(VAlarm::to_owned).collect(),
+        }
+    }
+}
+
+impl TodoStatusRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> TodoStatusOwned {
+        TodoStatusOwned {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
 }

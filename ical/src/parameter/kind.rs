@@ -91,3 +91,34 @@ pub type ParameterKindRef<'src> = ParameterKind<SpannedSegments<'src>>;
 
 /// Type alias for owned parameter kind
 pub type ParameterKindOwned = ParameterKind<String>;
+
+impl ParameterKindRef<'_> {
+    /// Convert borrowed type to owned type
+    #[must_use]
+    pub fn to_owned(&self) -> ParameterKindOwned {
+        match self {
+            Self::AlternateText => ParameterKindOwned::AlternateText,
+            Self::CommonName => ParameterKindOwned::CommonName,
+            Self::CalendarUserType => ParameterKindOwned::CalendarUserType,
+            Self::Delegators => ParameterKindOwned::Delegators,
+            Self::Delegatees => ParameterKindOwned::Delegatees,
+            Self::Directory => ParameterKindOwned::Directory,
+            Self::Encoding => ParameterKindOwned::Encoding,
+            Self::FormatType => ParameterKindOwned::FormatType,
+            Self::FreeBusyType => ParameterKindOwned::FreeBusyType,
+            Self::Language => ParameterKindOwned::Language,
+            Self::GroupOrListMembership => ParameterKindOwned::GroupOrListMembership,
+            Self::ParticipationStatus => ParameterKindOwned::ParticipationStatus,
+            Self::RecurrenceIdRange => ParameterKindOwned::RecurrenceIdRange,
+            Self::AlarmTriggerRelationship => ParameterKindOwned::AlarmTriggerRelationship,
+            Self::RelationshipType => ParameterKindOwned::RelationshipType,
+            Self::ParticipationRole => ParameterKindOwned::ParticipationRole,
+            Self::SendBy => ParameterKindOwned::SendBy,
+            Self::RsvpExpectation => ParameterKindOwned::RsvpExpectation,
+            Self::TimeZoneIdentifier => ParameterKindOwned::TimeZoneIdentifier,
+            Self::ValueType => ParameterKindOwned::ValueType,
+            Self::XName(s) => ParameterKindOwned::XName(s.concatnate()),
+            Self::Unrecognized(s) => ParameterKindOwned::Unrecognized(s.concatnate()),
+        }
+    }
+}

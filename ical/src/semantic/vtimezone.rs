@@ -288,3 +288,49 @@ struct ObservanceCollector<S: Clone + Display> {
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }
+
+impl VTimeZoneRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VTimeZoneOwned {
+        VTimeZoneOwned {
+            tz_id: self.tz_id.to_owned(),
+            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
+            tz_url: self.tz_url.as_ref().map(TzUrl::to_owned),
+            standard: self
+                .standard
+                .iter()
+                .map(TimeZoneObservance::to_owned)
+                .collect(),
+            daylight: self
+                .daylight
+                .iter()
+                .map(TimeZoneObservance::to_owned)
+                .collect(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}
+
+impl TimeZoneObservance<SpannedSegments<'_>> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> TimeZoneObservance<String> {
+        TimeZoneObservance {
+            dt_start: self.dt_start.to_owned(),
+            tz_offset_from: self.tz_offset_from.to_owned(),
+            tz_offset_to: self.tz_offset_to.to_owned(),
+            tz_name: self.tz_name.iter().map(Text::to_owned).collect(),
+            rrule: self.rrule.clone(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}

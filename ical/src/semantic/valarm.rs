@@ -229,3 +229,26 @@ struct PropertyCollector<S: Clone + Display> {
     x_properties: Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }
+
+impl<'src> VAlarmRef<'src> {
+    /// Convert borrowed data to owned data
+    #[must_use]
+    pub fn to_owned(&self) -> VAlarmOwned<'src> {
+        VAlarmOwned {
+            action: self.action.to_owned(),
+            trigger: self.trigger.to_owned(),
+            repeat: self.repeat.as_ref().map(Repeat::to_owned),
+            duration: self.duration,
+            description: self.description.as_ref().map(Description::to_owned),
+            summary: self.summary.as_ref().map(Summary::to_owned),
+            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
+            attach: self.attach.as_ref().map(Attachment::to_owned),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}

@@ -277,6 +277,19 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
+        impl<'src> $name_ref<'src> {
+            /// Convert borrowed type to owned type
+            #[must_use]
+            pub fn to_owned(&self) -> $name_owned {
+                match self {
+                    $(
+                        Self::$variant => $name_owned::$variant,
+                    )*
+                    Self::XName(s) => $name_owned::XName(s.to_string()),
+                    Self::Unrecognized(s) => $name_owned::Unrecognized(s.to_string()),
+                }
+            }
+        }
 
         $pvis fn $parse_fn(mut param: SyntaxParameterRef<'_>) -> ParseResult<'_> {
             parse_single_not_quoted(&mut param, ParameterKind::$name).map(|value| {

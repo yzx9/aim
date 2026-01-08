@@ -85,6 +85,21 @@ impl<'src> ValueTextRef<'src> {
         // Check if we've consumed all characters from other
         remaining.is_empty()
     }
+
+    /// Convert borrowed type to owned type
+    #[must_use]
+    pub fn to_owned(&self) -> ValueTextOwned {
+        ValueTextOwned {
+            tokens: self
+                .tokens
+                .iter()
+                .map(|token| match token {
+                    ValueTextToken::Str(s) => ValueTextToken::Str(s.concatnate()),
+                    ValueTextToken::Escape(c) => ValueTextToken::Escape(*c),
+                })
+                .collect(),
+        }
+    }
 }
 
 impl<S: Clone + fmt::Display> fmt::Display for ValueText<S> {

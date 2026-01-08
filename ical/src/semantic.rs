@@ -19,9 +19,11 @@ pub use icalendar::{CalendarComponent, ICalendar, ICalendarOwned, ICalendarRef};
 pub use valarm::{VAlarm, VAlarmOwned, VAlarmRef};
 pub use vevent::{EventStatus, EventStatusOwned, EventStatusRef, VEvent, VEventOwned, VEventRef};
 pub use vfreebusy::{VFreeBusy, VFreeBusyOwned, VFreeBusyRef};
-pub use vjournal::{JournalStatus, VJournal, VJournalOwned, VJournalRef};
+pub use vjournal::{
+    JournalStatus, JournalStatusOwned, JournalStatusRef, VJournal, VJournalOwned, VJournalRef,
+};
 pub use vtimezone::{TimeZoneObservance, VTimeZone, VTimeZoneOwned, VTimeZoneRef};
-pub use vtodo::{TodoStatus, VTodo, VTodoOwned, VTodoRef};
+pub use vtodo::{TodoStatus, TodoStatusOwned, VTodo, VTodoOwned, VTodoRef};
 
 use crate::keyword::KW_VCALENDAR;
 use crate::lexer::Span;

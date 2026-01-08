@@ -123,6 +123,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action<SpannedSegments<'src>> {
     }
 }
 
+impl Action<SpannedSegments<'_>> {
+    /// Convert borrowed Action to owned Action
+    #[must_use]
+    pub fn to_owned(&self) -> Action<String> {
+        Action {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Repeat Count (RFC 5545 Section 3.8.6.2)
 ///
 /// This property defines the number of times the alarm should repeat.
@@ -208,6 +224,22 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<SpannedSegments<'src>> {
                     span,
                 }])
             }
+        }
+    }
+}
+
+impl Repeat<SpannedSegments<'_>> {
+    /// Convert borrowed Repeat to owned Repeat
+    #[must_use]
+    pub fn to_owned(&self) -> Repeat<String> {
+        Repeat {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
         }
     }
 }
@@ -315,6 +347,34 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<SpannedSegments<'src>> {
                 value: "Expected duration or date-time value".to_string(),
                 span: value.span(),
             }]),
+        }
+    }
+}
+
+impl Trigger<SpannedSegments<'_>> {
+    /// Convert borrowed Trigger to owned Trigger
+    #[must_use]
+    pub fn to_owned(&self) -> Trigger<String> {
+        Trigger {
+            value: self.value.to_owned(),
+            related: self.related,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
+impl TriggerValue<SpannedSegments<'_>> {
+    /// Convert borrowed `TriggerValue` to owned `TriggerValue`
+    #[must_use]
+    pub fn to_owned(&self) -> TriggerValue<String> {
+        match self {
+            TriggerValue::Duration(duration) => TriggerValue::Duration(*duration),
+            TriggerValue::DateTime(dt) => TriggerValue::DateTime(dt.to_owned()),
         }
     }
 }

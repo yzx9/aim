@@ -105,6 +105,32 @@ pub type SyntaxParameterValueRef<'src> = SyntaxParameterValue<SpannedSegments<'s
 /// Type alias for owned syntax parameter value
 pub type SyntaxParameterValueOwned = SyntaxParameterValue<String>;
 
+impl SyntaxParameterRef<'_> {
+    /// Convert borrowed type to owned type
+    #[must_use]
+    pub fn to_owned(&self) -> SyntaxParameterOwned {
+        SyntaxParameterOwned {
+            name: self.name.concatnate(),
+            values: self
+                .values
+                .iter()
+                .map(SyntaxParameterValue::to_owned)
+                .collect(),
+        }
+    }
+}
+
+impl SyntaxParameterValueRef<'_> {
+    /// Convert borrowed type to owned type
+    #[must_use]
+    pub fn to_owned(&self) -> SyntaxParameterValueOwned {
+        SyntaxParameterValueOwned {
+            value: self.value.concatnate(),
+            quoted: self.quoted,
+        }
+    }
+}
+
 struct RawComponent<'src> {
     pub name: &'src str,
     pub properties: Vec<RawProperty>,
@@ -401,6 +427,19 @@ impl<'src> SpannedSegments<'src> {
         }
     }
 
+    /// Convert to owned String efficiently
+    ///
+    /// This is more explicit and slightly more efficient than using the
+    /// `Display` trait's `to_string()` method, as it uses the known capacity.
+    #[must_use]
+    pub fn concatnate(&self) -> String {
+        let mut s = String::with_capacity(self.len);
+        for (seg, _) in &self.segments {
+            s.push_str(seg);
+        }
+        s
+    }
+
     /// Check if segments start with the given prefix, ignoring ASCII case
     #[must_use]
     pub(crate) fn starts_with_str_ignore_ascii_case(&self, prefix: &str) -> bool {
@@ -642,27 +681,27 @@ END:VEVENT\r\n\
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name.to_string(), "SUMMARY");
-        assert_eq!(prop.value.to_string(), "Hello World!");
+        assert_eq!(prop.name.concatnate(), "SUMMARY");
+        assert_eq!(prop.value.concatnate(), "Hello World!");
 
         let src = "DTSTART;TZID=America/New_York:20251113\r\n T100000\r\n";
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name.to_string(), "DTSTART");
+        assert_eq!(prop.name.concatnate(), "DTSTART");
         assert_eq!(prop.parameters.len(), 1);
-        assert_eq!(prop.parameters.first().unwrap().name.to_string(), "TZID");
+        assert_eq!(prop.parameters.first().unwrap().name.concatnate(), "TZID");
         assert_eq!(
             prop.parameters
                 .first()
                 .unwrap()
                 .values
                 .iter()
-                .map(|a| a.value.to_string())
+                .map(|a| a.value.concatnate())
                 .collect::<Vec<_>>(),
             ["America/New_York"]
         );
-        assert_eq!(prop.value.to_string(), "20251113T100000");
+        assert_eq!(prop.value.concatnate(), "20251113T100000");
     }
 
     #[test]
@@ -678,12 +717,12 @@ END:VEVENT\r\n\
         let result = parse(src);
         assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
         let param = result.unwrap();
-        assert_eq!(param.name.to_string(), "TZID");
+        assert_eq!(param.name.concatnate(), "TZID");
         assert_eq!(
             param
                 .values
                 .iter()
-                .map(|a| a.value.to_string())
+                .map(|a| a.value.concatnate())
                 .collect::<Vec<_>>(),
             ["America/New_York"]
         );
