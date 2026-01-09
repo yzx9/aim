@@ -32,6 +32,7 @@ pub mod parameter;
 mod parser;
 pub mod property;
 pub mod semantic;
+pub mod string_storage;
 pub mod syntax;
 pub mod typed;
 pub mod value;
@@ -71,6 +72,7 @@ pub use crate::semantic::{
     VJournalOwned, VJournalRef, VTimeZone, VTimeZoneOwned, VTimeZoneRef, VTodo, VTodoOwned,
     VTodoRef,
 };
+pub use crate::string_storage::{SpannedSegments, StringStorage};
 pub use crate::value::{
     RecurrenceFrequency, Value, ValueDate, ValueDateTime, ValueDuration, ValueOwned, ValuePeriod,
     ValueRecurrenceRule, ValueRef, ValueText, ValueTextOwned, ValueTextRef, ValueTime,

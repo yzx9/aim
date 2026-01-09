@@ -22,14 +22,11 @@ pub use period::ValuePeriod;
 pub use rrule::{RecurrenceFrequency, ValueRecurrenceRule, WeekDay, WeekDayNum};
 pub use text::{ValueText, ValueTextOwned, ValueTextRef};
 
-use std::fmt::Display;
-
 use chumsky::input::Stream;
 use chumsky::prelude::*;
 
-use crate::lexer::Span;
 use crate::parameter::{ValueType, ValueTypeRef};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{Span, SpannedSegments, StringStorage};
 use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
 use crate::value::duration::values_duration;
 use crate::value::miscellaneous::{value_binary, value_boolean};
@@ -47,7 +44,7 @@ use crate::value::text::values_text;
 ///
 /// See RFC 5545 Section 3.3 for more details.
 #[derive(Debug, Clone)]
-pub enum Value<S: Clone + Display> {
+pub enum Value<S: StringStorage> {
     /// This value type is used to identify properties that contain a character
     /// encoding of inline binary data.  For example, an inline attachment of a
     /// document might be included in an iCalendar object.

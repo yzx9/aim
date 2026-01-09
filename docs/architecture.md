@@ -54,7 +54,8 @@ aim/
 
 - Four-phase parsing pipeline (lexer → syntax → typed → semantic)
 - Three-pass typed analysis (parameter → value → property)
-- Type-safe representations
+- Type-safe representations with generic `StringStorage` trait for flexible string handling
+- Zero-copy parsing support with `SpannedSegments<'src>` for borrowed data
 - Comprehensive error reporting
 
 ## Technology Stack

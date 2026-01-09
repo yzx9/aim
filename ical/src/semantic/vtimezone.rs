@@ -4,20 +4,18 @@
 
 //! Timezone component (VTIMEZONE) for iCalendar semantic components.
 
-use std::fmt::Display;
-
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
 use crate::property::{
     DtStart, LastModified, Property, PropertyKind, RRule, Text, TzId, TzOffsetFrom, TzOffsetTo,
     TzUrl,
 };
 use crate::semantic::SemanticError;
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Timezone component (VTIMEZONE)
 #[derive(Debug, Clone)]
-pub struct VTimeZone<S: Clone + Display> {
+pub struct VTimeZone<S: StringStorage> {
     /// Timezone identifier
     pub tz_id: TzId<S>,
     /// Last modification date/time
@@ -172,7 +170,7 @@ impl VTimeZoneRef<'_> {
 
 /// Timezone observance (standard or daylight)
 #[derive(Debug, Clone)]
-pub struct TimeZoneObservance<S: Clone + Display> {
+pub struct TimeZoneObservance<S: StringStorage> {
     /// Start date/time for this observance
     pub dt_start: DtStart<S>,
     /// Offset from UTC for this observance
@@ -302,7 +300,7 @@ impl TimeZoneObservance<SpannedSegments<'_>> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<S: Clone + Display> {
+struct PropertyCollector<S: StringStorage> {
     tz_id:            Option<TzId<S>>,
     last_modified:    Option<LastModified<S>>,
     tz_url:           Option<TzUrl<S>>,
@@ -313,7 +311,7 @@ struct PropertyCollector<S: Clone + Display> {
 /// Helper struct to collect observance properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct ObservanceCollector<S: Clone + Display> {
+struct ObservanceCollector<S: StringStorage> {
     dt_start:       Option<DtStart<S>>,
     tz_offset_from: Option<TzOffsetFrom<S>>,
     tz_offset_to:   Option<TzOffsetTo<S>>,

@@ -14,13 +14,12 @@
 //!   - `TriggerValue` - Trigger value variant (duration or date-time)
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
 use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueTypeRef};
 use crate::property::util::{take_single_text, take_single_value};
 use crate::property::{DateTime, PropertyKind};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDuration};
 
@@ -58,7 +57,7 @@ impl AsRef<str> for ActionValue {
 
 /// Alarm action (RFC 5545 Section 3.8.6.1)
 #[derive(Debug, Clone)]
-pub struct Action<S: Clone + Display> {
+pub struct Action<S: StringStorage> {
     /// Action value
     pub value: ActionValue,
 
@@ -143,7 +142,7 @@ impl Action<SpannedSegments<'_>> {
 ///
 /// This property defines the number of times the alarm should repeat.
 #[derive(Debug, Clone)]
-pub struct Repeat<S: Clone + Display> {
+pub struct Repeat<S: StringStorage> {
     /// Number of repetitions
     pub value: u32,
 
@@ -246,7 +245,7 @@ impl Repeat<SpannedSegments<'_>> {
 
 /// Trigger for alarms (RFC 5545 Section 3.8.6.3)
 #[derive(Debug, Clone)]
-pub struct Trigger<S: Clone + Display> {
+pub struct Trigger<S: StringStorage> {
     /// When to trigger (relative or absolute)
     pub value: TriggerValue<S>,
 
@@ -262,7 +261,7 @@ pub struct Trigger<S: Clone + Display> {
 
 /// Trigger value (relative duration or absolute date/time)
 #[derive(Debug, Clone)]
-pub enum TriggerValue<S: Clone + Display> {
+pub enum TriggerValue<S: StringStorage> {
     /// Relative duration before/after the event
     Duration(ValueDuration),
 

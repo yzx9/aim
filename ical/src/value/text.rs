@@ -12,11 +12,11 @@ use chumsky::container::Container;
 use chumsky::extra::ParserExtra;
 use chumsky::prelude::*;
 
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 
 /// Text value type defined in RFC 5545 Section 3.3.11.
 #[derive(Default, Debug, Clone)]
-pub struct ValueText<S: Clone + fmt::Display> {
+pub struct ValueText<S: StringStorage> {
     tokens: Vec<ValueTextToken<S>>,
 }
 
@@ -102,7 +102,7 @@ impl<'src> ValueTextRef<'src> {
     }
 }
 
-impl<S: Clone + fmt::Display> fmt::Display for ValueText<S> {
+impl<S: StringStorage> fmt::Display for ValueText<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for token in &self.tokens {
             match token {
@@ -115,7 +115,7 @@ impl<S: Clone + fmt::Display> fmt::Display for ValueText<S> {
 }
 
 #[derive(Debug, Clone)]
-enum ValueTextToken<S: Clone + fmt::Display> {
+enum ValueTextToken<S: StringStorage> {
     Str(S),
     Escape(ValueTextEscape),
 }

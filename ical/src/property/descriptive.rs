@@ -28,17 +28,16 @@ use crate::keyword::{
     KW_STATUS_COMPLETED, KW_STATUS_CONFIRMED, KW_STATUS_DRAFT, KW_STATUS_FINAL,
     KW_STATUS_IN_PROCESS, KW_STATUS_NEEDS_ACTION, KW_STATUS_TENTATIVE,
 };
-use crate::lexer::Span;
 use crate::parameter::{Encoding, Parameter, ValueTypeRef};
 use crate::property::PropertyKind;
 use crate::property::util::{Text, Texts, take_single_text, take_single_value};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{Span, SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueText, values_float_semicolon};
 
 /// Attachment information (RFC 5545 Section 3.8.1.1)
 #[derive(Debug, Clone)]
-pub struct Attachment<S: Clone + Display> {
+pub struct Attachment<S: StringStorage> {
     /// URI or binary data
     pub value: AttachmentValue<S>,
 
@@ -57,7 +56,7 @@ pub struct Attachment<S: Clone + Display> {
 
 /// Attachment value (URI or binary)
 #[derive(Debug, Clone)]
-pub enum AttachmentValue<S: Clone + Display> {
+pub enum AttachmentValue<S: StringStorage> {
     /// URI reference
     Uri(ValueText<S>),
 
@@ -205,7 +204,7 @@ define_prop_value_enum! {
 
 /// Classification of calendar data (RFC 5545 Section 3.8.1.3)
 #[derive(Debug, Clone)]
-pub struct Classification<S: Clone + Display> {
+pub struct Classification<S: StringStorage> {
     /// Classification value
     pub value: ClassificationValue,
 
@@ -216,7 +215,7 @@ pub struct Classification<S: Clone + Display> {
     pub unrecognized_parameters: Vec<Parameter<S>>,
 }
 
-impl<S: Display + Clone> Display for Classification<S> {
+impl<S: StringStorage> Display for Classification<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.value.fmt(f)
     }
@@ -300,7 +299,7 @@ simple_property_wrapper!(
 
 /// Geographic position (RFC 5545 Section 3.8.1.6)
 #[derive(Debug, Clone)]
-pub struct Geo<S: Clone + Display> {
+pub struct Geo<S: StringStorage> {
     /// Latitude
     pub lat: f64,
 
@@ -436,7 +435,7 @@ define_prop_value_enum! {
 
 /// Event/To-do/Journal status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
-pub struct Status<S: Clone + Display> {
+pub struct Status<S: StringStorage> {
     /// Status value
     pub value: StatusValue,
 
@@ -517,7 +516,7 @@ impl Status<SpannedSegments<'_>> {
 /// This property defines the percent complete for a todo.
 /// Value must be between 0 and 100.
 #[derive(Debug, Clone)]
-pub struct PercentComplete<S: Clone + Display> {
+pub struct PercentComplete<S: StringStorage> {
     /// Percent complete (0-100)
     pub value: u8,
 
@@ -615,7 +614,7 @@ impl PercentComplete<SpannedSegments<'_>> {
 /// This property defines the priority for a calendar component.
 /// Value must be between 0 and 9, where 0 defines an undefined priority.
 #[derive(Debug, Clone)]
-pub struct Priority<S: Clone + Display> {
+pub struct Priority<S: StringStorage> {
     /// Priority value (0-9, where 0 is undefined)
     pub value: u8,
 

@@ -15,12 +15,12 @@ use crate::property::{
     TimeTransparency, Uid, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Event component (VEVENT)
 #[derive(Debug, Clone)]
-pub struct VEvent<S: Clone + Display> {
+pub struct VEvent<S: StringStorage> {
     /// Unique identifier for the event
     pub uid: Uid<S>,
     /// Date/time the event was created
@@ -430,7 +430,7 @@ impl From<EventStatusValue> for StatusValue {
 }
 /// Event status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
-pub struct EventStatus<S: Clone + Display> {
+pub struct EventStatus<S: StringStorage> {
     /// Status value
     pub value: EventStatusValue,
     /// Custom X- parameters (preserved for round-trip)
@@ -483,7 +483,7 @@ impl EventStatusRef<'_> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector< S: Clone + Display> {
+struct PropertyCollector< S: StringStorage> {
     uid:            Option<Uid<S>>,
     dt_stamp:       Option<DtStamp<S>>,
     dt_start:       Option<DtStart<S>>,

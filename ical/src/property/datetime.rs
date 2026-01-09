@@ -35,19 +35,18 @@
 //! `ParsedProperty`, ensuring type safety throughout the parsing pipeline.
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::keyword::{KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT};
 use crate::parameter::{FreeBusyType, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::util::{take_single_text, take_single_value};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
 
 /// Date and time representation
 #[derive(Debug, Clone)]
-pub enum DateTime<S: Clone + Display> {
+pub enum DateTime<S: StringStorage> {
     /// Date and time without timezone (floating time)
     Floating {
         /// Date part
@@ -100,7 +99,7 @@ pub enum DateTime<S: Clone + Display> {
     },
 }
 
-impl<S: Clone + Display> DateTime<S> {
+impl<S: StringStorage> DateTime<S> {
     /// Get the date part of this `DateTime`
     #[must_use]
     pub fn date(&self) -> ValueDate {
@@ -450,7 +449,7 @@ impl From<ValueTime> for Time {
 /// - Explicit: start and end date-times
 /// - Duration: start date-time and duration
 #[derive(Debug, Clone)]
-pub enum Period<S: Clone + Display> {
+pub enum Period<S: StringStorage> {
     /// Start and end date/time in UTC
     ExplicitUtc {
         /// Start date
@@ -528,7 +527,7 @@ pub enum Period<S: Clone + Display> {
     },
 }
 
-impl<S: Clone + Display> Period<S> {
+impl<S: StringStorage> Period<S> {
     /// Get the timezone ID if this is a zoned period
     #[must_use]
     pub fn tz_id(&self) -> Option<&S> {
@@ -999,7 +998,7 @@ simple_property_wrapper!(
 ///
 /// This property specifies a duration of time.
 #[derive(Debug, Clone)]
-pub struct Duration<S: Clone + Display> {
+pub struct Duration<S: StringStorage> {
     /// Duration value
     pub value: ValueDuration,
 
@@ -1090,7 +1089,7 @@ impl Duration<SpannedSegments<'_>> {
 ///
 /// This property defines one or more free or busy time intervals.
 #[derive(Debug, Clone)]
-pub struct FreeBusy<S: Clone + Display> {
+pub struct FreeBusy<S: StringStorage> {
     /// Free/Busy type parameter
     pub fb_type: FreeBusyType<S>,
     /// List of free/busy time periods
@@ -1246,7 +1245,7 @@ define_prop_value_enum! {
 
 /// Time transparency for events (RFC 5545 Section 3.8.2.7)
 #[derive(Debug, Clone, Default)]
-pub struct TimeTransparency<S: Clone + Display> {
+pub struct TimeTransparency<S: StringStorage> {
     /// Transparency value
     pub value: TimeTransparencyValue,
 

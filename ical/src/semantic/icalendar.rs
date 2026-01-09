@@ -5,19 +5,18 @@
 //! iCalendar container types.
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::keyword::{
     KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
 use crate::property::{CalendarScale, Method, ProductId, Property, PropertyKind, Version};
 use crate::semantic::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]
-pub struct ICalendar<S: Clone + Display> {
+pub struct ICalendar<S: StringStorage> {
     /// Product identifier that generated the iCalendar data
     pub prod_id: ProductId<S>,
 
@@ -211,7 +210,7 @@ fn parse_component_children(
 
 /// Calendar components that can appear in an iCalendar object
 #[derive(Debug, Clone)]
-pub enum CalendarComponent<S: Clone + Display> {
+pub enum CalendarComponent<S: StringStorage> {
     /// Event component
     Event(VEvent<S>),
 
@@ -249,7 +248,7 @@ pub enum CalendarComponent<S: Clone + Display> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<S: Clone + Display> {
+struct PropertyCollector<S: StringStorage> {
     prod_id:        Option<ProductId<S>>,
     version:        Option<Version<S>>,
     calscale:       Option<CalendarScale<S>>,

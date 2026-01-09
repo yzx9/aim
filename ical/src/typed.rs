@@ -13,10 +13,10 @@ use std::collections::HashSet;
 use chumsky::error::Rich;
 use thiserror::Error;
 
-use crate::lexer::Span;
 use crate::parameter::{Parameter, ParameterKindRef, ParameterRef, ValueTypeRef};
 use crate::property::{Property, PropertyKindRef, PropertyRef};
-use crate::syntax::{SpannedSegments, SyntaxComponent, SyntaxParameterRef, SyntaxProperty};
+use crate::string_storage::{Span, SpannedSegments};
+use crate::syntax::{SyntaxComponent, SyntaxParameterRef, SyntaxProperty};
 use crate::value::{ValueRef, parse_value};
 
 /// Perform typed analysis on raw components, returning typed components or errors.

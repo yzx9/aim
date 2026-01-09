@@ -11,11 +11,10 @@
 //! - 3.8.3.5: `TzUrl` - Time zone URL
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::util::{Text, take_single_value};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueUtcOffset};
 
@@ -40,7 +39,7 @@ simple_property_wrapper!(
 /// This type implements `TryFrom<ParsedProperty>` for use with
 /// the `simple_property_wrapper!` macro.
 #[derive(Debug, Clone)]
-pub struct UtcOffsetProperty<S: Clone + Display> {
+pub struct UtcOffsetProperty<S: StringStorage> {
     /// UTC offset value
     pub value: ValueUtcOffset,
 

@@ -15,12 +15,12 @@ use crate::property::{
     StatusValue, Summary, Uid, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// To-do component (VTODO)
 #[derive(Debug, Clone)]
-pub struct VTodo<S: Clone + Display> {
+pub struct VTodo<S: StringStorage> {
     /// Unique identifier for the todo
     pub uid: Uid<S>,
     /// Date/time the todo was created
@@ -444,7 +444,7 @@ pub type TodoStatusOwned = TodoStatus<String>;
 
 /// To-do status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
-pub struct TodoStatus<S: Clone + Display> {
+pub struct TodoStatus<S: StringStorage> {
     /// Status value
     pub value: TodoStatusValue,
     /// Custom X- parameters (preserved for round-trip)
@@ -491,7 +491,7 @@ impl TodoStatusRef<'_> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<S: Clone + Display> {
+struct PropertyCollector<S: StringStorage> {
     uid:            Option<Uid<S>>,
     dt_stamp:       Option<DtStamp<S>>,
     dt_start:       Option<DtStart<S>>,

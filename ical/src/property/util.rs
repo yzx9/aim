@@ -8,11 +8,10 @@
 //! and converting property values from typed properties to semantic types.
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::PropertyKindRef;
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueRef, ValueText, ValueTextRef};
 
@@ -70,7 +69,7 @@ pub fn take_single_text<'src>(
 /// - 3.8.4.2: `Contact`
 /// - 3.8.3.2: `TzName`
 #[derive(Debug, Clone)]
-pub struct Text<S: Clone + Display> {
+pub struct Text<S: StringStorage> {
     /// The actual text content
     pub content: ValueText<S>,
 
@@ -173,7 +172,7 @@ impl Text<SpannedSegments<'_>> {
 /// Note: Per RFC 5545, ALTREP is not applicable to CATEGORIES and RESOURCES,
 /// so only the language parameter is extracted.
 #[derive(Debug, Clone)]
-pub struct Texts<S: Clone + Display> {
+pub struct Texts<S: StringStorage> {
     /// List of text values
     pub values: Vec<ValueText<S>>,
 
@@ -246,7 +245,7 @@ impl Texts<SpannedSegments<'_>> {
 /// Macro to define simple property wrappers with generic storage parameter.
 ///
 /// This is similar to `simple_property_wrapper!` but generates generic wrappers
-/// that accept a storage parameter `S: Clone + Display` instead of hardcoding
+/// that accept a storage parameter `S: StringStorage` instead of hardcoding
 /// the lifetime `'src`.
 ///
 /// Usage:
@@ -260,7 +259,7 @@ impl Texts<SpannedSegments<'_>> {
 /// This generates:
 ///
 /// ```ignore
-/// pub struct Comment<S: Clone + Display>(pub Text<S>);
+/// pub struct Comment<S: StringStorage>(pub Text<S>);
 /// ```
 macro_rules! simple_property_wrapper {
     (
@@ -274,16 +273,19 @@ macro_rules! simple_property_wrapper {
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone)]
-        $vis struct $name<S: Clone + ::core::fmt::Display>(pub $inner<S>);
+        $vis struct $name<S: StringStorage>(pub $inner<S>);
 
         #[doc = concat!("Borrowed type alias for [`", stringify!($name), "`]")]
         $(#[$rmeta])*
-        $rvis type $name_ref<'src> = $name<crate::syntax::SpannedSegments<'src>>;
+        $rvis type $name_ref<'src> = $name<crate::string_storage::SpannedSegments<'src>>;
         #[doc = concat!("Owned type alias for [`", stringify!($name), "`]")]
         $(#[$ometa])*
         $ovis type $name_owned = $name<String>;
 
-        impl<S: ::core::clone::Clone + ::core::fmt::Display> ::core::ops::Deref for $name<S> {
+        impl<S> ::core::ops::Deref for $name<S>
+        where
+            S: StringStorage,
+        {
             type Target = $inner<S>;
 
             fn deref(&self) -> &Self::Target {
@@ -291,7 +293,10 @@ macro_rules! simple_property_wrapper {
             }
         }
 
-        impl<S: ::core::clone::Clone + ::core::fmt::Display> ::core::ops::DerefMut for $name<S> {
+        impl<S> ::core::ops::DerefMut for $name<S>
+        where
+            S: StringStorage,
+        {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 &mut self.0
             }
@@ -299,7 +304,7 @@ macro_rules! simple_property_wrapper {
 
         impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name_ref<'src>
         where
-            $inner<crate::syntax::SpannedSegments<'src>>: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
+            $inner<crate::string_storage::SpannedSegments<'src>>: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
         {
             type Error = Vec<crate::typed::TypedError<'src>>;
 
@@ -312,7 +317,7 @@ macro_rules! simple_property_wrapper {
                     }]);
                 }
 
-                <$inner<crate::syntax::SpannedSegments<'src>>>::try_from(prop).map($name)
+                <$inner<crate::string_storage::SpannedSegments<'src>>>::try_from(prop).map($name)
             }
         }
 

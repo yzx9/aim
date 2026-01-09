@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::parameter::{ParameterKindRef, ParameterRef};
-use crate::syntax::{SpannedSegments, SyntaxParameterRef, SyntaxParameterValueRef};
+use crate::string_storage::SpannedSegments;
+use crate::syntax::{SyntaxParameterRef, SyntaxParameterValueRef};
 use crate::typed::TypedError;
 
 pub type ParseResult<'src> = Result<ParameterRef<'src>, Vec<TypedError<'src>>>;
@@ -213,7 +214,7 @@ macro_rules! define_param_enum_with_unknown {
         $(#[$meta])*
         #[derive(Debug, Clone)]
         #[allow(missing_docs)]
-        $vis enum $name<S: Clone + ::core::fmt::Display> {
+        $vis enum $name<S: crate::string_storage::StringStorage> {
             $(
                 $(#[$vmeta])*
                 $variant,
@@ -229,7 +230,7 @@ macro_rules! define_param_enum_with_unknown {
         /// Owned type alias for parameter
         $ovis type $name_owned = $name<String>;
 
-        impl<T: Clone + ::core::fmt::Display> ::core::fmt::Display for $name<T> {
+        impl<T: crate::string_storage::StringStorage> ::core::fmt::Display for $name<T> {
             fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 match self {
                     $(
@@ -240,7 +241,7 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        impl<T: Clone + ::core::fmt::Display> $name<T> {
+        impl<T: crate::string_storage::StringStorage> $name<T> {
             /// Tries to compare two values for equality if both are standard values.
             /// Returns None if either value is x-name/unrecognized.
             #[allow(dead_code)]

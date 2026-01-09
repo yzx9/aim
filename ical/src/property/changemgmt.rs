@@ -14,12 +14,11 @@
 //! - 3.8.7.4: `Sequence` - Revision sequence number
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::DateTime;
 use crate::property::{PropertyKind, util::take_single_value};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
 
@@ -51,7 +50,7 @@ simple_property_wrapper!(
 ///
 /// This property defines the revision sequence number for the calendar component.
 #[derive(Debug, Clone)]
-pub struct Sequence<S: Clone + Display> {
+pub struct Sequence<S: StringStorage> {
     /// Sequence number
     pub value: u32,
 

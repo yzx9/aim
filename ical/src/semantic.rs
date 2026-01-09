@@ -26,8 +26,8 @@ pub use vtimezone::{TimeZoneObservance, VTimeZone, VTimeZoneOwned, VTimeZoneRef}
 pub use vtodo::{TodoStatus, TodoStatusOwned, VTodo, VTodoOwned, VTodoRef};
 
 use crate::keyword::KW_VCALENDAR;
-use crate::lexer::Span;
 use crate::property::PropertyKindRef;
+use crate::string_storage::Span;
 use crate::typed::TypedComponent;
 
 /// Perform semantic analysis on typed components.

@@ -36,31 +36,23 @@ Validates all components against RFC 5545 specifications through three sub-passe
 
 1. **Parameter Pass**
    - Parses and validates iCalendar parameters per RFC 5545 Section 3.2
-   - Converts parameter strings to strongly-typed representations using generic
-     storage parameter `S: Clone + Display`
+   - Converts parameter strings to strongly-typed representations using `S: StringStorage`
    - Validates parameter values (e.g., enum values for CUTYPE, ENCODING, etc.)
-   - Provides `Parameter<S>` enum with convenience aliases:
-     - `ParameterRef<'src>` for zero-copy parsing
-     - `ParameterOwned` for owned data
-   - `ParameterKind<S>` for type-safe parameter kind handling
+   - Provides `Parameter<S>` enum with `ParameterKind<S>` for type-safe handling
 
 2. **Value Pass**
    - Parses and validates property value types per RFC 5545 Section 3.3
    - Converts value strings to appropriate Rust types (dates, durations, integers, etc.)
    - Handles type inference when VALUE parameter is not specified
    - Processes escape sequences (e.g., `\n`, `\;`, `\,`) in text values
-   - Provides `Value<S>` enum with convenience aliases:
-     - `ValueRef<'src>` for zero-copy parsing
-     - `ValueOwned` for owned data
-   - Specific value types (`ValueDate`, `ValueDateTime`, etc.) using the same pattern
+   - Provides `Value<S>` enum with specific types (`ValueDate`, `ValueDateTime`, etc.)
 
 3. **Property Pass**
    - Validates property-specific constraints and relationships
    - Handles property cardinality and multiplicity rules
    - Validates inter-property dependencies
    - Implements property kind validation to ensure type safety
-   - Creates strongly-typed wrapper types for each property using `Property<S>` with
-     `PropertyRef` and `PropertyOwned` aliases
+   - Creates strongly-typed wrapper types for each property using `Property<S>`
 
 **Property Organization**: Property type definitions are organized in the `property/`
 module by RFC 5545 sections. Each property type has:
@@ -80,13 +72,47 @@ business rules and constraints defined in the specification.
 
 ### Unified Parser
 
-Coordinates all phases, aggregates errors from each phase, and provides a
-single entry point for parsing operations.
+The main `parse()` function coordinates all phases, returns `Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>>`
+which provides zero-copy parsing by default, with the option to convert to owned
+types using the `to_owned()` method.
 
-The main `parse()` function returns `Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>>`,
-where `ICalendarRef<'_>` is a convenience alias for `ICalendar<SpannedSegments<'_>>`.
-This provides zero-copy parsing by default, with the option to convert to owned
-types using the `Owned` variants (e.g., `ICalendarOwned`).
+## String Storage Abstraction
+
+The parser uses a generic storage parameter system built on the `StringStorage` trait
+to enable both zero-copy parsing and owned data representations with a unified API.
+
+**Implementations:**
+
+- `SpannedSegments<'src>` - For zero-copy borrowed segments with position information
+- `String` - For owned string data (after calling `.to_owned()`)
+
+This abstraction enables the entire type system to use generic bounds like
+`S: StringStorage` instead of being tied to specific string types, providing
+flexibility while maintaining type safety.
+
+### Convenience Aliases
+
+For each generic type using `S: StringStorage`, the crate provides convenience aliases:
+
+**For Zero-Copy Parsing (Borrowed Data):**
+
+- `ParameterRef<'src>` = `Parameter<SpannedSegments<'src>>`
+- `ValueRef<'src>` = `Value<SpannedSegments<'src>>`
+- `PropertyRef<'src>` = `Property<SpannedSegments<'src>>`
+- `ICalendarRef<'src>` = `ICalendar<SpannedSegments<'src>>`
+- `VEventRef<'src>`, `VTodoRef<'src>`, etc.
+
+**For Owned Data:**
+
+- `ParameterOwned` = `Parameter<String>`
+- `ValueOwned` = `Value<String>`
+- `PropertyOwned` = `Property<String>`
+- `ICalendarOwned` = `ICalendar<String>`
+- `VEventOwned`, `VTodoOwned`, etc.
+
+This unified API allows seamless conversion between zero-copy and owned representations
+through the `to_owned()` method, enabling efficient parsing when needed and data
+ownership when required (e.g., for serialization or long-term storage).
 
 ## Module Structure
 
@@ -100,6 +126,7 @@ ical/
 │   ├── keyword.rs          # RFC 5545 keyword constants
 │   ├── lexer.rs            # Lexical analysis (tokenization)
 │   ├── syntax.rs           # Syntax analysis
+│   ├── string_storage.rs   # String storage abstraction (StringStorage trait, Span, SpannedSegments)
 │   ├── parser.rs           # Unified parser orchestration
 │   ├── typed.rs            # Typed module entry point
 │   ├── semantic.rs         # Semantic analysis entry point and error types
@@ -180,14 +207,14 @@ ical/
 - **Type Safety**: Strongly typed representation of iCalendar data with
   dedicated wrapper types for each property (e.g., `Created`, `DtStart`, `Summary`)
 - **Generic Storage Parameter System**: Unified type system using generic storage
-  parameter `S: Clone + Display` for flexibility:
-  - **Parameters**: `Parameter<S: Clone + Display>` with convenience aliases:
+  parameter `S: StringStorage` for flexibility:
+  - **Parameters**: `Parameter<S: StringStorage>` with convenience aliases:
     - `ParameterRef<'src>` = `Parameter<SpannedSegments<'src>>` for zero-copy parsing
     - `ParameterOwned` = `Parameter<String>` for owned data
-  - **Properties**: `Property<S: Clone + Display>` with convenience aliases:
+  - **Properties**: `Property<S: StringStorage>` with convenience aliases:
     - `PropertyRef<'src>` = `Property<SpannedSegments<'src>>`
     - `PropertyOwned` = `Property<String>`
-  - **Values**: `Value<S: Clone + Display>` with convenience aliases:
+  - **Values**: `Value<S: StringStorage>` with convenience aliases:
     - `ValueRef<'src>` = `Value<SpannedSegments<'src>>`
     - `ValueOwned` = `Value<String>`
   - **Semantic Types**: All component types (e.g., `VEvent`, `VTodo`, `ICalendar`)
@@ -209,7 +236,7 @@ The architecture provides comprehensive error reporting with:
 
 ## Feature Support
 
-- **Generic Storage Parameter System**: Unified type system using `S: Clone + Display`
+- **Generic Storage Parameter System**: Unified type system using `S: StringStorage`
   across all layers:
   - All types (parameters, properties, values, semantic components) use the same pattern
   - `Ref` variants for zero-copy parsing with borrowed data

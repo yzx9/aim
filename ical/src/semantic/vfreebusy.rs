@@ -4,20 +4,18 @@
 
 //! Free/busy time component (VFREEBUSY) for iCalendar semantic components.
 
-use std::fmt::Display;
-
 use crate::keyword::KW_VFREEBUSY;
 use crate::parameter::FreeBusyType;
 use crate::property::{
     Contact, DtEnd, DtStamp, DtStart, Duration, Organizer, Period, Property, PropertyKind, Uid, Url,
 };
 use crate::semantic::SemanticError;
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Free/busy time component (VFREEBUSY)
 #[derive(Debug, Clone)]
-pub struct VFreeBusy<S: Clone + Display> {
+pub struct VFreeBusy<S: StringStorage> {
     /// Unique identifier for the free/busy info
     pub uid: Uid<S>,
     /// Date/time the free/busy info was created
@@ -236,7 +234,7 @@ impl<'src> VFreeBusyRef<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<S: Clone + Display> {
+struct PropertyCollector<S: StringStorage> {
     uid:                Option<Uid<S>>,
     dt_stamp:           Option<DtStamp<S>>,
     dt_start:           Option<DtStart<S>>,

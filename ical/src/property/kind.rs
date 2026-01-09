@@ -19,7 +19,7 @@ use crate::keyword::{
     KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
 use crate::parameter::ValueTypeRef;
-use crate::syntax::SpannedSegments;
+use crate::string_storage::SpannedSegments;
 
 /// Type alias for borrowed `PropertyKind`
 pub type PropertyKindRef<'src> = PropertyKind<SpannedSegments<'src>>;
@@ -98,7 +98,7 @@ macro_rules! property_kind {
         /// Represents all standard properties defined in RFC 5545.
         #[derive(Debug, Clone)]
         #[expect(missing_docs)]
-        pub enum PropertyKind<S: Clone + fmt::Display> {
+        pub enum PropertyKind<S: crate::string_storage::StringStorage> {
             $(
                 $(#[$attr])*
                 $variant,
@@ -109,7 +109,7 @@ macro_rules! property_kind {
             Unrecognized(S),
         }
 
-        impl<S: Clone + fmt::Display> PropertyKind<S> {
+        impl<S: crate::string_storage::StringStorage> PropertyKind<S> {
             /// Returns the allowed value types for this property kind, if known.
             /// Returns `None` for unrecognized or x-name properties.
             #[must_use]
@@ -139,7 +139,7 @@ macro_rules! property_kind {
             }
         }
 
-        impl<S: Clone + fmt::Display> fmt::Display for PropertyKind<S> {
+        impl<S: crate::string_storage::StringStorage> fmt::Display for PropertyKind<S> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     $(PropertyKind::$variant => write!(f, "{}", $kw),)*

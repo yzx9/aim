@@ -11,7 +11,8 @@ use chumsky::error::Rich;
 
 use aimcal_ical::lexer::lex_analysis;
 use aimcal_ical::semantic::{CalendarComponent, SemanticError, semantic_analysis};
-use aimcal_ical::syntax::{SpannedSegments, syntax_analysis};
+use aimcal_ical::string_storage::SpannedSegments;
+use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
 use aimcal_ical::value::ValueDuration;
 use aimcal_ical::{

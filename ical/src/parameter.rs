@@ -13,8 +13,6 @@ mod util;
 mod definition;
 mod kind;
 
-use std::fmt::Display;
-
 pub use definition::{
     AlarmTriggerRelationship, CalendarUserType, CalendarUserTypeOwned, CalendarUserTypeRef,
     Encoding, FreeBusyType, FreeBusyTypeOwned, FreeBusyTypeRef, ParticipationRole,
@@ -24,19 +22,19 @@ pub use definition::{
 };
 pub use kind::{ParameterKind, ParameterKindOwned, ParameterKindRef};
 
-use crate::lexer::Span;
 use crate::parameter::definition::{
     parse_alarm_trigger_relationship, parse_cutype, parse_encoding, parse_fbtype, parse_partstat,
     parse_range, parse_reltype, parse_role, parse_rsvp, parse_tzid, parse_value_type,
 };
 use crate::parameter::util::{parse_multiple_quoted, parse_single, parse_single_quoted};
-use crate::syntax::{SpannedSegments, SyntaxParameter, SyntaxParameterRef};
+use crate::string_storage::{Span, SpannedSegments, StringStorage};
+use crate::syntax::{SyntaxParameter, SyntaxParameterRef};
 use crate::typed::TypedError;
 
 /// A typed iCalendar parameter with validated values.
 #[derive(Debug, Clone)]
 #[expect(missing_docs)]
-pub enum Parameter<S: Clone + Display> {
+pub enum Parameter<S: StringStorage> {
     /// This parameter specifies a URI that points to an alternate
     /// representation for a textual property value. A property specifying
     /// this parameter MUST also include a value that reflects the default

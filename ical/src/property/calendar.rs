@@ -14,7 +14,6 @@
 //! - 3.7.4: `Version` - iCalendar version (2.0)
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::keyword::{
     KW_CALSCALE_GREGORIAN, KW_METHOD_ADD, KW_METHOD_CANCEL, KW_METHOD_COUNTER,
@@ -24,7 +23,7 @@ use crate::keyword::{
 use crate::parameter::Parameter;
 use crate::property::PropertyKind;
 use crate::property::util::take_single_text;
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
 
@@ -40,7 +39,7 @@ define_prop_value_enum! {
 
 /// Calendar scale specification (RFC 5545 Section 3.7.1)
 #[derive(Debug, Clone, Default)]
-pub struct CalendarScale<S: Clone + Display> {
+pub struct CalendarScale<S: StringStorage> {
     /// Calendar scale value
     pub value: CalendarScaleValue,
 
@@ -144,7 +143,7 @@ define_prop_value_enum! {
 
 /// Method type for iCalendar objects (RFC 5545 Section 3.7.2)
 #[derive(Debug, Clone, Default)]
-pub struct Method<S: Clone + Display> {
+pub struct Method<S: StringStorage> {
     /// Method value
     pub value: MethodValue,
 
@@ -217,7 +216,7 @@ impl Method<SpannedSegments<'_>> {
 
 /// Product identifier that identifies the software that created the iCalendar data (RFC 5545 Section 3.7.3)
 #[derive(Debug, Clone, Default)]
-pub struct ProductId<S: Clone + Display> {
+pub struct ProductId<S: StringStorage> {
     /// The vendor of the implementation SHOULD assure that this is a globally
     /// unique identifier; using some technique such as an FPI value, as
     /// defined in [ISO.9070.1991].
@@ -292,7 +291,7 @@ define_prop_value_enum! {
 
 /// iCalendar version specification (RFC 5545 Section 3.7.4)
 #[derive(Debug, Clone, Default)]
-pub struct Version<S: Clone + Display> {
+pub struct Version<S: StringStorage> {
     /// Version value
     pub value: VersionValue,
 

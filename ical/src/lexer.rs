@@ -5,11 +5,13 @@
 //! Lexer for iCalendar files as defined in RFC 5545
 
 use std::fmt::{self, Display};
-use std::ops::Range;
 
+use chumsky::extra::ParserExtra;
 use chumsky::input::{Input, MapExtra, Stream, ValueInput};
-use chumsky::{extra::ParserExtra, span::SimpleSpan};
+use chumsky::span::SimpleSpan;
 use logos::Logos;
+
+use crate::string_storage::Span;
 
 /// Create a lexer for iCalendar source code
 #[must_use]
@@ -97,60 +99,6 @@ impl Display for Token<'_> {
 impl fmt::Debug for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(self, f)
-    }
-}
-
-/// A span representing a range in the source code
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Span {
-    /// Start position of the span
-    pub start: usize,
-    /// End position of the span
-    pub end: usize,
-}
-
-impl Span {
-    /// Create a new span from start and end positions
-    #[must_use]
-    pub const fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
-    }
-
-    /// Convert to a standard range
-    #[must_use]
-    pub const fn into_range(self) -> Range<usize> {
-        self.start..self.end
-    }
-}
-
-impl From<Range<usize>> for Span {
-    fn from(range: Range<usize>) -> Self {
-        Self {
-            start: range.start,
-            end: range.end,
-        }
-    }
-}
-
-impl From<SimpleSpan<usize>> for Span {
-    fn from(span: SimpleSpan<usize>) -> Self {
-        Self {
-            start: span.start,
-            end: span.end,
-        }
-    }
-}
-
-impl From<Span> for SimpleSpan<usize> {
-    fn from(span: Span) -> Self {
-        use chumsky::span::Span;
-        SimpleSpan::new((), span.start..span.end)
-    }
-}
-
-impl Display for Span {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}..{}", self.start, self.end)
     }
 }
 

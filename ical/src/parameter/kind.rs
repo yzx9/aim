@@ -9,7 +9,7 @@ use crate::keyword::{
     KW_FBTYPE, KW_FMTTYPE, KW_LANGUAGE, KW_MEMBER, KW_PARTSTAT, KW_RANGE, KW_RELATED, KW_RELTYPE,
     KW_ROLE, KW_RSVP, KW_SENT_BY, KW_TZID, KW_VALUE,
 };
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 
 macro_rules! impl_typed_parameter_kind_mapping {
     (
@@ -22,7 +22,7 @@ macro_rules! impl_typed_parameter_kind_mapping {
     ) => {
         #[derive(Debug, Clone)]
         $(#[$attr])*
-        pub enum $ty<S: ::core::clone::Clone + ::core::fmt::Display> {
+        pub enum $ty<S: StringStorage> {
             $( $variant, )+
             /// Custom experimental x-name value (must start with "X-" or "x-")
             XName(S),
@@ -30,8 +30,8 @@ macro_rules! impl_typed_parameter_kind_mapping {
             Unrecognized(S),
         }
 
-        impl<'src> ::core::convert::From<SpannedSegments<'src>> for $ty<crate::syntax::SpannedSegments<'src>> {
-            fn from(name: crate::syntax::SpannedSegments<'src>) -> Self {
+        impl<'src> ::core::convert::From<SpannedSegments<'src>> for $ty<crate::string_storage::SpannedSegments<'src>> {
+            fn from(name: crate::string_storage::SpannedSegments<'src>) -> Self {
                 $(
                     if name.eq_str_ignore_ascii_case($kw) {
                         return Self::$variant;
@@ -46,7 +46,7 @@ macro_rules! impl_typed_parameter_kind_mapping {
             }
         }
 
-        impl<S: Clone + ::core::fmt::Display> ::core::fmt::Display for $ty<S> {
+        impl<S: StringStorage> ::core::fmt::Display for $ty<S> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     $(

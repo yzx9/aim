@@ -10,6 +10,7 @@
 //! - 3.8.8.3: `RequestStatus` - Status code for request processing
 
 use crate::property::util::Text;
+use crate::string_storage::StringStorage;
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.8.3)

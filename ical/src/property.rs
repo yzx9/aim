@@ -83,11 +83,10 @@ pub use timezone::{
 };
 pub use util::{Text, Texts};
 
-use std::fmt::Display;
+use crate::string_storage::StringStorage;
 
-use crate::lexer::Span;
 use crate::parameter::Parameter;
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{Span, SpannedSegments};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
 
@@ -112,7 +111,7 @@ pub type PropertyOwned = Property<String>;
 /// }
 /// ```
 #[derive(Debug, Clone)]
-pub enum Property<S: Clone + Display> {
+pub enum Property<S: StringStorage> {
     // Section 3.7 - Calendar Properties
     /// 3.7.1 Calendar Scale
     CalScale(CalendarScale<S>),
@@ -387,7 +386,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PropertyRef<'src> {
     }
 }
 
-impl<S: Clone + Display> Property<S> {
+impl<S: StringStorage> Property<S> {
     /// Returns the `PropertyKind` for this property
     #[must_use]
     pub fn kind(&self) -> PropertyKind<S>

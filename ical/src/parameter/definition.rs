@@ -17,7 +17,8 @@ use crate::keyword::{
 };
 use crate::parameter::util::{ParseResult, parse_single, parse_single_not_quoted};
 use crate::parameter::{Parameter, ParameterKind};
-use crate::syntax::{SpannedSegments, SyntaxParameterRef, SyntaxParameterValueRef};
+use crate::string_storage::SpannedSegments;
+use crate::syntax::{SyntaxParameterRef, SyntaxParameterValueRef};
 use crate::typed::TypedError;
 
 /// Parse RSVP expectation parameter.

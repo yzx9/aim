@@ -18,17 +18,16 @@
 //! - `RecurrenceRule` - Recurrence rule value
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::{DateTime, Period, PropertyKind};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueRecurrenceRule};
 
 /// Exception date-time value (can be DATE or DATE-TIME).
 #[derive(Debug, Clone)]
-pub enum ExDateValue<S: Clone + Display> {
+pub enum ExDateValue<S: StringStorage> {
     /// Date-only value
     Date(ValueDate),
     /// Date-time value
@@ -54,7 +53,7 @@ impl ExDateValue<SpannedSegments<'_>> {
 
 /// Recurrence date-time value (can be DATE, DATE-TIME, or PERIOD).
 #[derive(Debug, Clone)]
-pub enum RDateValue<S: Clone + Display> {
+pub enum RDateValue<S: StringStorage> {
     /// Date-only value
     Date(ValueDate),
     /// Date-time value
@@ -86,7 +85,7 @@ impl RDateValue<SpannedSegments<'_>> {
 /// This property defines the list of date-time exceptions for a recurring
 /// calendar component.
 #[derive(Debug, Clone)]
-pub struct ExDate<S: Clone + Display> {
+pub struct ExDate<S: StringStorage> {
     /// List of exception dates/times
     pub dates: Vec<ExDateValue<S>>,
 
@@ -191,7 +190,7 @@ impl ExDate<SpannedSegments<'_>> {
 ///
 /// This property defines the list of date-times for a recurring calendar component.
 #[derive(Debug, Clone)]
-pub struct RDate<S: Clone + Display> {
+pub struct RDate<S: StringStorage> {
     /// List of recurrence dates/times/periods
     pub dates: Vec<RDateValue<S>>,
 
@@ -306,7 +305,7 @@ impl RDate<SpannedSegments<'_>> {
 ///
 /// This property defines a rule for specifying recurring calendar components.
 #[derive(Debug, Clone)]
-pub struct RRule<S: Clone + Display> {
+pub struct RRule<S: StringStorage> {
     /// Recurrence rule value
     pub value: Box<ValueRecurrenceRule>,
 

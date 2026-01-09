@@ -6,6 +6,7 @@
 
 use std::fmt;
 
+use crate::StringStorage;
 use crate::keyword::KW_VJOURNAL;
 use crate::parameter::Parameter;
 use crate::property::{
@@ -13,12 +14,12 @@ use crate::property::{
     Organizer, Property, PropertyKind, RDate, RRule, Status, StatusValue, Summary, Uid, Url,
 };
 use crate::semantic::SemanticError;
-use crate::syntax::SpannedSegments;
+use crate::string_storage::SpannedSegments;
 use crate::typed::TypedComponent;
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]
-pub struct VJournal<S: Clone + fmt::Display> {
+pub struct VJournal<S: StringStorage> {
     /// Unique identifier for the journal entry
     pub uid: Uid<S>,
     /// Date/time the journal entry was created
@@ -302,7 +303,7 @@ impl From<JournalStatusValue> for StatusValue {
 
 /// Journal status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
-pub struct JournalStatus<S: Clone + fmt::Display> {
+pub struct JournalStatus<S: StringStorage> {
     /// Status value
     pub value: JournalStatusValue,
     /// Custom X- parameters (preserved for round-trip)
@@ -349,7 +350,7 @@ impl JournalStatusRef<'_> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<S: Clone + fmt::Display> {
+struct PropertyCollector<S: StringStorage> {
     uid:            Option<Uid<S>>,
     dt_stamp:       Option<DtStamp<S>>,
     dt_start:       Option<DtStart<S>>,

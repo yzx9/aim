@@ -4,20 +4,18 @@
 
 //! Alarm component (VALARM) for iCalendar semantic components.
 
-use std::fmt::Display;
-
 use crate::keyword::KW_VALARM;
 use crate::property::{
     Action, ActionValue, Attachment, Attendee, Description, Duration, Property, PropertyKind,
     Repeat, Summary, Trigger,
 };
 use crate::semantic::SemanticError;
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Alarm component (VALARM)
 #[derive(Debug, Clone)]
-pub struct VAlarm<S: Clone + Display> {
+pub struct VAlarm<S: StringStorage> {
     /// Action to perform when alarm triggers
     pub action: Action<S>,
     /// When to trigger the alarm
@@ -230,7 +228,7 @@ impl<'src> VAlarmRef<'src> {
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
-struct PropertyCollector<S: Clone + Display> {
+struct PropertyCollector<S: StringStorage> {
     action:         Option<Action<S>>,
     trigger:        Option<Trigger<S>>,
     duration:       Option<Duration<S>>,

@@ -20,18 +20,17 @@
 //! - 3.8.4.7: `Uid` - Unique identifier
 
 use std::convert::TryFrom;
-use std::fmt::Display;
 
 use crate::parameter::{CalendarUserType, Parameter, ParticipationRole, ParticipationStatus};
 use crate::property::util::{Text, take_single_text};
 use crate::property::{DateTime, PropertyKind};
-use crate::syntax::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
 
 /// Attendee information (RFC 5545 Section 3.8.4.1)
 #[derive(Debug, Clone)]
-pub struct Attendee<S: Clone + Display> {
+pub struct Attendee<S: StringStorage> {
     /// Calendar user address (mailto: or other URI)
     pub cal_address: ValueText<S>,
 
@@ -288,7 +287,7 @@ simple_property_wrapper!(
 
 /// Organizer information (RFC 5545 Section 3.8.4.3)
 #[derive(Debug, Clone)]
-pub struct Organizer<S: Clone + Display> {
+pub struct Organizer<S: StringStorage> {
     /// Calendar user address (mailto: or other URI)
     pub cal_address: ValueText<S>, // TODO: parse mailto:
 

@@ -4,10 +4,7 @@
 
 //! Parser for iCalendar syntax as defined in RFC 5545, built on top of the lexer, no type.
 
-use std::borrow::Cow;
-use std::fmt::{self, Display};
-use std::iter::Peekable;
-use std::str::CharIndices;
+use crate::string_storage::StringStorage;
 
 use chumsky::DefaultExpected;
 use chumsky::container::Container;
@@ -18,7 +15,8 @@ use chumsky::inspector::Inspector;
 use chumsky::prelude::*;
 
 use crate::keyword::{KW_BEGIN, KW_END};
-use crate::lexer::{Span, SpannedToken, Token};
+use crate::lexer::{SpannedToken, Token};
+use crate::string_storage::{Span, SpannedSegments};
 
 /// Parse raw iCalendar components from token stream
 ///
@@ -63,7 +61,7 @@ pub struct SyntaxProperty<'src> {
 
 /// A parsed iCalendar parameter (e.g., `TZID=America/New_York`)
 #[derive(Debug, Clone)]
-pub struct SyntaxParameter<S: Clone + Display> {
+pub struct SyntaxParameter<S: StringStorage> {
     /// Parameter name (e.g., "TZID", "VALUE", "CN", "ROLE", "PARTSTAT")
     pub name: S,
     /// Parameter values split by commas
@@ -86,7 +84,7 @@ impl SyntaxParameter<SpannedSegments<'_>> {
 
 /// A single parameter value with optional quoting
 #[derive(Debug, Clone)]
-pub struct SyntaxParameterValue<S: Clone + Display> {
+pub struct SyntaxParameterValue<S: StringStorage> {
     /// The parameter value
     pub value: S,
     /// Whether the value was quoted in the source
@@ -365,196 +363,20 @@ where
     .collect::<SpanCollector>()
 }
 
-/// A spanned text segment (text with its position in the source)
-pub type SpannedSegment<'src> = (&'src str, Span);
-
-/// A collection of spanned text segments (multi-segment value with positions)
-#[derive(Default, Clone, Debug)]
-pub struct SpannedSegments<'src> {
-    pub(crate) segments: Vec<SpannedSegment<'src>>,
-    len: usize,
-}
-
-impl<'src> SpannedSegments<'src> {
-    /// Create a new `SpannedSegments` from a vector of segments
-    #[must_use]
-    pub(crate) fn new(segments: Vec<SpannedSegment<'src>>) -> Self {
-        let len = segments.iter().map(|(s, _)| s.len()).sum();
-        Self { segments, len }
-    }
-
-    /// Get the total length in bytes of all segments
-    #[must_use]
-    pub const fn len(&self) -> usize {
-        self.len
-    }
-
-    /// Returns `true` if the segments contain no elements
-    #[must_use]
-    pub const fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    /// Get the full span from first to last segment
-    #[must_use]
-    pub fn span(&self) -> Span {
-        match (self.segments.first(), self.segments.last()) {
-            (Some((_, first_span)), Some((_, last_span))) => Span {
-                start: first_span.start,
-                end: last_span.end,
-            },
-            _ => Span { start: 0, end: 0 },
-        }
-    }
-
-    /// Resolve segments into a single string (borrowed if single segment, owned otherwise)
-    ///
-    /// # Panics
-    ///
-    /// Panics if there are no segments. This should never happen in practice
-    /// as `SpannedSegments` is always created with at least one segment.
-    #[must_use]
-    pub fn resolve(&self) -> Cow<'src, str> {
-        if self.segments.len() == 1 {
-            let s = self.segments.first().unwrap().0; // SAFETY: due to len() == 1
-            Cow::Borrowed(s)
-        } else {
-            let mut s = String::with_capacity(self.len);
-            for (seg, _) in &self.segments {
-                s.push_str(seg);
-            }
-            Cow::Owned(s)
-        }
-    }
-
-    /// Convert to owned String efficiently
-    ///
-    /// This is more explicit and slightly more efficient than using the
-    /// `Display` trait's `to_string()` method, as it uses the known capacity.
-    #[must_use]
-    pub fn to_owned(&self) -> String {
-        let mut s = String::with_capacity(self.len);
-        for (seg, _) in &self.segments {
-            s.push_str(seg);
-        }
-        s
-    }
-
-    /// Check if segments start with the given prefix, ignoring ASCII case
-    #[must_use]
-    pub(crate) fn starts_with_str_ignore_ascii_case(&self, prefix: &str) -> bool {
-        if prefix.is_empty() {
-            return true;
-        } else if prefix.len() > self.len {
-            return false;
-        }
-
-        let mut remaining = prefix;
-        for (seg, _) in &self.segments {
-            if remaining.is_empty() {
-                return true;
-            } else if seg.len() >= remaining.len() {
-                // This segment is long enough to contain the rest of the prefix
-                return seg[..remaining.len()].eq_ignore_ascii_case(remaining);
-            } else if !seg.eq_ignore_ascii_case(&remaining[..seg.len()]) {
-                return false;
-            }
-            // This segment is shorter than the remaining prefix
-            remaining = &remaining[seg.len()..];
-        }
-
-        remaining.is_empty()
-    }
-
-    /// Compare segments to a string ignoring ASCII case
-    #[must_use]
-    pub fn eq_str_ignore_ascii_case(&self, mut other: &str) -> bool {
-        if other.len() != self.len {
-            return false;
-        }
-
-        for (seg, _) in &self.segments {
-            let Some((head, tail)) = other.split_at_checked(seg.len()) else {
-                return false;
-            };
-            if !head.eq_ignore_ascii_case(seg) {
-                return false;
-            }
-            other = tail;
-        }
-
-        true
-    }
-
-    pub(crate) fn into_spanned_chars(self) -> SegmentedSpannedChars<'src> {
-        SegmentedSpannedChars {
-            segments: self.segments,
-            seg_idx: 0,
-            chars: None,
-        }
-    }
-}
-
-impl Display for SpannedSegments<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (seg, _) in &self.segments {
-            seg.fmt(f)?;
-        }
-        Ok(())
-    }
-}
-
-/// Iterator over characters in spanned segments
-#[derive(Debug, Clone)]
-pub struct SegmentedSpannedChars<'src> {
-    segments: Vec<SpannedSegment<'src>>,
-    seg_idx: usize,
-    chars: Option<(Span, Peekable<CharIndices<'src>>)>,
-}
-
-impl Iterator for SegmentedSpannedChars<'_> {
-    type Item = (char, Span);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.seg_idx < self.segments.len() {
-            match self.chars {
-                Some((ref span, ref mut chars)) => match chars.next() {
-                    Some((start, c)) => {
-                        let char_span = match chars.peek() {
-                            Some((end, _)) => Span::new(span.start + start, span.start + end),
-                            None => Span::new(span.start + start, span.end),
-                        };
-                        return Some((c, char_span));
-                    }
-                    None => {
-                        self.seg_idx += 1;
-                        self.chars = None;
-                    }
-                },
-                None => {
-                    let (s, span) = self.segments.get(self.seg_idx).unwrap(); // SAFETY: due to while condition
-                    self.chars = Some((*span, s.char_indices().peekable()));
-                }
-            }
-        }
-
-        None
-    }
-}
-
 #[derive(Default)]
 struct SpanCollector(Vec<Span>);
 
 impl SpanCollector {
     pub fn build(self, src: &'_ str) -> SpannedSegments<'_> {
-        let mut segments = Vec::with_capacity(self.0.len());
-        let mut len = 0;
-        for s in self.0 {
-            let segment_str = &src[s.into_range()];
-            segments.push((segment_str, s));
-            len += segment_str.len();
-        }
-        SpannedSegments { segments, len }
+        let segments: Vec<_> = self
+            .0
+            .into_iter()
+            .map(|s| {
+                let segment_str = &src[s.into_range()];
+                (segment_str, s)
+            })
+            .collect();
+        SpannedSegments::new(segments)
     }
 }
 
@@ -601,7 +423,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::{Span, lex_analysis};
+    use crate::lexer::lex_analysis;
+    use crate::string_storage::Span;
 
     use super::*;
 
@@ -731,9 +554,8 @@ END:VEVENT\r\n\
     #[test]
     fn spanned_segments_starts_with_str_ignore_ascii_case() {
         fn make_segments<'a>(parts: &[(&'a str, Span)]) -> SpannedSegments<'a> {
-            let len = parts.iter().map(|(s, _)| s.len()).sum();
             let segments = parts.iter().map(|&(s, span)| (s, span)).collect();
-            SpannedSegments { segments, len }
+            SpannedSegments::new(segments)
         }
 
         // Test X- properties (case-insensitive)
