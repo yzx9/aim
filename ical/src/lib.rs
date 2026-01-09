@@ -72,7 +72,7 @@ pub use crate::semantic::{
     VTodoRef,
 };
 pub use crate::value::{
-    Day, RecurrenceFrequency, RecurrenceRule, Value, ValueDate, ValueDateTime, ValueDuration,
-    ValueOwned, ValuePeriod, ValueRef, ValueText, ValueTextOwned, ValueTextRef, ValueTime,
-    ValueUtcOffset, WeekDay,
+    RecurrenceFrequency, Value, ValueDate, ValueDateTime, ValueDuration, ValueOwned, ValuePeriod,
+    ValueRecurrenceRule, ValueRef, ValueText, ValueTextOwned, ValueTextRef, ValueTime,
+    ValueUtcOffset, WeekDay, WeekDayNum,
 };

@@ -9,94 +9,68 @@ use std::fmt::{self, Display};
 use crate::keyword::{KW_VALARM, KW_VEVENT};
 use crate::parameter::Parameter;
 use crate::property::{
-    Attendee, Categories, Classification, DateTime, Description, DtEnd, DtStamp, DtStart,
+    Attendee, Categories, Classification, DateTime, Description, DtEnd, DtStamp, DtStart, Duration,
     ExDateValueRef, Geo, LastModified, Location, Organizer, Period, Priority, Property,
-    PropertyKind, RDateValueRef, Resources, Sequence, Status, StatusValue, Summary,
+    PropertyKind, RDateValueRef, RRule, Resources, Sequence, Status, StatusValue, Summary,
     TimeTransparency, Uid, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
-use crate::value::{RecurrenceRule, ValueDuration};
 
 /// Event component (VEVENT)
 #[derive(Debug, Clone)]
 pub struct VEvent<S: Clone + Display> {
     /// Unique identifier for the event
     pub uid: Uid<S>,
-
     /// Date/time the event was created
     pub dt_stamp: DtStamp<S>,
-
     /// Date/time the event starts
     pub dt_start: DtStart<S>,
-
     /// Date/time the event ends
     pub dt_end: Option<DtEnd<S>>,
-
     /// Duration of the event (alternative to `dt_end`)
-    pub duration: Option<ValueDuration>,
-
+    pub duration: Option<Duration<S>>,
     /// Summary/title of the event
     pub summary: Option<Summary<S>>,
-
     /// Description of the event
     pub description: Option<Description<S>>,
-
     /// Location of the event
     pub location: Option<Location<S>>,
-
     /// Geographic position
     pub geo: Option<Geo<S>>,
-
     /// URL associated with the event
     pub url: Option<Url<S>>,
-
     /// Organizer of the event
     pub organizer: Option<Organizer<S>>,
-
     /// Attendees of the event
     pub attendees: Vec<Attendee<S>>,
-
     /// Last modification date/time
     pub last_modified: Option<LastModified<S>>,
-
     /// Status of the event
     pub status: Option<EventStatus<S>>,
-
     /// Time transparency
     pub transparency: Option<TimeTransparency<S>>,
-
     /// Sequence number for revisions
     pub sequence: Option<Sequence<S>>,
-
     /// Priority (1-9, 1 is highest)
     pub priority: Option<Priority<S>>,
-
     /// Classification
     pub classification: Option<Classification<S>>,
-
     /// Resources
     pub resources: Option<Resources<S>>,
-
     /// Categories
     pub categories: Option<Categories<S>>,
-
     /// Recurrence rule
-    pub rrule: Option<RecurrenceRule>,
-
+    pub rrule: Option<RRule<S>>,
     /// Recurrence dates
     pub rdate: Vec<Period<S>>,
-
     /// Exception dates
     pub ex_date: Vec<DateTime<S>>,
-
     /// Custom X- properties (preserved for round-trip)
     pub x_properties: Vec<Property<S>>,
-
     /// Unrecognized properties (preserved for round-trip)
     pub unrecognized_properties: Vec<Property<S>>,
-
     /// Sub-components (like alarms)
     pub alarms: Vec<VAlarm<S>>,
 }
@@ -161,7 +135,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
                         property: PropertyKind::Duration,
                         span: comp.span,
                     }),
-                    None => props.duration = Some(dur.value),
+                    None => props.duration = Some(dur),
                 },
                 Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -375,6 +349,44 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
     }
 }
 
+impl VEventRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VEventOwned {
+        VEventOwned {
+            uid: self.uid.to_owned(),
+            dt_stamp: self.dt_stamp.to_owned(),
+            dt_start: self.dt_start.to_owned(),
+            dt_end: self.dt_end.as_ref().map(DtEnd::to_owned),
+            duration: self.duration.as_ref().map(Duration::to_owned),
+            summary: self.summary.as_ref().map(Summary::to_owned),
+            description: self.description.as_ref().map(Description::to_owned),
+            location: self.location.as_ref().map(Location::to_owned),
+            geo: self.geo.as_ref().map(Geo::to_owned),
+            url: self.url.as_ref().map(Url::to_owned),
+            organizer: self.organizer.as_ref().map(Organizer::to_owned),
+            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
+            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
+            status: self.status.as_ref().map(EventStatus::to_owned),
+            transparency: self.transparency.as_ref().map(TimeTransparency::to_owned),
+            sequence: self.sequence.as_ref().map(Sequence::to_owned),
+            priority: self.priority.as_ref().map(Priority::to_owned),
+            classification: self.classification.as_ref().map(Classification::to_owned),
+            resources: self.resources.as_ref().map(Resources::to_owned),
+            categories: self.categories.as_ref().map(Categories::to_owned),
+            rrule: self.rrule.as_ref().map(RRule::to_owned),
+            rdate: self.rdate.iter().map(Period::to_owned).collect(),
+            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+            alarms: self.alarms.iter().map(VAlarm::to_owned).collect(),
+        }
+    }
+}
+
 /// Event status value (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventStatusValue {
@@ -416,13 +428,6 @@ impl From<EventStatusValue> for StatusValue {
         }
     }
 }
-
-/// Type alias for `EventStatus` with borrowed data
-pub type EventStatusRef<'src> = EventStatus<SpannedSegments<'src>>;
-
-/// Type alias for `EventStatus` with owned data
-pub type EventStatusOwned = EventStatus<String>;
-
 /// Event status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
 pub struct EventStatus<S: Clone + Display> {
@@ -433,6 +438,12 @@ pub struct EventStatus<S: Clone + Display> {
     /// Unknown IANA parameters (preserved for round-trip)
     pub unrecognized_parameters: Vec<Parameter<S>>,
 }
+
+/// Type alias for `EventStatus` with borrowed data
+pub type EventStatusRef<'src> = EventStatus<SpannedSegments<'src>>;
+
+/// Type alias for `EventStatus` with owned data
+pub type EventStatusOwned = EventStatus<String>;
 
 impl<'src> TryFrom<Status<SpannedSegments<'src>>> for EventStatus<SpannedSegments<'src>> {
     type Error = SemanticError<'src>;
@@ -454,6 +465,21 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for EventStatus<SpannedSegment
     }
 }
 
+impl EventStatusRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> EventStatusOwned {
+        EventStatusOwned {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
@@ -462,7 +488,7 @@ struct PropertyCollector< S: Clone + Display> {
     dt_stamp:       Option<DtStamp<S>>,
     dt_start:       Option<DtStart<S>>,
     dt_end:         Option<DtEnd<S>>,
-    duration:       Option<ValueDuration>,
+    duration:       Option<Duration<S>>,
     summary:        Option<Summary<S>>,
     description:    Option<Description<S>>,
     location:       Option<Location<S>>,
@@ -478,62 +504,9 @@ struct PropertyCollector< S: Clone + Display> {
     classification: Option<Classification<S>>,
     resources:      Option<Resources<S>>,
     categories:     Option<Categories<S>>,
-    rrule:          Option<RecurrenceRule>,
+    rrule:          Option<RRule<S>>,
     rdate:          Vec<Period<S>>,
     ex_dates:       Vec<DateTime<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
-}
-
-impl VEventRef<'_> {
-    /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VEventOwned {
-        VEventOwned {
-            uid: self.uid.to_owned(),
-            dt_stamp: self.dt_stamp.to_owned(),
-            dt_start: self.dt_start.to_owned(),
-            dt_end: self.dt_end.as_ref().map(DtEnd::to_owned),
-            duration: self.duration,
-            summary: self.summary.as_ref().map(Summary::to_owned),
-            description: self.description.as_ref().map(Description::to_owned),
-            location: self.location.as_ref().map(Location::to_owned),
-            geo: self.geo.as_ref().map(Geo::to_owned),
-            url: self.url.as_ref().map(Url::to_owned),
-            organizer: self.organizer.as_ref().map(Organizer::to_owned),
-            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
-            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
-            status: self.status.as_ref().map(EventStatus::to_owned),
-            transparency: self.transparency.as_ref().map(TimeTransparency::to_owned),
-            sequence: self.sequence.as_ref().map(Sequence::to_owned),
-            priority: self.priority.as_ref().map(Priority::to_owned),
-            classification: self.classification.as_ref().map(Classification::to_owned),
-            resources: self.resources.as_ref().map(Resources::to_owned),
-            categories: self.categories.as_ref().map(Categories::to_owned),
-            rrule: self.rrule.clone(),
-            rdate: self.rdate.iter().map(Period::to_owned).collect(),
-            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
-                .iter()
-                .map(Property::to_owned)
-                .collect(),
-            alarms: self.alarms.iter().map(VAlarm::to_owned).collect(),
-        }
-    }
-}
-
-impl EventStatusRef<'_> {
-    /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> EventStatusOwned {
-        EventStatusOwned {
-            value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
-                .iter()
-                .map(Parameter::to_owned)
-                .collect(),
-        }
-    }
 }

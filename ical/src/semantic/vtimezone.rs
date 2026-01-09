@@ -8,34 +8,28 @@ use std::fmt::Display;
 
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
 use crate::property::{
-    DtStart, LastModified, Property, PropertyKind, Text, TzId, TzOffsetFrom, TzOffsetTo, TzUrl,
+    DtStart, LastModified, Property, PropertyKind, RRule, Text, TzId, TzOffsetFrom, TzOffsetTo,
+    TzUrl,
 };
 use crate::semantic::SemanticError;
 use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
-use crate::value::RecurrenceRule;
 
 /// Timezone component (VTIMEZONE)
 #[derive(Debug, Clone)]
 pub struct VTimeZone<S: Clone + Display> {
     /// Timezone identifier
     pub tz_id: TzId<S>,
-
     /// Last modification date/time
     pub last_modified: Option<LastModified<S>>,
-
     /// Timezone URL
     pub tz_url: Option<TzUrl<S>>,
-
     /// Standard time observances
     pub standard: Vec<TimeZoneObservance<S>>,
-
     /// Daylight saving time observances
     pub daylight: Vec<TimeZoneObservance<S>>,
-
     /// Custom X- properties (preserved for round-trip)
     pub x_properties: Vec<Property<S>>,
-
     /// Unknown IANA properties (preserved for round-trip)
     pub unrecognized_properties: Vec<Property<S>>,
 }
@@ -149,27 +143,48 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
     }
 }
 
+impl VTimeZoneRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VTimeZoneOwned {
+        VTimeZoneOwned {
+            tz_id: self.tz_id.to_owned(),
+            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
+            tz_url: self.tz_url.as_ref().map(TzUrl::to_owned),
+            standard: self
+                .standard
+                .iter()
+                .map(TimeZoneObservance::to_owned)
+                .collect(),
+            daylight: self
+                .daylight
+                .iter()
+                .map(TimeZoneObservance::to_owned)
+                .collect(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Timezone observance (standard or daylight)
 #[derive(Debug, Clone)]
 pub struct TimeZoneObservance<S: Clone + Display> {
     /// Start date/time for this observance
     pub dt_start: DtStart<S>,
-
     /// Offset from UTC for this observance
     pub tz_offset_from: TzOffsetFrom<S>,
-
     /// Offset from UTC for this observance
     pub tz_offset_to: TzOffsetTo<S>,
-
     /// Timezone names
     pub tz_name: Vec<Text<S>>,
-
     /// Recurrence rule for this observance
-    pub rrule: Option<RecurrenceRule>,
-
+    pub rrule: Option<RRule<S>>,
     /// Custom X- properties (preserved for round-trip)
     pub x_properties: Vec<Property<S>>,
-
     /// Unknown IANA properties (preserved for round-trip)
     pub unrecognized_properties: Vec<Property<S>>,
 }
@@ -265,6 +280,25 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<
     }
 }
 
+impl TimeZoneObservance<SpannedSegments<'_>> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> TimeZoneObservance<String> {
+        TimeZoneObservance {
+            dt_start: self.dt_start.to_owned(),
+            tz_offset_from: self.tz_offset_from.to_owned(),
+            tz_offset_to: self.tz_offset_to.to_owned(),
+            tz_name: self.tz_name.iter().map(Text::to_owned).collect(),
+            rrule: self.rrule.as_ref().map(RRule::to_owned),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
@@ -284,53 +318,7 @@ struct ObservanceCollector<S: Clone + Display> {
     tz_offset_from: Option<TzOffsetFrom<S>>,
     tz_offset_to:   Option<TzOffsetTo<S>>,
     tz_name:        Vec<Text<S>>,
-    rrule:          Option<RecurrenceRule>,
+    rrule:          Option<RRule<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
-}
-
-impl VTimeZoneRef<'_> {
-    /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VTimeZoneOwned {
-        VTimeZoneOwned {
-            tz_id: self.tz_id.to_owned(),
-            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
-            tz_url: self.tz_url.as_ref().map(TzUrl::to_owned),
-            standard: self
-                .standard
-                .iter()
-                .map(TimeZoneObservance::to_owned)
-                .collect(),
-            daylight: self
-                .daylight
-                .iter()
-                .map(TimeZoneObservance::to_owned)
-                .collect(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
-                .iter()
-                .map(Property::to_owned)
-                .collect(),
-        }
-    }
-}
-
-impl TimeZoneObservance<SpannedSegments<'_>> {
-    /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> TimeZoneObservance<String> {
-        TimeZoneObservance {
-            dt_start: self.dt_start.to_owned(),
-            tz_offset_from: self.tz_offset_from.to_owned(),
-            tz_offset_to: self.tz_offset_to.to_owned(),
-            tz_name: self.tz_name.iter().map(Text::to_owned).collect(),
-            rrule: self.rrule.clone(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
-                .iter()
-                .map(Property::to_owned)
-                .collect(),
-        }
-    }
 }

@@ -319,9 +319,7 @@ END:VEVENT\r
     ));
 }
 
-// PARSER LIMITATION: RRULE parser is not implemented in the typed module.
 #[test]
-#[ignore = "RRULE parser not implemented in typed module"]
 fn typed_rrule_property() {
     let src = "\
 BEGIN:VEVENT\r

@@ -9,7 +9,9 @@ use chumsky::extra::ParserExtra;
 use chumsky::label::LabelError;
 use chumsky::prelude::*;
 
-use crate::value::miscellaneous::ValueExpected;
+use crate::value::miscellaneous::{
+    ValueExpected, i8_0_1, i8_0_2, i8_0_9, i8_1_2, i8_1_9, i16_0_9, u8_0_1, u8_0_3, u8_0_5, u8_0_9,
+};
 
 /// Date value in the iCalendar format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,7 +53,7 @@ impl From<ValueDate> for jiff::civil::Date {
 /// date-mday          = 2DIGIT        ;01-28, 01-29, 01-30, 01-31
 ///                                    ;based on month/year
 /// ```
-fn value_date<'src, I, E>() -> impl Parser<'src, I, ValueDate, E>
+pub fn value_date<'src, I, E>() -> impl Parser<'src, I, ValueDate, E>
 where
     I: Input<'src, Token = char, Span = SimpleSpan>,
     E: ParserExtra<'src, I>,
@@ -113,6 +115,26 @@ pub struct ValueDateTime {
 }
 
 impl ValueDateTime {
+    /// Create a new `ValueDateTime` from date and time components.
+    #[must_use]
+    pub fn new(date: ValueDate, time: ValueTime) -> Self {
+        Self {
+            date,
+            time,
+            #[cfg(feature = "jiff")]
+            #[expect(clippy::cast_possible_wrap)]
+            jiff: jiff::civil::datetime(
+                date.year,
+                date.month,
+                date.day,
+                time.hour as i8,
+                time.minute as i8,
+                time.second.min(59) as i8, // NOTE: We contract leap second 60 to 59 for simplicity
+                0,
+            ),
+        }
+    }
+
     /// Get reference to cached `jiff::civil::DateTime`.
     #[cfg(feature = "jiff")]
     #[must_use]
@@ -135,21 +157,7 @@ where
     value_date()
         .then_ignore(just('T'))
         .then(value_time())
-        .map(|(date, time)| ValueDateTime {
-            date,
-            time,
-            #[cfg(feature = "jiff")]
-            #[expect(clippy::cast_possible_wrap)]
-            jiff: jiff::civil::datetime(
-                date.year,
-                date.month,
-                date.day,
-                time.hour as i8,
-                time.minute as i8,
-                time.second.min(59) as i8, // NOTE: We contract leap second 60 to 59 for simplicity
-                0,
-            ),
-        })
+        .map(|(date, time)| ValueDateTime::new(date, time))
 }
 
 /// Date-Time multiple values parser.
@@ -323,34 +331,6 @@ where
         just('6').ignore_then(just('0').ignored().to(60)), // leap second
     ))
 }
-
-macro_rules! define_digit_select {
-    ($fname:ident : $ty:ty => { $($ch:literal),+ $(,)? }) => {
-        #[allow(trivial_numeric_casts, clippy::cast_lossless, clippy::char_lit_as_u8, clippy::cast_possible_wrap)]
-        const fn $fname<'src, I, E>() -> impl Parser<'src, I, $ty, E> + Copy
-        where
-            I: Input<'src, Token = char, Span = SimpleSpan>,
-            E: ParserExtra<'src, I>,
-        {
-            select! {
-                $(
-                    $ch => (($ch as u8 - b'0') as $ty),
-                )+
-            }
-        }
-    };
-}
-
-define_digit_select!(u8_0_1 : u8 => { '0', '1' });
-define_digit_select!(u8_0_3 : u8 => { '0', '1', '2', '3' });
-define_digit_select!(u8_0_5 : u8 => { '0', '1', '2', '3', '4', '5' });
-define_digit_select!(u8_0_9 : u8 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
-define_digit_select!(i8_0_1 : i8 => { '0', '1' });
-define_digit_select!(i8_0_2 : i8 => { '0', '1', '2' });
-define_digit_select!(i8_0_9 : i8 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
-define_digit_select!(i8_1_2 : i8 => { '1', '2' });
-define_digit_select!(i8_1_9 : i8 => { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
-define_digit_select!(i16_0_9 : i16 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
 
 #[cfg(test)]
 mod tests {

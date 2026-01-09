@@ -85,10 +85,46 @@ pub const KW_DATETIME: &str = "DATE-TIME";
 pub const KW_FLOAT: &str = "FLOAT";
 pub const KW_INTEGER: &str = "INTEGER";
 pub const KW_PERIOD: &str = "PERIOD";
+pub const KW_RRULE: &str = "RRULE";
 pub const KW_TEXT: &str = "TEXT";
 pub const KW_TIME: &str = "TIME";
 pub const KW_URI: &str = "URI";
 pub const KW_UTC_OFFSET: &str = "UTC-OFFSET";
+
+// 3.3.10.  Recurrence Rule
+// Rule parts
+pub const KW_RRULE_FREQ: &str = "FREQ";
+pub const KW_RRULE_UNTIL: &str = "UNTIL";
+pub const KW_RRULE_COUNT: &str = "COUNT";
+pub const KW_RRULE_INTERVAL: &str = "INTERVAL";
+pub const KW_RRULE_BYSECOND: &str = "BYSECOND";
+pub const KW_RRULE_BYMINUTE: &str = "BYMINUTE";
+pub const KW_RRULE_BYHOUR: &str = "BYHOUR";
+pub const KW_RRULE_BYDAY: &str = "BYDAY";
+pub const KW_RRULE_BYMONTHDAY: &str = "BYMONTHDAY";
+pub const KW_RRULE_BYYEARDAY: &str = "BYYEARDAY";
+pub const KW_RRULE_BYWEEKNO: &str = "BYWEEKNO";
+pub const KW_RRULE_BYMONTH: &str = "BYMONTH";
+pub const KW_RRULE_BYSETPOS: &str = "BYSETPOS";
+pub const KW_RRULE_WKST: &str = "WKST";
+
+// Frequency values
+pub const KW_RRULE_FREQ_SECONDLY: &str = "SECONDLY";
+pub const KW_RRULE_FREQ_MINUTELY: &str = "MINUTELY";
+pub const KW_RRULE_FREQ_HOURLY: &str = "HOURLY";
+pub const KW_RRULE_FREQ_DAILY: &str = "DAILY";
+pub const KW_RRULE_FREQ_WEEKLY: &str = "WEEKLY";
+pub const KW_RRULE_FREQ_MONTHLY: &str = "MONTHLY";
+pub const KW_RRULE_FREQ_YEARLY: &str = "YEARLY";
+
+// Day values
+pub const KW_DAY_SU: &str = "SU";
+pub const KW_DAY_MO: &str = "MO";
+pub const KW_DAY_TU: &str = "TU";
+pub const KW_DAY_WE: &str = "WE";
+pub const KW_DAY_TH: &str = "TH";
+pub const KW_DAY_FR: &str = "FR";
+pub const KW_DAY_SA: &str = "SA";
 
 // 3.4.  iCalendar Object
 pub const KW_BEGIN: &str = "BEGIN";
@@ -192,7 +228,6 @@ pub const KW_UID: &str = "UID";
 // 3.8.5.  Recurrence Component Properties
 pub const KW_EXDATE: &str = "EXDATE";
 pub const KW_RDATE: &str = "RDATE";
-pub const KW_RRULE: &str = "RRULE";
 
 // 3.8.6.  Alarm Component Properties
 pub const KW_ACTION: &str = "ACTION";

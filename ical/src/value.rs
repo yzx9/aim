@@ -19,7 +19,7 @@ pub use datetime::{ValueDate, ValueDateTime, ValueTime, ValueUtcOffset};
 pub use duration::ValueDuration;
 pub(crate) use numeric::values_float_semicolon;
 pub use period::ValuePeriod;
-pub use rrule::{Day, RecurrenceFrequency, RecurrenceRule, WeekDay};
+pub use rrule::{RecurrenceFrequency, ValueRecurrenceRule, WeekDay, WeekDayNum};
 pub use text::{ValueText, ValueTextOwned, ValueTextRef};
 
 use std::fmt::Display;
@@ -140,8 +140,19 @@ pub enum Value<S: Clone + Display> {
         span: Span,
     },
 
-    // TODO: 3.3.10. Recurrence Rule
-    //
+    /// This value type is used to identify properties that contain a
+    /// recurrence rule specification.
+    ///
+    /// See RFC 5545 Section 3.3.10 for more details.
+    ///
+    /// Note: This is a single-value type (comma-separated values not allowed).
+    RecurrenceRule {
+        /// The recurrence rule value
+        value: Box<ValueRecurrenceRule>,
+        /// The span of the value
+        span: Span,
+    },
+
     /// This value type is used to identify values that contain a precise
     /// period of time.
     ///
@@ -244,6 +255,7 @@ impl<'src> ValueRef<'src> {
             | Value::Duration { span, .. }
             | Value::Float { span, .. }
             | Value::Integer { span, .. }
+            | Value::RecurrenceRule { span, .. }
             | Value::Period { span, .. }
             | Value::Text { span, .. }
             | Value::Time { span, .. }
@@ -267,6 +279,7 @@ impl<'src> ValueRef<'src> {
             Value::Duration { .. } => ValueType::Duration,
             Value::Float { .. } => ValueType::Float,
             Value::Integer { .. } => ValueType::Integer,
+            Value::RecurrenceRule { .. } => ValueType::RecurrenceRule,
             Value::Period { .. } => ValueType::Period,
             Value::Text { .. } => ValueType::Text,
             Value::Time { .. } => ValueType::Time,
@@ -291,6 +304,7 @@ impl<'src> ValueRef<'src> {
             Value::Time { values, .. } => values.len(),
             Value::Binary { .. }
             | Value::Boolean { .. }
+            | Value::RecurrenceRule { .. }
             | Value::UtcOffset { .. }
             | Value::XName { .. }
             | Value::Unrecognized { .. } => 1,
@@ -306,60 +320,66 @@ impl<'src> ValueRef<'src> {
     /// Convert borrowed type to owned type
     #[must_use]
     pub fn to_owned(&self) -> ValueOwned {
+        // TODO: how to remove span from owned type?
+        let span = Span::new(0, 0); // Placeholder span for owned type
         match self {
-            Value::Binary { raw, span } => ValueOwned::Binary {
+            Value::Binary { raw, .. } => ValueOwned::Binary {
                 raw: raw.concatnate(),
-                span: *span,
+                span,
             },
-            Value::Boolean { value, span } => ValueOwned::Boolean {
+            Value::Boolean { value, .. } => ValueOwned::Boolean {
                 value: *value,
-                span: *span,
+                span,
             },
-            Value::Date { values, span } => ValueOwned::Date {
+            Value::Date { values, .. } => ValueOwned::Date {
                 values: values.clone(),
-                span: *span,
+                span,
             },
-            Value::DateTime { values, span } => ValueOwned::DateTime {
+            Value::DateTime { values, .. } => ValueOwned::DateTime {
                 values: values.clone(),
-                span: *span,
+                span,
             },
-            Value::Duration { values, span } => ValueOwned::Duration {
+            Value::Duration { values, .. } => ValueOwned::Duration {
                 values: values.clone(),
-                span: *span,
+                span,
             },
-            Value::Float { values, span } => ValueOwned::Float {
+            Value::Float { values, .. } => ValueOwned::Float {
                 values: values.clone(),
-                span: *span,
+                span,
             },
-            Value::Integer { values, span } => ValueOwned::Integer {
+            Value::Integer { values, .. } => ValueOwned::Integer {
                 values: values.clone(),
-                span: *span,
+                span,
             },
-            Value::Period { values, span } => ValueOwned::Period {
+            Value::RecurrenceRule { value, .. } => ValueOwned::RecurrenceRule {
+                value: value.clone(),
+                span,
+            },
+            Value::Period { values, .. } => ValueOwned::Period {
                 values: values.clone(),
-                span: *span,
+                span,
             },
-            Value::Text { values, span } => ValueOwned::Text {
+            Value::Text { values, .. } => ValueOwned::Text {
                 values: values.iter().map(ValueText::to_owned).collect(),
-                span: *span,
+                span,
             },
-            Value::Time { values, span } => ValueOwned::Time {
+            Value::Time { values, .. } => ValueOwned::Time {
                 values: values.clone(),
-                span: *span,
+                span,
             },
-            Value::UtcOffset { value, span } => ValueOwned::UtcOffset {
+            Value::UtcOffset { value, .. } => ValueOwned::UtcOffset {
                 value: *value,
-                span: *span,
+                span,
             },
-            Value::XName { raw, kind, span } => ValueOwned::XName {
+            Value::XName { raw, kind, .. } => ValueOwned::XName {
                 raw: raw.concatnate(),
                 kind: kind.to_owned(),
-                span: *span,
+                span,
             },
-            Value::Unrecognized { raw, kind, span } => ValueOwned::Unrecognized {
+            Value::Unrecognized { raw, kind, .. } => ValueOwned::Unrecognized {
                 raw: raw.concatnate(),
                 kind: kind.to_owned(),
-                span: *span,
+                span,
             },
         }
     }
@@ -496,11 +516,13 @@ fn parse_value_single_type<'src>(
                 span: value.span(),
             }),
 
-        // TODO: implement other value types
-        ValueType::RecurrenceRule => Err(vec![Rich::custom(
-            value.span().into(),
-            format!("Parser for {value_type} is not implemented"),
-        )]), // Return an error for unimplemented types
+        ValueType::RecurrenceRule => rrule::value_rrule::<'_, _, extra::Err<_>>()
+            .parse(make_uppercase_input(value.clone())) // case-insensitive
+            .into_result()
+            .map(|rrule| Value::RecurrenceRule {
+                value: Box::new(rrule),
+                span: value.span(),
+            }),
 
         // For unknown value types, preserve raw data as XName or Unrecognized
         // value per RFC 5545 Section 3.2.20
@@ -526,4 +548,18 @@ fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = 
         _ => Span { start: 0, end: 0 },
     };
     Stream::from_iter(segs.into_spanned_chars()).map(eoi.into(), |(t, s)| (t, s.into()))
+}
+
+fn make_uppercase_input(
+    segs: SpannedSegments<'_>,
+) -> impl Input<'_, Token = char, Span = SimpleSpan> {
+    let eoi = match (segs.segments.first(), segs.segments.last()) {
+        (Some(first), Some(last)) => Span {
+            start: first.1.start,
+            end: last.1.end,
+        },
+        _ => Span { start: 0, end: 0 },
+    };
+    Stream::from_iter(segs.into_spanned_chars())
+        .map(eoi.into(), |(t, s)| (t.to_ascii_uppercase(), s.into()))
 }

@@ -4,103 +4,75 @@
 
 //! To-do component (VTODO) for iCalendar semantic components.
 
-use std::fmt;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
-use crate::Uid;
 use crate::keyword::{KW_VALARM, KW_VTODO};
 use crate::parameter::Parameter;
 use crate::property::{
     Attendee, Categories, Classification, Completed, DateTime, Description, DtStamp, DtStart, Due,
-    ExDateValueRef, Geo, LastModified, Location, Organizer, PercentComplete, Period, Priority,
-    Property, PropertyKind, RDateValueRef, Resources, Sequence, Status, StatusValue, Summary, Url,
+    Duration, ExDateValueRef, Geo, LastModified, Location, Organizer, PercentComplete, Period,
+    Priority, Property, PropertyKind, RDateValueRef, RRule, Resources, Sequence, Status,
+    StatusValue, Summary, Uid, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
-use crate::value::{RecurrenceRule, ValueDuration};
 
 /// To-do component (VTODO)
 #[derive(Debug, Clone)]
 pub struct VTodo<S: Clone + Display> {
     /// Unique identifier for the todo
     pub uid: Uid<S>,
-
     /// Date/time the todo was created
     pub dt_stamp: DtStamp<S>,
-
     /// Date/time to start the todo
     pub dt_start: Option<DtStart<S>>,
-
     /// Date/time the todo is due
     pub due: Option<Due<S>>,
-
     /// Completion date/time
     pub completed: Option<Completed<S>>,
-
     /// Duration of the todo
-    pub duration: Option<ValueDuration>,
-
+    pub duration: Option<Duration<S>>,
     /// Summary/title of the todo
     pub summary: Option<Summary<S>>,
-
     /// Description of the todo
     pub description: Option<Description<S>>,
-
     /// Location of the todo
     pub location: Option<Location<S>>,
-
     /// Geographic position
     pub geo: Option<Geo<S>>,
-
     /// URL associated with the todo
     pub url: Option<Url<S>>,
-
     /// Organizer of the todo
     pub organizer: Option<Organizer<S>>,
-
     /// Attendees of the todo
     pub attendees: Vec<Attendee<S>>,
-
     /// Last modification date/time
     pub last_modified: Option<LastModified<S>>,
-
     /// Status of the todo
     pub status: Option<TodoStatus<S>>,
-
     /// Sequence number for revisions
     pub sequence: Option<Sequence<S>>,
-
     /// Priority (1-9, 1 is highest)
     pub priority: Option<Priority<S>>,
-
     /// Percentage complete (0-100)
     pub percent_complete: Option<PercentComplete<S>>,
-
     /// Classification
     pub classification: Option<Classification<S>>,
-
     /// Resources
     pub resources: Option<Resources<S>>,
-
     /// Categories
     pub categories: Option<Categories<S>>,
-
     /// Recurrence rule
-    pub rrule: Option<RecurrenceRule>,
-
+    pub rrule: Option<RRule<S>>,
     /// Recurrence dates
     pub rdate: Vec<Period<S>>,
-
     /// Exception dates
     pub ex_date: Vec<DateTime<S>>,
-
     /// Custom X- properties (preserved for round-trip)
     pub x_properties: Vec<Property<S>>,
-
     /// Unknown IANA properties (preserved for round-trip)
     pub unrecognized_properties: Vec<Property<S>>,
-
     /// Sub-components (like alarms)
     pub alarms: Vec<VAlarm<S>>,
 }
@@ -172,7 +144,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
                         property: PropertyKind::Duration,
                         span: comp.span,
                     }),
-                    None => props.duration = Some(dur.value),
+                    None => props.duration = Some(dur),
                 },
                 Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -327,12 +299,9 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
         let alarms = comp
             .children
             .into_iter()
-            .filter_map(|child| {
-                if child.name == KW_VALARM {
-                    Some(VAlarm::try_from(child))
-                } else {
-                    None
-                }
+            .filter_map(|child| match child.name {
+                KW_VALARM => Some(VAlarm::try_from(child)),
+                _ => None,
             })
             .filter_map(|result| match result {
                 Ok(v) => Some(v),
@@ -375,6 +344,48 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
             })
         } else {
             Err(errors)
+        }
+    }
+}
+
+impl VTodoRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VTodoOwned {
+        VTodoOwned {
+            uid: self.uid.to_owned(),
+            dt_stamp: self.dt_stamp.to_owned(),
+            dt_start: self.dt_start.as_ref().map(DtStart::to_owned),
+            due: self.due.as_ref().map(Due::to_owned),
+            completed: self.completed.as_ref().map(Completed::to_owned),
+            duration: self.duration.as_ref().map(Duration::to_owned),
+            summary: self.summary.as_ref().map(Summary::to_owned),
+            description: self.description.as_ref().map(Description::to_owned),
+            location: self.location.as_ref().map(Location::to_owned),
+            geo: self.geo.as_ref().map(Geo::to_owned),
+            url: self.url.as_ref().map(Url::to_owned),
+            organizer: self.organizer.as_ref().map(Organizer::to_owned),
+            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
+            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
+            status: self.status.as_ref().map(TodoStatus::to_owned),
+            sequence: self.sequence.as_ref().map(Sequence::to_owned),
+            priority: self.priority.as_ref().map(Priority::to_owned),
+            percent_complete: self
+                .percent_complete
+                .as_ref()
+                .map(PercentComplete::to_owned),
+            classification: self.classification.as_ref().map(Classification::to_owned),
+            resources: self.resources.as_ref().map(Resources::to_owned),
+            categories: self.categories.as_ref().map(Categories::to_owned),
+            rrule: self.rrule.as_ref().map(RRule::to_owned),
+            rdate: self.rdate.iter().map(Period::to_owned).collect(),
+            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+            alarms: self.alarms.iter().map(VAlarm::to_owned).collect(),
         }
     }
 }
@@ -462,6 +473,21 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for TodoStatus<SpannedSegments
     }
 }
 
+impl TodoStatusRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> TodoStatusOwned {
+        TodoStatusOwned {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
@@ -471,7 +497,7 @@ struct PropertyCollector<S: Clone + Display> {
     dt_start:       Option<DtStart<S>>,
     due:            Option<Due<S>>,
     completed:      Option<Completed<S>>,
-    duration:       Option<ValueDuration>,
+    duration:       Option<Duration<S>>,
     summary:        Option<Summary<S>>,
     description:    Option<Description<S>>,
     location:       Option<Location<S>>,
@@ -487,66 +513,9 @@ struct PropertyCollector<S: Clone + Display> {
     classification: Option<Classification<S>>,
     resources:      Option<Resources<S>>,
     categories:     Option<Categories<S>>,
-    rrule:          Option<RecurrenceRule>,
+    rrule:          Option<RRule<S>>,
     rdate:          Vec<Period<S>>,
     ex_dates:       Vec<DateTime<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
-}
-
-impl VTodoRef<'_> {
-    /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VTodoOwned {
-        VTodoOwned {
-            uid: self.uid.to_owned(),
-            dt_stamp: self.dt_stamp.to_owned(),
-            dt_start: self.dt_start.as_ref().map(DtStart::to_owned),
-            due: self.due.as_ref().map(Due::to_owned),
-            completed: self.completed.as_ref().map(Completed::to_owned),
-            duration: self.duration,
-            summary: self.summary.as_ref().map(Summary::to_owned),
-            description: self.description.as_ref().map(Description::to_owned),
-            location: self.location.as_ref().map(Location::to_owned),
-            geo: self.geo.as_ref().map(Geo::to_owned),
-            url: self.url.as_ref().map(Url::to_owned),
-            organizer: self.organizer.as_ref().map(Organizer::to_owned),
-            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
-            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
-            status: self.status.as_ref().map(TodoStatus::to_owned),
-            sequence: self.sequence.as_ref().map(Sequence::to_owned),
-            priority: self.priority.as_ref().map(Priority::to_owned),
-            percent_complete: self
-                .percent_complete
-                .as_ref()
-                .map(PercentComplete::to_owned),
-            classification: self.classification.as_ref().map(Classification::to_owned),
-            resources: self.resources.as_ref().map(Resources::to_owned),
-            categories: self.categories.as_ref().map(Categories::to_owned),
-            rrule: self.rrule.clone(),
-            rdate: self.rdate.iter().map(Period::to_owned).collect(),
-            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
-                .iter()
-                .map(Property::to_owned)
-                .collect(),
-            alarms: self.alarms.iter().map(VAlarm::to_owned).collect(),
-        }
-    }
-}
-
-impl TodoStatusRef<'_> {
-    /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> TodoStatusOwned {
-        TodoStatusOwned {
-            value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
-                .iter()
-                .map(Parameter::to_owned)
-                .collect(),
-        }
-    }
 }

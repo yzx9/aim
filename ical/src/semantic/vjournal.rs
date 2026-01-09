@@ -6,70 +6,51 @@
 
 use std::fmt;
 
-use crate::ValueText;
 use crate::keyword::KW_VJOURNAL;
 use crate::parameter::Parameter;
 use crate::property::{
-    Attendee, Classification, DateTime, Description, DtStamp, DtStart, ExDateValueRef,
-    LastModified, Organizer, Period, Property, PropertyKind, RDateValueRef, Status, StatusValue,
-    Summary, Uid, Url,
+    Attendee, Categories, Classification, Description, DtStamp, DtStart, ExDateValue, LastModified,
+    Organizer, Property, PropertyKind, RDate, RRule, Status, StatusValue, Summary, Uid, Url,
 };
 use crate::semantic::SemanticError;
 use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
-use crate::value::RecurrenceRule;
 
 /// Journal entry component (VJOURNAL)
 #[derive(Debug, Clone)]
 pub struct VJournal<S: Clone + fmt::Display> {
     /// Unique identifier for the journal entry
     pub uid: Uid<S>,
-
     /// Date/time the journal entry was created
     pub dt_stamp: DtStamp<S>,
-
     /// Date/time of the journal entry
     pub dt_start: DtStart<S>,
-
     /// Summary/title of the journal entry
     pub summary: Option<Summary<S>>,
-
     /// Description of the journal entry (can appear multiple times)
     pub descriptions: Vec<Description<S>>,
-
     /// Organizer of the journal entry
     pub organizer: Option<Organizer<S>>,
-
     /// Attendees of the journal entry
     pub attendees: Vec<Attendee<S>>,
-
     /// Last modification date/time
     pub last_modified: Option<LastModified<S>>,
-
     /// Status of the journal entry
     pub status: Option<JournalStatus<S>>,
-
     /// Classification
     pub classification: Option<Classification<S>>,
-
     /// Categories
-    pub categories: Vec<ValueText<S>>,
-
+    pub categories: Vec<Categories<S>>,
     /// Recurrence rule
-    pub rrule: Option<RecurrenceRule>,
-
-    /// Recurrence dates
-    pub rdate: Vec<Period<S>>,
-
-    /// Exception dates
-    pub ex_date: Vec<DateTime<S>>,
-
+    pub rrule: Option<RRule<S>>,
+    /// Recurrence dates (can be `Period`, `Date`, `or DateTime`)
+    pub rdate: Vec<RDate<S>>,
+    /// Exception dates (can be `Date` or `DateTime`)
+    pub ex_date: Vec<ExDateValue<S>>,
     /// URL associated with the journal entry
     pub url: Option<Url<S>>,
-
     /// Custom X- properties (preserved for round-trip)
     pub x_properties: Vec<Property<S>>,
-
     /// Unknown IANA properties (preserved for round-trip)
     pub unrecognized_properties: Vec<Property<S>>,
 }
@@ -163,13 +144,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
                     }),
                     None => props.classification = Some(class),
                 },
-                Property::Categories(categories) => match props.categories {
-                    Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        property: PropertyKind::Categories,
-                        span: comp.span,
-                    }),
-                    None => props.categories = Some(categories.values.clone()),
-                },
+                Property::Categories(categories) => props.categories.push(categories),
                 Property::RRule(rrule) => match props.rrule {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::RRule,
@@ -177,20 +152,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
                     }),
                     None => props.rrule = Some(rrule),
                 },
-                Property::RDate(rdates) => {
-                    for rdate in rdates.dates {
-                        if let RDateValueRef::Period(p) = rdate {
-                            props.rdate.push(p);
-                        }
-                        // TODO: RDate Date/DateTime not yet implemented for journals
-                    }
-                }
+                Property::RDate(rdate) => props.rdate.push(rdate),
                 Property::ExDate(exdates) => {
                     for exdate in exdates.dates {
-                        if let ExDateValueRef::DateTime(dt) = exdate {
-                            props.ex_dates.push(dt);
-                        }
-                        // TODO: ExDate Date-only not yet implemented for journals
+                        props.ex_dates.push(exdate);
                     }
                 }
                 Property::Url(url) => match props.url {
@@ -242,7 +207,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
                 last_modified: props.last_modified,
                 status: props.status,
                 classification: props.classification,
-                categories: props.categories.unwrap_or_default(),
+                categories: props.categories,
                 rrule: props.rrule,
                 rdate: props.rdate,
                 ex_date: props.ex_dates,
@@ -256,18 +221,55 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
     }
 }
 
+impl VJournalRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> VJournalOwned {
+        VJournalOwned {
+            uid: self.uid.to_owned(),
+            dt_stamp: self.dt_stamp.to_owned(),
+            dt_start: self.dt_start.to_owned(),
+            summary: self.summary.as_ref().map(Summary::to_owned),
+            descriptions: self
+                .descriptions
+                .iter()
+                .map(Description::to_owned)
+                .collect(),
+            organizer: self.organizer.as_ref().map(Organizer::to_owned),
+            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
+            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
+            status: self.status.as_ref().map(JournalStatus::to_owned),
+            classification: self.classification.as_ref().map(Classification::to_owned),
+            categories: self.categories.iter().map(Categories::to_owned).collect(),
+            rrule: self.rrule.as_ref().map(RRule::to_owned),
+            rdate: self.rdate.iter().map(RDate::to_owned).collect(),
+            ex_date: self.ex_date.iter().map(ExDateValue::to_owned).collect(),
+            url: self.url.as_ref().map(Url::to_owned),
+            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
+            unrecognized_properties: self
+                .unrecognized_properties
+                .iter()
+                .map(Property::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Journal status value (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JournalStatusValue {
     /// Journal entry is draft
     Draft,
-
     /// Journal entry is final
     Final,
-
     /// Journal entry is cancelled
     Cancelled,
 }
+
+/// Type alias for `JournalStatus` with borrowed data
+pub type JournalStatusRef<'src> = JournalStatus<SpannedSegments<'src>>;
+
+/// Type alias for `JournalStatus` with owned data
+pub type JournalStatusOwned = JournalStatus<String>;
 
 impl TryFrom<StatusValue> for JournalStatusValue {
     type Error = ();
@@ -297,12 +299,6 @@ impl From<JournalStatusValue> for StatusValue {
         }
     }
 }
-
-/// Type alias for `JournalStatus` with borrowed data
-pub type JournalStatusRef<'src> = JournalStatus<SpannedSegments<'src>>;
-
-/// Type alias for `JournalStatus` with owned data
-pub type JournalStatusOwned = JournalStatus<String>;
 
 /// Journal status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
@@ -335,6 +331,21 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for JournalStatus<SpannedSegme
     }
 }
 
+impl JournalStatusRef<'_> {
+    /// Convert borrowed data to owned data
+    pub fn to_owned(&self) -> JournalStatusOwned {
+        JournalStatusOwned {
+            value: self.value,
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]
@@ -349,59 +360,11 @@ struct PropertyCollector<S: Clone + fmt::Display> {
     last_modified:  Option<LastModified<S>>,
     status:         Option<JournalStatus<S>>,
     classification: Option<Classification<S>>,
-    categories:     Option<Vec<ValueText<S>>>,
-    rrule:          Option<RecurrenceRule>,
-    rdate:          Vec<Period<S>>,
-    ex_dates:       Vec<DateTime<S>>,
+    categories:     Vec<Categories<S>>,
+    rrule:          Option<RRule<S>>,
+    rdate:          Vec<RDate<S>>,
+    ex_dates:       Vec<ExDateValue<S>>,
     url:            Option<Url<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
-}
-
-impl VJournalRef<'_> {
-    /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VJournalOwned {
-        VJournalOwned {
-            uid: self.uid.to_owned(),
-            dt_stamp: self.dt_stamp.to_owned(),
-            dt_start: self.dt_start.to_owned(),
-            summary: self.summary.as_ref().map(Summary::to_owned),
-            descriptions: self
-                .descriptions
-                .iter()
-                .map(Description::to_owned)
-                .collect(),
-            organizer: self.organizer.as_ref().map(Organizer::to_owned),
-            attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
-            last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
-            status: self.status.as_ref().map(JournalStatus::to_owned),
-            classification: self.classification.as_ref().map(Classification::to_owned),
-            categories: self.categories.iter().map(ValueText::to_owned).collect(),
-            rrule: self.rrule.clone(),
-            rdate: self.rdate.iter().map(Period::to_owned).collect(),
-            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
-            url: self.url.as_ref().map(Url::to_owned),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
-                .iter()
-                .map(Property::to_owned)
-                .collect(),
-        }
-    }
-}
-
-impl JournalStatusRef<'_> {
-    /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> JournalStatusOwned {
-        JournalStatusOwned {
-            value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
-                .iter()
-                .map(Parameter::to_owned)
-                .collect(),
-        }
-    }
 }

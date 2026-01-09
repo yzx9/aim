@@ -69,7 +69,8 @@ pub use descriptive::{
 pub use kind::{PropertyKind, PropertyKindOwned, PropertyKindRef};
 pub use miscellaneous::{RequestStatus, RequestStatusOwned, RequestStatusRef};
 pub use recurrence::{
-    ExDate, ExDateValueOwned, ExDateValueRef, RDate, RDateValueOwned, RDateValueRef,
+    ExDate, ExDateValue, ExDateValueOwned, ExDateValueRef, RDate, RDateValue, RDateValueOwned,
+    RDateValueRef, RRule, RRuleOwned, RRuleRef,
 };
 pub use relationship::{
     Attendee, Contact, ContactOwned, ContactRef, Organizer, RecurrenceId, RecurrenceIdOwned,
@@ -88,7 +89,7 @@ use crate::lexer::Span;
 use crate::parameter::Parameter;
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{RecurrenceRule, Value};
+use crate::value::Value;
 
 /// Type alias for borrowed property
 pub type PropertyRef<'src> = Property<SpannedSegments<'src>>;
@@ -230,7 +231,7 @@ pub enum Property<S: Clone + Display> {
     RDate(RDate<S>),
 
     /// 3.8.5.3 Recurrence Rule
-    RRule(RecurrenceRule),
+    RRule(RRule<S>),
 
     // Section 3.8.6 - Alarm Component Properties
     /// 3.8.6.1 Action
@@ -349,14 +350,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PropertyRef<'src> {
             // Section 3.8.5 - Recurrence Properties
             PropertyKind::ExDate => ExDate::try_from(prop).map(Property::ExDate),
             PropertyKind::RDate => RDate::try_from(prop).map(Property::RDate),
-
-            // TODO: Parse RRULE from text (Value::Text)
-            // For now, return an error since RecurrenceRule parsing is not yet implemented
-            PropertyKind::RRule => Err(vec![TypedError::PropertyInvalidValue {
-                property: prop.kind,
-                value: "RRULE parsing not yet implemented".to_string(),
-                span: prop.span,
-            }]),
+            PropertyKind::RRule => RRule::try_from(prop).map(Property::RRule),
 
             // Section 3.8.6 - Alarm Component Properties
             PropertyKind::Action => Action::try_from(prop).map(Property::Action),
@@ -525,7 +519,7 @@ impl PropertyRef<'_> {
             // Section 3.8.5 - Recurrence Properties
             Property::ExDate(v) => PropertyOwned::ExDate(v.to_owned()),
             Property::RDate(v) => PropertyOwned::RDate(v.to_owned()),
-            Property::RRule(v) => PropertyOwned::RRule(v.clone()),
+            Property::RRule(v) => PropertyOwned::RRule(v.to_owned()),
 
             // Section 3.8.6 - Alarm Component Properties
             Property::Action(v) => PropertyOwned::Action(v.to_owned()),

@@ -10,10 +10,12 @@
 //!
 //! - 3.8.5.1: `ExDate` - Exception date-times
 //! - 3.8.5.2: `RDate` - Recurrence date-times
+//! - 3.8.5.3: `RRule` - Recurrence rule
 //!
 //! Value types:
 //! - `ExDateValue` - Exception date/time value (DATE or DATE-TIME)
 //! - `RDateValue` - Recurrence date/time value (DATE, DATE-TIME, or PERIOD)
+//! - `RecurrenceRule` - Recurrence rule value
 
 use std::convert::TryFrom;
 use std::fmt::Display;
@@ -22,7 +24,7 @@ use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::{DateTime, Period, PropertyKind};
 use crate::syntax::SpannedSegments;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, ValueDate};
+use crate::value::{Value, ValueDate, ValueRecurrenceRule};
 
 /// Exception date-time value (can be DATE or DATE-TIME).
 #[derive(Debug, Clone)]
@@ -290,6 +292,90 @@ impl RDate<SpannedSegments<'_>> {
         RDate {
             dates: self.dates.iter().map(RDateValue::to_owned).collect(),
             tz_id: self.tz_id.as_ref().map(SpannedSegments::concatnate),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
+/// Recurrence Rule (RFC 5545 Section 3.8.5.3)
+///
+/// This property defines a rule for specifying recurring calendar components.
+#[derive(Debug, Clone)]
+pub struct RRule<S: Clone + Display> {
+    /// Recurrence rule value
+    pub value: Box<ValueRecurrenceRule>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<S>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<S>>,
+}
+
+/// Type alias for borrowed recurrence rule
+pub type RRuleRef<'src> = RRule<SpannedSegments<'src>>;
+
+/// Type alias for owned recurrence rule
+pub type RRuleOwned = RRule<String>;
+
+impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if !matches!(prop.kind, PropertyKind::RRule) {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: PropertyKind::RRule,
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
+            }
+        }
+
+        let value = match prop.value {
+            Value::RecurrenceRule { value, .. } => value,
+            v => {
+                let span = v.span();
+                return Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: prop.kind,
+                    expected: ValueTypeRef::RecurrenceRule,
+                    found: v.into_kind(),
+                    span,
+                }]);
+            }
+        };
+
+        Ok(Self {
+            value,
+            x_parameters,
+            unrecognized_parameters,
+        })
+    }
+}
+
+impl RRule<SpannedSegments<'_>> {
+    /// Convert borrowed `RRule` to owned `RRule`
+    #[must_use]
+    pub fn to_owned(&self) -> RRule<String> {
+        RRule {
+            value: self.value.clone(),
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
                 .unrecognized_parameters

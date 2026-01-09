@@ -100,12 +100,9 @@ where
     // dur-hour = 1*DIGIT "H" [dur-minute]
     let hour_with_minute = hour_val
         .then(minute_val.then(second_val.or_not()).or_not())
-        .map(|(h, opt_ms)| {
-            if let Some((m, opt_s)) = opt_ms {
-                (h, m, opt_s.unwrap_or(0))
-            } else {
-                (h, 0, 0)
-            }
+        .map(|(h, opt_ms)| match opt_ms {
+            Some((m, opt_s)) => (h, m, opt_s.unwrap_or(0)),
+            None => (h, 0, 0),
         });
 
     // dur-time = "T" (dur-hour / dur-minute / dur-second)

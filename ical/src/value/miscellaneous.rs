@@ -13,36 +13,6 @@ use chumsky::input::Input;
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
 
-/// Failure reasons when a specific value type was expected but not found.
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ValueExpected {
-    /// A date value was expected
-    Date,
-    /// A 64-bit floating-point value was expected
-    F64,
-    /// A 32-bit signed integer value was expected
-    I32,
-    /// A 32-bit unsigned integer value was expected
-    U32,
-    /// Period date-times must have consistent timezone (both UTC or both floating)
-    MismatchedTimezone,
-}
-
-impl From<ValueExpected> for RichPattern<'_, char> {
-    fn from(expected: ValueExpected) -> Self {
-        match expected {
-            ValueExpected::Date => Self::Label(Cow::Borrowed("invalid date")),
-            ValueExpected::F64 => Self::Label(Cow::Borrowed("f64 out of range")),
-            ValueExpected::I32 => Self::Label(Cow::Borrowed("i32 out of range")),
-            ValueExpected::U32 => Self::Label(Cow::Borrowed("u32 out of range")),
-            ValueExpected::MismatchedTimezone => Self::Label(Cow::Borrowed(
-                "period date-times must have consistent timezone",
-            )),
-        }
-    }
-}
-
 /// Format Definition:  This value type is defined by the following notation:
 ///
 /// ```txt
@@ -123,6 +93,90 @@ where
 
     choice((t, f))
 }
+
+/// Failure reasons when a specific value type was expected but not found.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ValueExpected {
+    /// A date value was expected
+    Date,
+    /// A 64-bit floating-point value was expected
+    F64,
+    /// A 32-bit signed integer value was expected
+    I32,
+    /// A 32-bit unsigned integer value was expected
+    U32,
+    /// A positive 32-bit unsigned integer value was expected
+    PositiveU32,
+    /// Period date-times must have consistent timezone (both UTC or both floating)
+    MismatchedTimezone,
+    /// FREQ rule part is required in recurrence rule
+    RRuleRequiredFreq,
+    /// UNTIL and COUNT are mutually exclusive in recurrence rule
+    RRuleCountUntilExclusion,
+    /// RRULE part must not occur more than once
+    RRuleDuplicatePart,
+}
+
+impl From<ValueExpected> for RichPattern<'_, char> {
+    fn from(expected: ValueExpected) -> Self {
+        match expected {
+            ValueExpected::Date => Self::Label(Cow::Borrowed("invalid date")),
+            ValueExpected::F64 => Self::Label(Cow::Borrowed("f64 out of range")),
+            ValueExpected::I32 => Self::Label(Cow::Borrowed("i32 out of range")),
+            ValueExpected::U32 => Self::Label(Cow::Borrowed("u32 out of range")),
+            ValueExpected::PositiveU32 => Self::Label(Cow::Borrowed("positive u32 expected")),
+            ValueExpected::MismatchedTimezone => Self::Label(Cow::Borrowed(
+                "period date-times must have consistent timezone",
+            )),
+            ValueExpected::RRuleRequiredFreq => Self::Label(Cow::Borrowed(
+                "FREQ rule part is required in recurrence rule",
+            )),
+            ValueExpected::RRuleCountUntilExclusion => Self::Label(Cow::Borrowed(
+                "UNTIL and COUNT are mutually exclusive in recurrence rule",
+            )),
+            ValueExpected::RRuleDuplicatePart => {
+                Self::Label(Cow::Borrowed("RRULE part must not occur more than once"))
+            }
+        }
+    }
+}
+
+/// Macro to define digit selection parsers for various ranges and types.
+macro_rules! define_digit_select {
+    ($fname:ident : $ty:ty => { $($ch:literal),+ $(,)? }) => {
+        #[allow(trivial_numeric_casts, clippy::cast_lossless, clippy::char_lit_as_u8, clippy::cast_possible_wrap)]
+        pub const fn $fname<'src, I, E>() -> impl Parser<'src, I, $ty, E> + Copy
+        where
+            I: Input<'src, Token = char, Span = SimpleSpan>,
+            E: ParserExtra<'src, I>,
+        {
+            select! {
+                $(
+                    $ch => (($ch as u8 - b'0') as $ty),
+                )+
+            }
+        }
+    };
+}
+
+define_digit_select!(u8_0_1 : u8 => { '0', '1' });
+define_digit_select!(u8_0_3 : u8 => { '0', '1', '2', '3' });
+define_digit_select!(u8_0_5 : u8 => { '0', '1', '2', '3', '4', '5' });
+define_digit_select!(u8_0_9 : u8 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
+define_digit_select!(u8_1_9 : u8 => { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
+define_digit_select!(i8_0_1 : i8 => { '0', '1' });
+define_digit_select!(i8_0_2 : i8 => { '0', '1', '2' });
+define_digit_select!(i8_0_3 : i8 => { '0', '1', '2', '3' });
+define_digit_select!(i8_0_9 : i8 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
+define_digit_select!(i8_1_2 : i8 => { '1', '2' });
+define_digit_select!(i8_1_4 : i8 => { '1', '2', '3', '4' });
+define_digit_select!(i8_1_9 : i8 => { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
+define_digit_select!(i16_0_5 : i16 => { '0', '1', '2', '3', '4', '5' });
+define_digit_select!(i16_0_6 : i16 => { '0', '1', '2', '3', '4', '5', '6' });
+define_digit_select!(i16_0_9 : i16 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
+define_digit_select!(i16_1_2 : i16 => { '1', '2' });
+define_digit_select!(i16_1_9 : i16 => { '1', '2', '3', '4', '5', '6', '7', '8', '9' });
 
 #[cfg(test)]
 mod tests {

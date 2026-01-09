@@ -8,44 +8,34 @@ use std::fmt::Display;
 
 use crate::keyword::KW_VALARM;
 use crate::property::{
-    Action, ActionValue, Attachment, Attendee, Description, Property, PropertyKind, Repeat,
-    Summary, Trigger,
+    Action, ActionValue, Attachment, Attendee, Description, Duration, Property, PropertyKind,
+    Repeat, Summary, Trigger,
 };
 use crate::semantic::SemanticError;
 use crate::syntax::SpannedSegments;
 use crate::typed::TypedComponent;
-use crate::value::ValueDuration;
 
 /// Alarm component (VALARM)
 #[derive(Debug, Clone)]
 pub struct VAlarm<S: Clone + Display> {
     /// Action to perform when alarm triggers
     pub action: Action<S>,
-
     /// When to trigger the alarm
     pub trigger: Trigger<S>,
-
     /// Repeat count for the alarm
     pub repeat: Option<Repeat<S>>,
-
     /// Duration between repeats
-    pub duration: Option<ValueDuration>,
-
+    pub duration: Option<Duration<S>>,
     /// Description for display alarm
     pub description: Option<Description<S>>,
-
     /// Summary for email alarm
     pub summary: Option<Summary<S>>,
-
     /// Attendees for email alarm
     pub attendees: Vec<Attendee<S>>,
-
     /// Attachment for audio/procedure alarm
     pub attach: Option<Attachment<S>>,
-
     /// Custom X- properties (preserved for round-trip)
     pub x_properties: Vec<Property<S>>,
-
     /// Unknown IANA properties (preserved for round-trip)
     pub unrecognized_properties: Vec<Property<S>>,
 }
@@ -96,7 +86,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
                         property: PropertyKind::Duration,
                         span: comp.span,
                     }),
-                    None => props.duration = Some(duration.value),
+                    None => props.duration = Some(duration),
                 },
                 Property::Repeat(repeat) => match props.repeat {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -214,22 +204,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
     }
 }
 
-/// Helper struct to collect properties during single-pass iteration
-#[rustfmt::skip]
-#[derive(Debug, Default)]
-struct PropertyCollector<S: Clone + Display> {
-    action:     Option<Action<S>>,
-    trigger:    Option<Trigger<S>>,
-    duration:   Option<ValueDuration>,
-    repeat:     Option<Repeat<S>>,
-    description: Option<Description<S>>,
-    summary:    Option<Summary<S>>,
-    attendees:  Vec<Attendee<S>>,
-    attach:     Option<Attachment<S>>,
-    x_properties: Vec<Property<S>>,
-    unrecognized_properties: Vec<Property<S>>,
-}
-
 impl<'src> VAlarmRef<'src> {
     /// Convert borrowed data to owned data
     #[must_use]
@@ -238,7 +212,7 @@ impl<'src> VAlarmRef<'src> {
             action: self.action.to_owned(),
             trigger: self.trigger.to_owned(),
             repeat: self.repeat.as_ref().map(Repeat::to_owned),
-            duration: self.duration,
+            duration: self.duration.as_ref().map(Duration::to_owned),
             description: self.description.as_ref().map(Description::to_owned),
             summary: self.summary.as_ref().map(Summary::to_owned),
             attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
@@ -251,4 +225,20 @@ impl<'src> VAlarmRef<'src> {
                 .collect(),
         }
     }
+}
+
+/// Helper struct to collect properties during single-pass iteration
+#[rustfmt::skip]
+#[derive(Debug, Default)]
+struct PropertyCollector<S: Clone + Display> {
+    action:         Option<Action<S>>,
+    trigger:        Option<Trigger<S>>,
+    duration:       Option<Duration<S>>,
+    repeat:         Option<Repeat<S>>,
+    description:    Option<Description<S>>,
+    summary:        Option<Summary<S>>,
+    attendees:      Vec<Attendee<S>>,
+    attach:         Option<Attachment<S>>,
+    x_properties:   Vec<Property<S>>,
+    unrecognized_properties: Vec<Property<S>>,
 }
