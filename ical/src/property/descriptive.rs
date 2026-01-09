@@ -62,7 +62,7 @@ pub enum AttachmentValue<S: Clone + Display> {
     Uri(ValueText<S>),
 
     /// Binary data
-    Binary(String), // TODO: change to S
+    Binary(S),
 }
 
 /// Type alias for borrowed attachment value
@@ -143,7 +143,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
                 unrecognized_parameters,
             }),
             Value::Binary { raw: data, .. } => Ok(Attachment {
-                value: AttachmentValue::Binary(data.to_string()),
+                value: AttachmentValue::Binary(data),
                 fmt_type,
                 encoding,
                 x_parameters,
@@ -182,7 +182,7 @@ impl AttachmentValue<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> AttachmentValue<String> {
         match self {
             AttachmentValue::Uri(uri) => AttachmentValue::Uri(uri.to_owned()),
-            AttachmentValue::Binary(data) => AttachmentValue::Binary(data.clone()),
+            AttachmentValue::Binary(data) => AttachmentValue::Binary(data.concatnate()),
         }
     }
 }
