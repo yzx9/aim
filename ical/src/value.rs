@@ -324,7 +324,7 @@ impl<'src> ValueRef<'src> {
         let span = Span::new(0, 0); // Placeholder span for owned type
         match self {
             Value::Binary { raw, .. } => ValueOwned::Binary {
-                raw: raw.concatnate(),
+                raw: raw.to_owned(),
                 span,
             },
             Value::Boolean { value, .. } => ValueOwned::Boolean {
@@ -372,12 +372,12 @@ impl<'src> ValueRef<'src> {
                 span,
             },
             Value::XName { raw, kind, .. } => ValueOwned::XName {
-                raw: raw.concatnate(),
+                raw: raw.to_owned(),
                 kind: kind.to_owned(),
                 span,
             },
             Value::Unrecognized { raw, kind, .. } => ValueOwned::Unrecognized {
-                raw: raw.concatnate(),
+                raw: raw.to_owned(),
                 kind: kind.to_owned(),
                 span,
             },

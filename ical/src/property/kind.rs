@@ -78,8 +78,8 @@ impl PropertyKindRef<'_> {
             PropertyKind::Uid => PropertyKindOwned::Uid,
             PropertyKind::Url => PropertyKindOwned::Url,
             PropertyKind::Version => PropertyKindOwned::Version,
-            PropertyKind::XName(s) => PropertyKindOwned::XName(s.concatnate()),
-            PropertyKind::Unrecognized(s) => PropertyKindOwned::Unrecognized(s.concatnate()),
+            PropertyKind::XName(s) => PropertyKindOwned::XName(s.to_owned()),
+            PropertyKind::Unrecognized(s) => PropertyKindOwned::Unrecognized(s.to_owned()),
         }
     }
 }

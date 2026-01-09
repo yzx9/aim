@@ -94,7 +94,7 @@ impl<'src> ValueTextRef<'src> {
                 .tokens
                 .iter()
                 .map(|token| match token {
-                    ValueTextToken::Str(s) => ValueTextToken::Str(s.concatnate()),
+                    ValueTextToken::Str(s) => ValueTextToken::Str(s.to_owned()),
                     ValueTextToken::Escape(c) => ValueTextToken::Escape(*c),
                 })
                 .collect(),

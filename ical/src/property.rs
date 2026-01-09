@@ -542,7 +542,7 @@ impl PropertyRef<'_> {
                 value,
                 span,
             } => PropertyOwned::XName {
-                name: name.concatnate(),
+                name: name.to_owned(),
                 parameters: parameters.iter().map(Parameter::to_owned).collect(),
                 value: value.to_owned(),
                 span: *span,
@@ -553,7 +553,7 @@ impl PropertyRef<'_> {
                 value,
                 span,
             } => PropertyOwned::Unrecognized {
-                name: name.concatnate(),
+                name: name.to_owned(),
                 parameters: parameters.iter().map(Parameter::to_owned).collect(),
                 value: value.to_owned(),
                 span: *span,

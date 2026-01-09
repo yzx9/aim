@@ -164,7 +164,7 @@ impl Attachment<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Attachment<String> {
         Attachment {
             value: self.value.to_owned(),
-            fmt_type: self.fmt_type.as_ref().map(SpannedSegments::concatnate),
+            fmt_type: self.fmt_type.as_ref().map(SpannedSegments::to_owned),
             encoding: self.encoding,
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
@@ -182,7 +182,7 @@ impl AttachmentValue<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> AttachmentValue<String> {
         match self {
             AttachmentValue::Uri(uri) => AttachmentValue::Uri(uri.to_owned()),
-            AttachmentValue::Binary(data) => AttachmentValue::Binary(data.concatnate()),
+            AttachmentValue::Binary(data) => AttachmentValue::Binary(data.to_owned()),
         }
     }
 }

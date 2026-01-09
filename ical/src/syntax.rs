@@ -110,7 +110,7 @@ impl SyntaxParameterRef<'_> {
     #[must_use]
     pub fn to_owned(&self) -> SyntaxParameterOwned {
         SyntaxParameterOwned {
-            name: self.name.concatnate(),
+            name: self.name.to_owned(),
             values: self
                 .values
                 .iter()
@@ -125,7 +125,7 @@ impl SyntaxParameterValueRef<'_> {
     #[must_use]
     pub fn to_owned(&self) -> SyntaxParameterValueOwned {
         SyntaxParameterValueOwned {
-            value: self.value.concatnate(),
+            value: self.value.to_owned(),
             quoted: self.quoted,
         }
     }
@@ -432,7 +432,7 @@ impl<'src> SpannedSegments<'src> {
     /// This is more explicit and slightly more efficient than using the
     /// `Display` trait's `to_string()` method, as it uses the known capacity.
     #[must_use]
-    pub fn concatnate(&self) -> String {
+    pub fn to_owned(&self) -> String {
         let mut s = String::with_capacity(self.len);
         for (seg, _) in &self.segments {
             s.push_str(seg);
@@ -681,27 +681,27 @@ END:VEVENT\r\n\
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name.concatnate(), "SUMMARY");
-        assert_eq!(prop.value.concatnate(), "Hello World!");
+        assert_eq!(prop.name.to_owned(), "SUMMARY");
+        assert_eq!(prop.value.to_owned(), "Hello World!");
 
         let src = "DTSTART;TZID=America/New_York:20251113\r\n T100000\r\n";
         let result = parse(src);
         assert!(result.is_ok(), "Parse '{src}' error: {:?}", result.err());
         let prop = result.unwrap();
-        assert_eq!(prop.name.concatnate(), "DTSTART");
+        assert_eq!(prop.name.to_owned(), "DTSTART");
         assert_eq!(prop.parameters.len(), 1);
-        assert_eq!(prop.parameters.first().unwrap().name.concatnate(), "TZID");
+        assert_eq!(prop.parameters.first().unwrap().name.to_owned(), "TZID");
         assert_eq!(
             prop.parameters
                 .first()
                 .unwrap()
                 .values
                 .iter()
-                .map(|a| a.value.concatnate())
+                .map(|a| a.value.to_owned())
                 .collect::<Vec<_>>(),
             ["America/New_York"]
         );
-        assert_eq!(prop.value.concatnate(), "20251113T100000");
+        assert_eq!(prop.value.to_owned(), "20251113T100000");
     }
 
     #[test]
@@ -717,12 +717,12 @@ END:VEVENT\r\n\
         let result = parse(src);
         assert!(result.is_ok(), "Parse {src} error: {:?}", result.err());
         let param = result.unwrap();
-        assert_eq!(param.name.concatnate(), "TZID");
+        assert_eq!(param.name.to_owned(), "TZID");
         assert_eq!(
             param
                 .values
                 .iter()
-                .map(|a| a.value.concatnate())
+                .map(|a| a.value.to_owned())
                 .collect::<Vec<_>>(),
             ["America/New_York"]
         );

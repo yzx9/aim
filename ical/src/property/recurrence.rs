@@ -176,7 +176,7 @@ impl ExDate<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> ExDate<String> {
         ExDate {
             dates: self.dates.iter().map(ExDateValue::to_owned).collect(),
-            tz_id: self.tz_id.as_ref().map(SpannedSegments::concatnate),
+            tz_id: self.tz_id.as_ref().map(SpannedSegments::to_owned),
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
                 .unrecognized_parameters
@@ -291,7 +291,7 @@ impl RDate<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> RDate<String> {
         RDate {
             dates: self.dates.iter().map(RDateValue::to_owned).collect(),
-            tz_id: self.tz_id.as_ref().map(SpannedSegments::concatnate),
+            tz_id: self.tz_id.as_ref().map(SpannedSegments::to_owned),
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
                 .unrecognized_parameters

@@ -327,7 +327,7 @@ impl DateTime<SpannedSegments<'_>> {
             } => DateTime::Zoned {
                 date: *date,
                 time: *time,
-                tz_id: tz_id.concatnate(),
+                tz_id: tz_id.to_owned(),
                 tz_jiff: tz_jiff.clone(),
                 x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
                 unrecognized_parameters: unrecognized_parameters
@@ -859,7 +859,7 @@ impl Period<SpannedSegments<'_>> {
                 start_time: *start_time,
                 end_date: *end_date,
                 end_time: *end_time,
-                tz_id: tz_id.concatnate(),
+                tz_id: tz_id.to_owned(),
                 tz_jiff: tz_jiff.clone(),
             },
             #[cfg(not(feature = "jiff"))]
@@ -905,7 +905,7 @@ impl Period<SpannedSegments<'_>> {
                 start_date: *start_date,
                 start_time: *start_time,
                 duration: *duration,
-                tz_id: tz_id.concatnate(),
+                tz_id: tz_id.to_owned(),
                 tz_jiff: tz_jiff.clone(),
             },
             #[cfg(not(feature = "jiff"))]

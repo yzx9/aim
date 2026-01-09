@@ -353,11 +353,11 @@ impl<'src> ParameterRef<'src> {
         let span = Span::new(0, 0); // Placeholder span for owned type
         match self {
             Parameter::AlternateText { value, .. } => ParameterOwned::AlternateText {
-                value: value.concatnate(),
+                value: value.to_owned(),
                 span,
             },
             Parameter::CommonName { value, .. } => ParameterOwned::CommonName {
-                value: value.concatnate(),
+                value: value.to_owned(),
                 span,
             },
             Parameter::CalendarUserType { value, .. } => ParameterOwned::CalendarUserType {
@@ -365,15 +365,15 @@ impl<'src> ParameterRef<'src> {
                 span,
             },
             Parameter::Delegators { values, .. } => ParameterOwned::Delegators {
-                values: values.iter().map(SpannedSegments::concatnate).collect(),
+                values: values.iter().map(SpannedSegments::to_owned).collect(),
                 span,
             },
             Parameter::Delegatees { values, .. } => ParameterOwned::Delegatees {
-                values: values.iter().map(SpannedSegments::concatnate).collect(),
+                values: values.iter().map(SpannedSegments::to_owned).collect(),
                 span,
             },
             Parameter::Directory { value, .. } => ParameterOwned::Directory {
-                value: value.concatnate(),
+                value: value.to_owned(),
                 span,
             },
             Parameter::Encoding { value, .. } => ParameterOwned::Encoding {
@@ -381,7 +381,7 @@ impl<'src> ParameterRef<'src> {
                 span,
             },
             Parameter::FormatType { value, .. } => ParameterOwned::FormatType {
-                value: value.concatnate(),
+                value: value.to_owned(),
                 span,
             },
             Parameter::FreeBusyType { value, .. } => ParameterOwned::FreeBusyType {
@@ -389,12 +389,12 @@ impl<'src> ParameterRef<'src> {
                 span,
             },
             Parameter::Language { value, .. } => ParameterOwned::Language {
-                value: value.concatnate(),
+                value: value.to_owned(),
                 span,
             },
             Parameter::GroupOrListMembership { values, .. } => {
                 ParameterOwned::GroupOrListMembership {
-                    values: values.iter().map(SpannedSegments::concatnate).collect(),
+                    values: values.iter().map(SpannedSegments::to_owned).collect(),
                     span,
                 }
             }
@@ -421,7 +421,7 @@ impl<'src> ParameterRef<'src> {
                 span,
             },
             Parameter::SendBy { value, .. } => ParameterOwned::SendBy {
-                value: value.concatnate(),
+                value: value.to_owned(),
                 span,
             },
             Parameter::RsvpExpectation { value, .. } => ParameterOwned::RsvpExpectation {
@@ -434,7 +434,7 @@ impl<'src> ParameterRef<'src> {
                 tz,
                 ..
             } => ParameterOwned::TimeZoneIdentifier {
-                value: value.concatnate(),
+                value: value.to_owned(),
                 #[cfg(feature = "jiff")]
                 tz: tz.clone(),
                 span,
@@ -444,11 +444,11 @@ impl<'src> ParameterRef<'src> {
                 span,
             },
             Parameter::XName { name, raw } => ParameterOwned::XName {
-                name: name.concatnate(),
+                name: name.to_owned(),
                 raw: raw.to_owned(),
             },
             Parameter::Unrecognized { name, raw } => ParameterOwned::Unrecognized {
-                name: name.concatnate(),
+                name: name.to_owned(),
                 raw: raw.to_owned(),
             },
         }

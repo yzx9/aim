@@ -248,7 +248,7 @@ impl Attendee<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Attendee<String> {
         Attendee {
             cal_address: self.cal_address.to_owned(),
-            cn: self.cn.as_ref().map(SpannedSegments::concatnate),
+            cn: self.cn.as_ref().map(SpannedSegments::to_owned),
             role: self.role.to_owned(),
             part_stat: self.part_stat.to_owned(),
             rsvp: self.rsvp,
@@ -256,18 +256,18 @@ impl Attendee<SpannedSegments<'_>> {
             member: self
                 .member
                 .as_ref()
-                .map(|v| v.iter().map(SpannedSegments::concatnate).collect()),
+                .map(|v| v.iter().map(SpannedSegments::to_owned).collect()),
             delegated_to: self
                 .delegated_to
                 .as_ref()
-                .map(|v| v.iter().map(SpannedSegments::concatnate).collect()),
+                .map(|v| v.iter().map(SpannedSegments::to_owned).collect()),
             delegated_from: self
                 .delegated_from
                 .as_ref()
-                .map(|v| v.iter().map(SpannedSegments::concatnate).collect()),
-            dir: self.dir.as_ref().map(SpannedSegments::concatnate),
-            sent_by: self.sent_by.as_ref().map(SpannedSegments::concatnate),
-            language: self.language.as_ref().map(SpannedSegments::concatnate),
+                .map(|v| v.iter().map(SpannedSegments::to_owned).collect()),
+            dir: self.dir.as_ref().map(SpannedSegments::to_owned),
+            sent_by: self.sent_by.as_ref().map(SpannedSegments::to_owned),
+            language: self.language.as_ref().map(SpannedSegments::to_owned),
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
                 .unrecognized_parameters
@@ -408,10 +408,10 @@ impl Organizer<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Organizer<String> {
         Organizer {
             cal_address: self.cal_address.to_owned(),
-            cn: self.cn.as_ref().map(SpannedSegments::concatnate),
-            dir: self.dir.as_ref().map(SpannedSegments::concatnate),
-            sent_by: self.sent_by.as_ref().map(SpannedSegments::concatnate),
-            language: self.language.as_ref().map(SpannedSegments::concatnate),
+            cn: self.cn.as_ref().map(SpannedSegments::to_owned),
+            dir: self.dir.as_ref().map(SpannedSegments::to_owned),
+            sent_by: self.sent_by.as_ref().map(SpannedSegments::to_owned),
+            language: self.language.as_ref().map(SpannedSegments::to_owned),
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
                 .unrecognized_parameters

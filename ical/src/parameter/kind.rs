@@ -117,8 +117,8 @@ impl ParameterKindRef<'_> {
             Self::RsvpExpectation => ParameterKindOwned::RsvpExpectation,
             Self::TimeZoneIdentifier => ParameterKindOwned::TimeZoneIdentifier,
             Self::ValueType => ParameterKindOwned::ValueType,
-            Self::XName(s) => ParameterKindOwned::XName(s.concatnate()),
-            Self::Unrecognized(s) => ParameterKindOwned::Unrecognized(s.concatnate()),
+            Self::XName(s) => ParameterKindOwned::XName(s.to_owned()),
+            Self::Unrecognized(s) => ParameterKindOwned::Unrecognized(s.to_owned()),
         }
     }
 }

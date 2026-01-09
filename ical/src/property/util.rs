@@ -153,8 +153,8 @@ impl Text<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Text<String> {
         Text {
             content: self.content.to_owned(),
-            language: self.language.as_ref().map(SpannedSegments::concatnate),
-            altrep: self.altrep.as_ref().map(SpannedSegments::concatnate),
+            language: self.language.as_ref().map(SpannedSegments::to_owned),
+            altrep: self.altrep.as_ref().map(SpannedSegments::to_owned),
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
                 .unrecognized_parameters
@@ -232,7 +232,7 @@ impl Texts<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Texts<String> {
         Texts {
             values: self.values.iter().map(ValueText::to_owned).collect(),
-            language: self.language.as_ref().map(SpannedSegments::concatnate),
+            language: self.language.as_ref().map(SpannedSegments::to_owned),
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
                 .unrecognized_parameters
