@@ -9,10 +9,9 @@ use std::fmt::{self, Display};
 use crate::keyword::{KW_VALARM, KW_VEVENT};
 use crate::parameter::Parameter;
 use crate::property::{
-    Attendee, Categories, Classification, DateTime, Description, DtEnd, DtStamp, DtStart, Duration,
-    ExDateValueRef, Geo, LastModified, Location, Organizer, Period, Priority, Property,
-    PropertyKind, RDateValueRef, RRule, Resources, Sequence, Status, StatusValue, Summary,
-    TimeTransparency, Uid, Url,
+    Attendee, Categories, Classification, Description, DtEnd, DtStamp, DtStart, Duration, ExDate,
+    Geo, LastModified, Location, Organizer, Priority, Property, PropertyKind, RDate, RRule,
+    Resources, Sequence, Status, StatusValue, Summary, TimeTransparency, Uid, Url,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::string_storage::{SpannedSegments, StringStorage};
@@ -64,9 +63,9 @@ pub struct VEvent<S: StringStorage> {
     /// Recurrence rule
     pub rrule: Option<RRule<S>>,
     /// Recurrence dates
-    pub rdate: Vec<Period<S>>,
+    pub rdates: Vec<RDate<S>>,
     /// Exception dates
-    pub ex_date: Vec<DateTime<S>>,
+    pub ex_dates: Vec<ExDate<S>>,
     /// Custom X- properties (preserved for round-trip)
     pub x_properties: Vec<Property<S>>,
     /// Unrecognized properties (preserved for round-trip)
@@ -245,24 +244,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
                     }),
                     None => props.rrule = Some(rrule),
                 },
-                Property::RDate(rdates) => {
-                    for rdate in rdates.dates {
-                        match rdate {
-                            RDateValueRef::Period(p) => props.rdate.push(p),
-                            _ => {
-                                // TODO: RDate Date/DateTime not yet implemented for events
-                            }
-                        }
-                    }
-                }
-                Property::ExDate(exdates) => {
-                    for exdate in exdates.dates {
-                        if let ExDateValueRef::DateTime(dt) = exdate {
-                            props.ex_dates.push(dt);
-                        }
-                        // ExDate Date-only not yet implemented for events
-                    }
-                }
+                Property::RDate(rdate) => props.rdates.push(rdate),
+                Property::ExDate(exdate) => props.ex_dates.push(exdate),
                 // Preserve unknown properties for round-trip
                 prop @ Property::XName { .. } => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
@@ -336,8 +319,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
                 resources: props.resources,
                 categories: props.categories,
                 rrule: props.rrule,
-                rdate: props.rdate,
-                ex_date: props.ex_dates,
+                rdates: props.rdates,
+                ex_dates: props.ex_dates,
                 x_properties: props.x_properties,
                 unrecognized_properties: props.unrecognized_properties,
                 alarms,
@@ -373,8 +356,8 @@ impl VEventRef<'_> {
             resources: self.resources.as_ref().map(Resources::to_owned),
             categories: self.categories.as_ref().map(Categories::to_owned),
             rrule: self.rrule.as_ref().map(RRule::to_owned),
-            rdate: self.rdate.iter().map(Period::to_owned).collect(),
-            ex_date: self.ex_date.iter().map(DateTime::to_owned).collect(),
+            rdates: self.rdates.iter().map(RDate::to_owned).collect(),
+            ex_dates: self.ex_dates.iter().map(ExDate::to_owned).collect(),
             x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
             unrecognized_properties: self
                 .unrecognized_properties
@@ -504,8 +487,8 @@ struct PropertyCollector< S: StringStorage> {
     resources:      Option<Resources<S>>,
     categories:     Option<Categories<S>>,
     rrule:          Option<RRule<S>>,
-    rdate:          Vec<Period<S>>,
-    ex_dates:       Vec<DateTime<S>>,
+    rdates:         Vec<RDate<S>>,
+    ex_dates:       Vec<ExDate<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }

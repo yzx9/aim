@@ -9,7 +9,7 @@ use std::fmt;
 use crate::keyword::KW_VJOURNAL;
 use crate::parameter::Parameter;
 use crate::property::{
-    Attendee, Categories, Classification, Description, DtStamp, DtStart, ExDateValue, LastModified,
+    Attendee, Categories, Classification, Description, DtStamp, DtStart, ExDate, LastModified,
     Organizer, Property, PropertyKind, RDate, RRule, Status, StatusValue, Summary, Uid, Url,
 };
 use crate::semantic::SemanticError;
@@ -46,7 +46,7 @@ pub struct VJournal<S: StringStorage> {
     /// Recurrence dates (can be `Period`, `Date`, `or DateTime`)
     pub rdate: Vec<RDate<S>>,
     /// Exception dates (can be `Date` or `DateTime`)
-    pub ex_date: Vec<ExDateValue<S>>,
+    pub ex_date: Vec<ExDate<S>>,
     /// URL associated with the journal entry
     pub url: Option<Url<S>>,
     /// Custom X- properties (preserved for round-trip)
@@ -152,11 +152,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
                     None => props.rrule = Some(rrule),
                 },
                 Property::RDate(rdate) => props.rdate.push(rdate),
-                Property::ExDate(exdates) => {
-                    for exdate in exdates.dates {
-                        props.ex_dates.push(exdate);
-                    }
-                }
+                Property::ExDate(exdate) => props.ex_dates.push(exdate),
                 Property::Url(url) => match props.url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         span: url.span,
@@ -241,7 +237,7 @@ impl VJournalRef<'_> {
             categories: self.categories.iter().map(Categories::to_owned).collect(),
             rrule: self.rrule.as_ref().map(RRule::to_owned),
             rdate: self.rdate.iter().map(RDate::to_owned).collect(),
-            ex_date: self.ex_date.iter().map(ExDateValue::to_owned).collect(),
+            ex_date: self.ex_date.iter().map(ExDate::to_owned).collect(),
             url: self.url.as_ref().map(Url::to_owned),
             x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
             unrecognized_properties: self
@@ -362,7 +358,7 @@ struct PropertyCollector<S: StringStorage> {
     categories:     Vec<Categories<S>>,
     rrule:          Option<RRule<S>>,
     rdate:          Vec<RDate<S>>,
-    ex_dates:       Vec<ExDateValue<S>>,
+    ex_dates:       Vec<ExDate<S>>,
     url:            Option<Url<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,
