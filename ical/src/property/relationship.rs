@@ -22,17 +22,16 @@
 use std::convert::TryFrom;
 
 use crate::parameter::{CalendarUserType, Parameter, ParticipationRole, ParticipationStatus};
-use crate::property::util::{Text, take_single_text};
+use crate::property::util::{Text, UriProperty, take_single_cal_address};
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::ValueText;
 
 /// Attendee information (RFC 5545 Section 3.8.4.1)
 #[derive(Debug, Clone)]
 pub struct Attendee<S: StringStorage> {
     /// Calendar user address (mailto: or other URI)
-    pub cal_address: ValueText<S>,
+    pub cal_address: S,
 
     /// Common name (optional)
     pub cn: Option<S>,
@@ -207,8 +206,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
         }
 
         // Get cal_address value
-        let cal_address = match take_single_text(&prop.kind, prop.value) {
-            Ok(text) => Some(text),
+        let cal_address = match take_single_cal_address(&prop.kind, prop.value) {
+            Ok(value) => Some(value),
             Err(e) => {
                 errors.extend(e);
                 None
@@ -294,7 +293,7 @@ simple_property_wrapper!(
 #[derive(Debug, Clone)]
 pub struct Organizer<S: StringStorage> {
     /// Calendar user address (mailto: or other URI)
-    pub cal_address: ValueText<S>, // TODO: parse mailto:
+    pub cal_address: S,
 
     /// Common name (optional)
     pub cn: Option<S>,
@@ -384,8 +383,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
         }
 
         // Get cal_address value
-        let cal_address = match take_single_text(&prop.kind, prop.value) {
-            Ok(text) => Some(text),
+        let cal_address = match take_single_cal_address(&prop.kind, prop.value) {
+            Ok(v) => Some(v),
             Err(e) => {
                 errors.extend(e);
                 None
@@ -448,8 +447,8 @@ simple_property_wrapper!(
 );
 
 simple_property_wrapper!(
-    /// Simple text property wrapper (RFC 5545 Section 3.8.4.6)
-    pub Url<S> => Text
+    /// URI property wrapper (RFC 5545 Section 3.8.4.6)
+    pub Url<S> => UriProperty
 
     ref   = pub type UrlRef;
     owned = pub type UrlOwned;

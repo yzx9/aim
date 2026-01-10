@@ -28,12 +28,12 @@ use crate::keyword::{
     KW_STATUS_COMPLETED, KW_STATUS_CONFIRMED, KW_STATUS_DRAFT, KW_STATUS_FINAL,
     KW_STATUS_IN_PROCESS, KW_STATUS_NEEDS_ACTION, KW_STATUS_TENTATIVE,
 };
-use crate::parameter::{Encoding, Parameter, ValueTypeRef};
+use crate::parameter::{Encoding, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::util::{Text, Texts, take_single_text, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, ValueText, values_float_semicolon};
+use crate::value::{Value, values_float_semicolon};
 
 /// Attachment information (RFC 5545 Section 3.8.1.1)
 #[derive(Debug, Clone)]
@@ -61,7 +61,7 @@ pub struct Attachment<S: StringStorage> {
 #[derive(Debug, Clone)]
 pub enum AttachmentValue<S: StringStorage> {
     /// URI reference
-    Uri(ValueText<S>),
+    Uri(S),
 
     /// Binary data
     Binary(S),
@@ -122,10 +122,21 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
 
         // Get value
         let value = match take_single_value(&PropertyKind::Attach, prop.value) {
-            Ok(v) => v,
+            Ok(Value::Binary { value, .. }) => Some(AttachmentValue::Binary(value)),
+            Ok(Value::Uri { value, .. }) => Some(AttachmentValue::Uri(value)),
+            Ok(v) => {
+                let span = v.span();
+                errors.push(TypedError::PropertyUnexpectedValue {
+                    property: prop.kind,
+                    expected: ValueType::Uri, // TODO: include Binary as well
+                    found: v.kind().into(),
+                    span,
+                });
+                None
+            }
             Err(e) => {
                 errors.extend(e);
-                return Err(errors);
+                None
             }
         };
 
@@ -134,31 +145,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
             return Err(errors);
         }
 
-        match value {
-            Value::Text {
-                values: mut uris, ..
-            } if uris.len() == 1 => Ok(Attachment {
-                value: AttachmentValue::Uri(uris.pop().unwrap()),
-                fmt_type,
-                encoding,
-                x_parameters,
-                unrecognized_parameters,
-                span: prop.span,
-            }),
-            Value::Binary { raw: data, .. } => Ok(Attachment {
-                value: AttachmentValue::Binary(data),
-                fmt_type,
-                encoding,
-                x_parameters,
-                unrecognized_parameters,
-                span: prop.span,
-            }),
-            _ => Err(vec![TypedError::PropertyInvalidValue {
-                property: PropertyKind::Attach,
-                value: "Expected URI or binary value".to_string(),
-                span: value.span(),
-            }]),
-        }
+        Ok(Attachment {
+            value: value.unwrap(), // SAFETY: checked errors above
+            fmt_type,
+            encoding,
+            x_parameters,
+            unrecognized_parameters,
+            span: prop.span,
+        })
     }
 }
 
@@ -603,7 +597,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'sr
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueTypeRef::Integer,
+                    expected: ValueType::Integer,
                     found: v.kind().into(),
                     span,
                 }])
@@ -706,7 +700,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueTypeRef::Integer,
+                    expected: ValueType::Integer,
                     found: v.kind().into(),
                     span,
                 }])

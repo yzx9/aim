@@ -182,9 +182,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
 
     #[expect(clippy::too_many_lines)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let value = take_single_value(&prop.kind, prop.value)?;
-
         let mut errors: Vec<TypedError<'src>> = Vec::new();
+
+        let value = match take_single_value(&prop.kind, prop.value) {
+            Ok(v) => v,
+            Err(mut e) => {
+                errors.append(&mut e);
+                return Err(errors);
+            }
+        };
 
         // Get TZID parameter
         let mut tz_id = None;
@@ -286,9 +292,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
                         })
                     }
                 }
-                _ => Err(vec![TypedError::PropertyInvalidValue {
+                _ => Err(vec![TypedError::PropertyUnexpectedValue {
                     property: PropertyKind::DtStart, // Default fallback
-                    value: format!("Expected date or date-time value, got {value:?}"),
+                    expected: ValueType::DateTime,   // TODO: improve expected types?
+                    found: value.kind().into(),
                     span: value.span(),
                 }]),
             }

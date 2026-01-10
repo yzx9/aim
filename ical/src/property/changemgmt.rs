@@ -15,9 +15,9 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::{Parameter, ValueTypeRef};
-use crate::property::DateTime;
-use crate::property::{PropertyKind, util::take_single_value};
+use crate::parameter::{Parameter, ValueType};
+use crate::property::util::take_single_value;
+use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
@@ -120,15 +120,12 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
                     span: prop.span,
                 })
             }
-            Ok(v) => {
-                let span = v.span();
-                Err(vec![TypedError::PropertyUnexpectedValue {
-                    property: prop.kind,
-                    expected: ValueTypeRef::Integer,
-                    found: v.kind().into(),
-                    span,
-                }])
-            }
+            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
+                property: prop.kind,
+                expected: ValueType::Integer,
+                found: v.kind().into(),
+                span: v.span(),
+            }]),
             Err(e) => Err(e),
         }
     }

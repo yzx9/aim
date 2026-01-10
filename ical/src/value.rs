@@ -54,7 +54,7 @@ pub enum Value<S: StringStorage> {
     /// Note: This is a single-value type (comma-separated values not allowed).
     Binary {
         /// The binary data
-        raw: S,
+        value: S,
         /// The span of the value
         span: S::Span,
     },
@@ -72,8 +72,21 @@ pub enum Value<S: StringStorage> {
         span: S::Span,
     },
 
-    // TODO: 3.3.3. Calendar User Address
-    //
+    /// This value type is used to identify properties that contain a calendar
+    /// user address.
+    ///
+    /// See RFC 5545 Section 3.3.3 for more details.
+    ///
+    /// Note: This is a single-value type (comma-separated values not allowed).
+    /// Per RFC 5545, no additional content value encoding (e.g., BACKSLASH
+    /// character encoding) is defined for this value type.
+    CalAddress {
+        /// The calendar user address value (a URI)
+        value: S,
+        /// The span of the value
+        span: S::Span,
+    },
+
     /// This value type is used to identify values that contain a calendar date.
     ///
     /// See RFC 5545 Section 3.3.4 for more details.
@@ -186,8 +199,21 @@ pub enum Value<S: StringStorage> {
         span: S::Span,
     },
 
-    // TODO: 3.3.13. URI
-    //
+    /// This value type is used to identify properties that contain a Uniform
+    /// Resource Identifier (URI).
+    ///
+    /// See RFC 5545 Section 3.3.13 for more details.
+    ///
+    /// Note: This is a single-value type (comma-separated values not allowed).
+    /// Per RFC 5545, no additional content value encoding (e.g., BACKSLASH
+    /// character encoding) is defined for this value type.
+    Uri {
+        /// The URI value
+        value: S,
+        /// The span of the value
+        span: S::Span,
+    },
+
     /// This value type is used to identify properties that contain an offset
     /// from UTC to local time.
     ///
@@ -247,6 +273,7 @@ impl<S: StringStorage> Value<S> {
         match self {
             Value::Binary { .. } => ValueType::Binary,
             Value::Boolean { .. } => ValueType::Boolean,
+            Value::CalAddress { .. } => ValueType::CalendarUserAddress,
             Value::Date { .. } => ValueType::Date,
             Value::DateTime { .. } => ValueType::DateTime,
             Value::Duration { .. } => ValueType::Duration,
@@ -256,6 +283,7 @@ impl<S: StringStorage> Value<S> {
             Value::Period { .. } => ValueType::Period,
             Value::Text { .. } => ValueType::Text,
             Value::Time { .. } => ValueType::Time,
+            Value::Uri { .. } => ValueType::Uri,
             Value::UtcOffset { .. } => ValueType::UtcOffset,
             Value::XName { kind, .. } => ValueType::XName(kind),
             Value::Unrecognized { kind, .. } => ValueType::Unrecognized(kind),
@@ -268,6 +296,7 @@ impl<S: StringStorage> Value<S> {
         match self {
             Value::Binary { span, .. }
             | Value::Boolean { span, .. }
+            | Value::CalAddress { span, .. }
             | Value::Date { span, .. }
             | Value::DateTime { span, .. }
             | Value::Duration { span, .. }
@@ -277,6 +306,7 @@ impl<S: StringStorage> Value<S> {
             | Value::Period { span, .. }
             | Value::Text { span, .. }
             | Value::Time { span, .. }
+            | Value::Uri { span, .. }
             | Value::UtcOffset { span, .. }
             | Value::XName { span, .. }
             | Value::Unrecognized { span, .. } => *span,
@@ -299,7 +329,9 @@ impl<S: StringStorage> Value<S> {
             Value::Time { values, .. } => values.len(),
             Value::Binary { .. }
             | Value::Boolean { .. }
+            | Value::CalAddress { .. }
             | Value::RecurrenceRule { .. }
+            | Value::Uri { .. }
             | Value::UtcOffset { .. }
             | Value::XName { .. }
             | Value::Unrecognized { .. } => 1,
@@ -318,12 +350,16 @@ impl ValueRef<'_> {
     #[must_use]
     pub fn to_owned(&self) -> ValueOwned {
         match self {
-            Value::Binary { raw, .. } => ValueOwned::Binary {
-                raw: raw.to_owned(),
+            Value::Binary { value: raw, .. } => ValueOwned::Binary {
+                value: raw.to_owned(),
                 span: (),
             },
             Value::Boolean { value, .. } => ValueOwned::Boolean {
                 value: *value,
+                span: (),
+            },
+            Value::CalAddress { value, .. } => ValueOwned::CalAddress {
+                value: value.to_owned(),
                 span: (),
             },
             Value::Date { values, .. } => ValueOwned::Date {
@@ -360,6 +396,10 @@ impl ValueRef<'_> {
             },
             Value::Time { values, .. } => ValueOwned::Time {
                 values: values.clone(),
+                span: (),
+            },
+            Value::Uri { value, .. } => ValueOwned::Uri {
+                value: value.to_owned(),
                 span: (),
             },
             Value::UtcOffset { value, .. } => ValueOwned::UtcOffset {
@@ -413,6 +453,7 @@ pub fn parse_value<'src>(
 }
 
 /// Parse property value for a single specified value type.
+#[expect(clippy::too_many_lines)]
 fn parse_value_single_type<'src>(
     value_type: &ValueTypeRef<'src>,
     value: &SpannedSegments<'src>,
@@ -424,7 +465,7 @@ fn parse_value_single_type<'src>(
             .into_result()
             .map(|()| Value::Binary {
                 span: value.span(),
-                raw: value.clone(),
+                value: value.clone(),
             }),
 
         ValueType::Boolean => value_boolean::<'_, _, extra::Err<_>>()
@@ -434,6 +475,12 @@ fn parse_value_single_type<'src>(
                 span: value.span(),
                 value: bool_value,
             }),
+
+        // CAL-ADDRESS: No additional content encoding, store raw string
+        ValueType::CalendarUserAddress => Ok(Value::CalAddress {
+            value: value.clone(),
+            span: value.span(),
+        }),
 
         ValueType::Date => values_date::<'_, _, extra::Err<_>>()
             .parse(make_input(value.clone()))
@@ -475,31 +522,11 @@ fn parse_value_single_type<'src>(
                 span: value.span(),
             }),
 
-        // URI and CAL-ADDRESS are parsed as text per RFC 5545
-        // (cal-address = uri, and URI values are essentially text strings)
-        ValueType::CalendarUserAddress | ValueType::Text | ValueType::Uri => {
-            values_text::<'_, _, extra::Err<_>>()
-                .parse(make_input(value.clone()))
-                .into_result()
-                .map(|texts| Value::Text {
-                    values: texts.into_iter().map(|a| a.build(value)).collect(),
-                    span: value.span(),
-                })
-        }
-
-        ValueType::Time => values_time::<'_, _, extra::Err<_>>()
-            .parse(make_input(value.clone()))
+        ValueType::RecurrenceRule => rrule::value_rrule::<'_, _, extra::Err<_>>()
+            .parse(make_uppercase_input(value.clone())) // case-insensitive
             .into_result()
-            .map(|values| Value::Time {
-                values,
-                span: value.span(),
-            }),
-
-        ValueType::UtcOffset => value_utc_offset::<'_, _, extra::Err<_>>()
-            .parse(make_input(value.clone()))
-            .into_result()
-            .map(|offset| Value::UtcOffset {
-                value: offset,
+            .map(|rrule| Value::RecurrenceRule {
+                value: Box::new(rrule),
                 span: value.span(),
             }),
 
@@ -511,11 +538,33 @@ fn parse_value_single_type<'src>(
                 span: value.span(),
             }),
 
-        ValueType::RecurrenceRule => rrule::value_rrule::<'_, _, extra::Err<_>>()
-            .parse(make_uppercase_input(value.clone())) // case-insensitive
+        ValueType::Text => values_text::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
             .into_result()
-            .map(|rrule| Value::RecurrenceRule {
-                value: Box::new(rrule),
+            .map(|texts| Value::Text {
+                values: texts.into_iter().map(|a| a.build(value)).collect(),
+                span: value.span(),
+            }),
+
+        ValueType::Time => values_time::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|values| Value::Time {
+                values,
+                span: value.span(),
+            }),
+
+        // URI: No additional content encoding, store raw string
+        ValueType::Uri => Ok(Value::Uri {
+            value: value.clone(),
+            span: value.span(),
+        }),
+
+        ValueType::UtcOffset => value_utc_offset::<'_, _, extra::Err<_>>()
+            .parse(make_input(value.clone()))
+            .into_result()
+            .map(|offset| Value::UtcOffset {
+                value: offset,
                 span: value.span(),
             }),
 

@@ -9,16 +9,13 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::{Parameter, ValueTypeRef};
+use crate::parameter::{Parameter, ValueType};
 use crate::property::PropertyKindRef;
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueRef, ValueText, ValueTextRef};
 
 /// Get the first value from a property, ensuring it has exactly one value
-///
-/// # Errors
-/// Returns `TypedError::PropertyInvalidValueCount` if there are multiple or zero values
 pub fn take_single_value<'src>(
     kind: &PropertyKindRef<'src>,
     value: ValueRef<'src>,
@@ -35,11 +32,41 @@ pub fn take_single_value<'src>(
     Ok(value)
 }
 
+/// Get a single calendar user address value from a property
+pub fn take_single_cal_address<'src>(
+    kind: &PropertyKindRef<'src>,
+    value: ValueRef<'src>,
+) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
+    let value = take_single_value(kind, value)?;
+    match value {
+        Value::CalAddress { value, .. } => Ok(value),
+        v => Err(vec![TypedError::PropertyUnexpectedValue {
+            property: kind.clone(),
+            expected: ValueType::CalendarUserAddress,
+            found: v.kind().into(),
+            span: v.span(),
+        }]),
+    }
+}
+
+/// Get a single URI value from a property
+pub fn take_single_uri<'src>(
+    kind: &PropertyKindRef<'src>,
+    value: ValueRef<'src>,
+) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
+    let value = take_single_value(kind, value)?;
+    match value {
+        Value::Uri { value, .. } => Ok(value),
+        v => Err(vec![TypedError::PropertyUnexpectedValue {
+            property: kind.clone(),
+            expected: ValueType::Uri,
+            found: v.kind().into(),
+            span: v.span(),
+        }]),
+    }
+}
+
 /// Get a single text value from a property
-///
-/// # Errors
-/// Returns `TypedError::PropertyUnexpectedValue` if the value is not text
-/// Returns `TypedError::PropertyInvalidValueCount` if there are multiple or zero values
 pub fn take_single_text<'src>(
     kind: &PropertyKindRef<'src>,
     value: ValueRef<'src>,
@@ -48,14 +75,84 @@ pub fn take_single_text<'src>(
 
     match value {
         Value::Text { mut values, .. } if values.len() == 1 => Ok(values.pop().unwrap()),
+        Value::Text { ref values, .. } => {
+            let span = value.span();
+            Err(vec![TypedError::PropertyInvalidValueCount {
+                property: kind.clone(),
+                expected: 1,
+                found: values.len(),
+                span,
+            }])
+        }
         v => {
             let span = v.span();
             Err(vec![TypedError::PropertyUnexpectedValue {
                 property: kind.clone(),
-                expected: ValueTypeRef::Text,
+                expected: ValueType::Text,
                 found: v.kind().into(),
                 span,
             }])
+        }
+    }
+}
+
+/// URI property with parameters
+///
+/// This type is used by properties that have a URI value type, such as:
+/// - 3.8.3.5: `TzUrl` - Time zone URL
+/// - 3.8.4.6: `Url` - Uniform Resource Locator
+#[derive(Debug, Clone)]
+pub struct UriProperty<S: StringStorage> {
+    /// The URI value
+    pub uri: S,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<S>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<S>>,
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for UriProperty<SpannedSegments<'src>> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
+            }
+        }
+
+        let uri = take_single_uri(&prop.kind, prop.value)?;
+
+        Ok(UriProperty {
+            uri,
+            x_parameters,
+            unrecognized_parameters,
+        })
+    }
+}
+
+impl UriProperty<SpannedSegments<'_>> {
+    /// Convert borrowed `UriProperty` to owned `UriProperty`
+    #[must_use]
+    pub fn to_owned(&self) -> UriProperty<String> {
+        UriProperty {
+            uri: self.uri.to_owned(),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
         }
     }
 }
@@ -77,10 +174,10 @@ pub struct Text<S: StringStorage> {
     pub language: Option<S>,
 
     /// Alternate text representation URI (optional)
-    ///
-    /// Per RFC 5545, this parameter is not applicable to TZNAME and CATEGORIES
-    /// properties, but may be present in other text properties like DESCRIPTION,
-    /// SUMMARY, LOCATION, CONTACT, and RESOURCES.
+    //
+    // TODO: Per RFC 5545, this parameter is not applicable to TZNAME and CATEGORIES
+    // properties, but may be present in other text properties like DESCRIPTION,
+    // SUMMARY, LOCATION, CONTACT, and RESOURCES.
     pub altrep: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
@@ -210,7 +307,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<SpannedSegments<'src>> {
             let span = prop.value.span();
             return Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueTypeRef::Text,
+                expected: ValueType::Text,
                 found: prop.value.kind().into(),
                 span,
             }]);
@@ -314,9 +411,9 @@ macro_rules! simple_property_wrapper {
             type Error = Vec<crate::typed::TypedError<'src>>;
 
             fn try_from(prop: crate::typed::ParsedProperty<'src>) -> Result<Self, Self::Error> {
-                if !matches!(prop.kind, crate::property::PropertyKindRef::$name) {
+                if !matches!(prop.kind, crate::property::PropertyKind::$name) {
                     return Err(vec![crate::typed::TypedError::PropertyUnexpectedKind {
-                        expected: crate::property::PropertyKindRef::$name,
+                        expected: crate::property::PropertyKind::$name,
                         found: prop.kind,
                         span: prop.span,
                     }]);

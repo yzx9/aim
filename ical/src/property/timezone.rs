@@ -13,7 +13,7 @@
 use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
-use crate::property::util::{Text, take_single_value};
+use crate::property::util::{Text, UriProperty, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueUtcOffset};
@@ -123,8 +123,8 @@ simple_property_wrapper!(
 );
 
 simple_property_wrapper!(
-    /// Simple text property wrapper for `TzUrl` (RFC 5545 Section 3.8.3.5)
-    pub TzUrl<S> => Text
+    /// URI property wrapper for `TzUrl` (RFC 5545 Section 3.8.3.5)
+    pub TzUrl<S> => UriProperty
 
     ref   = pub type TzUrlRef;
     owned = pub type TzUrlOwned;
