@@ -59,6 +59,9 @@ pub struct Sequence<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
@@ -114,6 +117,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
                     value: value as u32, // SAFETY: i < i32::MAX < u32::MAX
                     x_parameters,
                     unrecognized_parameters,
+                    span: prop.span,
                 })
             }
             Ok(v) => {
@@ -142,6 +146,7 @@ impl Sequence<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }

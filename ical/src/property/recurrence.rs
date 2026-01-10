@@ -97,6 +97,9 @@ pub struct ExDate<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
@@ -165,6 +168,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
             tz_id,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -182,6 +186,7 @@ impl ExDate<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -202,6 +207,9 @@ pub struct RDate<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
@@ -280,6 +288,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
             tz_id,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -297,6 +306,7 @@ impl RDate<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -314,6 +324,9 @@ pub struct RRule<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 /// Type alias for borrowed recurrence rule
@@ -365,6 +378,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -381,6 +395,7 @@ impl RRule<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }

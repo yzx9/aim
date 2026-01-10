@@ -1007,6 +1007,9 @@ pub struct Duration<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
@@ -1054,6 +1057,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
                 value: values.pop().unwrap(), // SAFETY: checked above
                 x_parameters,
                 unrecognized_parameters,
+                span: prop.span,
             }),
             Ok(v) => {
                 let span = v.span();
@@ -1081,6 +1085,7 @@ impl Duration<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -1098,6 +1103,9 @@ pub struct FreeBusy<S: StringStorage> {
     pub x_parameters: Vec<Parameter<S>>,
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
@@ -1209,6 +1217,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
             values,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -1226,6 +1235,7 @@ impl FreeBusy<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -1254,6 +1264,9 @@ pub struct TimeTransparency<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<SpannedSegments<'src>> {
@@ -1296,6 +1309,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<SpannedSegments<'s
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -1312,6 +1326,7 @@ impl TimeTransparency<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }

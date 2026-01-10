@@ -93,56 +93,56 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
                 Property::Uid(uid) => match props.uid {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Uid,
-                        span: comp.span,
+                        span: uid.span,
                     }),
                     None => props.uid = Some(uid),
                 },
                 Property::DtStamp(dt) => match props.dt_stamp {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStamp,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.dt_stamp = Some(dt),
                 },
                 Property::DtStart(dt) => match props.dt_start {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStart,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.dt_start = Some(dt),
                 },
                 Property::DtEnd(dt) => match props.dt_end {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtEnd,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.dt_end = Some(dt),
                 },
                 Property::Duration(dur) => match props.duration {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Duration,
-                        span: comp.span,
+                        span: dur.span,
                     }),
                     None => props.duration = Some(dur),
                 },
                 Property::Organizer(org) => match props.organizer {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Organizer,
-                        span: comp.span,
+                        span: org.span,
                     }),
                     None => props.organizer = Some(org),
                 },
                 Property::Contact(contact) => match props.contact {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Contact,
-                        span: comp.span,
+                        span: contact.span,
                     }),
                     None => props.contact = Some(contact),
                 },
                 Property::Url(url) => match props.url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Url,
-                        span: comp.span,
+                        span: url.span,
                     }),
                     None => props.url = Some(url),
                 },

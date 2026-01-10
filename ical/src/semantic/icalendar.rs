@@ -76,28 +76,28 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
                 Property::ProdId(value) => match props.prod_id {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::ProdId,
-                        span: comp.span,
+                        span: value.span,
                     }),
                     None => props.prod_id = Some(value),
                 },
                 Property::Version(value) => match props.version {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Version,
-                        span: comp.span,
+                        span: value.span,
                     }),
                     None => props.version = Some(value),
                 },
                 Property::CalScale(value) => match props.calscale {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::CalScale,
-                        span: comp.span,
+                        span: value.span,
                     }),
                     None => props.calscale = Some(value),
                 },
                 Property::Method(value) => match props.method {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Method,
-                        span: comp.span,
+                        span: value.span,
                     }),
                     None => props.method = Some(value),
                 },

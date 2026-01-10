@@ -66,6 +66,9 @@ pub struct Action<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Action<SpannedSegments<'src>> {
@@ -118,6 +121,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action<SpannedSegments<'src>> {
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -134,6 +138,7 @@ impl Action<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -151,6 +156,9 @@ pub struct Repeat<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<SpannedSegments<'src>> {
@@ -197,6 +205,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<SpannedSegments<'src>> {
                         value: i as u32, // SAFETY: i < i32::MAX < u32::MAX
                         x_parameters,
                         unrecognized_parameters,
+                        span: prop.span,
                     })
                 } else {
                     Err(vec![TypedError::PropertyInvalidValue {
@@ -239,6 +248,7 @@ impl Repeat<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -257,6 +267,9 @@ pub struct Trigger<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 /// Trigger value (relative duration or absolute date/time)
@@ -326,6 +339,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<SpannedSegments<'src>> {
                 related: Some(related.unwrap_or(AlarmTriggerRelationship::Start)),
                 x_parameters,
                 unrecognized_parameters,
+                span: prop.span,
             }),
             Value::DateTime { values: dts, .. } if dts.len() == 1 => {
                 let dt = dts.into_iter().next().unwrap();
@@ -339,6 +353,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<SpannedSegments<'src>> {
                     related: None,
                     x_parameters,
                     unrecognized_parameters,
+                    span: prop.span,
                 })
             }
             _ => Err(vec![TypedError::PropertyInvalidValue {
@@ -363,6 +378,7 @@ impl Trigger<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }

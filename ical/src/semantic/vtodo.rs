@@ -107,84 +107,84 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
                 Property::Uid(uid) => match props.uid {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Uid,
-                        span: comp.span,
+                        span: uid.span,
                     }),
                     None => props.uid = Some(uid),
                 },
                 Property::DtStamp(dt) => match props.dt_stamp {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStamp,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.dt_stamp = Some(dt),
                 },
                 Property::DtStart(dt) => match props.dt_start {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStart,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.dt_start = Some(dt),
                 },
                 Property::Due(dt) => match props.due {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Due,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.due = Some(dt),
                 },
                 Property::Completed(dt) => match props.completed {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Completed,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.completed = Some(dt),
                 },
                 Property::Duration(dur) => match props.duration {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Duration,
-                        span: comp.span,
+                        span: dur.span,
                     }),
                     None => props.duration = Some(dur),
                 },
                 Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
-                        span: comp.span,
+                        span: s.span,
                     }),
                     None => props.summary = Some(s),
                 },
                 Property::Description(desc) => match props.description {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Description,
-                        span: comp.span,
+                        span: desc.span,
                     }),
                     None => props.description = Some(desc),
                 },
                 Property::Location(loc) => match props.location {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Location,
-                        span: comp.span,
+                        span: loc.span,
                     }),
                     None => props.location = Some(loc),
                 },
                 Property::Geo(geo) => match props.geo {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Geo,
-                        span: comp.span,
+                        span: geo.span,
                     }),
                     None => props.geo = Some(geo),
                 },
                 Property::Url(url) => match props.url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Url,
-                        span: comp.span,
+                        span: url.span,
                     }),
                     None => props.url = Some(url),
                 },
                 Property::Organizer(org) => match props.organizer {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Organizer,
-                        span: comp.span,
+                        span: org.span,
                     }),
                     None => props.organizer = Some(org),
                 },
@@ -192,16 +192,16 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
                 Property::LastModified(dt) => match props.last_modified {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::LastModified,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.last_modified = Some(dt),
                 },
                 Property::Status(status) => match props.status {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Status,
-                        span: comp.span,
+                        span: status.span,
                     }),
-                    None => match status.try_into() {
+                    None => match status.clone().try_into() {
                         Ok(v) => props.status = Some(v),
                         Err(e) => errors.push(e),
                     },
@@ -209,49 +209,49 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
                 Property::Sequence(seq) => match props.sequence {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Sequence,
-                        span: comp.span,
+                        span: seq.span,
                     }),
                     None => props.sequence = Some(seq),
                 },
                 Property::Priority(pri) => match props.priority {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Priority,
-                        span: comp.span,
+                        span: pri.span,
                     }),
                     None => props.priority = Some(pri),
                 },
                 Property::PercentComplete(pct) => match props.percent_complete {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::PercentComplete,
-                        span: comp.span,
+                        span: pct.span,
                     }),
                     None => props.percent_complete = Some(pct),
                 },
                 Property::Class(class) => match props.classification {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Class,
-                        span: comp.span,
+                        span: class.span,
                     }),
                     None => props.classification = Some(class),
                 },
                 Property::Resources(resources) => match props.resources {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Resources,
-                        span: comp.span,
+                        span: resources.span,
                     }),
                     None => props.resources = Some(resources),
                 },
                 Property::Categories(categories) => match props.categories {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Categories,
-                        span: comp.span,
+                        span: categories.span,
                     }),
                     None => props.categories = Some(categories),
                 },
                 Property::RRule(rrule) => match props.rrule {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::RRule,
-                        span: comp.span,
+                        span: rrule.span,
                     }),
                     None => props.rrule = Some(rrule),
                 },

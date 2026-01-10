@@ -75,7 +75,6 @@ pub fn parse_single_not_quoted<'src>(
     param: &mut SyntaxParameterRef<'src>,
     kind: ParameterKindRef<'src>,
 ) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
-    // TODO: avoid clone kind
     match param.values.len() {
         1 => {
             let v = param.values.pop().unwrap();
@@ -175,7 +174,7 @@ macro_rules! define_param_enum {
             }
         }
 
-        $pvis fn $parse_fn(mut param: crate::syntax::SyntaxParameterRef<'_>) -> ParseResult<'_> {
+        $pvis fn $parse_fn(mut param: crate::syntax::SyntaxParameterRef<'_>) -> crate::parameter::util::ParseResult<'_> {
             parse_single_not_quoted(&mut param, crate::parameter::ParameterKind::$name).and_then(|value| {
                 match $name::try_from(value) {
                     Ok(value) => Ok(crate::parameter::Parameter::$name {
@@ -293,7 +292,7 @@ macro_rules! define_param_enum_with_unknown {
         }
 
         $pvis fn $parse_fn(mut param: SyntaxParameterRef<'_>) -> ParseResult<'_> {
-            parse_single_not_quoted(&mut param, ParameterKind::$name).map(|value| {
+            parse_single_not_quoted(&mut param, crate::parameter::ParameterKind::$name).map(|value| {
                 let enum_value = $name::try_from(value).unwrap(); // Never fails due to XName/Unrecognized variants
                 Parameter::$name {
                     value: enum_value,

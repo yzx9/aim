@@ -83,18 +83,10 @@ pub use timezone::{
 };
 pub use util::{Text, Texts};
 
-use crate::string_storage::StringStorage;
-
 use crate::parameter::Parameter;
-use crate::string_storage::{Span, SpannedSegments};
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
-
-/// Type alias for borrowed property
-pub type PropertyRef<'src> = Property<SpannedSegments<'src>>;
-
-/// Type alias for owned property (not yet implemented, would require owned semantic types)
-pub type PropertyOwned = Property<String>;
 
 /// Unified property enum with one variant per `PropertyKind`.
 ///
@@ -273,7 +265,7 @@ pub enum Property<S: StringStorage> {
         /// Parsed value(s)
         value: Value<S>,
         /// The span of the property
-        span: Span,
+        span: S::Span,
     },
 
     /// Unrecognized property (not a known standard property).
@@ -290,9 +282,15 @@ pub enum Property<S: StringStorage> {
         /// Parsed value(s)
         value: Value<S>,
         /// The span of the property
-        span: Span,
+        span: S::Span,
     },
 }
+
+/// Type alias for borrowed property
+pub type PropertyRef<'src> = Property<SpannedSegments<'src>>;
+
+/// Type alias for owned property (not yet implemented, would require owned semantic types)
+pub type PropertyOwned = Property<String>;
 
 impl<'src> TryFrom<ParsedProperty<'src>> for PropertyRef<'src> {
     type Error = Vec<TypedError<'src>>;
@@ -389,10 +387,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PropertyRef<'src> {
 impl<S: StringStorage> Property<S> {
     /// Returns the `PropertyKind` for this property
     #[must_use]
-    pub fn kind(&self) -> PropertyKind<S>
-    where
-        S: Clone,
-    {
+    pub fn kind(&self) -> PropertyKind<S> {
         match self {
             // Section 3.7 - Calendar Properties
             Self::CalScale(_) => PropertyKind::CalScale,
@@ -461,6 +456,79 @@ impl<S: StringStorage> Property<S> {
             // XName and Unrecognized properties
             Self::XName { name, .. } => PropertyKind::XName(name.clone()),
             Self::Unrecognized { name, .. } => PropertyKind::Unrecognized(name.clone()),
+        }
+    }
+
+    /// Returns the span of this property
+    #[must_use]
+    pub fn span(&self) -> S::Span {
+        match self {
+            // Section 3.7 - Calendar Properties
+            Self::CalScale(v) => v.span,
+            Self::Method(v) => v.span,
+            Self::ProdId(v) => v.span,
+            Self::Version(v) => v.span,
+
+            // Section 3.8.1 - Descriptive Component Properties
+            Self::Attach(v) => v.span,
+            Self::Categories(v) => v.span,
+            Self::Class(v) => v.span,
+            Self::Comment(v) => v.span,
+            Self::Description(v) => v.span,
+            Self::Geo(v) => v.span,
+            Self::Location(v) => v.span,
+            Self::PercentComplete(v) => v.span,
+            Self::Priority(v) => v.span,
+            Self::Resources(v) => v.span,
+            Self::Status(v) => v.span,
+            Self::Summary(v) => v.span,
+
+            // Section 3.8.2 - Date and Time Properties
+            Self::Completed(v) => v.span,
+            Self::DtEnd(v) => v.span,
+            Self::Due(v) => v.span,
+            Self::DtStart(v) => v.span,
+            Self::Duration(v) => v.span,
+            Self::FreeBusy(v) => v.span,
+            Self::Transp(v) => v.span,
+
+            // Section 3.8.3 - Time Zone Component Properties
+            Self::TzId(v) => v.span,
+            Self::TzName(v) => v.span,
+            Self::TzOffsetFrom(v) => v.span,
+            Self::TzOffsetTo(v) => v.span,
+            Self::TzUrl(v) => v.span,
+
+            // Section 3.8.4 - Component Relationship Properties
+            Self::Attendee(v) => v.span,
+            Self::Contact(v) => v.span,
+            Self::Organizer(v) => v.span,
+            Self::RecurrenceId(v) => v.span,
+            Self::RelatedTo(v) => v.span,
+            Self::Url(v) => v.span,
+            Self::Uid(v) => v.span,
+
+            // Section 3.8.5 - Recurrence Properties
+            Self::ExDate(v) => v.span,
+            Self::RDate(v) => v.span,
+            Self::RRule(v) => v.span,
+
+            // Section 3.8.6 - Alarm Component Properties
+            Self::Action(v) => v.span,
+            Self::Repeat(v) => v.span,
+            Self::Trigger(v) => v.span,
+
+            // Section 3.8.7 - Change Management Properties
+            Self::Created(v) => v.span,
+            Self::DtStamp(v) => v.span,
+            Self::LastModified(v) => v.span,
+            Self::Sequence(v) => v.span,
+
+            // Section 3.8.8 - Miscellaneous Properties
+            Self::RequestStatus(v) => v.span,
+
+            // XName and Unrecognized properties
+            Self::XName { span, .. } | Self::Unrecognized { span, .. } => *span,
         }
     }
 }
@@ -539,23 +607,23 @@ impl PropertyRef<'_> {
                 name,
                 parameters,
                 value,
-                span,
+                ..
             } => PropertyOwned::XName {
                 name: name.to_owned(),
                 parameters: parameters.iter().map(Parameter::to_owned).collect(),
                 value: value.to_owned(),
-                span: *span,
+                span: (),
             },
             Property::Unrecognized {
                 name,
                 parameters,
                 value,
-                span,
+                ..
             } => PropertyOwned::Unrecognized {
                 name: name.to_owned(),
                 parameters: parameters.iter().map(Parameter::to_owned).collect(),
                 value: value.to_owned(),
-                span: *span,
+                span: (),
             },
         }
     }

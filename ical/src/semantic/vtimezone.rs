@@ -6,7 +6,7 @@
 
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
 use crate::property::{
-    DtStart, LastModified, Property, PropertyKind, RRule, Text, TzId, TzOffsetFrom, TzOffsetTo,
+    DtStart, LastModified, Property, PropertyKind, RRule, TzId, TzName, TzOffsetFrom, TzOffsetTo,
     TzUrl,
 };
 use crate::semantic::SemanticError;
@@ -56,26 +56,25 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            // TODO: Use property span instead of component span for DuplicateProperty
             match prop {
                 Property::TzId(tz_id) => match props.tz_id {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::TzId,
-                        span: comp.span,
+                        span: tz_id.span,
                     }),
                     None => props.tz_id = Some(tz_id),
                 },
                 Property::LastModified(dt) => match props.last_modified {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::LastModified,
-                        span: comp.span,
+                        span: dt.span,
                     }),
                     None => props.last_modified = Some(dt),
                 },
                 Property::TzUrl(tz_url) => match props.tz_url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::TzUrl,
-                        span: comp.span,
+                        span: tz_url.span,
                     }),
                     None => props.tz_url = Some(tz_url),
                 },
@@ -178,7 +177,7 @@ pub struct TimeZoneObservance<S: StringStorage> {
     /// Offset from UTC for this observance
     pub tz_offset_to: TzOffsetTo<S>,
     /// Timezone names
-    pub tz_name: Vec<Text<S>>,
+    pub tz_names: Vec<TzName<S>>,
     /// Recurrence rule for this observance
     pub rrule: Option<RRule<S>>,
     /// Custom X- properties (preserved for round-trip)
@@ -197,36 +196,33 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<
         // Collect all properties in a single pass
         let mut props = ObservanceCollector::default();
         for prop in comp.properties {
-            // TODO: Use property span instead of component span for DuplicateProperty
             match prop {
                 Property::DtStart(dt) => match props.dt_start {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        span: comp.span,
+                        span: dt.span,
                         property: PropertyKind::DtStart,
                     }),
                     None => props.dt_start = Some(dt),
                 },
                 Property::TzOffsetFrom(offset) => match props.tz_offset_from {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        span: comp.span,
+                        span: offset.span,
                         property: PropertyKind::TzOffsetFrom,
                     }),
                     None => props.tz_offset_from = Some(offset),
                 },
                 Property::TzOffsetTo(offset) => match props.tz_offset_to {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        span: comp.span,
+                        span: offset.span,
                         property: PropertyKind::TzOffsetTo,
                     }),
                     None => props.tz_offset_to = Some(offset),
                 },
-                Property::TzName(tz_name) => {
-                    // TZNAME can appear multiple times
-                    props.tz_name.push(tz_name.0.clone());
-                }
+                // TZNAME can appear multiple times
+                Property::TzName(tz_name) => props.tz_name.push(tz_name),
                 Property::RRule(rrule) => match props.rrule {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        span: comp.span,
+                        span: rrule.span,
                         property: PropertyKind::RRule,
                     }),
                     None => props.rrule = Some(rrule),
@@ -270,7 +266,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<
             dt_start: props.dt_start.unwrap(), // SAFETY: checked above
             tz_offset_from: props.tz_offset_from.unwrap(), // SAFETY: checked above
             tz_offset_to: props.tz_offset_to.unwrap(), // SAFETY: checked above
-            tz_name: props.tz_name,
+            tz_names: props.tz_name,
             rrule: props.rrule,
             x_properties: props.x_properties,
             unrecognized_properties: props.unrecognized_properties,
@@ -285,7 +281,7 @@ impl TimeZoneObservance<SpannedSegments<'_>> {
             dt_start: self.dt_start.to_owned(),
             tz_offset_from: self.tz_offset_from.to_owned(),
             tz_offset_to: self.tz_offset_to.to_owned(),
-            tz_name: self.tz_name.iter().map(Text::to_owned).collect(),
+            tz_names: self.tz_names.iter().map(TzName::to_owned).collect(),
             rrule: self.rrule.as_ref().map(RRule::to_owned),
             x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
             unrecognized_properties: self
@@ -315,7 +311,7 @@ struct ObservanceCollector<S: StringStorage> {
     dt_start:       Option<DtStart<S>>,
     tz_offset_from: Option<TzOffsetFrom<S>>,
     tz_offset_to:   Option<TzOffsetTo<S>>,
-    tz_name:        Vec<Text<S>>,
+    tz_name:        Vec<TzName<S>>,
     rrule:          Option<RRule<S>>,
     x_properties:   Vec<Property<S>>,
     unrecognized_properties: Vec<Property<S>>,

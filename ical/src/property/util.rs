@@ -273,7 +273,12 @@ macro_rules! simple_property_wrapper {
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone)]
-        $vis struct $name<S: StringStorage>(pub $inner<S>);
+        $vis struct $name<S: StringStorage> {
+            /// Inner property value
+            pub inner: $inner<S>,
+            /// Span of the property in the source
+            pub span: S::Span,
+        }
 
         #[doc = concat!("Borrowed type alias for [`", stringify!($name), "`]")]
         $(#[$rmeta])*
@@ -289,7 +294,7 @@ macro_rules! simple_property_wrapper {
             type Target = $inner<S>;
 
             fn deref(&self) -> &Self::Target {
-                &self.0
+                &self.inner
             }
         }
 
@@ -298,7 +303,7 @@ macro_rules! simple_property_wrapper {
             S: StringStorage,
         {
             fn deref_mut(&mut self) -> &mut Self::Target {
-                &mut self.0
+                &mut self.inner
             }
         }
 
@@ -317,7 +322,8 @@ macro_rules! simple_property_wrapper {
                     }]);
                 }
 
-                <$inner<crate::string_storage::SpannedSegments<'src>>>::try_from(prop).map($name)
+                let span = prop.span;
+                <$inner<crate::string_storage::SpannedSegments<'src>>>::try_from(prop).map(|inner| $name { inner, span })
             }
         }
 
@@ -325,7 +331,10 @@ macro_rules! simple_property_wrapper {
             /// Convert borrowed type to owned type
             #[must_use]
             pub fn to_owned(&self) -> $name<String> {
-                $name(self.0.to_owned())
+                $name {
+                    inner: self.inner.to_owned(),
+                    span: (),
+                }
             }
         }
     };

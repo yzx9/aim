@@ -72,6 +72,9 @@ pub struct Attendee<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
@@ -237,6 +240,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
             language,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -273,6 +277,7 @@ impl Attendee<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -308,6 +313,9 @@ pub struct Organizer<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
@@ -397,6 +405,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
             language,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -417,6 +426,7 @@ impl Organizer<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }

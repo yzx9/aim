@@ -5,7 +5,8 @@
 //! String storage abstraction for zero-copy and owned string representations.
 
 use std::borrow::Cow;
-use std::fmt::{self, Display};
+use std::fmt::{self, Debug, Display};
+use std::hash::Hash;
 use std::iter::Peekable;
 use std::ops::Range;
 use std::str::CharIndices;
@@ -21,9 +22,18 @@ use chumsky::span::SimpleSpan;
 ///
 /// - `String` - Owned string data
 /// - `SpannedSegments<'src>` - Zero-copy borrowed segments
-pub trait StringStorage: Clone + Display {}
+pub trait StringStorage: Clone + Display {
+    /// The span type used by this storage.
+    ///
+    /// For zero-copy parsing (`SpannedSegments`), this is `Span` representing
+    /// source positions. For owned data (`String`), this is `()` since span
+    /// information is not preserved.
+    type Span: Copy + Debug + PartialEq + Eq + Hash;
+}
 
-impl StringStorage for String {}
+impl StringStorage for String {
+    type Span = (); // No span information for owned strings
+}
 
 /// A span representing a range in the source code
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -212,13 +222,15 @@ impl<'src> SpannedSegments<'src> {
 impl Display for SpannedSegments<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (seg, _) in &self.segments {
-            seg.fmt(f)?;
+            Display::fmt(seg, f)?;
         }
         Ok(())
     }
 }
 
-impl StringStorage for SpannedSegments<'_> {}
+impl StringStorage for SpannedSegments<'_> {
+    type Span = Span;
+}
 
 /// Iterator over characters in spanned segments
 #[derive(Debug, Clone)]

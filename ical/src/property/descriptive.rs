@@ -31,7 +31,7 @@ use crate::keyword::{
 use crate::parameter::{Encoding, Parameter, ValueTypeRef};
 use crate::property::PropertyKind;
 use crate::property::util::{Text, Texts, take_single_text, take_single_value};
-use crate::string_storage::{Span, SpannedSegments, StringStorage};
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueText, values_float_semicolon};
 
@@ -52,6 +52,9 @@ pub struct Attachment<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 /// Attachment value (URI or binary)
@@ -140,6 +143,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
                 encoding,
                 x_parameters,
                 unrecognized_parameters,
+                span: prop.span,
             }),
             Value::Binary { raw: data, .. } => Ok(Attachment {
                 value: AttachmentValue::Binary(data),
@@ -147,6 +151,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
                 encoding,
                 x_parameters,
                 unrecognized_parameters,
+                span: prop.span,
             }),
             _ => Err(vec![TypedError::PropertyInvalidValue {
                 property: PropertyKind::Attach,
@@ -171,6 +176,7 @@ impl Attachment<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -213,6 +219,9 @@ pub struct Classification<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<S: StringStorage> Display for Classification<S> {
@@ -261,6 +270,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification<SpannedSegments<'src
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -277,6 +287,7 @@ impl Classification<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -311,6 +322,9 @@ pub struct Geo<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
@@ -364,6 +378,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
                     lon: result.get(1).copied().unwrap_or_default(),
                     x_parameters,
                     unrecognized_parameters,
+                    span: prop.span,
                 })
             }
             Err(_) => Err(vec![TypedError::PropertyInvalidValue {
@@ -388,6 +403,7 @@ impl Geo<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -446,7 +462,7 @@ pub struct Status<S: StringStorage> {
     pub unrecognized_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
-    pub span: Span,
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Status<SpannedSegments<'src>> {
@@ -506,7 +522,7 @@ impl Status<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
-            span: self.span,
+            span: (),
         }
     }
 }
@@ -525,6 +541,9 @@ pub struct PercentComplete<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'src>> {
@@ -565,6 +584,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'sr
                         value: i as u8,
                         x_parameters,
                         unrecognized_parameters,
+                        span: prop.span,
                     })
                 } else {
                     Err(vec![TypedError::PropertyInvalidValue {
@@ -605,6 +625,7 @@ impl PercentComplete<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -623,6 +644,9 @@ pub struct Priority<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
@@ -663,6 +687,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
                         value: i as u8,
                         x_parameters,
                         unrecognized_parameters,
+                        span: prop.span,
                     })
                 } else {
                     Err(vec![TypedError::PropertyInvalidValue {
@@ -703,6 +728,7 @@ impl Priority<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }

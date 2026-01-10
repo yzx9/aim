@@ -68,42 +68,42 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
                 Property::Action(action) => match props.action {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Action,
-                        span: comp.span,
+                        span: action.span,
                     }),
                     None => props.action = Some(action),
                 },
                 Property::Trigger(trigger) => match props.trigger {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Trigger,
-                        span: comp.span,
+                        span: trigger.span,
                     }),
                     None => props.trigger = Some(trigger),
                 },
                 Property::Duration(duration) => match props.duration {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Duration,
-                        span: comp.span,
+                        span: duration.span,
                     }),
                     None => props.duration = Some(duration),
                 },
                 Property::Repeat(repeat) => match props.repeat {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Repeat,
-                        span: comp.span,
+                        span: repeat.span,
                     }),
                     None => props.repeat = Some(repeat),
                 },
                 Property::Description(desc) => match props.description {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Description,
-                        span: comp.span,
+                        span: desc.span,
                     }),
                     None => props.description = Some(desc),
                 },
                 Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
-                        span: comp.span,
+                        span: s.span,
                     }),
                     None => props.summary = Some(s),
                 },
@@ -111,7 +111,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
                 Property::Attach(attach) => match props.attach {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Attach,
-                        span: comp.span,
+                        span: attach.span,
                     }),
                     None => props.attach = Some(attach),
                 },
@@ -154,6 +154,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
             value: ActionValue::Audio,
             x_parameters: Vec::new(),
             unrecognized_parameters: Vec::new(),
+            span: comp.span,
         };
         let action = props.action.as_ref().unwrap_or(&default_action);
 

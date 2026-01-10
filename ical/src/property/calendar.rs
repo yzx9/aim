@@ -48,6 +48,9 @@ pub struct CalendarScale<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<SpannedSegments<'src>> {
@@ -90,6 +93,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<SpannedSegments<'src>
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -106,6 +110,7 @@ impl CalendarScale<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -152,6 +157,9 @@ pub struct Method<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Method<SpannedSegments<'src>> {
@@ -194,6 +202,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<SpannedSegments<'src>> {
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -210,6 +219,7 @@ impl Method<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -227,6 +237,9 @@ pub struct ProductId<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<SpannedSegments<'src>> {
@@ -259,6 +272,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<SpannedSegments<'src>> {
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -275,6 +289,7 @@ impl ProductId<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -300,6 +315,9 @@ pub struct Version<S: StringStorage> {
 
     /// Unrecognized parameters (IANA tokens not recognized by this implementation)
     pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Version<SpannedSegments<'src>> {
@@ -342,6 +360,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Version<SpannedSegments<'src>> {
             value,
             x_parameters,
             unrecognized_parameters,
+            span: prop.span,
         })
     }
 }
@@ -358,6 +377,7 @@ impl Version<SpannedSegments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }

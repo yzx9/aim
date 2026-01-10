@@ -56,7 +56,7 @@ pub enum Value<S: StringStorage> {
         /// The binary data
         raw: S,
         /// The span of the value
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify properties that contain either a
@@ -69,7 +69,7 @@ pub enum Value<S: StringStorage> {
         /// The boolean value
         value: bool,
         /// The span of the value
-        span: Span,
+        span: S::Span,
     },
 
     // TODO: 3.3.3. Calendar User Address
@@ -83,7 +83,7 @@ pub enum Value<S: StringStorage> {
         /// The date values
         values: Vec<ValueDate>,
         /// The span of the values
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify properties that contain a date with
@@ -95,7 +95,7 @@ pub enum Value<S: StringStorage> {
         /// The date-time values
         values: Vec<ValueDateTime>,
         /// The span of the values
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify properties that contain a duration
@@ -108,7 +108,7 @@ pub enum Value<S: StringStorage> {
         /// The duration values
         values: Vec<ValueDuration>,
         /// The span of the values
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify properties that contain a real-
@@ -121,7 +121,7 @@ pub enum Value<S: StringStorage> {
         /// The float values
         values: Vec<f64>,
         /// The span of the values
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify properties that contain a signed
@@ -134,7 +134,7 @@ pub enum Value<S: StringStorage> {
         /// The integer values
         values: Vec<i32>,
         /// The span of the values
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify properties that contain a
@@ -147,7 +147,7 @@ pub enum Value<S: StringStorage> {
         /// The recurrence rule value
         value: Box<ValueRecurrenceRule>,
         /// The span of the value
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify values that contain a precise
@@ -160,7 +160,7 @@ pub enum Value<S: StringStorage> {
         /// The period values
         values: Vec<ValuePeriod>,
         /// The span of the values
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify values that contain human-readable
@@ -173,7 +173,7 @@ pub enum Value<S: StringStorage> {
         /// The text values
         values: Vec<ValueText<S>>,
         /// The span of the values
-        span: Span,
+        span: S::Span,
     },
 
     /// This value type is used to identify values that contain a time of day.
@@ -183,7 +183,7 @@ pub enum Value<S: StringStorage> {
         /// The time values
         values: Vec<ValueTime>,
         /// The span of the values
-        span: Span,
+        span: S::Span,
     },
 
     // TODO: 3.3.13. URI
@@ -198,7 +198,7 @@ pub enum Value<S: StringStorage> {
         /// The UTC offset value
         value: ValueUtcOffset,
         /// The span of the value
-        span: Span,
+        span: S::Span,
     },
 
     /// Custom experimental x-name value type (must start with "X-" or "x-").
@@ -214,7 +214,7 @@ pub enum Value<S: StringStorage> {
         /// The value type that was specified
         kind: ValueType<S>,
         /// The span of the value
-        span: Span,
+        span: S::Span,
     },
 
     /// Unrecognized value type (not a known standard value type).
@@ -230,7 +230,7 @@ pub enum Value<S: StringStorage> {
         /// The value type that was specified
         kind: ValueType<S>,
         /// The span of the value
-        span: Span,
+        span: S::Span,
     },
 }
 
@@ -317,66 +317,64 @@ impl<'src> ValueRef<'src> {
     /// Convert borrowed type to owned type
     #[must_use]
     pub fn to_owned(&self) -> ValueOwned {
-        // TODO: how to remove span from owned type?
-        let span = Span::new(0, 0); // Placeholder span for owned type
         match self {
             Value::Binary { raw, .. } => ValueOwned::Binary {
                 raw: raw.to_owned(),
-                span,
+                span: (),
             },
             Value::Boolean { value, .. } => ValueOwned::Boolean {
                 value: *value,
-                span,
+                span: (),
             },
             Value::Date { values, .. } => ValueOwned::Date {
                 values: values.clone(),
-                span,
+                span: (),
             },
             Value::DateTime { values, .. } => ValueOwned::DateTime {
                 values: values.clone(),
-                span,
+                span: (),
             },
             Value::Duration { values, .. } => ValueOwned::Duration {
                 values: values.clone(),
-                span,
+                span: (),
             },
             Value::Float { values, .. } => ValueOwned::Float {
                 values: values.clone(),
-                span,
+                span: (),
             },
             Value::Integer { values, .. } => ValueOwned::Integer {
                 values: values.clone(),
-                span,
+                span: (),
             },
             Value::RecurrenceRule { value, .. } => ValueOwned::RecurrenceRule {
                 value: value.clone(),
-                span,
+                span: (),
             },
             Value::Period { values, .. } => ValueOwned::Period {
                 values: values.clone(),
-                span,
+                span: (),
             },
             Value::Text { values, .. } => ValueOwned::Text {
                 values: values.iter().map(ValueText::to_owned).collect(),
-                span,
+                span: (),
             },
             Value::Time { values, .. } => ValueOwned::Time {
                 values: values.clone(),
-                span,
+                span: (),
             },
             Value::UtcOffset { value, .. } => ValueOwned::UtcOffset {
                 value: *value,
-                span,
+                span: (),
             },
             Value::XName { raw, kind, .. } => ValueOwned::XName {
                 raw: raw.to_owned(),
                 kind: kind.to_owned(),
-                span,
+                span: (),
             },
             Value::Unrecognized { raw, kind, .. } => ValueOwned::Unrecognized {
                 raw: raw.to_owned(),
                 kind: kind.to_owned(),
-                span,
+                span: (),
             },
         }
     }

@@ -41,7 +41,7 @@ pub enum Parameter<S: StringStorage> {
     /// representation of the text value
     ///
     /// See also: RFC 5545 Section 3.2.1. Alternate Text Representation
-    AlternateText { value: S, span: Span },
+    AlternateText { value: S, span: S::Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter specifies the common name to be associated with
@@ -50,7 +50,7 @@ pub enum Parameter<S: StringStorage> {
     /// with the calendar address specified by the property.
     ///
     /// See also: RFC 5545 Section 3.2.2. Common Name
-    CommonName { value: S, span: Span },
+    CommonName { value: S, span: S::Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter identifies the type of calendar user specified by
@@ -60,7 +60,7 @@ pub enum Parameter<S: StringStorage> {
     /// See also: RFC 5545 Section 3.2.3. Calendar User Type
     CalendarUserType {
         value: CalendarUserType<S>,
-        span: Span,
+        span: S::Span,
     },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
@@ -69,7 +69,7 @@ pub enum Parameter<S: StringStorage> {
     /// user specified by the property.
     ///
     /// See also: RFC 5545 Section 3.2.4. Delegators
-    Delegators { values: Vec<S>, span: Span },
+    Delegators { values: Vec<S>, span: S::Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. This parameter specifies those calendar users whom have been
@@ -77,7 +77,7 @@ pub enum Parameter<S: StringStorage> {
     /// calendar user specified by the property.
     ///
     /// See also: RFC 5545 Section 3.2.5. Delegatees
-    Delegatees { values: Vec<S>, span: Span },
+    Delegatees { values: Vec<S>, span: S::Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter specifies a reference to the directory entry
@@ -85,13 +85,13 @@ pub enum Parameter<S: StringStorage> {
     /// parameter value is a URI.
     ///
     /// See also: RFC 5545 Section 3.2.6. Directory Entry Reference
-    Directory { value: S, span: Span },
+    Directory { value: S, span: S::Span },
 
     /// This property parameter identifies the inline encoding used in a
     /// property value.
     ///
     /// See also: RFC 5545 Section 3.2.7. Inline Encoding
-    Encoding { value: Encoding, span: Span },
+    Encoding { value: Encoding, span: S::Span },
 
     /// This parameter can be specified on properties that are used to
     /// reference an object. The parameter specifies the media type [RFC4288]
@@ -102,14 +102,17 @@ pub enum Parameter<S: StringStorage> {
     /// type.
     ///
     /// See also: RFC 5545 Section 3.2.8. Format Type
-    FormatType { value: S, span: Span },
+    FormatType { value: S, span: S::Span },
 
     /// This parameter specifies the free or busy time type. Applications MUST
     /// treat x-name and iana-token values they don't recognize the same way as
     /// they would the BUSY value.
     ///
     /// See also: RFC 5545 Section 3.2.9. Free/Busy Time Type
-    FreeBusyType { value: FreeBusyType<S>, span: Span },
+    FreeBusyType {
+        value: FreeBusyType<S>,
+        span: S::Span,
+    },
 
     /// This parameter identifies the language of the text in the property
     /// value and of all property parameter values of the property. The value
@@ -120,7 +123,7 @@ pub enum Parameter<S: StringStorage> {
     /// no default language is assumed.
     ///
     /// See also: RFC 5545 Section 3.2.10. Language
-    Language { value: S, span: Span },
+    Language { value: S, span: S::Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter identifies the groups or list membership for the
@@ -130,7 +133,7 @@ pub enum Parameter<S: StringStorage> {
     /// address parameter values MUST each be specified in a quoted-string.
     ///
     /// See also: RFC 5545 Section 3.2.11. Group or List Membership
-    GroupOrListMembership { values: Vec<S>, span: Span },
+    GroupOrListMembership { values: Vec<S>, span: S::Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter identifies the participation status for the
@@ -145,7 +148,7 @@ pub enum Parameter<S: StringStorage> {
     /// See also: RFC 5545 Section 3.2.12. Participation Status
     ParticipationStatus {
         value: ParticipationStatus<S>,
-        span: Span,
+        span: S::Span,
     },
 
     /// This parameter can be specified on a property that specifies a
@@ -159,7 +162,7 @@ pub enum Parameter<S: StringStorage> {
     /// See also: RFC 5545 Section 3.2.13. Recurrence Identifier Range
     RecurrenceIdRange {
         value: RecurrenceIdRange,
-        span: Span,
+        span: S::Span,
     },
 
     /// This parameter can be specified on properties that specify an alarm
@@ -170,7 +173,7 @@ pub enum Parameter<S: StringStorage> {
     /// See also: RFC 5545 Section 3.2.14. Alarm Trigger Relationship
     AlarmTriggerRelationship {
         value: AlarmTriggerRelationship,
-        span: Span,
+        span: S::Span,
     },
 
     /// This parameter can be specified on a property that references another
@@ -182,7 +185,7 @@ pub enum Parameter<S: StringStorage> {
     /// See also: RFC 5545 Section 3.2.15. Relationship Type
     RelationshipType {
         value: RelationshipType<S>,
-        span: Span,
+        span: S::Span,
     },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
@@ -194,7 +197,7 @@ pub enum Parameter<S: StringStorage> {
     /// See also: RFC 5545 Section 3.2.16. Participation Role
     ParticipationRole {
         value: ParticipationRole<S>,
-        span: Span,
+        span: S::Span,
     },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
@@ -204,7 +207,7 @@ pub enum Parameter<S: StringStorage> {
     /// parameter values MUST each be specified in a quoted-string.
     ///
     /// See also: RFC 5545 Section 3.2.18. Sent By
-    SendBy { value: S, span: Span },
+    SendBy { value: S, span: S::Span },
 
     /// This parameter can be specified on properties with a CAL-ADDRESS value
     /// type. The parameter identifies the expectation of a reply from the
@@ -212,7 +215,7 @@ pub enum Parameter<S: StringStorage> {
     /// by the "Organizer" to request a participation status reply from an
     /// "Attendee" of a group-scheduled event or to-do. If not specified on a
     /// property that allows this parameter, the default value is FALSE.
-    RsvpExpectation { value: bool, span: Span },
+    RsvpExpectation { value: bool, span: S::Span },
 
     /// This parameter MUST be specified on the "DTSTART", "DTEND", "DUE",
     /// "EXDATE", and "RDATE" properties when either a DATE-TIME or TIME value
@@ -235,7 +238,7 @@ pub enum Parameter<S: StringStorage> {
         #[cfg(feature = "jiff")]
         tz: jiff::tz::TimeZone,
         /// The span of the parameter
-        span: Span,
+        span: S::Span,
     },
 
     /// This parameter specifies the value type and format of the property
@@ -249,7 +252,7 @@ pub enum Parameter<S: StringStorage> {
     /// MUST be specified.
     ///
     /// See also: RFC 5545 Section 3.2.20. Value Data Types
-    ValueType { value: ValueType<S>, span: Span },
+    ValueType { value: ValueType<S>, span: S::Span },
 
     /// Custom experimental x-name parameter.
     ///
@@ -347,84 +350,82 @@ impl<'src> ParameterRef<'src> {
     #[must_use]
     #[expect(clippy::too_many_lines)]
     pub fn to_owned(&self) -> ParameterOwned {
-        // TODO: how to remove span from owned type?
-        let span = Span::new(0, 0); // Placeholder span for owned type
         match self {
             Parameter::AlternateText { value, .. } => ParameterOwned::AlternateText {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::CommonName { value, .. } => ParameterOwned::CommonName {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::CalendarUserType { value, .. } => ParameterOwned::CalendarUserType {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::Delegators { values, .. } => ParameterOwned::Delegators {
                 values: values.iter().map(SpannedSegments::to_owned).collect(),
-                span,
+                span: (),
             },
             Parameter::Delegatees { values, .. } => ParameterOwned::Delegatees {
                 values: values.iter().map(SpannedSegments::to_owned).collect(),
-                span,
+                span: (),
             },
             Parameter::Directory { value, .. } => ParameterOwned::Directory {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::Encoding { value, .. } => ParameterOwned::Encoding {
                 value: *value,
-                span,
+                span: (),
             },
             Parameter::FormatType { value, .. } => ParameterOwned::FormatType {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::FreeBusyType { value, .. } => ParameterOwned::FreeBusyType {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::Language { value, .. } => ParameterOwned::Language {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::GroupOrListMembership { values, .. } => {
                 ParameterOwned::GroupOrListMembership {
                     values: values.iter().map(SpannedSegments::to_owned).collect(),
-                    span,
+                    span: (),
                 }
             }
             Parameter::ParticipationStatus { value, .. } => ParameterOwned::ParticipationStatus {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::RecurrenceIdRange { value, .. } => ParameterOwned::RecurrenceIdRange {
                 value: *value,
-                span,
+                span: (),
             },
             Parameter::AlarmTriggerRelationship { value, .. } => {
                 ParameterOwned::AlarmTriggerRelationship {
                     value: *value,
-                    span,
+                    span: (),
                 }
             }
             Parameter::RelationshipType { value, .. } => ParameterOwned::RelationshipType {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::ParticipationRole { value, .. } => ParameterOwned::ParticipationRole {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::SendBy { value, .. } => ParameterOwned::SendBy {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::RsvpExpectation { value, .. } => ParameterOwned::RsvpExpectation {
                 value: *value,
-                span,
+                span: (),
             },
             Parameter::TimeZoneIdentifier {
                 value,
@@ -435,11 +436,11 @@ impl<'src> ParameterRef<'src> {
                 value: value.to_owned(),
                 #[cfg(feature = "jiff")]
                 tz: tz.clone(),
-                span,
+                span: (),
             },
             Parameter::ValueType { value, .. } => ParameterOwned::ValueType {
                 value: value.to_owned(),
-                span,
+                span: (),
             },
             Parameter::XName { name, raw } => ParameterOwned::XName {
                 name: name.to_owned(),
