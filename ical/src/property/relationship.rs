@@ -21,11 +21,16 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::{CalendarUserType, Parameter, ParticipationRole, ParticipationStatus};
-use crate::property::util::{Text, UriProperty, take_single_cal_address};
+use crate::parameter::{
+    CalendarUserType, Parameter, ParticipationRole, ParticipationStatus, RelationshipType,
+};
+use crate::property::common::{
+    Text, TextOnly, UriProperty, take_single_cal_address, take_single_text,
+};
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
+use crate::value::ValueText;
 
 /// Attendee information (RFC 5545 Section 3.8.4.1)
 #[derive(Debug, Clone)]
@@ -438,13 +443,109 @@ simple_property_wrapper!(
     owned = pub type RecurrenceIdOwned;
 );
 
-simple_property_wrapper!(
-    /// Simple text property wrapper (RFC 5545 Section 3.8.4.5)
-    pub RelatedTo<S> => Text
+/// Related To property (RFC 5545 Section 3.8.4.5)
+///
+/// This property is used to represent a relationship or reference between one
+/// calendar component and another.
+///
+/// Per RFC 5545, RELATED-TO supports the RELTYPE parameter with a default
+/// value of PARENT.
+#[derive(Debug, Clone)]
+pub struct RelatedTo<S: StringStorage> {
+    /// The related component's persistent, globally unique identifier
+    pub content: ValueText<S>,
 
-    ref   = pub type RelatedToRef;
-    owned = pub type RelatedToOwned;
-);
+    /// Relationship type (defaults to PARENT per RFC 5545)
+    pub reltype: RelationshipType<S>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<S>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
+}
+
+/// Borrowed type alias for [`RelatedTo`]
+pub type RelatedToRef<'src> = RelatedTo<SpannedSegments<'src>>;
+
+/// Owned type alias for [`RelatedTo`]
+pub type RelatedToOwned = RelatedTo<String>;
+
+impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<SpannedSegments<'src>> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if !matches!(prop.kind, PropertyKind::RelatedTo) {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: PropertyKind::RelatedTo,
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let mut errors = Vec::new();
+        let mut reltype = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::RelationshipType { .. } if reltype.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.kind().into(),
+                    });
+                }
+                Parameter::RelationshipType { value, .. } => reltype = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
+            }
+        }
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        let content = take_single_text(&prop.kind, prop.value)?;
+
+        // Default to PARENT relationship per RFC 5545
+        let reltype = reltype.unwrap_or(RelationshipType::Parent);
+
+        Ok(Self {
+            content,
+            reltype,
+            x_parameters,
+            unrecognized_parameters,
+            span: prop.span,
+        })
+    }
+}
+
+impl RelatedTo<SpannedSegments<'_>> {
+    /// Convert borrowed `RelatedTo` to owned `RelatedTo`
+    #[must_use]
+    pub fn to_owned(&self) -> RelatedToOwned {
+        RelatedTo {
+            content: self.content.to_owned(),
+            reltype: self.reltype.to_owned(),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+            span: (),
+        }
+    }
+}
 
 simple_property_wrapper!(
     /// URI property wrapper (RFC 5545 Section 3.8.4.6)
@@ -455,8 +556,10 @@ simple_property_wrapper!(
 );
 
 simple_property_wrapper!(
-    /// Simple text property wrapper (RFC 5545 Section 3.8.4.7)
-    pub Uid<S> => Text
+    /// Plain text property wrapper (RFC 5545 Section 3.8.4.7)
+    ///
+    /// Per RFC 5545, UID does not support any standard parameters.
+    pub Uid<S> => TextOnly
 
     ref   = pub type UidRef;
     owned = pub type UidOwned;

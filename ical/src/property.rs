@@ -32,7 +32,7 @@
 //! invalid property assignments.
 
 #[macro_use]
-mod util;
+mod common;
 
 // Property type modules organized by RFC 5545 sections
 mod alarm;
@@ -54,6 +54,7 @@ pub use changemgmt::{
     Created, CreatedOwned, CreatedRef, DtStamp, DtStampOwned, DtStampRef, LastModified,
     LastModifiedOwned, LastModifiedRef, Sequence,
 };
+pub use common::{Text, TextOnly, TextWithLanguage, UriProperty};
 pub use datetime::{
     Completed, CompletedOwned, CompletedRef, DateTime, DtEnd, DtEndOwned, DtEndRef, DtStart,
     DtStartOwned, DtStartRef, Due, DueOwned, DueRef, Duration, FreeBusy, Period, Time,
@@ -81,7 +82,6 @@ pub use timezone::{
     TzId, TzIdOwned, TzIdRef, TzName, TzNameOwned, TzNameRef, TzOffsetFrom, TzOffsetFromOwned,
     TzOffsetFromRef, TzOffsetTo, TzOffsetToOwned, TzOffsetToRef, TzUrl, TzUrlOwned, TzUrlRef,
 };
-pub use util::{Text, Texts};
 
 use crate::parameter::Parameter;
 use crate::string_storage::{SpannedSegments, StringStorage};

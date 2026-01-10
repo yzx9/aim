@@ -129,7 +129,6 @@ ical/
 │   ├── string_storage.rs   # String storage abstraction (StringStorage trait, Span, SpannedSegments)
 │   ├── parser.rs           # Unified parser orchestration
 │   ├── typed.rs            # Typed module entry point
-│   ├── semantic.rs         # Semantic analysis entry point and error types
 │   ├── parameter.rs        # Parameter enum and TryFrom implementation
 │   ├── parameter/          # Parameter pass implementation
 │   │   ├── definition.rs   # Parameter type enums and parsing functions
@@ -141,13 +140,13 @@ ical/
 │   │   ├── alarm.rs        # Section 3.8.6 - Alarm properties (Action, Repeat, Trigger)
 │   │   ├── calendar.rs     # Section 3.7 - Calendar properties (CalScale, Method, ProdId, Version)
 │   │   ├── changemgmt.rs   # Section 3.8.7 - Change management properties (Created, DtStamp, etc.)
+│   │   ├── util.rs         # Common properties and utilities (Text, macros, helpers)
 │   │   ├── datetime.rs     # Section 3.8.2 - Date/time properties (Completed, DtEnd, DtStart, Due, Duration, etc.)
 │   │   ├── descriptive.rs  # Section 3.8.1 - Descriptive properties (Attach, Categories, Class, Comment, etc.)
 │   │   ├── miscellaneous.rs # Section 3.8.8 - Miscellaneous properties (RequestStatus)
 │   │   ├── recurrence.rs   # Section 3.8.5 - Recurrence properties (ExDate, RDate)
 │   │   ├── relationship.rs # Section 3.8.4 - Relationship properties (Attendee, Contact, Organizer, etc.)
-│   │   ├── timezone.rs     # Section 3.8.3 - Time zone properties (TzId, TzName, TzOffsetFrom, etc.)
-│   │   └── util.rs         # Text property utilities (Text, Texts, macros, helpers)
+│   │   └── timezone.rs     # Section 3.8.3 - Time zone properties (TzId, TzName, TzOffsetFrom, etc.)
 │   ├── value.rs            # Value enum and parsing
 │   ├── value/              # Value pass implementation
 │   │   ├── datetime.rs     # Date/time value types (ValueDate, ValueDateTime, ValueTime, ValueUtcOffset)
@@ -157,6 +156,7 @@ ical/
 │   │   ├── period.rs       # Period value type (ValuePeriod)
 │   │   ├── rrule.rs        # Recurrence rule type (RecurrenceRule, Day, WeekDay)
 │   │   └── text.rs         # Text value type (ValueText)
+│   ├── semantic.rs         # Semantic analysis entry point and error types
 │   └── semantic/           # Semantic component implementations
 │       ├── icalendar.rs    # ICalendar root component
 │       ├── valarm.rs       # VAlarm component

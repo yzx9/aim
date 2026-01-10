@@ -17,7 +17,7 @@ use std::convert::TryFrom;
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
 use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueTypeRef};
-use crate::property::util::{take_single_text, take_single_value};
+use crate::property::common::{take_single_text, take_single_value};
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};

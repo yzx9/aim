@@ -16,7 +16,7 @@
 use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
-use crate::property::util::take_single_value;
+use crate::property::common::take_single_value;
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};

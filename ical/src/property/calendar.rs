@@ -22,7 +22,7 @@ use crate::keyword::{
 };
 use crate::parameter::Parameter;
 use crate::property::PropertyKind;
-use crate::property::util::take_single_text;
+use crate::property::common::take_single_text;
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;

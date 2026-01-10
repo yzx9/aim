@@ -59,11 +59,12 @@ pub use crate::property::{
     PropertyKindOwned, PropertyKindRef, PropertyOwned, PropertyRef, RDateValueOwned, RDateValueRef,
     RecurrenceId, RecurrenceIdOwned, RecurrenceIdRef, RelatedTo, RelatedToOwned, RelatedToRef,
     Repeat, RequestStatus, RequestStatusOwned, RequestStatusRef, Resources, ResourcesOwned,
-    ResourcesRef, Sequence, Status, StatusValue, Summary, SummaryOwned, SummaryRef, Text, Texts,
-    Time, TimeTransparency, TimeTransparencyValue, Trigger, TriggerValueOwned, TriggerValueRef,
-    TzId, TzIdOwned, TzIdRef, TzName, TzNameOwned, TzNameRef, TzOffsetFrom, TzOffsetFromOwned,
-    TzOffsetFromRef, TzOffsetTo, TzOffsetToOwned, TzOffsetToRef, TzUrl, TzUrlOwned, TzUrlRef, Uid,
-    UidOwned, UidRef, Url, UrlOwned, UrlRef, Version, VersionValue,
+    ResourcesRef, Sequence, Status, StatusValue, Summary, SummaryOwned, SummaryRef, Text, TextOnly,
+    TextWithLanguage, Time, TimeTransparency, TimeTransparencyValue, Trigger, TriggerValueOwned,
+    TriggerValueRef, TzId, TzIdOwned, TzIdRef, TzName, TzNameOwned, TzNameRef, TzOffsetFrom,
+    TzOffsetFromOwned, TzOffsetFromRef, TzOffsetTo, TzOffsetToOwned, TzOffsetToRef, TzUrl,
+    TzUrlOwned, TzUrlRef, Uid, UidOwned, UidRef, UriProperty, Url, UrlOwned, UrlRef, Version,
+    VersionValue,
 };
 pub use crate::semantic::{
     CalendarComponent, EventStatus, EventStatusOwned, EventStatusRef, ICalendar, ICalendarOwned,

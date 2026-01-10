@@ -9,12 +9,14 @@
 //!
 //! - 3.8.8.3: `RequestStatus` - Status code for request processing
 
-use crate::property::util::Text;
+use crate::property::common::TextWithLanguage;
 use crate::string_storage::StringStorage;
 
 simple_property_wrapper!(
-    /// Simple text property wrapper (RFC 5545 Section 3.8.8.3)
-    pub RequestStatus<S> => Text
+    /// Text property wrapper (RFC 5545 Section 3.8.8.3)
+    ///
+    /// Per RFC 5545, REQUEST-STATUS supports the LANGUAGE parameter but not ALTREP.
+    pub RequestStatus<S> => TextWithLanguage
 
     ref   = pub type RequestStatusRef;
     owned = pub type RequestStatusOwned;

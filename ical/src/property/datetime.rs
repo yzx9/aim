@@ -39,7 +39,7 @@ use std::convert::TryFrom;
 use crate::keyword::{KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT};
 use crate::parameter::{FreeBusyType, Parameter, ValueType};
 use crate::property::PropertyKind;
-use crate::property::util::{take_single_text, take_single_value};
+use crate::property::common::{take_single_text, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};

@@ -30,10 +30,10 @@ use crate::keyword::{
 };
 use crate::parameter::{Encoding, Parameter, ValueType};
 use crate::property::PropertyKind;
-use crate::property::util::{Text, Texts, take_single_text, take_single_value};
+use crate::property::common::{Text, take_single_text, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, values_float_semicolon};
+use crate::value::{Value, ValueText, values_float_semicolon};
 
 /// Attachment information (RFC 5545 Section 3.8.1.1)
 #[derive(Debug, Clone)]
@@ -727,21 +727,228 @@ impl Priority<SpannedSegments<'_>> {
     }
 }
 
-simple_property_wrapper!(
-    /// Multi-valued text property wrapper (RFC 5545 Section 3.8.1.10)
-    pub Resources<S> => Texts
+/// Categories property (RFC 5545 Section 3.8.1.2)
+///
+/// This property defines the categories for a calendar component.
+///
+/// Per RFC 5545, CATEGORIES supports the LANGUAGE parameter but NOT ALTREP.
+#[derive(Debug, Clone)]
+pub struct Categories<S: StringStorage> {
+    /// List of category text values
+    pub values: Vec<ValueText<S>>,
 
-    ref   = pub type ResourcesRef;
-    owned = pub type ResourcesOwned;
-);
+    /// Language code (optional, applied to all values)
+    pub language: Option<S>,
 
-simple_property_wrapper!(
-    /// Multi-valued text property wrapper (RFC 5545 Section 3.8.1.2)
-    pub Categories<S> => Texts
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<S>>,
 
-    ref   = pub type CategoriesRef;
-    owned = pub type CategoriesOwned;
-);
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
+}
+
+/// Borrowed type alias for [`Categories`]
+pub type CategoriesRef<'src> = Categories<SpannedSegments<'src>>;
+
+/// Owned type alias for [`Categories`]
+pub type CategoriesOwned = Categories<String>;
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Categories<SpannedSegments<'src>> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if !matches!(prop.kind, PropertyKind::Categories) {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: PropertyKind::Categories,
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let mut language = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::Language { .. } if language.is_some() => {
+                    return Err(vec![TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.kind().into(),
+                    }]);
+                }
+                Parameter::Language { value, .. } => language = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
+            }
+        }
+
+        let Value::Text { values, .. } = prop.value else {
+            let span = prop.value.span();
+            return Err(vec![TypedError::PropertyUnexpectedValue {
+                property: prop.kind,
+                expected: ValueType::Text,
+                found: prop.value.kind().into(),
+                span,
+            }]);
+        };
+
+        Ok(Self {
+            values,
+            language,
+            x_parameters,
+            unrecognized_parameters,
+            span: prop.span,
+        })
+    }
+}
+
+impl Categories<SpannedSegments<'_>> {
+    /// Convert borrowed `Categories` to owned `Categories`
+    #[must_use]
+    pub fn to_owned(&self) -> CategoriesOwned {
+        Categories {
+            values: self.values.iter().map(ValueText::to_owned).collect(),
+            language: self.language.as_ref().map(SpannedSegments::to_owned),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+            span: (),
+        }
+    }
+}
+
+/// Resources property (RFC 5545 Section 3.8.1.10)
+///
+/// This property defines the equipment or resources anticipated for an activity.
+///
+/// Per RFC 5545, RESOURCES supports both LANGUAGE and ALTREP parameters.
+#[derive(Debug, Clone)]
+pub struct Resources<S: StringStorage> {
+    /// List of resource text values
+    pub values: Vec<ValueText<S>>,
+
+    /// Language code (optional, applied to all values)
+    pub language: Option<S>,
+
+    /// Alternate text representation URI (optional)
+    pub altrep: Option<S>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<S>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    pub span: S::Span,
+}
+
+/// Borrowed type alias for [`Resources`]
+pub type ResourcesRef<'src> = Resources<SpannedSegments<'src>>;
+
+/// Owned type alias for [`Resources`]
+pub type ResourcesOwned = Resources<String>;
+
+impl<'src> TryFrom<ParsedProperty<'src>> for Resources<SpannedSegments<'src>> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        if !matches!(prop.kind, PropertyKind::Resources) {
+            return Err(vec![TypedError::PropertyUnexpectedKind {
+                expected: PropertyKind::Resources,
+                found: prop.kind,
+                span: prop.span,
+            }]);
+        }
+
+        let mut errors = Vec::new();
+        let mut language = None;
+        let mut altrep = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::Language { .. } if language.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.kind().into(),
+                    });
+                }
+                Parameter::Language { value, .. } => language = Some(value),
+
+                p @ Parameter::AlternateText { .. } if altrep.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.kind().into(),
+                    });
+                }
+                Parameter::AlternateText { value, .. } => altrep = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
+            }
+        }
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        let Value::Text { values, .. } = prop.value else {
+            let span = prop.value.span();
+            return Err(vec![TypedError::PropertyUnexpectedValue {
+                property: prop.kind,
+                expected: ValueType::Text,
+                found: prop.value.kind().into(),
+                span,
+            }]);
+        };
+
+        Ok(Self {
+            values,
+            language,
+            altrep,
+            x_parameters,
+            unrecognized_parameters,
+            span: prop.span,
+        })
+    }
+}
+
+impl Resources<SpannedSegments<'_>> {
+    /// Convert borrowed `Resources` to owned `Resources`
+    #[must_use]
+    pub fn to_owned(&self) -> ResourcesOwned {
+        Resources {
+            values: self.values.iter().map(ValueText::to_owned).collect(),
+            language: self.language.as_ref().map(SpannedSegments::to_owned),
+            altrep: self.altrep.as_ref().map(SpannedSegments::to_owned),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+            span: (),
+        }
+    }
+}
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.12)

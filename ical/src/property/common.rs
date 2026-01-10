@@ -157,14 +157,166 @@ impl UriProperty<SpannedSegments<'_>> {
     }
 }
 
+/// Plain text property without standard parameters
+///
+/// This is a helper type used by text properties that do NOT support any
+/// standard parameters (LANGUAGE, ALTREP, etc.):
+/// - 3.8.3.1: `TzId` - Time zone identifier
+/// - 3.8.4.7: `Uid` - Unique identifier
+///
+/// All standard parameters are preserved in `unrecognized_parameters` for
+/// round-trip compatibility.
+#[derive(Debug, Clone)]
+pub struct TextOnly<S: StringStorage> {
+    /// The actual text content
+    pub content: ValueText<S>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<S>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<S>>,
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for TextOnly<SpannedSegments<'src>> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let content = take_single_text(&prop.kind, prop.value)?;
+
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                p => {
+                    // ALL standard parameters go to unrecognized_parameters for round-trip
+                    unrecognized_parameters.push(p);
+                }
+            }
+        }
+
+        Ok(Self {
+            content,
+            x_parameters,
+            unrecognized_parameters,
+        })
+    }
+}
+
+impl TextOnly<SpannedSegments<'_>> {
+    /// Convert borrowed `TextOnly` to owned `TextOnly`
+    #[must_use]
+    pub fn to_owned(&self) -> TextOnly<String> {
+        TextOnly {
+            content: self.content.to_owned(),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
+/// Text with language parameter only
+///
+/// This is a helper type used by text properties that support ONLY the LANGUAGE
+/// parameter (not ALTREP):
+/// - 3.8.3.2: `TzName` - Time zone name
+/// - 3.8.8.3: `RequestStatus` - Request status
+///
+/// ALTREP and other standard parameters are preserved in `unrecognized_parameters`
+/// for round-trip compatibility.
+#[derive(Debug, Clone)]
+pub struct TextWithLanguage<S: StringStorage> {
+    /// The actual text content
+    pub content: ValueText<S>,
+
+    /// Language code (optional)
+    pub language: Option<S>,
+
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<Parameter<S>>,
+
+    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
+    pub unrecognized_parameters: Vec<Parameter<S>>,
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for TextWithLanguage<SpannedSegments<'src>> {
+    type Error = Vec<TypedError<'src>>;
+
+    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let content = take_single_text(&prop.kind, prop.value)?;
+
+        let mut errors = Vec::new();
+        let mut language = None;
+        let mut x_parameters = Vec::new();
+        let mut unrecognized_parameters = Vec::new();
+
+        for param in prop.parameters {
+            match param {
+                p @ Parameter::Language { .. } if language.is_some() => {
+                    errors.push(TypedError::ParameterDuplicated {
+                        span: p.span(),
+                        parameter: p.kind().into(),
+                    });
+                }
+                Parameter::Language { value, .. } => language = Some(value),
+
+                p @ Parameter::XName { .. } => x_parameters.push(p),
+                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                p => {
+                    // Preserve other parameters not used by this property for round-trip
+                    unrecognized_parameters.push(p);
+                }
+            }
+        }
+
+        // Return all errors if any occurred
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        Ok(Self {
+            content,
+            language,
+            x_parameters,
+            unrecognized_parameters,
+        })
+    }
+}
+
+impl TextWithLanguage<SpannedSegments<'_>> {
+    /// Convert borrowed `TextWithLanguage` to owned `TextWithLanguage`
+    #[must_use]
+    pub fn to_owned(&self) -> TextWithLanguage<String> {
+        TextWithLanguage {
+            content: self.content.to_owned(),
+            language: self.language.as_ref().map(SpannedSegments::to_owned),
+            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
+            unrecognized_parameters: self
+                .unrecognized_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+        }
+    }
+}
+
 /// Text with language and alternate representation information
 ///
-/// This is a helper type used by many text properties like:
+/// This is a helper type used by text properties that support both LANGUAGE
+/// and ALTREP parameters:
+/// - 3.8.1.4: `Comment`
 /// - 3.8.1.5: `Description`
-/// - 3.8.1.12: `Summary`
 /// - 3.8.1.7: `Location`
+/// - 3.8.1.10: `Resources` (multi-valued)
+/// - 3.8.1.12: `Summary`
 /// - 3.8.4.2: `Contact`
-/// - 3.8.3.2: `TzName`
 #[derive(Debug, Clone)]
 pub struct Text<S: StringStorage> {
     /// The actual text content
@@ -174,10 +326,9 @@ pub struct Text<S: StringStorage> {
     pub language: Option<S>,
 
     /// Alternate text representation URI (optional)
-    //
-    // TODO: Per RFC 5545, this parameter is not applicable to TZNAME and CATEGORIES
-    // properties, but may be present in other text properties like DESCRIPTION,
-    // SUMMARY, LOCATION, CONTACT, and RESOURCES.
+    ///
+    /// Per RFC 5545 Section 3.2.1, this parameter specifies a URI that points
+    /// to an alternate representation for the textual property value.
     pub altrep: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
@@ -251,84 +402,6 @@ impl Text<SpannedSegments<'_>> {
             content: self.content.to_owned(),
             language: self.language.as_ref().map(SpannedSegments::to_owned),
             altrep: self.altrep.as_ref().map(SpannedSegments::to_owned),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
-                .iter()
-                .map(Parameter::to_owned)
-                .collect(),
-        }
-    }
-}
-
-/// Multi-valued text properties (CATEGORIES, RESOURCES)
-///
-/// This type represents properties that can have multiple text values,
-/// such as CATEGORIES or RESOURCES.
-///
-/// Note: Per RFC 5545, ALTREP is not applicable to CATEGORIES and RESOURCES,
-/// so only the language parameter is extracted.
-#[derive(Debug, Clone)]
-pub struct Texts<S: StringStorage> {
-    /// List of text values
-    pub values: Vec<ValueText<S>>,
-
-    /// Language code (optional, applied to all values)
-    pub language: Option<S>,
-
-    /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-}
-
-impl<'src> TryFrom<ParsedProperty<'src>> for Texts<SpannedSegments<'src>> {
-    type Error = Vec<TypedError<'src>>;
-
-    fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
-        let mut language = None;
-        let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
-
-        for param in prop.parameters {
-            match param {
-                Parameter::Language { value, .. } => language = Some(value),
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
-                p => {
-                    // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
-                }
-            }
-        }
-
-        let Value::Text { values, .. } = prop.value else {
-            let span = prop.value.span();
-            return Err(vec![TypedError::PropertyUnexpectedValue {
-                property: prop.kind,
-                expected: ValueType::Text,
-                found: prop.value.kind().into(),
-                span,
-            }]);
-        };
-
-        Ok(Self {
-            values,
-            language,
-            x_parameters,
-            unrecognized_parameters,
-        })
-    }
-}
-
-impl Texts<SpannedSegments<'_>> {
-    /// Convert borrowed Texts to owned Texts
-    #[must_use]
-    pub fn to_owned(&self) -> Texts<String> {
-        Texts {
-            values: self.values.iter().map(ValueText::to_owned).collect(),
-            language: self.language.as_ref().map(SpannedSegments::to_owned),
             x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
             unrecognized_parameters: self
                 .unrecognized_parameters

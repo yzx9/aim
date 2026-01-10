@@ -13,22 +13,26 @@
 use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
-use crate::property::util::{Text, UriProperty, take_single_value};
+use crate::property::common::{TextOnly, TextWithLanguage, UriProperty, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueUtcOffset};
 
 simple_property_wrapper!(
-    /// Simple text property wrapper for `TzId` (RFC 5545 Section 3.8.3.1)
-    pub TzId<S> => Text
+    /// Plain text property wrapper for `TzId` (RFC 5545 Section 3.8.3.1)
+    ///
+    /// Per RFC 5545, TZID does not support any standard parameters.
+    pub TzId<S> => TextOnly
 
     ref   = pub type TzIdRef;
     owned = pub type TzIdOwned;
 );
 
 simple_property_wrapper!(
-    /// Simple text property wrapper for `TzName` (RFC 5545 Section 3.8.3.2)
-    pub TzName<S> => Text
+    /// Text property wrapper for `TzName` (RFC 5545 Section 3.8.3.2)
+    ///
+    /// Per RFC 5545, TZNAME supports the LANGUAGE parameter but not ALTREP.
+    pub TzName<S> => TextWithLanguage
 
     ref   = pub type TzNameRef;
     owned = pub type TzNameOwned;
