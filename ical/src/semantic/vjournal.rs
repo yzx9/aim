@@ -6,7 +6,6 @@
 
 use std::fmt;
 
-use crate::StringStorage;
 use crate::keyword::KW_VJOURNAL;
 use crate::parameter::Parameter;
 use crate::property::{
@@ -14,7 +13,7 @@ use crate::property::{
     Organizer, Property, PropertyKind, RDate, RRule, Status, StatusValue, Summary, Uid, Url,
 };
 use crate::semantic::SemanticError;
-use crate::string_storage::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Journal entry component (VJOURNAL)
@@ -197,9 +196,9 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
 
         if errors.is_empty() {
             Ok(VJournal {
-                uid: props.uid.unwrap(),
-                dt_stamp: props.dt_stamp.unwrap(),
-                dt_start: props.dt_start.unwrap(),
+                uid: props.uid.unwrap(),           // SAFETY: checked above
+                dt_stamp: props.dt_stamp.unwrap(), // SAFETY: checked above
+                dt_start: props.dt_start.unwrap(), // SAFETY: checked above
                 summary: props.summary,
                 descriptions: props.descriptions,
                 organizer: props.organizer,

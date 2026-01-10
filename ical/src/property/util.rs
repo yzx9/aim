@@ -53,7 +53,7 @@ pub fn take_single_text<'src>(
             Err(vec![TypedError::PropertyUnexpectedValue {
                 property: kind.clone(),
                 expected: ValueTypeRef::Text,
-                found: v.into_kind(),
+                found: v.kind().into(),
                 span,
             }])
         }
@@ -109,7 +109,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<SpannedSegments<'src>> {
                 p @ Parameter::Language { .. } if language.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::Language { value, .. } => language = Some(value),
@@ -117,7 +117,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<SpannedSegments<'src>> {
                 p @ Parameter::AlternateText { .. } if altrep.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::AlternateText { value, .. } => altrep = Some(value),
@@ -211,7 +211,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Texts<SpannedSegments<'src>> {
             return Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
                 expected: ValueTypeRef::Text,
-                found: prop.value.into_kind(),
+                found: prop.value.kind().into(),
                 span,
             }]);
         };

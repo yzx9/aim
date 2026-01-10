@@ -315,9 +315,9 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
 
         if errors.is_empty() {
             Ok(VEvent {
-                uid: props.uid.unwrap(),
-                dt_stamp: props.dt_stamp.unwrap(),
-                dt_start: props.dt_start.unwrap(),
+                uid: props.uid.unwrap(),           // SAFETY: checked above
+                dt_stamp: props.dt_stamp.unwrap(), // SAFETY: checked above
+                dt_start: props.dt_start.unwrap(), // SAFETY: checked above
                 dt_end: props.dt_end,
                 duration: props.duration,
                 summary: props.summary,

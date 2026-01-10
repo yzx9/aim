@@ -17,7 +17,7 @@ use crate::keyword::{
 };
 use crate::parameter::util::{ParseResult, parse_single, parse_single_not_quoted};
 use crate::parameter::{Parameter, ParameterKind};
-use crate::string_storage::SpannedSegments;
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::syntax::{SyntaxParameterRef, SyntaxParameterValueRef};
 use crate::typed::TypedError;
 
@@ -27,7 +27,7 @@ use crate::typed::TypedError;
 ///
 /// Returns an error if the parameter value is not `TRUE` or `FALSE`.
 pub fn parse_rsvp(mut param: SyntaxParameterRef<'_>) -> ParseResult<'_> {
-    let span = param.span();
+    let span = param.span;
     parse_single(&mut param, ParameterKind::RsvpExpectation).and_then(|v| {
         if v.value.eq_str_ignore_ascii_case(KW_RSVP_TRUE) {
             Ok(Parameter::RsvpExpectation { value: true, span })
@@ -51,7 +51,7 @@ pub fn parse_rsvp(mut param: SyntaxParameterRef<'_>) -> ParseResult<'_> {
 /// - The parameter does not have exactly one value (when jiff feature is enabled)
 /// - The timezone identifier is not valid (when jiff feature is enabled)
 pub fn parse_tzid<'src>(mut param: SyntaxParameterRef<'src>) -> ParseResult<'src> {
-    let span = param.span();
+    let span = param.span;
 
     #[cfg(feature = "jiff")]
     let op = |v: SyntaxParameterValueRef<'src>| {
@@ -240,4 +240,27 @@ define_param_enum_with_unknown! {
     ref    = pub type ValueTypeRef;
     owned  = pub type ValueTypeOwned;
     parser = pub fn parse_value_type;
+}
+
+impl<S: StringStorage> From<ValueType<&S>> for ValueType<S> {
+    fn from(value: ValueType<&S>) -> Self {
+        match value {
+            ValueType::Binary => ValueType::Binary,
+            ValueType::Boolean => ValueType::Boolean,
+            ValueType::CalendarUserAddress => ValueType::CalendarUserAddress,
+            ValueType::Date => ValueType::Date,
+            ValueType::DateTime => ValueType::DateTime,
+            ValueType::Duration => ValueType::Duration,
+            ValueType::Float => ValueType::Float,
+            ValueType::Integer => ValueType::Integer,
+            ValueType::Period => ValueType::Period,
+            ValueType::RecurrenceRule => ValueType::RecurrenceRule,
+            ValueType::Text => ValueType::Text,
+            ValueType::Time => ValueType::Time,
+            ValueType::Uri => ValueType::Uri,
+            ValueType::UtcOffset => ValueType::UtcOffset,
+            ValueType::XName(v) => ValueType::XName(v.to_owned()),
+            ValueType::Unrecognized(v) => ValueType::Unrecognized(v.to_owned()),
+        }
+    }
 }

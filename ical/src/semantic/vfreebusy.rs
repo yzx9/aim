@@ -71,7 +71,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
         // Collect all properties in a single pass
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
-            // TODO: Use property span instead of component span for DuplicateProperty
             match prop {
                 Property::FreeBusy(freebusy) => {
                     for value in freebusy.values {

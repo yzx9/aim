@@ -27,7 +27,7 @@ use crate::parameter::definition::{
     parse_range, parse_reltype, parse_role, parse_rsvp, parse_tzid, parse_value_type,
 };
 use crate::parameter::util::{parse_multiple_quoted, parse_single, parse_single_quoted};
-use crate::string_storage::{Span, SpannedSegments, StringStorage};
+use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::syntax::{SyntaxParameter, SyntaxParameterRef};
 use crate::typed::TypedError;
 
@@ -260,12 +260,7 @@ pub enum Parameter<S: StringStorage> {
     /// but preserve the data for round-trip compatibility.
     ///
     /// See also: RFC 5545 Section 3.2 (Parameter definition)
-    XName {
-        /// Parameter name (including the "X-" prefix)
-        name: S,
-        /// Raw parameter (unparsed)
-        raw: SyntaxParameter<S>,
-    },
+    XName(SyntaxParameter<S>),
 
     /// Unrecognized iana-token parameter.
     ///
@@ -273,12 +268,7 @@ pub enum Parameter<S: StringStorage> {
     /// they don't recognize, but preserve the data for round-trip compatibility.
     ///
     /// See also: RFC 5545 Section 3.2 (Parameter definition)
-    Unrecognized {
-        /// Parameter name
-        name: S,
-        /// Raw parameter (unparsed)
-        raw: SyntaxParameter<S>,
-    },
+    Unrecognized(SyntaxParameter<S>),
 }
 
 /// Type alias for borrowed parameter
@@ -287,10 +277,10 @@ pub type ParameterRef<'src> = Parameter<SpannedSegments<'src>>;
 /// Type alias for owned parameter
 pub type ParameterOwned = Parameter<String>;
 
-impl<'src> ParameterRef<'src> {
-    /// Returns the type of the parameter
+impl<S: StringStorage> Parameter<S> {
+    /// Get the kind of the parameter
     #[must_use]
-    pub fn into_kind(self) -> ParameterKindRef<'src> {
+    pub fn kind(&self) -> ParameterKind<&S> {
         match self {
             Parameter::AlternateText { .. } => ParameterKind::AlternateText,
             Parameter::CommonName { .. } => ParameterKind::CommonName,
@@ -312,14 +302,14 @@ impl<'src> ParameterRef<'src> {
             Parameter::RsvpExpectation { .. } => ParameterKind::RsvpExpectation,
             Parameter::TimeZoneIdentifier { .. } => ParameterKind::TimeZoneIdentifier,
             Parameter::ValueType { .. } => ParameterKind::ValueType,
-            Parameter::XName { name, .. } => ParameterKind::XName(name),
-            Parameter::Unrecognized { name, .. } => ParameterKind::Unrecognized(name),
+            Parameter::XName(raw) => ParameterKind::XName(&raw.name),
+            Parameter::Unrecognized(raw) => ParameterKind::Unrecognized(&raw.name),
         }
     }
 
     /// Span of the parameter
     #[must_use]
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> S::Span {
         match self {
             Parameter::AlternateText { span, .. }
             | Parameter::CommonName { span, .. }
@@ -342,13 +332,14 @@ impl<'src> ParameterRef<'src> {
             | Parameter::TimeZoneIdentifier { span, .. }
             | Parameter::ValueType { span, .. } => *span,
 
-            Parameter::XName { raw, .. } | Parameter::Unrecognized { raw, .. } => raw.span(),
+            Parameter::XName(raw) | Parameter::Unrecognized(raw) => raw.span,
         }
     }
+}
 
+impl ParameterRef<'_> {
     /// Convert borrowed type to owned type
     #[must_use]
-    #[expect(clippy::too_many_lines)]
     pub fn to_owned(&self) -> ParameterOwned {
         match self {
             Parameter::AlternateText { value, .. } => ParameterOwned::AlternateText {
@@ -442,14 +433,8 @@ impl<'src> ParameterRef<'src> {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::XName { name, raw } => ParameterOwned::XName {
-                name: name.to_owned(),
-                raw: raw.to_owned(),
-            },
-            Parameter::Unrecognized { name, raw } => ParameterOwned::Unrecognized {
-                name: name.to_owned(),
-                raw: raw.to_owned(),
-            },
+            Parameter::XName(raw) => ParameterOwned::XName(raw.to_owned()),
+            Parameter::Unrecognized(raw) => ParameterOwned::Unrecognized(raw.to_owned()),
         }
     }
 }
@@ -466,48 +451,48 @@ impl<'src> TryFrom<SyntaxParameterRef<'src>> for ParameterRef<'src> {
             ParameterKind::AlternateText => {
                 parse_single_quoted(&mut param, kind).map(|value| Parameter::AlternateText {
                     value,
-                    span: param.span(),
+                    span: param.span,
                 })
             }
             ParameterKind::CommonName => {
                 parse_single(&mut param, kind).map(|v| Parameter::CommonName {
                     value: v.value,
-                    span: param.span(),
+                    span: param.span,
                 })
             }
             ParameterKind::CalendarUserType => parse_cutype(param),
             ParameterKind::Delegators => {
-                let span = param.span();
+                let span = param.span;
                 parse_multiple_quoted(param, &kind)
                     .map(|values| Parameter::Delegators { values, span })
             }
             ParameterKind::Delegatees => {
-                let span = param.span();
+                let span = param.span;
                 parse_multiple_quoted(param, &kind)
                     .map(|values| Parameter::Delegatees { values, span })
             }
             ParameterKind::Directory => {
                 parse_single_quoted(&mut param, kind).map(|value| Parameter::Directory {
                     value,
-                    span: param.span(),
+                    span: param.span,
                 })
             }
             ParameterKind::Encoding => parse_encoding(param),
             ParameterKind::FormatType => {
                 parse_single(&mut param, kind).map(|v| Parameter::FormatType {
                     value: v.value,
-                    span: param.span(),
+                    span: param.span,
                 })
             }
             ParameterKind::FreeBusyType => parse_fbtype(param),
             ParameterKind::Language => {
                 parse_single(&mut param, kind).map(|v| Parameter::Language {
                     value: v.value,
-                    span: param.span(),
+                    span: param.span,
                 })
             }
             ParameterKind::GroupOrListMembership => {
-                let span = param.span();
+                let span = param.span;
                 parse_multiple_quoted(param, &kind)
                     .map(|values| Parameter::GroupOrListMembership { values, span })
             }
@@ -519,7 +504,7 @@ impl<'src> TryFrom<SyntaxParameterRef<'src>> for ParameterRef<'src> {
             ParameterKind::SendBy => {
                 parse_single_quoted(&mut param, kind).map(|value| Parameter::SendBy {
                     value,
-                    span: param.span(),
+                    span: param.span,
                 })
             }
             ParameterKind::RsvpExpectation => parse_rsvp(param),
@@ -527,8 +512,8 @@ impl<'src> TryFrom<SyntaxParameterRef<'src>> for ParameterRef<'src> {
             ParameterKind::ValueType => parse_value_type(param),
             // Preserve unknown parameter per RFC 5545 Section 3.2
             // TODO: emit warning for x-name / unrecognized iana-token parameter
-            ParameterKind::XName(name) => Ok(Parameter::XName { name, raw: param }),
-            ParameterKind::Unrecognized(name) => Ok(Parameter::Unrecognized { name, raw: param }),
+            ParameterKind::XName(_) => Ok(Parameter::XName(param)),
+            ParameterKind::Unrecognized(_) => Ok(Parameter::Unrecognized(param)),
         }
     }
 }

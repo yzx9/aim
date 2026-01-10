@@ -98,7 +98,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
                 p @ Parameter::FormatType { .. } if fmt_type.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::FormatType { value, .. } => fmt_type = Some(value),
@@ -106,7 +106,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
                 p @ Parameter::Encoding { .. } if encoding.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::Encoding { value, .. } => encoding = Some(value),
@@ -604,7 +604,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'sr
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueTypeRef::Integer,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }])
             }
@@ -707,7 +707,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueTypeRef::Integer,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }])
             }

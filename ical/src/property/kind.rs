@@ -21,69 +21,6 @@ use crate::keyword::{
 use crate::parameter::ValueTypeRef;
 use crate::string_storage::SpannedSegments;
 
-/// Type alias for borrowed `PropertyKind`
-pub type PropertyKindRef<'src> = PropertyKind<SpannedSegments<'src>>;
-
-/// Type alias for owned `PropertyKind`
-pub type PropertyKindOwned = PropertyKind<String>;
-
-impl PropertyKindRef<'_> {
-    /// Convert borrowed type to owned type
-    #[must_use]
-    pub fn to_owned(&self) -> PropertyKindOwned {
-        match self {
-            PropertyKind::Action => PropertyKindOwned::Action,
-            PropertyKind::Attach => PropertyKindOwned::Attach,
-            PropertyKind::Attendee => PropertyKindOwned::Attendee,
-            PropertyKind::CalScale => PropertyKindOwned::CalScale,
-            PropertyKind::Categories => PropertyKindOwned::Categories,
-            PropertyKind::Class => PropertyKindOwned::Class,
-            PropertyKind::Comment => PropertyKindOwned::Comment,
-            PropertyKind::Completed => PropertyKindOwned::Completed,
-            PropertyKind::Contact => PropertyKindOwned::Contact,
-            PropertyKind::Created => PropertyKindOwned::Created,
-            PropertyKind::Description => PropertyKindOwned::Description,
-            PropertyKind::DtEnd => PropertyKindOwned::DtEnd,
-            PropertyKind::DtStamp => PropertyKindOwned::DtStamp,
-            PropertyKind::DtStart => PropertyKindOwned::DtStart,
-            PropertyKind::Due => PropertyKindOwned::Due,
-            PropertyKind::Duration => PropertyKindOwned::Duration,
-            PropertyKind::ExDate => PropertyKindOwned::ExDate,
-            PropertyKind::FreeBusy => PropertyKindOwned::FreeBusy,
-            PropertyKind::Geo => PropertyKindOwned::Geo,
-            PropertyKind::LastModified => PropertyKindOwned::LastModified,
-            PropertyKind::Location => PropertyKindOwned::Location,
-            PropertyKind::Method => PropertyKindOwned::Method,
-            PropertyKind::Organizer => PropertyKindOwned::Organizer,
-            PropertyKind::PercentComplete => PropertyKindOwned::PercentComplete,
-            PropertyKind::Priority => PropertyKindOwned::Priority,
-            PropertyKind::ProdId => PropertyKindOwned::ProdId,
-            PropertyKind::RDate => PropertyKindOwned::RDate,
-            PropertyKind::RecurrenceId => PropertyKindOwned::RecurrenceId,
-            PropertyKind::RelatedTo => PropertyKindOwned::RelatedTo,
-            PropertyKind::Repeat => PropertyKindOwned::Repeat,
-            PropertyKind::RequestStatus => PropertyKindOwned::RequestStatus,
-            PropertyKind::Resources => PropertyKindOwned::Resources,
-            PropertyKind::RRule => PropertyKindOwned::RRule,
-            PropertyKind::Sequence => PropertyKindOwned::Sequence,
-            PropertyKind::Status => PropertyKindOwned::Status,
-            PropertyKind::Summary => PropertyKindOwned::Summary,
-            PropertyKind::Transp => PropertyKindOwned::Transp,
-            PropertyKind::Trigger => PropertyKindOwned::Trigger,
-            PropertyKind::TzId => PropertyKindOwned::TzId,
-            PropertyKind::TzName => PropertyKindOwned::TzName,
-            PropertyKind::TzOffsetFrom => PropertyKindOwned::TzOffsetFrom,
-            PropertyKind::TzOffsetTo => PropertyKindOwned::TzOffsetTo,
-            PropertyKind::TzUrl => PropertyKindOwned::TzUrl,
-            PropertyKind::Uid => PropertyKindOwned::Uid,
-            PropertyKind::Url => PropertyKindOwned::Url,
-            PropertyKind::Version => PropertyKindOwned::Version,
-            PropertyKind::XName(s) => PropertyKindOwned::XName(s.to_owned()),
-            PropertyKind::Unrecognized(s) => PropertyKindOwned::Unrecognized(s.to_owned()),
-        }
-    }
-}
-
 /// Macro to define `PropertyKind` with associated value types.
 ///
 /// Usage: `property_kind!(Variant => KW => &[...], ...)`
@@ -251,6 +188,69 @@ property_kind! {
     Sequence    => KW_SEQUENCE  => &[ValueTypeRef::Integer],
     // 3.8.8.3.  Request Status
     RequestStatus => KW_REQUEST_STATUS => &[ValueTypeRef::Text],
+}
+
+/// Type alias for borrowed `PropertyKind`
+pub type PropertyKindRef<'src> = PropertyKind<SpannedSegments<'src>>;
+
+/// Type alias for owned `PropertyKind`
+pub type PropertyKindOwned = PropertyKind<String>;
+
+impl PropertyKindRef<'_> {
+    /// Convert borrowed type to owned type
+    #[must_use]
+    pub fn to_owned(&self) -> PropertyKindOwned {
+        match self {
+            PropertyKind::Action => PropertyKindOwned::Action,
+            PropertyKind::Attach => PropertyKindOwned::Attach,
+            PropertyKind::Attendee => PropertyKindOwned::Attendee,
+            PropertyKind::CalScale => PropertyKindOwned::CalScale,
+            PropertyKind::Categories => PropertyKindOwned::Categories,
+            PropertyKind::Class => PropertyKindOwned::Class,
+            PropertyKind::Comment => PropertyKindOwned::Comment,
+            PropertyKind::Completed => PropertyKindOwned::Completed,
+            PropertyKind::Contact => PropertyKindOwned::Contact,
+            PropertyKind::Created => PropertyKindOwned::Created,
+            PropertyKind::Description => PropertyKindOwned::Description,
+            PropertyKind::DtEnd => PropertyKindOwned::DtEnd,
+            PropertyKind::DtStamp => PropertyKindOwned::DtStamp,
+            PropertyKind::DtStart => PropertyKindOwned::DtStart,
+            PropertyKind::Due => PropertyKindOwned::Due,
+            PropertyKind::Duration => PropertyKindOwned::Duration,
+            PropertyKind::ExDate => PropertyKindOwned::ExDate,
+            PropertyKind::FreeBusy => PropertyKindOwned::FreeBusy,
+            PropertyKind::Geo => PropertyKindOwned::Geo,
+            PropertyKind::LastModified => PropertyKindOwned::LastModified,
+            PropertyKind::Location => PropertyKindOwned::Location,
+            PropertyKind::Method => PropertyKindOwned::Method,
+            PropertyKind::Organizer => PropertyKindOwned::Organizer,
+            PropertyKind::PercentComplete => PropertyKindOwned::PercentComplete,
+            PropertyKind::Priority => PropertyKindOwned::Priority,
+            PropertyKind::ProdId => PropertyKindOwned::ProdId,
+            PropertyKind::RDate => PropertyKindOwned::RDate,
+            PropertyKind::RecurrenceId => PropertyKindOwned::RecurrenceId,
+            PropertyKind::RelatedTo => PropertyKindOwned::RelatedTo,
+            PropertyKind::Repeat => PropertyKindOwned::Repeat,
+            PropertyKind::RequestStatus => PropertyKindOwned::RequestStatus,
+            PropertyKind::Resources => PropertyKindOwned::Resources,
+            PropertyKind::RRule => PropertyKindOwned::RRule,
+            PropertyKind::Sequence => PropertyKindOwned::Sequence,
+            PropertyKind::Status => PropertyKindOwned::Status,
+            PropertyKind::Summary => PropertyKindOwned::Summary,
+            PropertyKind::Transp => PropertyKindOwned::Transp,
+            PropertyKind::Trigger => PropertyKindOwned::Trigger,
+            PropertyKind::TzId => PropertyKindOwned::TzId,
+            PropertyKind::TzName => PropertyKindOwned::TzName,
+            PropertyKind::TzOffsetFrom => PropertyKindOwned::TzOffsetFrom,
+            PropertyKind::TzOffsetTo => PropertyKindOwned::TzOffsetTo,
+            PropertyKind::TzUrl => PropertyKindOwned::TzUrl,
+            PropertyKind::Uid => PropertyKindOwned::Uid,
+            PropertyKind::Url => PropertyKindOwned::Url,
+            PropertyKind::Version => PropertyKindOwned::Version,
+            PropertyKind::XName(s) => PropertyKindOwned::XName(s.to_owned()),
+            PropertyKind::Unrecognized(s) => PropertyKindOwned::Unrecognized(s.to_owned()),
+        }
+    }
 }
 
 #[cfg(test)]

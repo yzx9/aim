@@ -72,42 +72,37 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop {
-                // TODO: Use property span instead of component span for DuplicateProperty
-                Property::ProdId(value) => match props.prod_id {
+                Property::ProdId(prod_id) => match props.prod_id {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::ProdId,
-                        span: value.span,
+                        span: prod_id.span,
                     }),
-                    None => props.prod_id = Some(value),
+                    None => props.prod_id = Some(prod_id),
                 },
-                Property::Version(value) => match props.version {
+                Property::Version(version) => match props.version {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Version,
-                        span: value.span,
+                        span: version.span,
                     }),
-                    None => props.version = Some(value),
+                    None => props.version = Some(version),
                 },
-                Property::CalScale(value) => match props.calscale {
+                Property::CalScale(calscale) => match props.calscale {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::CalScale,
-                        span: value.span,
+                        span: calscale.span,
                     }),
-                    None => props.calscale = Some(value),
+                    None => props.calscale = Some(calscale),
                 },
-                Property::Method(value) => match props.method {
+                Property::Method(method) => match props.method {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Method,
-                        span: value.span,
+                        span: method.span,
                     }),
-                    None => props.method = Some(value),
+                    None => props.method = Some(method),
                 },
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => {
-                    props.x_properties.push(prop);
-                }
-                prop @ Property::Unrecognized { .. } => {
-                    props.unrecognized_properties.push(prop);
-                }
+                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by ICalendar for round-trip
                     props.unrecognized_properties.push(prop);

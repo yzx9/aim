@@ -12,7 +12,7 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::{Parameter, ValueTypeRef};
+use crate::parameter::{Parameter, ValueType};
 use crate::property::util::{Text, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
@@ -80,8 +80,8 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<SpannedSegments<'
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: kind,
-                    expected: ValueTypeRef::UtcOffset,
-                    found: v.into_kind(),
+                    expected: ValueType::UtcOffset,
+                    found: v.kind().into(),
                     span,
                 }])
             }

@@ -112,7 +112,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::CommonName { .. } if cn.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::CommonName { value, .. } => cn = Some(value),
@@ -120,7 +120,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::ParticipationRole { .. } if role.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::ParticipationRole { value, .. } => role = Some(value),
@@ -128,7 +128,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::ParticipationStatus { .. } if part_stat.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::ParticipationStatus { value, .. } => part_stat = Some(value),
@@ -136,7 +136,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::RsvpExpectation { .. } if rsvp.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::RsvpExpectation { value, .. } => rsvp = Some(value),
@@ -144,7 +144,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::CalendarUserType { .. } if cutype.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::CalendarUserType { value, .. } => cutype = Some(value),
@@ -152,7 +152,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::GroupOrListMembership { .. } if member.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::GroupOrListMembership { values, .. } => member = Some(values),
@@ -160,7 +160,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::Delegatees { .. } if delegated_to.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::Delegatees { values, .. } => delegated_to = Some(values),
@@ -168,7 +168,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::Delegators { .. } if delegated_from.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::Delegators { values, .. } => delegated_from = Some(values),
@@ -176,7 +176,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::Directory { .. } if dir.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::Directory { value, .. } => dir = Some(value),
@@ -184,7 +184,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::SendBy { .. } if sent_by.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::SendBy { value, .. } => sent_by = Some(value),
@@ -192,7 +192,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 p @ Parameter::Language { .. } if language.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::Language { value, .. } => language = Some(value),
@@ -345,7 +345,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
                 p @ Parameter::CommonName { .. } if cn.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::CommonName { value, .. } => cn = Some(value),
@@ -353,7 +353,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
                 p @ Parameter::Directory { .. } if dir.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::Directory { value, .. } => dir = Some(value),
@@ -361,15 +361,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
                 p @ Parameter::SendBy { .. } if sent_by.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::SendBy { value, .. } => sent_by = Some(value),
 
                 p @ Parameter::Language { .. } if language.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
+                        parameter: p.kind().into(),
                         span: p.span(),
-                        parameter: p.into_kind(),
                     });
                 }
                 Parameter::Language { value, .. } => language = Some(value),

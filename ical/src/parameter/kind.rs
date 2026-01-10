@@ -92,6 +92,35 @@ pub type ParameterKindRef<'src> = ParameterKind<SpannedSegments<'src>>;
 /// Type alias for owned parameter kind
 pub type ParameterKindOwned = ParameterKind<String>;
 
+impl<S: StringStorage> From<ParameterKind<&S>> for ParameterKind<S> {
+    fn from(value: ParameterKind<&S>) -> Self {
+        match value {
+            ParameterKind::AlternateText => ParameterKind::AlternateText,
+            ParameterKind::CommonName => ParameterKind::CommonName,
+            ParameterKind::CalendarUserType => ParameterKind::CalendarUserType,
+            ParameterKind::Delegators => ParameterKind::Delegators,
+            ParameterKind::Delegatees => ParameterKind::Delegatees,
+            ParameterKind::Directory => ParameterKind::Directory,
+            ParameterKind::Encoding => ParameterKind::Encoding,
+            ParameterKind::FormatType => ParameterKind::FormatType,
+            ParameterKind::FreeBusyType => ParameterKind::FreeBusyType,
+            ParameterKind::Language => ParameterKind::Language,
+            ParameterKind::GroupOrListMembership => ParameterKind::GroupOrListMembership,
+            ParameterKind::ParticipationStatus => ParameterKind::ParticipationStatus,
+            ParameterKind::RecurrenceIdRange => ParameterKind::RecurrenceIdRange,
+            ParameterKind::AlarmTriggerRelationship => ParameterKind::AlarmTriggerRelationship,
+            ParameterKind::RelationshipType => ParameterKind::RelationshipType,
+            ParameterKind::ParticipationRole => ParameterKind::ParticipationRole,
+            ParameterKind::SendBy => ParameterKind::SendBy,
+            ParameterKind::RsvpExpectation => ParameterKind::RsvpExpectation,
+            ParameterKind::TimeZoneIdentifier => ParameterKind::TimeZoneIdentifier,
+            ParameterKind::ValueType => ParameterKind::ValueType,
+            ParameterKind::XName(s) => ParameterKind::XName(s.to_owned()),
+            ParameterKind::Unrecognized(s) => ParameterKind::Unrecognized(s.to_owned()),
+        }
+    }
+}
+
 impl ParameterKindRef<'_> {
     /// Convert borrowed type to owned type
     #[must_use]

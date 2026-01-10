@@ -212,7 +212,7 @@ pub enum Value<S: StringStorage> {
         /// The raw value string (unparsed)
         raw: S,
         /// The value type that was specified
-        kind: ValueType<S>,
+        kind: S,
         /// The span of the value
         span: S::Span,
     },
@@ -228,7 +228,7 @@ pub enum Value<S: StringStorage> {
         /// The raw value string (unparsed)
         raw: S,
         /// The value type that was specified
-        kind: ValueType<S>,
+        kind: S,
         /// The span of the value
         span: S::Span,
     },
@@ -240,10 +240,31 @@ pub type ValueRef<'src> = Value<SpannedSegments<'src>>;
 /// Type alias for owned value
 pub type ValueOwned = Value<String>;
 
-impl<'src> ValueRef<'src> {
+impl<S: StringStorage> Value<S> {
+    /// Get the kind of this value.
+    #[must_use]
+    pub fn kind(&self) -> ValueType<&S> {
+        match self {
+            Value::Binary { .. } => ValueType::Binary,
+            Value::Boolean { .. } => ValueType::Boolean,
+            Value::Date { .. } => ValueType::Date,
+            Value::DateTime { .. } => ValueType::DateTime,
+            Value::Duration { .. } => ValueType::Duration,
+            Value::Float { .. } => ValueType::Float,
+            Value::Integer { .. } => ValueType::Integer,
+            Value::RecurrenceRule { .. } => ValueType::RecurrenceRule,
+            Value::Period { .. } => ValueType::Period,
+            Value::Text { .. } => ValueType::Text,
+            Value::Time { .. } => ValueType::Time,
+            Value::UtcOffset { .. } => ValueType::UtcOffset,
+            Value::XName { kind, .. } => ValueType::XName(kind),
+            Value::Unrecognized { kind, .. } => ValueType::Unrecognized(kind),
+        }
+    }
+
     /// Get the span of this value.
     #[must_use]
-    pub const fn span(&self) -> Span {
+    pub const fn span(&self) -> S::Span {
         match self {
             Value::Binary { span, .. }
             | Value::Boolean { span, .. }
@@ -259,29 +280,6 @@ impl<'src> ValueRef<'src> {
             | Value::UtcOffset { span, .. }
             | Value::XName { span, .. }
             | Value::Unrecognized { span, .. } => *span,
-        }
-    }
-
-    /// Get the kind of this value, consuming the value in the process.
-    ///
-    /// This is useful when you need to move the kind out of a value that will
-    /// be dropped anyway (e.g., in error handling).
-    #[must_use]
-    pub fn into_kind(self) -> ValueType<SpannedSegments<'src>> {
-        match self {
-            Value::Binary { .. } => ValueType::Binary,
-            Value::Boolean { .. } => ValueType::Boolean,
-            Value::Date { .. } => ValueType::Date,
-            Value::DateTime { .. } => ValueType::DateTime,
-            Value::Duration { .. } => ValueType::Duration,
-            Value::Float { .. } => ValueType::Float,
-            Value::Integer { .. } => ValueType::Integer,
-            Value::RecurrenceRule { .. } => ValueType::RecurrenceRule,
-            Value::Period { .. } => ValueType::Period,
-            Value::Text { .. } => ValueType::Text,
-            Value::Time { .. } => ValueType::Time,
-            Value::UtcOffset { .. } => ValueType::UtcOffset,
-            Value::XName { kind, .. } | Value::Unrecognized { kind, .. } => kind,
         }
     }
 
@@ -313,7 +311,9 @@ impl<'src> ValueRef<'src> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+}
 
+impl ValueRef<'_> {
     /// Convert borrowed type to owned type
     #[must_use]
     pub fn to_owned(&self) -> ValueOwned {
@@ -521,14 +521,14 @@ fn parse_value_single_type<'src>(
 
         // For unknown value types, preserve raw data as XName or Unrecognized
         // value per RFC 5545 Section 3.2.20
-        ValueType::XName(_) => Ok(Value::XName {
+        ValueType::XName(kind) => Ok(Value::XName {
             raw: value.clone(),
-            kind: value_type.clone(),
+            kind: kind.clone(),
             span: value.span(),
         }),
-        ValueType::Unrecognized(_) => Ok(Value::Unrecognized {
+        ValueType::Unrecognized(kind) => Ok(Value::Unrecognized {
             raw: value.clone(),
-            kind: value_type.clone(),
+            kind: kind.clone(),
             span: value.span(),
         }),
     }

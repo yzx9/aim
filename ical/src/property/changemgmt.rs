@@ -125,7 +125,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueTypeRef::Integer,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }])
             }

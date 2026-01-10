@@ -228,7 +228,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<SpannedSegments<'src>> {
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueTypeRef::Integer,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }])
             }
@@ -312,7 +312,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<SpannedSegments<'src>> {
                 p @ Parameter::AlarmTriggerRelationship { .. } if related.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::AlarmTriggerRelationship { value, .. } => related = Some(value),

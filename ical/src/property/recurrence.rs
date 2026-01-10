@@ -123,7 +123,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
                 p @ Parameter::TimeZoneIdentifier { .. } if tz_id.is_some() => {
                     return Err(vec![TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     }]);
                 }
                 Parameter::TimeZoneIdentifier { value, .. } => tz_id = Some(value),
@@ -157,7 +157,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueTypeRef::Date,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }])
             }
@@ -234,7 +234,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
                 p @ Parameter::TimeZoneIdentifier { .. } if tz_id.is_some() => {
                     return Err(vec![TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     }]);
                 }
                 Parameter::TimeZoneIdentifier { value, .. } => tz_id = Some(value),
@@ -277,7 +277,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueTypeRef::Period,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }])
             }
@@ -368,7 +368,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
                 return Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueTypeRef::RecurrenceRule,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }]);
             }

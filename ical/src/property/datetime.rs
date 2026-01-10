@@ -198,7 +198,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
                 p @ Parameter::TimeZoneIdentifier { .. } if tz_id.is_some() => {
                     errors.push(TypedError::ParameterDuplicated {
                         span: p.span(),
-                        parameter: p.into_kind(),
+                        parameter: p.kind().into(),
                     });
                 }
                 Parameter::TimeZoneIdentifier {
@@ -810,7 +810,7 @@ impl<'src> TryFrom<Value<SpannedSegments<'src>>> for Period<SpannedSegments<'src
             }
             _ => Err(vec![TypedError::ValueTypeDisallowed {
                 property: PropertyKind::FreeBusy,
-                value_type: value.into_kind(),
+                value_type: value.kind().into(),
                 expected_types: &[ValueType::Period],
                 span,
             }]),
@@ -1064,7 +1064,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueType::Duration,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }])
             }
@@ -1152,7 +1152,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
                 return Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueType::Period,
-                    found: v.into_kind(),
+                    found: v.kind().into(),
                     span,
                 }]);
             }

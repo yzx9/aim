@@ -385,9 +385,9 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PropertyRef<'src> {
 }
 
 impl<S: StringStorage> Property<S> {
-    /// Returns the `PropertyKind` for this property
+    /// Gets the kind of this property
     #[must_use]
-    pub fn kind(&self) -> PropertyKind<S> {
+    pub fn kind(&self) -> PropertyKind<&S> {
         match self {
             // Section 3.7 - Calendar Properties
             Self::CalScale(_) => PropertyKind::CalScale,
@@ -454,8 +454,8 @@ impl<S: StringStorage> Property<S> {
             Self::RequestStatus(_) => PropertyKind::RequestStatus,
 
             // XName and Unrecognized properties
-            Self::XName { name, .. } => PropertyKind::XName(name.clone()),
-            Self::Unrecognized { name, .. } => PropertyKind::Unrecognized(name.clone()),
+            Self::XName { name, .. } => PropertyKind::XName(name),
+            Self::Unrecognized { name, .. } => PropertyKind::Unrecognized(name),
         }
     }
 

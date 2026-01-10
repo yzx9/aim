@@ -103,7 +103,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop {
-                // TODO: Use property span instead of component span for DuplicateProperty
                 Property::Uid(uid) => match props.uid {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Uid,

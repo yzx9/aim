@@ -64,7 +64,6 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
         let mut props = PropertyCollector::default();
         for prop in comp.properties {
             match prop {
-                // TODO: Use property span instead of component span for DuplicateProperty
                 Property::Action(action) => match props.action {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Action,

@@ -4,8 +4,6 @@
 
 //! Parser for iCalendar syntax as defined in RFC 5545, built on top of the lexer, no type.
 
-use crate::string_storage::StringStorage;
-
 use chumsky::DefaultExpected;
 use chumsky::container::Container;
 use chumsky::error::Error;
@@ -16,7 +14,7 @@ use chumsky::prelude::*;
 
 use crate::keyword::{KW_BEGIN, KW_END};
 use crate::lexer::{SpannedToken, Token};
-use crate::string_storage::{Span, SpannedSegments};
+use crate::string_storage::{Span, SpannedSegments, StringStorage};
 
 /// Parse raw iCalendar components from token stream
 ///
@@ -66,20 +64,8 @@ pub struct SyntaxParameter<S: StringStorage> {
     pub name: S,
     /// Parameter values split by commas
     pub values: Vec<SyntaxParameterValue<S>>,
-}
-
-impl SyntaxParameter<SpannedSegments<'_>> {
-    /// Get the full span of this parameter (from name to last value)
-    #[must_use]
-    pub fn span(&self) -> Span {
-        match self.values.last() {
-            Some(v) => Span {
-                start: self.name.span().start,
-                end: v.value.span().end,
-            },
-            None => self.name.span(),
-        }
-    }
+    /// Span of the entire parameter (from name to last value)
+    pub span: S::Span,
 }
 
 /// A single parameter value with optional quoting
@@ -114,6 +100,7 @@ impl SyntaxParameterRef<'_> {
                 .iter()
                 .map(SyntaxParameterValue::to_owned)
                 .collect(),
+            span: (),
         }
     }
 }
@@ -258,10 +245,16 @@ struct RawParameter {
 
 impl RawParameter {
     fn build(self, src: &'_ str) -> SyntaxParameterRef<'_> {
-        SyntaxParameter {
-            name: self.name.build(src),
-            values: self.values.into_iter().map(|v| v.build(src)).collect(),
-        }
+        let name = self.name.build(src);
+        let values: Vec<_> = self.values.into_iter().map(|v| v.build(src)).collect();
+        let span = match values.last() {
+            Some(v) => Span {
+                start: name.span().start,
+                end: v.value.span().end,
+            },
+            None => name.span(),
+        };
+        SyntaxParameter { name, values, span }
     }
 }
 

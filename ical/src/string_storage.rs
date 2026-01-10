@@ -31,6 +31,11 @@ pub trait StringStorage: Clone + Display {
     type Span: Copy + Debug + PartialEq + Eq + Hash;
 }
 
+// Implement StringStorage for references to types that implement it
+impl<T: StringStorage> StringStorage for &T {
+    type Span = T::Span;
+}
+
 impl StringStorage for String {
     type Span = (); // No span information for owned strings
 }

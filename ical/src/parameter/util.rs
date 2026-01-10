@@ -28,7 +28,7 @@ pub fn parse_single<'src>(
         1 => Ok(param.values.pop().unwrap()),
         _ => Err(vec![TypedError::ParameterMultipleValuesDisallowed {
             parameter: kind,
-            span: param.span(),
+            span: param.span,
         }]),
     }
 }
@@ -59,7 +59,7 @@ pub fn parse_single_quoted<'src>(
         }
         _ => Err(vec![TypedError::ParameterMultipleValuesDisallowed {
             parameter: kind,
-            span: param.span(),
+            span: param.span,
         }]),
     }
 }
@@ -90,7 +90,7 @@ pub fn parse_single_not_quoted<'src>(
         }
         _ => Err(vec![TypedError::ParameterMultipleValuesDisallowed {
             parameter: kind,
-            span: param.span(),
+            span: param.span,
         }]),
     }
 }
@@ -179,7 +179,7 @@ macro_rules! define_param_enum {
                 match $name::try_from(value) {
                     Ok(value) => Ok(crate::parameter::Parameter::$name {
                         value,
-                        span: param.span(),
+                        span: param.span,
                     }),
                     Err(value) => Err(vec![TypedError::ParameterValueInvalid {
                         span: value.span(),
@@ -296,7 +296,7 @@ macro_rules! define_param_enum_with_unknown {
                 let enum_value = $name::try_from(value).unwrap(); // Never fails due to XName/Unrecognized variants
                 Parameter::$name {
                     value: enum_value,
-                    span: param.span(),
+                    span: param.span,
                 }
             })
         }
