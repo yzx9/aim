@@ -10,7 +10,9 @@ use crate::keyword::{
     KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
 use crate::property::{CalendarScale, Method, ProductId, Property, PropertyKind, Version};
-use crate::semantic::{SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo};
+use crate::semantic::{
+    CustomComponent, SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
+};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::typed::TypedComponent;
 
@@ -156,7 +158,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
 ///
 /// Returns a vector of errors if no components could be parsed successfully.
 /// Individual component parsing errors are collected and included in the result.
-fn parse_component_children(
+pub(crate) fn parse_component_children(
     children: Vec<TypedComponent<'_>>,
 ) -> Result<Vec<CalendarComponent<SpannedSegments<'_>>>, Vec<SemanticError<'_>>> {
     let mut components = Vec::with_capacity(children.len());
@@ -188,10 +190,11 @@ fn parse_component_children(
                 Ok(v) => components.push(CalendarComponent::VAlarm(v)),
                 Err(e) => errors.extend(e),
             },
-            _ => errors.push(SemanticError::UnknownComponent {
-                span: child.span,
-                component: child.name.to_string(),
-            }),
+            // Parse custom component with all its children (recursively)
+            _ => match CustomComponent::try_from(child) {
+                Ok(custom) => components.push(CalendarComponent::Custom(custom)),
+                Err(e) => errors.extend(e),
+            },
         }
     }
 
@@ -223,22 +226,10 @@ pub enum CalendarComponent<S: StringStorage> {
 
     /// Alarm component
     VAlarm(VAlarm<S>),
-    // /// Custom component
-    // Custom(CustomComponent),
-}
 
-// /// Custom component for unknown component types
-// #[derive(Debug, Clone)]
-// pub struct CustomComponent<'src> {
-//     /// Component name
-//     pub name: SpannedSegments<'src>,
-//
-//     /// Properties
-//     pub properties: Vec<Property<'src>>,
-//
-//     /// Nested components
-//     pub children: Vec<CalendarComponent<'src>>,
-// }
+    /// Custom component (x-comp or iana-comp)
+    Custom(CustomComponent<S>),
+}
 
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
@@ -287,6 +278,7 @@ impl CalendarComponent<SpannedSegments<'_>> {
             Self::VFreeBusy(v) => CalendarComponent::VFreeBusy(v.to_owned()),
             Self::VTimeZone(v) => CalendarComponent::VTimeZone(v.to_owned()),
             Self::VAlarm(v) => CalendarComponent::VAlarm(v.to_owned()),
+            Self::Custom(v) => CalendarComponent::Custom(v.to_owned()),
         }
     }
 }

@@ -7,6 +7,7 @@
 //! the RFC 5545 specification and provide a convenient API for working with
 //! calendar data without dealing with string parsing and validation.
 
+mod custom;
 mod icalendar;
 mod valarm;
 mod vevent;
@@ -15,6 +16,7 @@ mod vjournal;
 mod vtimezone;
 mod vtodo;
 
+pub use custom::{CustomComponent, CustomComponentOwned, CustomComponentRef};
 pub use icalendar::{CalendarComponent, ICalendar, ICalendarOwned, ICalendarRef};
 pub use valarm::{VAlarm, VAlarmOwned, VAlarmRef};
 pub use vevent::{EventStatus, EventStatusOwned, EventStatusRef, VEvent, VEventOwned, VEventRef};

@@ -1113,3 +1113,170 @@ END:VCALENDAR\r
         _ => panic!("Expected Event component"),
     }
 }
+
+#[test]
+fn semantic_parses_custom_x_component() {
+    let src = "BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:X-CUSTOM-VENDOR\r
+X-CUSTOM-PROP:custom value\r
+X-ANOTHER-PROP:another value\r
+END:X-CUSTOM-VENDOR\r
+END:VCALENDAR\r
+";
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::Custom(custom) => {
+            assert_eq!(custom.name, "X-CUSTOM-VENDOR");
+            assert_eq!(custom.properties.len(), 2);
+        }
+        _ => panic!("Expected Custom component"),
+    }
+}
+
+#[test]
+fn semantic_parses_custom_component_with_nested_children() {
+    let src = "BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:X-CUSTOM-PARENT\r
+X-PARENT-PROP:parent value\r
+BEGIN:X-CUSTOM-CHILD\r
+X-CHILD-PROP:child value\r
+END:X-CUSTOM-CHILD\r
+END:X-CUSTOM-PARENT\r
+END:VCALENDAR\r
+";
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::Custom(parent) => {
+            assert_eq!(parent.name, "X-CUSTOM-PARENT");
+            assert_eq!(parent.children.len(), 1);
+            // Child is also a CustomComponent
+            match &parent.children[0] {
+                CalendarComponent::Custom(child) => {
+                    assert_eq!(child.name, "X-CUSTOM-CHILD");
+                }
+                _ => panic!("Expected Custom child component"),
+            }
+        }
+        _ => panic!("Expected Custom component"),
+    }
+}
+
+#[test]
+fn semantic_iana_component_parsed_as_custom() {
+    let src = "BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:V-SOME-IANA-COMP\r
+UID:12345\r
+DTSTAMP:20250101T000000Z\r
+SUMMARY:Iana component\r
+END:V-SOME-IANA-COMP\r
+END:VCALENDAR\r
+";
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::Custom(custom) => {
+            assert_eq!(custom.name, "V-SOME-IANA-COMP");
+        }
+        _ => panic!("Expected Custom component"),
+    }
+}
+
+#[test]
+fn semantic_custom_component_preserves_properties() {
+    let src = "BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:X-METADATA\r
+X-CREATED:20250101T000000Z\r
+X-MODIFIED:20250102T000000Z\r
+SUMMARY:Standard property also works\r
+END:X-METADATA\r
+END:VCALENDAR\r
+";
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::Custom(custom) => {
+            assert_eq!(custom.properties.len(), 3);
+        }
+        _ => panic!("Expected Custom component"),
+    }
+}
+
+#[test]
+fn semantic_custom_component_to_owned() {
+    let src = "BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:X-CUSTOM\r
+X-PROP:value\r
+END:X-CUSTOM\r
+END:VCALENDAR\r
+";
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::Custom(custom_ref) => {
+            // Test to_owned conversion
+            let custom_owned = custom_ref.to_owned();
+            assert_eq!(&custom_owned.name, "X-CUSTOM");
+            assert_eq!(custom_owned.properties.len(), 1);
+        }
+        _ => panic!("Expected Custom component"),
+    }
+}
+
+#[test]
+fn semantic_custom_component_with_standard_child() {
+    let src = "BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:X-CUSTOM-CONTAINER\r
+X-CONTAINER-PROP:container value\r
+BEGIN:VEVENT\r
+UID:event123\r
+DTSTAMP:20250101T000000Z\r
+DTSTART:20250101T120000Z\r
+SUMMARY:Event inside custom component\r
+END:VEVENT\r
+END:X-CUSTOM-CONTAINER\r
+END:VCALENDAR\r
+";
+    let calendars = parse_semantic(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::Custom(container) => {
+            assert_eq!(container.name, "X-CUSTOM-CONTAINER");
+            assert_eq!(container.properties.len(), 1);
+            assert_eq!(container.children.len(), 1);
+            // Child is a standard VEVENT component
+            match &container.children[0] {
+                CalendarComponent::Event(event) => {
+                    assert_eq!(event.uid.content.to_string(), "event123");
+                }
+                _ => panic!("Expected Event child component"),
+            }
+        }
+        _ => panic!("Expected Custom component"),
+    }
+}
