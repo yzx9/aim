@@ -24,7 +24,10 @@ pub use vfreebusy::{VFreeBusy, VFreeBusyOwned, VFreeBusyRef};
 pub use vjournal::{
     JournalStatus, JournalStatusOwned, JournalStatusRef, VJournal, VJournalOwned, VJournalRef,
 };
-pub use vtimezone::{TimeZoneObservance, VTimeZone, VTimeZoneOwned, VTimeZoneRef};
+pub use vtimezone::{
+    TimeZoneObservance, TimeZoneObservanceOwned, TimeZoneObservanceRef, VTimeZone, VTimeZoneOwned,
+    VTimeZoneRef,
+};
 pub use vtodo::{TodoStatus, TodoStatusOwned, VTodo, VTodoOwned, VTodoRef};
 
 use crate::keyword::KW_VCALENDAR;

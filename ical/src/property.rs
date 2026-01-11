@@ -46,7 +46,10 @@ mod recurrence;
 mod relationship;
 mod timezone;
 
-pub use alarm::{Action, ActionValue, Repeat, Trigger, TriggerValueOwned, TriggerValueRef};
+pub use alarm::{
+    Action, ActionValue, Repeat, Trigger, TriggerOwned, TriggerRef, TriggerValue,
+    TriggerValueOwned, TriggerValueRef,
+};
 pub use calendar::{
     CalendarScale, CalendarScaleValue, Method, MethodValue, ProductId, Version, VersionValue,
 };

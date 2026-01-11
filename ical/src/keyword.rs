@@ -91,6 +91,10 @@ pub const KW_TIME: &str = "TIME";
 pub const KW_URI: &str = "URI";
 pub const KW_UTC_OFFSET: &str = "UTC-OFFSET";
 
+// 3.3.2.  Boolean
+pub const KW_BOOLEAN_TRUE: &str = "TRUE";
+pub const KW_BOOLEAN_FALSE: &str = "FALSE";
+
 // 3.3.10.  Recurrence Rule
 // Rule parts
 pub const KW_RRULE_FREQ: &str = "FREQ";

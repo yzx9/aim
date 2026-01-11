@@ -272,6 +272,12 @@ pub struct Trigger<S: StringStorage> {
     pub span: S::Span,
 }
 
+/// Type alias for borrowed trigger
+pub type TriggerRef<'src> = Trigger<SpannedSegments<'src>>;
+
+/// Type alias for owned trigger
+pub type TriggerOwned = Trigger<String>;
+
 /// Trigger value (relative duration or absolute date/time)
 #[derive(Debug, Clone)]
 pub enum TriggerValue<S: StringStorage> {

@@ -26,6 +26,7 @@
     clippy::match_bool
 )]
 
+pub mod formatter;
 pub mod keyword;
 pub mod lexer;
 pub mod parameter;
@@ -60,18 +61,18 @@ pub use crate::property::{
     RecurrenceId, RecurrenceIdOwned, RecurrenceIdRef, RelatedTo, RelatedToOwned, RelatedToRef,
     Repeat, RequestStatus, RequestStatusOwned, RequestStatusRef, Resources, ResourcesOwned,
     ResourcesRef, Sequence, Status, StatusValue, Summary, SummaryOwned, SummaryRef, Text, TextOnly,
-    TextWithLanguage, Time, TimeTransparency, TimeTransparencyValue, Trigger, TriggerValueOwned,
-    TriggerValueRef, TzId, TzIdOwned, TzIdRef, TzName, TzNameOwned, TzNameRef, TzOffsetFrom,
-    TzOffsetFromOwned, TzOffsetFromRef, TzOffsetTo, TzOffsetToOwned, TzOffsetToRef, TzUrl,
-    TzUrlOwned, TzUrlRef, Uid, UidOwned, UidRef, UriProperty, Url, UrlOwned, UrlRef, Version,
-    VersionValue,
+    TextWithLanguage, Time, TimeTransparency, TimeTransparencyValue, Trigger, TriggerOwned,
+    TriggerRef, TriggerValue, TriggerValueOwned, TriggerValueRef, TzId, TzIdOwned, TzIdRef, TzName,
+    TzNameOwned, TzNameRef, TzOffsetFrom, TzOffsetFromOwned, TzOffsetFromRef, TzOffsetTo,
+    TzOffsetToOwned, TzOffsetToRef, TzUrl, TzUrlOwned, TzUrlRef, Uid, UidOwned, UidRef,
+    UriProperty, Url, UrlOwned, UrlRef, Version, VersionValue,
 };
 pub use crate::semantic::{
     CalendarComponent, EventStatus, EventStatusOwned, EventStatusRef, ICalendar, ICalendarOwned,
-    ICalendarRef, JournalStatus, TimeZoneObservance, TodoStatus, VAlarm, VAlarmOwned, VAlarmRef,
-    VEvent, VEventOwned, VEventRef, VFreeBusy, VFreeBusyOwned, VFreeBusyRef, VJournal,
-    VJournalOwned, VJournalRef, VTimeZone, VTimeZoneOwned, VTimeZoneRef, VTodo, VTodoOwned,
-    VTodoRef,
+    ICalendarRef, JournalStatus, TimeZoneObservance, TimeZoneObservanceOwned,
+    TimeZoneObservanceRef, TodoStatus, VAlarm, VAlarmOwned, VAlarmRef, VEvent, VEventOwned,
+    VEventRef, VFreeBusy, VFreeBusyOwned, VFreeBusyRef, VJournal, VJournalOwned, VJournalRef,
+    VTimeZone, VTimeZoneOwned, VTimeZoneRef, VTodo, VTodoOwned, VTodoRef,
 };
 pub use crate::string_storage::{SpannedSegments, StringStorage};
 pub use crate::value::{

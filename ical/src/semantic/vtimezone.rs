@@ -186,6 +186,12 @@ pub struct TimeZoneObservance<S: StringStorage> {
     pub unrecognized_properties: Vec<Property<S>>,
 }
 
+/// Type alias for `TimeZoneObservance` with borrowed data
+pub type TimeZoneObservanceRef<'src> = TimeZoneObservance<SpannedSegments<'src>>;
+
+/// Type alias for `TimeZoneObservance` with owned data
+pub type TimeZoneObservanceOwned = TimeZoneObservance<String>;
+
 impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
