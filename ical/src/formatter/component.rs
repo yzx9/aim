@@ -10,13 +10,24 @@
 use std::io::{self, Write};
 
 use crate::formatter::Formatter;
-use crate::formatter::property::write_property;
+use crate::formatter::property::{
+    write_prop_action, write_prop_attach, write_prop_attendee, write_prop_calscale,
+    write_prop_categories, write_prop_class, write_prop_completed, write_prop_contact,
+    write_prop_description, write_prop_dtend, write_prop_dtstamp, write_prop_dtstart,
+    write_prop_due, write_prop_duration, write_prop_ex_date, write_prop_freebusy, write_prop_geo,
+    write_prop_last_modified, write_prop_location, write_prop_method, write_prop_organizer,
+    write_prop_percent_complete, write_prop_priority, write_prop_prodid, write_prop_rdate,
+    write_prop_repeat, write_prop_resources, write_prop_rrule, write_prop_sequence,
+    write_prop_status_value, write_prop_summary, write_prop_transp, write_prop_trigger,
+    write_prop_tz_offset_from, write_prop_tz_offset_to, write_prop_tz_url, write_prop_tzid,
+    write_prop_tzname, write_prop_uid, write_prop_url, write_prop_version, write_property,
+};
 use crate::keyword::{
     KW_BEGIN, KW_DAYLIGHT, KW_END, KW_STANDARD, KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY,
     KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
 use crate::parameter::FreeBusyType;
-use crate::property::{FreeBusy, Property, Status, StatusValue};
+use crate::property::FreeBusy;
 use crate::semantic::{
     CalendarComponent, CustomComponent, ICalendar, TimeZoneObservance, VAlarm, VEvent, VFreeBusy,
     VJournal, VTimeZone, VTodo,
@@ -30,15 +41,15 @@ pub fn write_icalendar<W: Write, S: StringStorage>(
 ) -> io::Result<()> {
     with_block(f, KW_VCALENDAR, |f| {
         // Required properties
-        write_property(f, &Property::ProdId(calendar.prod_id.clone()))?;
-        write_property(f, &Property::Version(calendar.version.clone()))?;
+        write_prop_prodid(f, &calendar.prod_id)?;
+        write_prop_version(f, &calendar.version)?;
 
         // Optional properties
         if let Some(calscale) = &calendar.calscale {
-            write_property(f, &Property::CalScale(calscale.clone()))?;
+            write_prop_calscale(f, calscale)?;
         }
         if let Some(method) = &calendar.method {
-            write_property(f, &Property::Method(method.clone()))?;
+            write_prop_method(f, method)?;
         }
 
         // X-properties
@@ -85,78 +96,75 @@ fn write_vevent<W: Write, S: StringStorage>(
 ) -> io::Result<()> {
     with_block(f, KW_VEVENT, |f| {
         // Required properties
-        write_property(f, &Property::Uid(event.uid.clone()))?;
-        write_property(f, &Property::DtStamp(event.dt_stamp.clone()))?;
-        write_property(f, &Property::DtStart(event.dt_start.clone()))?;
+        write_prop_uid(f, &event.uid)?;
+        write_prop_dtstamp(f, &event.dt_stamp)?;
+        write_prop_dtstart(f, &event.dt_start)?;
 
         // Optional properties
         if let Some(dt_end) = &event.dt_end {
-            write_property(f, &Property::DtEnd(dt_end.clone()))?;
+            write_prop_dtend(f, dt_end)?;
         }
         if let Some(duration) = &event.duration {
-            write_property(f, &Property::Duration(duration.clone()))?;
+            write_prop_duration(f, duration)?;
         }
         if let Some(summary) = &event.summary {
-            write_property(f, &Property::Summary(summary.clone()))?;
+            write_prop_summary(f, summary)?;
         }
         if let Some(description) = &event.description {
-            write_property(f, &Property::Description(description.clone()))?;
+            write_prop_description(f, description)?;
         }
         if let Some(location) = &event.location {
-            write_property(f, &Property::Location(location.clone()))?;
+            write_prop_location(f, location)?;
         }
         if let Some(geo) = &event.geo {
-            write_property(f, &Property::Geo(geo.clone()))?;
+            write_prop_geo(f, geo)?;
         }
         if let Some(url) = &event.url {
-            write_property(f, &Property::Url(url.clone()))?;
+            write_prop_url(f, url)?;
         }
         if let Some(organizer) = &event.organizer {
-            write_property(f, &Property::Organizer(organizer.clone()))?;
+            write_prop_organizer(f, organizer)?;
         }
         for attendee in &event.attendees {
-            write_property(f, &Property::Attendee(attendee.clone()))?;
+            write_prop_attendee(f, attendee)?;
         }
         if let Some(last_modified) = &event.last_modified {
-            write_property(f, &Property::LastModified(last_modified.clone()))?;
+            write_prop_last_modified(f, last_modified)?;
         }
         if let Some(status) = &event.status {
-            write_property(
+            write_prop_status_value(
                 f,
-                &Property::Status(Status {
-                    value: StatusValue::from(status.value),
-                    x_parameters: status.x_parameters.clone(),
-                    unrecognized_parameters: status.unrecognized_parameters.clone(),
-                    span: event.uid.span,
-                }),
+                status.value,
+                &status.x_parameters,
+                &status.unrecognized_parameters,
             )?;
         }
         if let Some(transparency) = &event.transparency {
-            write_property(f, &Property::Transp(transparency.clone()))?;
+            write_prop_transp(f, transparency)?;
         }
         if let Some(sequence) = &event.sequence {
-            write_property(f, &Property::Sequence(sequence.clone()))?;
+            write_prop_sequence(f, sequence)?;
         }
         if let Some(priority) = &event.priority {
-            write_property(f, &Property::Priority(priority.clone()))?;
+            write_prop_priority(f, priority)?;
         }
         if let Some(classification) = &event.classification {
-            write_property(f, &Property::Class(classification.clone()))?;
+            write_prop_class(f, classification)?;
         }
         if let Some(resources) = &event.resources {
-            write_property(f, &Property::Resources(resources.clone()))?;
+            write_prop_resources(f, resources)?;
         }
         if let Some(categories) = &event.categories {
-            write_property(f, &Property::Categories(categories.clone()))?;
+            write_prop_categories(f, categories)?;
         }
         if let Some(rrule) = &event.rrule {
-            write_property(f, &Property::RRule(rrule.clone()))?;
+            write_prop_rrule(f, rrule)?;
         }
         for rdate in &event.rdates {
-            write_property(f, &Property::RDate(rdate.clone()))?;
+            write_prop_rdate(f, rdate)?;
         }
         for exdate in &event.ex_dates {
-            write_property(f, &Property::ExDate(exdate.clone()))?;
+            write_prop_ex_date(f, exdate)?;
         }
 
         // X-properties
@@ -185,83 +193,80 @@ fn write_vtodo<W: Write, S: StringStorage>(
 ) -> io::Result<()> {
     with_block(f, KW_VTODO, |f| {
         // Required properties
-        write_property(f, &Property::Uid(todo.uid.clone()))?;
-        write_property(f, &Property::DtStamp(todo.dt_stamp.clone()))?;
+        write_prop_uid(f, &todo.uid)?;
+        write_prop_dtstamp(f, &todo.dt_stamp)?;
 
         // Optional properties
         if let Some(dt_start) = &todo.dt_start {
-            write_property(f, &Property::DtStart(dt_start.clone()))?;
+            write_prop_dtstart(f, dt_start)?;
         }
         if let Some(due) = &todo.due {
-            write_property(f, &Property::Due(due.clone()))?;
+            write_prop_due(f, due)?;
         }
         if let Some(completed) = &todo.completed {
-            write_property(f, &Property::Completed(completed.clone()))?;
+            write_prop_completed(f, completed)?;
         }
         if let Some(duration) = &todo.duration {
-            write_property(f, &Property::Duration(duration.clone()))?;
+            write_prop_duration(f, duration)?;
         }
         if let Some(summary) = &todo.summary {
-            write_property(f, &Property::Summary(summary.clone()))?;
+            write_prop_summary(f, summary)?;
         }
         if let Some(description) = &todo.description {
-            write_property(f, &Property::Description(description.clone()))?;
+            write_prop_description(f, description)?;
         }
         if let Some(location) = &todo.location {
-            write_property(f, &Property::Location(location.clone()))?;
+            write_prop_location(f, location)?;
         }
         if let Some(geo) = &todo.geo {
-            write_property(f, &Property::Geo(geo.clone()))?;
+            write_prop_geo(f, geo)?;
         }
         if let Some(url) = &todo.url {
-            write_property(f, &Property::Url(url.clone()))?;
+            write_prop_url(f, url)?;
         }
         if let Some(organizer) = &todo.organizer {
-            write_property(f, &Property::Organizer(organizer.clone()))?;
+            write_prop_organizer(f, organizer)?;
         }
         for attendee in &todo.attendees {
-            write_property(f, &Property::Attendee(attendee.clone()))?;
+            write_prop_attendee(f, attendee)?;
         }
         if let Some(last_modified) = &todo.last_modified {
-            write_property(f, &Property::LastModified(last_modified.clone()))?;
+            write_prop_last_modified(f, last_modified)?;
         }
         if let Some(status) = &todo.status {
-            write_property(
+            write_prop_status_value(
                 f,
-                &Property::Status(Status {
-                    value: StatusValue::from(status.value),
-                    x_parameters: status.x_parameters.clone(),
-                    unrecognized_parameters: status.unrecognized_parameters.clone(),
-                    span: todo.uid.span,
-                }),
+                status.value,
+                &status.x_parameters,
+                &status.unrecognized_parameters,
             )?;
         }
         if let Some(sequence) = &todo.sequence {
-            write_property(f, &Property::Sequence(sequence.clone()))?;
+            write_prop_sequence(f, sequence)?;
         }
         if let Some(priority) = &todo.priority {
-            write_property(f, &Property::Priority(priority.clone()))?;
+            write_prop_priority(f, priority)?;
         }
         if let Some(percent_complete) = &todo.percent_complete {
-            write_property(f, &Property::PercentComplete(percent_complete.clone()))?;
+            write_prop_percent_complete(f, percent_complete)?;
         }
         if let Some(classification) = &todo.classification {
-            write_property(f, &Property::Class(classification.clone()))?;
+            write_prop_class(f, classification)?;
         }
         if let Some(resources) = &todo.resources {
-            write_property(f, &Property::Resources(resources.clone()))?;
+            write_prop_resources(f, resources)?;
         }
         if let Some(categories) = &todo.categories {
-            write_property(f, &Property::Categories(categories.clone()))?;
+            write_prop_categories(f, categories)?;
         }
         if let Some(rrule) = &todo.rrule {
-            write_property(f, &Property::RRule(rrule.clone()))?;
+            write_prop_rrule(f, rrule)?;
         }
         for rdate in &todo.rdates {
-            write_property(f, &Property::RDate(rdate.clone()))?;
+            write_prop_rdate(f, rdate)?;
         }
         for exdate in &todo.ex_dates {
-            write_property(f, &Property::ExDate(exdate.clone()))?;
+            write_prop_ex_date(f, exdate)?;
         }
 
         // X-properties
@@ -290,54 +295,51 @@ fn write_vjournal<W: Write, S: StringStorage>(
 ) -> io::Result<()> {
     with_block(f, KW_VJOURNAL, |f| {
         // Required properties
-        write_property(f, &Property::Uid(journal.uid.clone()))?;
-        write_property(f, &Property::DtStamp(journal.dt_stamp.clone()))?;
-        write_property(f, &Property::DtStart(journal.dt_start.clone()))?;
+        write_prop_uid(f, &journal.uid)?;
+        write_prop_dtstamp(f, &journal.dt_stamp)?;
+        write_prop_dtstart(f, &journal.dt_start)?;
 
         // Optional properties
         if let Some(summary) = &journal.summary {
-            write_property(f, &Property::Summary(summary.clone()))?;
+            write_prop_summary(f, summary)?;
         }
         for description in &journal.descriptions {
-            write_property(f, &Property::Description(description.clone()))?;
+            write_prop_description(f, description)?;
         }
         if let Some(organizer) = &journal.organizer {
-            write_property(f, &Property::Organizer(organizer.clone()))?;
+            write_prop_organizer(f, organizer)?;
         }
         for attendee in &journal.attendees {
-            write_property(f, &Property::Attendee(attendee.clone()))?;
+            write_prop_attendee(f, attendee)?;
         }
         if let Some(last_modified) = &journal.last_modified {
-            write_property(f, &Property::LastModified(last_modified.clone()))?;
+            write_prop_last_modified(f, last_modified)?;
         }
         if let Some(status) = &journal.status {
-            write_property(
+            write_prop_status_value(
                 f,
-                &Property::Status(Status {
-                    value: StatusValue::from(status.value),
-                    x_parameters: status.x_parameters.clone(),
-                    unrecognized_parameters: status.unrecognized_parameters.clone(),
-                    span: journal.uid.span,
-                }),
+                status.value,
+                &status.x_parameters,
+                &status.unrecognized_parameters,
             )?;
         }
         if let Some(classification) = &journal.classification {
-            write_property(f, &Property::Class(classification.clone()))?;
+            write_prop_class(f, classification)?;
         }
         for categories in &journal.categories {
-            write_property(f, &Property::Categories(categories.clone()))?;
+            write_prop_categories(f, categories)?;
         }
         if let Some(rrule) = &journal.rrule {
-            write_property(f, &Property::RRule(rrule.clone()))?;
+            write_prop_rrule(f, rrule)?;
         }
         for rdate in &journal.rdate {
-            write_property(f, &Property::RDate(rdate.clone()))?;
+            write_prop_rdate(f, rdate)?;
         }
         for exdate in &journal.ex_date {
-            write_property(f, &Property::ExDate(exdate.clone()))?;
+            write_prop_ex_date(f, exdate)?;
         }
         if let Some(url) = &journal.url {
-            write_property(f, &Property::Url(url.clone()))?;
+            write_prop_url(f, url)?;
         }
 
         // X-properties
@@ -361,72 +363,72 @@ fn write_vfreebusy<W: Write, S: StringStorage>(
 ) -> io::Result<()> {
     with_block(f, KW_VFREEBUSY, |f| {
         // Required properties
-        write_property(f, &Property::Uid(freebusy.uid.clone()))?;
-        write_property(f, &Property::DtStamp(freebusy.dt_stamp.clone()))?;
-        write_property(f, &Property::DtStart(freebusy.dt_start.clone()))?;
-        write_property(f, &Property::Organizer(freebusy.organizer.clone()))?;
+        write_prop_uid(f, &freebusy.uid)?;
+        write_prop_dtstamp(f, &freebusy.dt_stamp)?;
+        write_prop_dtstart(f, &freebusy.dt_start)?;
+        write_prop_organizer(f, &freebusy.organizer)?;
 
         // Optional properties
         if let Some(dt_end) = &freebusy.dt_end {
-            write_property(f, &Property::DtEnd(dt_end.clone()))?;
+            write_prop_dtend(f, dt_end)?;
         }
         if let Some(duration) = &freebusy.duration {
-            write_property(f, &Property::Duration(duration.clone()))?;
+            write_prop_duration(f, duration)?;
         }
         if let Some(contact) = &freebusy.contact {
-            write_property(f, &Property::Contact(contact.clone()))?;
+            write_prop_contact(f, contact)?;
         }
         if let Some(url) = &freebusy.url {
-            write_property(f, &Property::Url(url.clone()))?;
+            write_prop_url(f, url)?;
         }
 
         // FreeBusy period collections (each with their own FBTYPE)
         for period in &freebusy.busy {
-            write_property(
+            write_prop_freebusy(
                 f,
-                &Property::FreeBusy(FreeBusy {
-                    values: vec![period.clone()],
+                &FreeBusy {
+                    values: vec![period.clone()], // TODO: avoid clone
                     fb_type: FreeBusyType::Busy,
                     x_parameters: Vec::new(),
                     unrecognized_parameters: Vec::new(),
-                    span: freebusy.uid.span,
-                }),
+                    span: freebusy.uid.span, // placeholder span
+                },
             )?;
         }
         for period in &freebusy.free {
-            write_property(
+            write_prop_freebusy(
                 f,
-                &Property::FreeBusy(FreeBusy {
+                &FreeBusy {
                     values: vec![period.clone()],
                     fb_type: FreeBusyType::Free,
                     x_parameters: Vec::new(),
                     unrecognized_parameters: Vec::new(),
-                    span: freebusy.uid.span,
-                }),
+                    span: freebusy.uid.span, // placeholder span
+                },
             )?;
         }
         for period in &freebusy.busy_tentative {
-            write_property(
+            write_prop_freebusy(
                 f,
-                &Property::FreeBusy(FreeBusy {
+                &FreeBusy {
                     values: vec![period.clone()],
                     fb_type: FreeBusyType::BusyTentative,
                     x_parameters: Vec::new(),
                     unrecognized_parameters: Vec::new(),
-                    span: freebusy.uid.span,
-                }),
+                    span: freebusy.uid.span, // placeholder span
+                },
             )?;
         }
         for period in &freebusy.busy_unavailable {
-            write_property(
+            write_prop_freebusy(
                 f,
-                &Property::FreeBusy(FreeBusy {
+                &FreeBusy {
                     values: vec![period.clone()],
                     fb_type: FreeBusyType::BusyUnavailable,
                     x_parameters: Vec::new(),
                     unrecognized_parameters: Vec::new(),
-                    span: freebusy.uid.span,
-                }),
+                    span: freebusy.uid.span, // placeholder span
+                },
             )?;
         }
 
@@ -451,14 +453,14 @@ fn write_vtimezone<W: Write, S: StringStorage>(
 ) -> io::Result<()> {
     with_block(f, KW_VTIMEZONE, |f| {
         // Required properties
-        write_property(f, &Property::TzId(timezone.tz_id.clone()))?;
+        write_prop_tzid(f, &timezone.tz_id)?;
 
         // Optional properties
         if let Some(ref last_modified) = timezone.last_modified {
-            write_property(f, &Property::LastModified(last_modified.clone()))?;
+            write_prop_last_modified(f, last_modified)?;
         }
         if let Some(ref tz_url) = timezone.tz_url {
-            write_property(f, &Property::TzUrl(tz_url.clone()))?;
+            write_prop_tz_url(f, tz_url)?;
         }
 
         // X-name properties
@@ -493,21 +495,18 @@ fn format_tz_observance<W: Write, S: StringStorage>(
 ) -> io::Result<()> {
     with_block(f, name, |f| {
         // Required properties
-        write_property(f, &Property::DtStart(observance.dt_start.clone()))?;
-        write_property(
-            f,
-            &Property::TzOffsetFrom(observance.tz_offset_from.clone()),
-        )?;
-        write_property(f, &Property::TzOffsetTo(observance.tz_offset_to.clone()))?;
+        write_prop_dtstart(f, &observance.dt_start)?;
+        write_prop_tz_offset_from(f, &observance.tz_offset_from)?;
+        write_prop_tz_offset_to(f, &observance.tz_offset_to)?;
 
         // Optional TZNAME properties (can appear multiple times)
         for tz_name in &observance.tz_names {
-            write_property(f, &Property::TzName(tz_name.clone()))?;
+            write_prop_tzname(f, tz_name)?;
         }
 
         // Optional RRULE
         if let Some(ref rrule) = observance.rrule {
-            write_property(f, &Property::RRule(rrule.clone()))?;
+            write_prop_rrule(f, rrule)?;
         }
 
         // X-name properties
@@ -531,35 +530,35 @@ fn write_valarm<W: Write, S: StringStorage>(
 ) -> io::Result<()> {
     with_block(f, KW_VALARM, |f| {
         // Required properties
-        write_property(f, &Property::Action(alarm.action.clone()))?;
-        write_property(f, &Property::Trigger(alarm.trigger.clone()))?;
+        write_prop_action(f, &alarm.action)?;
+        write_prop_trigger(f, &alarm.trigger)?;
 
         // Optional properties (DURATION and REPEAT must appear together)
         if let Some(ref repeat) = alarm.repeat {
-            write_property(f, &Property::Repeat(repeat.clone()))?;
+            write_prop_repeat(f, repeat)?;
         }
         if let Some(ref duration) = alarm.duration {
-            write_property(f, &Property::Duration(duration.clone()))?;
+            write_prop_duration(f, duration)?;
         }
 
         // Optional description (required for DISPLAY and EMAIL actions)
         if let Some(ref description) = alarm.description {
-            write_property(f, &Property::Description(description.clone()))?;
+            write_prop_description(f, description)?;
         }
 
         // Optional summary (required for EMAIL action)
         if let Some(ref summary) = alarm.summary {
-            write_property(f, &Property::Summary(summary.clone()))?;
+            write_prop_summary(f, summary)?;
         }
 
         // Optional attendees (for EMAIL action)
         for attendee in &alarm.attendees {
-            write_property(f, &Property::Attendee(attendee.clone()))?;
+            write_prop_attendee(f, attendee)?;
         }
 
         // Optional attachment
         if let Some(ref attach) = alarm.attach {
-            write_property(f, &Property::Attach(attach.clone()))?;
+            write_prop_attach(f, attach)?;
         }
 
         // X-name properties

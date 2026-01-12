@@ -88,6 +88,7 @@ pub fn write_value<W: Write, S: StringStorage>(
             }
             Ok(())
         }
+        Value::RecurrenceRule { value, .. } => write_recurrence_rule(f, value),
         Value::Period { values, .. } => {
             for (i, period) in values.iter().enumerate() {
                 if i > 0 {
@@ -117,7 +118,6 @@ pub fn write_value<W: Write, S: StringStorage>(
             Ok(())
         }
         Value::UtcOffset { value, .. } => write_utc_offset(f, *value),
-        Value::RecurrenceRule { value, .. } => write_recurrence_rule(f, value),
         // XName / Unrecognized values are stored as raw unparsed strings
         Value::XName { raw, .. } | Value::Unrecognized { raw, .. } => write!(f, "{raw}"),
     }
@@ -213,7 +213,7 @@ pub fn write_time<W: Write>(w: &mut W, time: &ValueTime) -> io::Result<()> {
 }
 
 /// Format a UTC offset value as `+HHMM` or `-HHMM` (with optional seconds).
-fn write_utc_offset<W: Write>(f: &mut Formatter<W>, offset: ValueUtcOffset) -> io::Result<()> {
+pub fn write_utc_offset<W: Write>(f: &mut Formatter<W>, offset: ValueUtcOffset) -> io::Result<()> {
     let sign = if offset.positive { "+" } else { "-" };
     write!(f, "{sign}{:02}{:02}", offset.hour, offset.minute)?;
     if let Some(second) = offset.second {
