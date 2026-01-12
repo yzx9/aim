@@ -198,7 +198,6 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-#[ignore = "RRULE serialization not fully implemented yet"]
 fn round_trip_calendar_with_rrule() {
     let original = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
@@ -238,7 +237,6 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-#[ignore = "Parameter serialization not fully implemented yet"]
 fn round_trip_calendar_with_parameters() {
     let original = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
@@ -397,7 +395,6 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-#[ignore = "DATE value serialization not fully implemented yet"]
 fn round_trip_calendar_with_date_only() {
     let original = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
@@ -437,7 +434,6 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-#[ignore = "Text escaping serialization not fully implemented yet"]
 fn round_trip_calendar_with_text_escaping() {
     let original = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\

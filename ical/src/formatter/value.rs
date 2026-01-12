@@ -18,8 +18,8 @@ use crate::keyword::{
 };
 use crate::string_storage::StringStorage;
 use crate::value::{
-    Value, ValueDate, ValueDateTime, ValueDuration, ValuePeriod, ValueRecurrenceRule, ValueTime,
-    ValueUtcOffset, WeekDayNum,
+    Value, ValueDate, ValueDateTime, ValueDuration, ValuePeriod, ValueRecurrenceRule, ValueText,
+    ValueTime, ValueUtcOffset, WeekDayNum,
 };
 
 /// Format a value to the formatter.
@@ -102,8 +102,8 @@ pub fn write_value<W: Write, S: StringStorage>(
                 if i > 0 {
                     write!(f, ",")?;
                 }
-                // ValueText already handles escape sequences via its Display impl
-                write!(f, "{text}")?;
+                // Use format_value_text to properly escape for iCalendar output
+                write!(f, "{}", format_value_text(text))?;
             }
             Ok(())
         }
@@ -358,6 +358,42 @@ fn format_weekday_num(wn: WeekDayNum) -> String {
         Some(occ) => format!("{occ}{}", wn.day),
         None => wn.day.to_string(),
     }
+}
+
+/// Format a `ValueText` as an iCalendar escaped string.
+///
+/// This function properly escapes special characters per RFC 5545:
+/// - Backslash → \\
+/// - Semicolon → \;
+/// - Comma → \,
+/// - Newline → \n
+///
+/// # Arguments
+///
+/// * `text` - The text value to format
+///
+/// # Returns
+///
+/// A string with proper iCalendar escape sequences
+pub fn format_value_text<S: StringStorage>(text: &ValueText<S>) -> String {
+    let mut result = String::new();
+
+    // Use Display to get the resolved (unescaped) text
+    let resolved = text.to_string();
+
+    // Re-escape special characters for iCalendar format
+    for c in resolved.chars() {
+        match c {
+            '\\' => result.push_str("\\\\"),
+            ';' => result.push_str("\\;"),
+            ',' => result.push_str("\\,"),
+            '\n' => result.push_str("\\n"),
+            '\r' => {} // Skip CR characters
+            _ => result.push(c),
+        }
+    }
+
+    result
 }
 
 #[cfg(test)]

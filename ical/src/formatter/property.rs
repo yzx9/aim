@@ -18,7 +18,9 @@ use crate::formatter::parameter::{
     write_param_related, write_param_reltype, write_param_role, write_param_rsvp,
     write_param_sent_by, write_param_tzid, write_parameters,
 };
-use crate::formatter::value::{write_date, write_duration, write_recurrence_rule, write_value};
+use crate::formatter::value::{
+    format_value_text, write_date, write_duration, write_recurrence_rule, write_value,
+};
 use crate::keyword::{
     KW_ACTION, KW_ATTACH, KW_ATTENDEE, KW_CALSCALE, KW_CATEGORIES, KW_CLASS, KW_COMMENT,
     KW_COMPLETED, KW_CONTACT, KW_CREATED, KW_DESCRIPTION, KW_DTEND, KW_DTSTAMP, KW_DTSTART, KW_DUE,
@@ -34,6 +36,7 @@ use crate::property::{
     Trigger, TriggerValue, UriProperty,
 };
 use crate::string_storage::StringStorage;
+use crate::value::ValueText;
 
 /// Format a single property.
 ///
@@ -170,7 +173,7 @@ pub fn write_property<W: Write, S: StringStorage>(
         Property::Attach(prop) => write_attach_prop(f, prop),
 
         // Text/enum properties
-        Property::Status(prop) => write_text_with_language(
+        Property::Status(prop) => write_escaped_text_with_language(
             f,
             KW_STATUS,
             &prop.value,
@@ -210,7 +213,7 @@ pub fn write_property<W: Write, S: StringStorage>(
         ),
 
         // Alarm properties
-        Property::Action(prop) => write_text_with_language(
+        Property::Action(prop) => write_escaped_text_with_language(
             f,
             KW_ACTION,
             &prop.value,
@@ -237,7 +240,7 @@ pub fn write_property<W: Write, S: StringStorage>(
 fn write_text_with_params<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     name: &str,
-    content: &impl Display,
+    content: &ValueText<S>,
     language: Option<&S>,
     altrep: Option<&S>,
     x_params: &[Parameter<S>],
@@ -260,14 +263,41 @@ fn write_text_with_params<S: StringStorage, W: Write>(
     write_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
 
-    // Write property value
-    write!(f, ":{content}")
+    // Write property value with proper iCalendar escaping
+    write!(f, ":{}", format_value_text(content))
+}
+
+/// Write a text property with LANGUAGE parameter only for `ValueText` content.
+///
+/// This is a specialized version for `ValueText` that properly escapes special characters.
+fn write_text_with_language<W: Write, S: StringStorage>(
+    f: &mut Formatter<W>,
+    name: &str,
+    content: &ValueText<S>,
+    language: Option<&S>,
+    x_params: &[Parameter<S>],
+    unrecognized_params: &[Parameter<S>],
+) -> io::Result<()> {
+    // Write property name
+    write!(f, "{name}")?;
+
+    // Write LANGUAGE parameter if present
+    if let Some(lang) = language {
+        write_param_language(f, lang)?;
+    }
+
+    // Write generic parameter lists
+    write_parameters(f, x_params)?;
+    write_parameters(f, unrecognized_params)?;
+
+    // Write property value with proper iCalendar escaping
+    write!(f, ":{}", format_value_text(content))
 }
 
 /// Write a text property with LANGUAGE parameter only (`TextWithLanguage` type).
 ///
-/// This handles properties like `Comment`, `TzName` that only support LANGUAGE.
-fn write_text_with_language<S: StringStorage, W: Write>(
+/// This is a generalized version for any Display content, and assumes no special escaping is needed.
+fn write_escaped_text_with_language<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     name: &str,
     content: &impl Display,
