@@ -7,30 +7,33 @@
 //! This module provides functions to format all iCalendar property types
 //! as defined in RFC 5545 Section 3.8.
 
-use std::fmt;
+use std::fmt::Display;
 use std::io::{self, Write};
 
 use crate::formatter::Formatter;
-use crate::formatter::parameter::write_parameters;
-use crate::formatter::value::{format_date, format_duration, format_recurrence_rule, format_value};
+use crate::formatter::parameter::{
+    write_param_altrep, write_param_cn, write_param_cutype, write_param_delegated_from,
+    write_param_delegated_to, write_param_dir, write_param_encoding, write_param_fbtype,
+    write_param_fmttype, write_param_language, write_param_member, write_param_partstat,
+    write_param_related, write_param_reltype, write_param_role, write_param_rsvp,
+    write_param_sent_by, write_param_tzid, write_parameters,
+};
+use crate::formatter::value::{write_date, write_duration, write_recurrence_rule, write_value};
 use crate::keyword::{
     KW_ACTION, KW_ATTACH, KW_ATTENDEE, KW_CALSCALE, KW_CATEGORIES, KW_CLASS, KW_COMMENT,
     KW_COMPLETED, KW_CONTACT, KW_CREATED, KW_DESCRIPTION, KW_DTEND, KW_DTSTAMP, KW_DTSTART, KW_DUE,
-    KW_DURATION, KW_EXDATE, KW_FBTYPE, KW_FREEBUSY, KW_GEO, KW_LAST_MODIFIED, KW_LOCATION,
-    KW_METHOD, KW_ORGANIZER, KW_PERCENT_COMPLETE, KW_PRIORITY, KW_PRODID, KW_RDATE,
-    KW_RECURRENCE_ID, KW_RELATED_TO, KW_REPEAT, KW_RESOURCES, KW_RRULE, KW_SEQUENCE, KW_STATUS,
-    KW_SUMMARY, KW_TRANSP, KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZURL, KW_UID, KW_URL, KW_VERSION,
+    KW_DURATION, KW_EXDATE, KW_FREEBUSY, KW_GEO, KW_LAST_MODIFIED, KW_LOCATION, KW_METHOD,
+    KW_ORGANIZER, KW_PERCENT_COMPLETE, KW_PRIORITY, KW_PRODID, KW_RDATE, KW_RECURRENCE_ID,
+    KW_RELATED_TO, KW_REPEAT, KW_RESOURCES, KW_RRULE, KW_SEQUENCE, KW_STATUS, KW_SUMMARY,
+    KW_TRANSP, KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
-use crate::parameter::{
-    CalendarUserType, Encoding, FreeBusyType, Parameter, ParticipationRole, ParticipationStatus,
-    RelationshipType,
-};
+use crate::parameter::Parameter;
 use crate::property::{
-    AttachmentValue, DateTime, Duration, ExDateValue, Period, Property, RDateValue, RRule, Time,
-    Trigger, TriggerValue,
+    Attachment, AttachmentValue, Attendee, Categories, DateTime, Duration, ExDate, ExDateValue,
+    Geo, Organizer, Period, Property, RDate, RDateValue, RRule, RelatedTo, Resources, Time,
+    Trigger, TriggerValue, UriProperty,
 };
 use crate::string_storage::StringStorage;
-use crate::value::ValueText;
 
 /// Format a single property.
 ///
@@ -99,23 +102,11 @@ pub fn write_property<W: Write, S: StringStorage>(
         Property::DtStart(prop) => write_datetime_prop(f, KW_DTSTART, &prop.inner),
         Property::DtEnd(prop) => write_datetime_prop(f, KW_DTEND, &prop.inner),
         Property::DtStamp(prop) => write_datetime_prop(f, KW_DTSTAMP, &prop.inner),
-        Property::Duration(prop) => write_duration_prop(f, prop),
+        Property::Duration(prop) => write_prop_duration(f, prop),
 
         // URI properties
-        Property::Url(prop) => write_uri_prop(
-            f,
-            KW_URL,
-            &prop.uri,
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
-        Property::TzUrl(prop) => write_uri_prop(
-            f,
-            KW_TZURL,
-            &prop.uri,
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
+        Property::Url(prop) => write_uri_prop(f, KW_URL, prop),
+        Property::TzUrl(prop) => write_uri_prop(f, KW_TZURL, prop),
 
         // XName and Unrecognized properties - use their value directly
         Property::XName {
@@ -133,7 +124,7 @@ pub fn write_property<W: Write, S: StringStorage>(
             write!(f, "{name}")?;
             write_parameters(f, parameters)?;
             write!(f, ":")?;
-            format_value(f, value)
+            write_value(f, value)
         }
 
         // Integer properties
@@ -168,61 +159,15 @@ pub fn write_property<W: Write, S: StringStorage>(
 
         // Recurrence properties
         Property::RRule(prop) => write_rrule_prop(f, prop),
-        Property::ExDate(prop) => write_multi_date_prop(
-            f,
-            KW_EXDATE,
-            &prop.dates,
-            prop.tz_id.as_ref(),
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
-        Property::RDate(prop) => write_rdate_prop(
-            f,
-            &prop.dates,
-            prop.tz_id.as_ref(),
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
+        Property::ExDate(prop) => write_multi_date_prop(f, KW_EXDATE, prop),
+        Property::RDate(prop) => write_rdate_prop(f, prop),
 
         // Relationship properties
-        Property::Attendee(prop) => write_cal_address_prop(
-            f,
-            KW_ATTENDEE,
-            &prop.cal_address,
-            prop.cn.as_ref(),
-            &prop.role,
-            &prop.part_stat,
-            prop.rsvp,
-            &prop.cutype,
-            prop.member.as_deref(),
-            prop.delegated_to.as_deref(),
-            prop.delegated_from.as_deref(),
-            prop.dir.as_ref(),
-            prop.sent_by.as_ref(),
-            prop.language.as_ref(),
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
-        Property::Organizer(prop) => write_organizer_prop(
-            f,
-            &prop.cal_address,
-            prop.cn.as_ref(),
-            prop.dir.as_ref(),
-            prop.sent_by.as_ref(),
-            prop.language.as_ref(),
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
+        Property::Attendee(prop) => write_cal_address_prop(f, KW_ATTENDEE, prop),
+        Property::Organizer(prop) => write_organizer_prop(f, prop),
 
         // Attachment property
-        Property::Attach(prop) => write_attach_prop(
-            f,
-            &prop.value,
-            prop.fmt_type.as_ref(),
-            prop.encoding.as_ref(),
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
+        Property::Attach(prop) => write_attach_prop(f, prop),
 
         // Text/enum properties
         Property::Status(prop) => write_text_with_language(
@@ -233,20 +178,8 @@ pub fn write_property<W: Write, S: StringStorage>(
             &prop.x_parameters,
             &prop.unrecognized_parameters,
         ),
-        Property::Categories(prop) => write_multi_text_prop(
-            f,
-            KW_CATEGORIES,
-            &prop.values,
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
-        Property::Resources(prop) => write_multi_text_prop(
-            f,
-            KW_RESOURCES,
-            &prop.values,
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
+        Property::Categories(prop) => write_categories_prop(f, prop),
+        Property::Resources(prop) => write_resources_prop(f, prop),
         Property::Contact(prop) => write_text_with_language(
             f,
             KW_CONTACT,
@@ -255,13 +188,7 @@ pub fn write_property<W: Write, S: StringStorage>(
             &prop.x_parameters,
             &prop.unrecognized_parameters,
         ),
-        Property::RelatedTo(prop) => write_related_to_prop(
-            f,
-            &prop.content,
-            &prop.reltype,
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
+        Property::RelatedTo(prop) => write_related_to_prop(f, prop),
 
         // Additional DateTime properties
         Property::Created(prop) => write_datetime_prop(f, KW_CREATED, &prop.inner),
@@ -271,20 +198,8 @@ pub fn write_property<W: Write, S: StringStorage>(
         Property::RecurrenceId(prop) => write_datetime_prop(f, KW_RECURRENCE_ID, &prop.inner),
 
         // Other properties
-        Property::Geo(prop) => write_geo_prop(
-            f,
-            prop.lat,
-            prop.lon,
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
-        Property::FreeBusy(prop) => write_freebusy_prop(
-            f,
-            &prop.values,
-            &prop.fb_type,
-            &prop.x_parameters,
-            &prop.unrecognized_parameters,
-        ),
+        Property::Geo(prop) => write_geo_prop(f, prop),
+        Property::FreeBusy(prop) => write_freebusy_prop(f, prop),
         Property::Transp(prop) => write_text_with_language(
             f,
             KW_TRANSP,
@@ -304,7 +219,7 @@ pub fn write_property<W: Write, S: StringStorage>(
             &prop.unrecognized_parameters,
         ),
         Property::Trigger(prop) => {
-            write_trigger_prop(f, prop, &prop.x_parameters, &prop.unrecognized_parameters)
+            write_prop_trigger(f, prop, &prop.x_parameters, &prop.unrecognized_parameters)
         }
 
         _ => {
@@ -322,35 +237,30 @@ pub fn write_property<W: Write, S: StringStorage>(
 fn write_text_with_params<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     name: &str,
-    content: &impl fmt::Display,
+    content: &impl Display,
     language: Option<&S>,
     altrep: Option<&S>,
     x_params: &[Parameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
-    // Add LANGUAGE parameter if present
-    if let Some(lang) = language {
-        // Need to format LANGUAGE parameter directly
-        write!(f, "{name};LANGUAGE={lang}")?;
-        write_parameters(f, x_params)?;
-        write_parameters(f, unrecognized_params)?;
-        write!(f, ":{content}")?;
-        return Ok(());
-    }
-
-    // Add ALTREP parameter if present
-    if let Some(uri) = altrep {
-        write!(f, "{name};ALTREP={uri}")?;
-        write_parameters(f, x_params)?;
-        write_parameters(f, unrecognized_params)?;
-        write!(f, ":{content}")?;
-        return Ok(());
-    }
-
-    // Write: NAME;params:value
+    // Write property name
     write!(f, "{name}")?;
+
+    // Write LANGUAGE parameter if present
+    if let Some(lang) = language {
+        write_param_language(f, lang)?;
+    }
+
+    // Write ALTREP parameter if present
+    if let Some(uri) = altrep {
+        write_param_altrep(f, uri)?;
+    }
+
+    // Write generic parameter lists
     write_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
+
+    // Write property value
     write!(f, ":{content}")
 }
 
@@ -360,39 +270,37 @@ fn write_text_with_params<S: StringStorage, W: Write>(
 fn write_text_with_language<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     name: &str,
-    content: &impl fmt::Display,
+    content: &impl Display,
     language: Option<&S>,
     x_params: &[Parameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
-    // Add LANGUAGE parameter if present
+    // Write property name
+    write!(f, "{name}")?;
+
+    // Write LANGUAGE parameter if present
     if let Some(lang) = language {
-        write!(f, "{name};LANGUAGE={lang}")?;
-        write_parameters(f, x_params)?;
-        write_parameters(f, unrecognized_params)?;
-        write!(f, ":{content}")?;
-        return Ok(());
+        write_param_language(f, lang)?;
     }
 
-    // Write: NAME;params:value
-    write!(f, "{name}")?;
+    // Write generic parameter lists
     write_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
+
+    // Write property value
     write!(f, ":{content}")
 }
 
-/// Write a URI property.
+/// Write a URI property (`Url` or `TzUrl`).
 fn write_uri_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     name: &str,
-    uri: &impl fmt::Display,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    prop: &UriProperty<S>,
 ) -> io::Result<()> {
     write!(f, "{name}")?;
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
-    write!(f, ":{uri}")
+    write_parameters(f, &prop.x_parameters)?;
+    write_parameters(f, &prop.unrecognized_parameters)?;
+    write!(f, ":{}", prop.uri)
 }
 
 /// Write a `DateTime` property.
@@ -431,36 +339,12 @@ fn write_datetime_prop<S: StringStorage, W: Write>(
     write_parameters(f, unrecognized_params)?;
 
     // Write the value
-    match datetime {
-        DateTime::Floating { date, time, .. } => {
-            write!(f, ":")?;
-            format_date(f, *date)?;
-            write!(f, "T")?;
-            write_property_time(f, time, false)?;
-        }
-        DateTime::Zoned { date, time, .. } => {
-            write!(f, ":")?;
-            format_date(f, *date)?;
-            write!(f, "T")?;
-            write_property_time(f, time, false)?;
-            // Note: TZID parameter should already be in the params list
-        }
-        DateTime::Utc { date, time, .. } => {
-            write!(f, ":")?;
-            format_date(f, *date)?;
-            write!(f, "T")?;
-            write_property_time(f, time, true)?;
-        }
-        DateTime::Date { date, .. } => {
-            write!(f, ":")?;
-            format_date(f, *date)?;
-        }
-    }
-    Ok(())
+    write!(f, ":")?;
+    write_datetime(f, datetime)
 }
 
 /// Write a Duration property.
-fn write_duration_prop<S: StringStorage, W: Write>(
+fn write_prop_duration<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     duration: &Duration<S>,
 ) -> io::Result<()> {
@@ -469,14 +353,14 @@ fn write_duration_prop<S: StringStorage, W: Write>(
     write_parameters(f, &duration.x_parameters)?;
     write_parameters(f, &duration.unrecognized_parameters)?;
     write!(f, ":")?;
-    format_duration(f, &duration.value)
+    write_duration(f, &duration.value)
 }
 
 /// Write an integer property.
 fn write_integer_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     name: &str,
-    value: impl fmt::Display,
+    value: impl Display,
     x_params: &[Parameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
@@ -495,50 +379,37 @@ fn write_rrule_prop<S: StringStorage, W: Write>(
     write_parameters(f, &rrule.x_parameters)?;
     write_parameters(f, &rrule.unrecognized_parameters)?;
     write!(f, ":")?;
-    format_recurrence_rule(f, &rrule.value)
+    write_recurrence_rule(f, &rrule.value)
 }
 
-/// Write a multi-valued date property (ExDate/RDate).
+/// Write a multi-valued date property (`ExDate`).
 fn write_multi_date_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     name: &str,
-    dates: &[ExDateValue<S>],
-    tz_id: Option<&S>,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    exdate: &ExDate<S>,
 ) -> io::Result<()> {
+    // Write property name
     write!(f, "{name}")?;
 
-    // Add TZID parameter if present
-    if let Some(tz) = tz_id {
-        write!(f, ";TZID={tz}")?;
+    // Write TZID parameter if present
+    if let Some(tz) = &exdate.tz_id {
+        write_param_tzid(f, tz)?;
     }
 
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    // Write generic parameter lists
+    write_parameters(f, &exdate.x_parameters)?;
+    write_parameters(f, &exdate.unrecognized_parameters)?;
+
+    // Write property value
     write!(f, ":")?;
 
-    for (i, date) in dates.iter().enumerate() {
+    for (i, date) in exdate.dates.iter().enumerate() {
         if i > 0 {
             write!(f, ",")?;
         }
         match date {
-            ExDateValue::Date(d) => format_date(f, *d)?,
-            ExDateValue::DateTime(dt) => match dt {
-                DateTime::Floating { date, time, .. } | DateTime::Zoned { date, time, .. } => {
-                    format_date(f, *date)?;
-                    write!(f, "T")?;
-                    write_property_time(f, time, false)?;
-                }
-                DateTime::Utc { date, time, .. } => {
-                    format_date(f, *date)?;
-                    write!(f, "T")?;
-                    write_property_time(f, time, true)?;
-                }
-                DateTime::Date { date, .. } => {
-                    format_date(f, *date)?;
-                }
-            },
+            ExDateValue::Date(d) => write_date(f, *d)?,
+            ExDateValue::DateTime(dt) => write_datetime(f, dt)?,
         }
     }
     Ok(())
@@ -547,43 +418,30 @@ fn write_multi_date_prop<S: StringStorage, W: Write>(
 /// Write an `RDate` property (can contain DATE, DATE-TIME, or PERIOD values).
 fn write_rdate_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
-    dates: &[RDateValue<S>],
-    tz_id: Option<&S>,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    rdate: &RDate<S>,
 ) -> io::Result<()> {
+    // Write property name
     write!(f, "{KW_RDATE}")?;
 
-    // Add TZID parameter if present
-    if let Some(tz) = tz_id {
-        write!(f, ";TZID={tz}")?;
+    // Write TZID parameter if present
+    if let Some(tz) = &rdate.tz_id {
+        write_param_tzid(f, tz)?;
     }
 
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    // Write generic parameter lists
+    write_parameters(f, &rdate.x_parameters)?;
+    write_parameters(f, &rdate.unrecognized_parameters)?;
+
+    // Write property value
     write!(f, ":")?;
 
-    for (i, date) in dates.iter().enumerate() {
+    for (i, date) in rdate.dates.iter().enumerate() {
         if i > 0 {
             write!(f, ",")?;
         }
         match date {
-            RDateValue::Date(d) => format_date(f, *d)?,
-            RDateValue::DateTime(dt) => match dt {
-                DateTime::Floating { date, time, .. } | DateTime::Zoned { date, time, .. } => {
-                    format_date(f, *date)?;
-                    write!(f, "T")?;
-                    write_property_time(f, time, false)?;
-                }
-                DateTime::Utc { date, time, .. } => {
-                    format_date(f, *date)?;
-                    write!(f, "T")?;
-                    write_property_time(f, time, true)?;
-                }
-                DateTime::Date { date, .. } => {
-                    format_date(f, *date)?;
-                }
-            },
+            RDateValue::Date(d) => write_date(f, *d)?,
+            RDateValue::DateTime(dt) => write_datetime(f, dt)?,
             RDateValue::Period(p) => write_period(f, p)?,
         }
     }
@@ -591,155 +449,157 @@ fn write_rdate_prop<S: StringStorage, W: Write>(
 }
 
 /// Write a cal-address property (Attendee).
-#[expect(clippy::too_many_arguments)]
 fn write_cal_address_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     name: &str,
-    cal_address: &S,
-    cn: Option<&S>,
-    role: &ParticipationRole<S>,
-    part_stat: &ParticipationStatus<S>,
-    rsvp: Option<bool>,
-    cutype: &CalendarUserType<S>,
-    member: Option<&[S]>,
-    delegated_to: Option<&[S]>,
-    delegated_from: Option<&[S]>,
-    dir: Option<&S>,
-    sent_by: Option<&S>,
-    language: Option<&S>,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    attendee: &Attendee<S>,
 ) -> io::Result<()> {
+    // Write property name
     write!(f, "{name}")?;
 
-    // Write all parameters
-    if let Some(v) = cn {
-        write!(f, ";CN={v}")?;
+    // Write all parameters using centralized formatters
+    if let Some(v) = &attendee.cn {
+        write_param_cn(f, v)?;
     }
-    write!(f, ";CUTYPE={cutype}")?;
-    write!(f, ";ROLE={role}")?;
-    write!(f, ";PARTSTAT={part_stat}")?;
-    if let Some(v) = rsvp {
-        write!(f, ";RSVP={}", if v { "TRUE" } else { "FALSE" })?;
+    write_param_cutype(f, &attendee.cutype)?;
+    write_param_role(f, &attendee.role)?;
+    write_param_partstat(f, &attendee.part_stat)?;
+    if let Some(v) = attendee.rsvp {
+        write_param_rsvp(f, v)?;
     }
-    if let Some(values) = member {
-        write!(f, ";MEMBER=")?;
-        for (i, v) in values.iter().enumerate() {
-            if i > 0 {
-                write!(f, ",")?;
-            }
-            write!(f, "\"{v}\"")?;
-        }
+    if let Some(values) = attendee.member.as_deref() {
+        write_param_member(f, values)?;
     }
-    if let Some(values) = delegated_to {
-        write!(f, ";DELEGATED-TO=")?;
-        for (i, v) in values.iter().enumerate() {
-            if i > 0 {
-                write!(f, ",")?;
-            }
-            write!(f, "\"{v}\"")?;
-        }
+    if let Some(values) = attendee.delegated_to.as_deref() {
+        write_param_delegated_to(f, values)?;
     }
-    if let Some(values) = delegated_from {
-        write!(f, ";DELEGATED-FROM=")?;
-        for (i, v) in values.iter().enumerate() {
-            if i > 0 {
-                write!(f, ",")?;
-            }
-            write!(f, "\"{v}\"")?;
-        }
+    if let Some(values) = attendee.delegated_from.as_deref() {
+        write_param_delegated_from(f, values)?;
     }
-    if let Some(v) = dir {
-        write!(f, ";DIR={v}")?;
+    if let Some(v) = &attendee.dir {
+        write_param_dir(f, v)?;
     }
-    if let Some(v) = sent_by {
-        write!(f, ";SENT-BY={v}")?;
+    if let Some(v) = &attendee.sent_by {
+        write_param_sent_by(f, v)?;
     }
-    if let Some(v) = language {
-        write!(f, ";LANGUAGE={v}")?;
+    if let Some(v) = &attendee.language {
+        write_param_language(f, v)?;
     }
 
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    // Write generic parameter lists
+    write_parameters(f, &attendee.x_parameters)?;
+    write_parameters(f, &attendee.unrecognized_parameters)?;
 
-    write!(f, ":{cal_address}")
+    // Write property value
+    write!(f, ":{}", attendee.cal_address)
 }
 
 /// Write an Organizer property.
-#[expect(clippy::too_many_arguments)]
 fn write_organizer_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
-    cal_address: &S,
-    cn: Option<&S>,
-    dir: Option<&S>,
-    sent_by: Option<&S>,
-    language: Option<&S>,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    organizer: &Organizer<S>,
 ) -> io::Result<()> {
+    // Write property name
     write!(f, "{KW_ORGANIZER}")?;
 
-    if let Some(v) = cn {
-        write!(f, ";CN={v}")?;
+    // Write all parameters using centralized formatters
+    if let Some(v) = &organizer.cn {
+        write_param_cn(f, v)?;
     }
-    if let Some(v) = dir {
-        write!(f, ";DIR={v}")?;
+    if let Some(v) = &organizer.dir {
+        write_param_dir(f, v)?;
     }
-    if let Some(v) = sent_by {
-        write!(f, ";SENT-BY={v}")?;
+    if let Some(v) = &organizer.sent_by {
+        write_param_sent_by(f, v)?;
     }
-    if let Some(v) = language {
-        write!(f, ";LANGUAGE={v}")?;
+    if let Some(v) = &organizer.language {
+        write_param_language(f, v)?;
     }
 
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
-    write!(f, ":{cal_address}")
+    // Write generic parameter lists
+    write_parameters(f, &organizer.x_parameters)?;
+    write_parameters(f, &organizer.unrecognized_parameters)?;
+
+    // Write property value
+    write!(f, ":{}", organizer.cal_address)
 }
 
 /// Write an Attach property.
 fn write_attach_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
-    value: &AttachmentValue<S>,
-    fmt_type: Option<&S>,
-    encoding: Option<&Encoding>,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    attach: &Attachment<S>,
 ) -> io::Result<()> {
+    // Write property name
     write!(f, "{KW_ATTACH}")?;
 
-    if let Some(v) = fmt_type {
-        write!(f, ";FMTTYPE={v}")?;
+    // Write parameters using centralized formatters
+    if let Some(v) = &attach.fmt_type {
+        write_param_fmttype(f, v)?;
     }
-    if let Some(v) = encoding {
-        write!(f, ";ENCODING={v}")?;
+    if let Some(v) = attach.encoding {
+        write_param_encoding(f, v)?;
     }
 
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    // Write generic parameter lists
+    write_parameters(f, &attach.x_parameters)?;
+    write_parameters(f, &attach.unrecognized_parameters)?;
 
+    // Write property value
     write!(f, ":")?;
-    match value {
+    match &attach.value {
         AttachmentValue::Uri(uri) => write!(f, "{uri}")?,
         AttachmentValue::Binary(data) => write!(f, "{data}")?,
     }
     Ok(())
 }
 
-/// Write a multi-valued text property (`Categories`, `Resources`).
-fn write_multi_text_prop<S: StringStorage, W: Write>(
+/// Write a Categories property.
+fn write_categories_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
-    name: &str,
-    values: &[ValueText<S>],
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    categories: &Categories<S>,
 ) -> io::Result<()> {
-    write!(f, "{name}")?;
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    write!(f, "{KW_CATEGORIES}")?;
+
+    // Write LANGUAGE parameter if present
+    if let Some(lang) = &categories.language {
+        write_param_language(f, lang)?;
+    }
+
+    write_parameters(f, &categories.x_parameters)?;
+    write_parameters(f, &categories.unrecognized_parameters)?;
 
     write!(f, ":")?;
-    for (i, value) in values.iter().enumerate() {
+    for (i, value) in categories.values.iter().enumerate() {
+        if i > 0 {
+            write!(f, ",")?;
+        }
+        write!(f, "{value}")?;
+    }
+    Ok(())
+}
+
+/// Write a Resources property.
+fn write_resources_prop<S: StringStorage, W: Write>(
+    f: &mut Formatter<W>,
+    resources: &Resources<S>,
+) -> io::Result<()> {
+    write!(f, "{KW_RESOURCES}")?;
+
+    // Write LANGUAGE parameter if present
+    if let Some(lang) = &resources.language {
+        write_param_language(f, lang)?;
+    }
+
+    // Write ALTREP parameter if present
+    if let Some(uri) = &resources.altrep {
+        write_param_altrep(f, uri)?;
+    }
+
+    write_parameters(f, &resources.x_parameters)?;
+    write_parameters(f, &resources.unrecognized_parameters)?;
+
+    write!(f, ":")?;
+    for (i, value) in resources.values.iter().enumerate() {
         if i > 0 {
             write!(f, ",")?;
         }
@@ -751,45 +611,51 @@ fn write_multi_text_prop<S: StringStorage, W: Write>(
 /// Write a `RelatedTo` property.
 fn write_related_to_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
-    content: &ValueText<S>,
-    reltype: &RelationshipType<S>,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    related_to: &RelatedTo<S>,
 ) -> io::Result<()> {
-    write!(f, "{KW_RELATED_TO};RELTYPE={reltype}")?;
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
-    write!(f, ":{content}")
+    // Write property name
+    write!(f, "{KW_RELATED_TO}")?;
+
+    // Write RELTYPE parameter using centralized formatter
+    write_param_reltype(f, &related_to.reltype)?;
+
+    // Write generic parameter lists
+    write_parameters(f, &related_to.x_parameters)?;
+    write_parameters(f, &related_to.unrecognized_parameters)?;
+
+    // Write property value
+    write!(f, ":{}", related_to.content)
 }
 
 /// Write a `Geo` property.
 fn write_geo_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
-    lat: f64,
-    lon: f64,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    geo: &Geo<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_GEO}")?;
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
-    write!(f, ":{lat};{lon}")
+    write_parameters(f, &geo.x_parameters)?;
+    write_parameters(f, &geo.unrecognized_parameters)?;
+    write!(f, ":{};{}", geo.lat, geo.lon)
 }
 
 /// Write a `FreeBusy` property.
 fn write_freebusy_prop<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
-    values: &[Period<S>],
-    fb_type: &FreeBusyType<S>,
-    x_params: &[Parameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    freebusy: &crate::FreeBusy<S>,
 ) -> io::Result<()> {
-    write!(f, "{KW_FREEBUSY};{KW_FBTYPE}={fb_type}")?;
-    write_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    // Write property name
+    write!(f, "{KW_FREEBUSY}")?;
 
+    // Write FBTYPE parameter using centralized formatter
+    write_param_fbtype(f, &freebusy.fb_type)?;
+
+    // Write generic parameter lists
+    write_parameters(f, &freebusy.x_parameters)?;
+    write_parameters(f, &freebusy.unrecognized_parameters)?;
+
+    // Write property value
     write!(f, ":")?;
-    for (i, period) in values.iter().enumerate() {
+    for (i, period) in freebusy.values.iter().enumerate() {
         if i > 0 {
             write!(f, ",")?;
         }
@@ -810,13 +676,13 @@ fn write_period<S: StringStorage, W: Write>(
             end_date,
             end_time,
         } => {
-            format_date(f, *start_date)?;
+            write_date(f, *start_date)?;
             write!(f, "T")?;
-            write_property_time(f, start_time, true)?;
+            write_time(f, start_time, true)?;
             write!(f, "/")?;
-            format_date(f, *end_date)?;
+            write_date(f, *end_date)?;
             write!(f, "T")?;
-            write_property_time(f, end_time, true)?;
+            write_time(f, end_time, true)?;
         }
         Period::ExplicitFloating {
             start_date,
@@ -831,24 +697,24 @@ fn write_period<S: StringStorage, W: Write>(
             end_time,
             ..
         } => {
-            format_date(f, *start_date)?;
+            write_date(f, *start_date)?;
             write!(f, "T")?;
-            write_property_time(f, start_time, false)?;
+            write_time(f, start_time, false)?;
             write!(f, "/")?;
-            format_date(f, *end_date)?;
+            write_date(f, *end_date)?;
             write!(f, "T")?;
-            write_property_time(f, end_time, false)?;
+            write_time(f, end_time, false)?;
         }
         Period::DurationUtc {
             start_date,
             start_time,
             duration,
         } => {
-            format_date(f, *start_date)?;
+            write_date(f, *start_date)?;
             write!(f, "T")?;
-            write_property_time(f, start_time, true)?;
+            write_time(f, start_time, true)?;
             write!(f, "/")?;
-            format_duration(f, duration)?;
+            write_duration(f, duration)?;
         }
         Period::DurationFloating {
             start_date,
@@ -861,63 +727,70 @@ fn write_period<S: StringStorage, W: Write>(
             duration,
             ..
         } => {
-            format_date(f, *start_date)?;
+            write_date(f, *start_date)?;
             write!(f, "T")?;
-            write_property_time(f, start_time, false)?;
+            write_time(f, start_time, false)?;
             write!(f, "/")?;
-            format_duration(f, duration)?;
+            write_duration(f, duration)?;
         }
     }
     Ok(())
 }
 
 /// Write a Trigger property.
-fn write_trigger_prop<S: StringStorage, W: Write>(
+fn write_prop_trigger<S: StringStorage, W: Write>(
     f: &mut Formatter<W>,
     trigger: &Trigger<S>,
     x_params: &[Parameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
+    // Write property name
     write!(f, "{KW_TRIGGER}")?;
 
-    // Add RELATED parameter if present
+    // Write RELATED parameter if present, using centralized formatter
     if let Some(related) = &trigger.related {
-        write!(f, ";RELATED={related}")?;
+        write_param_related(f, *related)?;
     }
 
+    // Write generic parameter lists
     write_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
 
+    // Write property value
     write!(f, ":")?;
     match &trigger.value {
-        TriggerValue::Duration(d) => {
-            format_duration(f, d)?;
-        }
-        TriggerValue::DateTime(dt) => match dt {
-            DateTime::Floating { date, time, .. } | DateTime::Zoned { date, time, .. } => {
-                format_date(f, *date)?;
-                write!(f, "T")?;
-                write_property_time(f, time, false)?;
-            }
-            DateTime::Utc { date, time, .. } => {
-                format_date(f, *date)?;
-                write!(f, "T")?;
-                write_property_time(f, time, true)?;
-            }
-            DateTime::Date { date, .. } => format_date(f, *date)?,
-        },
+        TriggerValue::Duration(d) => write_duration(f, d),
+        TriggerValue::DateTime(dt) => write_datetime(f, dt),
     }
-    Ok(())
+}
+
+fn write_datetime<W: Write, S: StringStorage>(
+    f: &mut Formatter<W>,
+    datetime: &DateTime<S>,
+) -> io::Result<()> {
+    match datetime {
+        DateTime::Floating { date, time, .. }
+            // NOTE: TZID parameter should already be in the params list
+           | DateTime::Zoned { date, time, .. } => {
+            write_date(f, *date)?;
+            write!(f, "T")?;
+            write_time(f, time, false)
+        }
+        DateTime::Utc { date, time, .. } => {
+            write_date(f, *date)?;
+            write!(f, "T")?;
+            write_time(f, time, true)
+        }
+        DateTime::Date { date, .. } => write_date(f, *date),
+    }
 }
 
 /// Format a `property::datetime::Time` value as `HHMMSS[Z]`.
-fn write_property_time<W: Write>(f: &mut Formatter<W>, time: &Time, utc: bool) -> io::Result<()> {
+fn write_time<W: Write>(f: &mut Formatter<W>, time: &Time, utc: bool) -> io::Result<()> {
+    let utc = if utc { "Z" } else { "" };
     write!(
         f,
         "{:02}{:02}{:02}{}",
-        time.hour,
-        time.minute,
-        time.second,
-        if utc { "Z" } else { "" }
+        time.hour, time.minute, time.second, utc
     )
 }

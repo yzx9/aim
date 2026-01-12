@@ -4,6 +4,8 @@
 
 //! Recurrence rule type definitions for iCalendar.
 
+use std::fmt::{self, Display};
+
 use chumsky::extra::ParserExtra;
 use chumsky::input::Input;
 use chumsky::label::LabelError;
@@ -70,6 +72,20 @@ pub enum RecurrenceFrequency {
     Yearly,
 }
 
+impl Display for RecurrenceFrequency {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RecurrenceFrequency::Secondly => write!(f, "{KW_RRULE_FREQ_SECONDLY}"),
+            RecurrenceFrequency::Minutely => write!(f, "{KW_RRULE_FREQ_MINUTELY}"),
+            RecurrenceFrequency::Hourly => write!(f, "{KW_RRULE_FREQ_HOURLY}"),
+            RecurrenceFrequency::Daily => write!(f, "{KW_RRULE_FREQ_DAILY}"),
+            RecurrenceFrequency::Weekly => write!(f, "{KW_RRULE_FREQ_WEEKLY}"),
+            RecurrenceFrequency::Monthly => write!(f, "{KW_RRULE_FREQ_MONTHLY}"),
+            RecurrenceFrequency::Yearly => write!(f, "{KW_RRULE_FREQ_YEARLY}"),
+        }
+    }
+}
+
 /// Day of week with optional occurrence
 #[derive(Debug, Clone, Copy)]
 pub struct WeekDayNum {
@@ -90,6 +106,20 @@ pub enum WeekDay {
     Thursday,
     Friday,
     Saturday,
+}
+
+impl Display for WeekDay {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WeekDay::Sunday => write!(f, "{KW_DAY_SU}"),
+            WeekDay::Monday => write!(f, "{KW_DAY_MO}"),
+            WeekDay::Tuesday => write!(f, "{KW_DAY_TU}"),
+            WeekDay::Wednesday => write!(f, "{KW_DAY_WE}"),
+            WeekDay::Thursday => write!(f, "{KW_DAY_TH}"),
+            WeekDay::Friday => write!(f, "{KW_DAY_FR}"),
+            WeekDay::Saturday => write!(f, "{KW_DAY_SA}"),
+        }
+    }
 }
 
 /// Format Definition:  This value type is defined by the following notation:

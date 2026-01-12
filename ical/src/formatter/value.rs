@@ -11,23 +11,21 @@ use std::io::{self, Write};
 
 use crate::formatter::Formatter;
 use crate::keyword::{
-    KW_BOOLEAN_FALSE, KW_BOOLEAN_TRUE, KW_DAY_FR, KW_DAY_MO, KW_DAY_SA, KW_DAY_SU, KW_DAY_TH,
-    KW_DAY_TU, KW_DAY_WE, KW_RRULE_BYDAY, KW_RRULE_BYHOUR, KW_RRULE_BYMINUTE, KW_RRULE_BYMONTH,
-    KW_RRULE_BYMONTHDAY, KW_RRULE_BYSECOND, KW_RRULE_BYSETPOS, KW_RRULE_BYWEEKNO,
-    KW_RRULE_BYYEARDAY, KW_RRULE_COUNT, KW_RRULE_FREQ, KW_RRULE_FREQ_DAILY, KW_RRULE_FREQ_HOURLY,
-    KW_RRULE_FREQ_MINUTELY, KW_RRULE_FREQ_MONTHLY, KW_RRULE_FREQ_SECONDLY, KW_RRULE_FREQ_WEEKLY,
-    KW_RRULE_FREQ_YEARLY, KW_RRULE_INTERVAL, KW_RRULE_UNTIL, KW_RRULE_WKST,
+    KW_BOOLEAN_FALSE, KW_BOOLEAN_TRUE, KW_RRULE_BYDAY, KW_RRULE_BYHOUR, KW_RRULE_BYMINUTE,
+    KW_RRULE_BYMONTH, KW_RRULE_BYMONTHDAY, KW_RRULE_BYSECOND, KW_RRULE_BYSETPOS, KW_RRULE_BYWEEKNO,
+    KW_RRULE_BYYEARDAY, KW_RRULE_COUNT, KW_RRULE_FREQ, KW_RRULE_INTERVAL, KW_RRULE_UNTIL,
+    KW_RRULE_WKST,
 };
 use crate::string_storage::StringStorage;
 use crate::value::{
-    RecurrenceFrequency, Value, ValueDate, ValueDateTime, ValueDuration, ValuePeriod,
-    ValueRecurrenceRule, ValueTime, ValueUtcOffset, WeekDay, WeekDayNum,
+    Value, ValueDate, ValueDateTime, ValueDuration, ValuePeriod, ValueRecurrenceRule, ValueTime,
+    ValueUtcOffset, WeekDayNum,
 };
 
 /// Format a value to the formatter.
 ///
 /// This is the main entry point for formatting values.
-pub fn format_value<W: Write, S: StringStorage>(
+pub fn write_value<W: Write, S: StringStorage>(
     f: &mut Formatter<W>,
     value: &Value<S>,
 ) -> io::Result<()> {
@@ -37,21 +35,20 @@ pub fn format_value<W: Write, S: StringStorage>(
         Value::Binary { value, .. }
         | Value::CalAddress { value, .. }
         | Value::Uri { value, .. } => write!(f, "{value}"),
-        Value::Boolean { value, .. } => write!(
-            f,
-            "{}",
-            if *value {
+        Value::Boolean { value, .. } => {
+            let v = if *value {
                 KW_BOOLEAN_TRUE
             } else {
                 KW_BOOLEAN_FALSE
-            }
-        ),
+            };
+            write!(f, "{v}",)
+        }
         Value::Date { values, .. } => {
             for (i, date) in values.iter().enumerate() {
                 if i > 0 {
                     write!(f, ",")?;
                 }
-                format_date(f, *date)?;
+                write_date(f, *date)?;
             }
             Ok(())
         }
@@ -60,7 +57,7 @@ pub fn format_value<W: Write, S: StringStorage>(
                 if i > 0 {
                     write!(f, ",")?;
                 }
-                format_date_time(f, datetime)?;
+                write_date_time(f, datetime)?;
             }
             Ok(())
         }
@@ -69,7 +66,7 @@ pub fn format_value<W: Write, S: StringStorage>(
                 if i > 0 {
                     write!(f, ",")?;
                 }
-                format_duration(f, duration)?;
+                write_duration(f, duration)?;
             }
             Ok(())
         }
@@ -96,7 +93,7 @@ pub fn format_value<W: Write, S: StringStorage>(
                 if i > 0 {
                     write!(f, ",")?;
                 }
-                format_period(f, period)?;
+                write_period(f, period)?;
             }
             Ok(())
         }
@@ -115,31 +112,31 @@ pub fn format_value<W: Write, S: StringStorage>(
                 if i > 0 {
                     write!(f, ",")?;
                 }
-                format_time(f, time)?;
+                write_time(f, time)?;
             }
             Ok(())
         }
-        Value::UtcOffset { value, .. } => format_utc_offset(f, *value),
-        Value::RecurrenceRule { value, .. } => format_recurrence_rule(f, value),
+        Value::UtcOffset { value, .. } => write_utc_offset(f, *value),
+        Value::RecurrenceRule { value, .. } => write_recurrence_rule(f, value),
         // XName / Unrecognized values are stored as raw unparsed strings
         Value::XName { raw, .. } | Value::Unrecognized { raw, .. } => write!(f, "{raw}"),
     }
 }
 
 /// Format a date value as `YYYYMMDD`.
-pub fn format_date<W: Write>(f: &mut Formatter<W>, date: ValueDate) -> io::Result<()> {
+pub fn write_date<W: Write>(f: &mut Formatter<W>, date: ValueDate) -> io::Result<()> {
     write!(f, "{:04}{:02}{:02}", date.year, date.month, date.day)
 }
 
 /// Format a date-time value as `YYYYMMDDTHHMMSS[Z]`.
-fn format_date_time<W: Write>(f: &mut Formatter<W>, datetime: &ValueDateTime) -> io::Result<()> {
-    format_date(f, datetime.date)?;
+fn write_date_time<W: Write>(f: &mut Formatter<W>, datetime: &ValueDateTime) -> io::Result<()> {
+    write_date(f, datetime.date)?;
     write!(f, "T")?;
-    format_time(f, &datetime.time)
+    write_time(f, &datetime.time)
 }
 
 /// Format a duration value as `P[n]DT[n]H[n]M[n]S` (RFC 5545 Section 3.3.6).
-pub fn format_duration<W: Write>(f: &mut Formatter<W>, duration: &ValueDuration) -> io::Result<()> {
+pub fn write_duration<W: Write>(f: &mut Formatter<W>, duration: &ValueDuration) -> io::Result<()> {
     // Get positive flag and write sign
     match duration {
         ValueDuration::Week { positive, .. } | ValueDuration::DateTime { positive, .. }
@@ -188,44 +185,37 @@ pub fn format_duration<W: Write>(f: &mut Formatter<W>, duration: &ValueDuration)
 }
 
 /// Format a period value as `start/end` or `start/duration`.
-pub fn format_period<W: Write>(f: &mut Formatter<W>, period: &ValuePeriod) -> io::Result<()> {
+pub fn write_period<W: Write>(f: &mut Formatter<W>, period: &ValuePeriod) -> io::Result<()> {
     // Format: start/end OR start/duration
     match period {
         ValuePeriod::Explicit { start, end } => {
-            format_date_time(f, start)?;
+            write_date_time(f, start)?;
             write!(f, "/")?;
-            format_date_time(f, end)?;
+            write_date_time(f, end)?;
         }
         ValuePeriod::Duration { start, duration } => {
-            format_date_time(f, start)?;
+            write_date_time(f, start)?;
             write!(f, "/")?;
-            format_duration(f, duration)?;
+            write_duration(f, duration)?;
         }
     }
     Ok(())
 }
 
 /// Format a time value as `HHMMSS[Z]`.
-pub fn format_time<W: Write>(w: &mut W, time: &ValueTime) -> io::Result<()> {
+pub fn write_time<W: Write>(w: &mut W, time: &ValueTime) -> io::Result<()> {
+    let utc = if time.utc { "Z" } else { "" };
     write!(
         w,
         "{:02}{:02}{:02}{}",
-        time.hour,
-        time.minute,
-        time.second,
-        if time.utc { "Z" } else { "" }
+        time.hour, time.minute, time.second, utc
     )
 }
 
 /// Format a UTC offset value as `+HHMM` or `-HHMM` (with optional seconds).
-fn format_utc_offset<W: Write>(f: &mut Formatter<W>, offset: ValueUtcOffset) -> io::Result<()> {
-    write!(
-        f,
-        "{}{:02}{:02}",
-        if offset.positive { "+" } else { "-" },
-        offset.hour,
-        offset.minute
-    )?;
+fn write_utc_offset<W: Write>(f: &mut Formatter<W>, offset: ValueUtcOffset) -> io::Result<()> {
+    let sign = if offset.positive { "+" } else { "-" };
+    write!(f, "{sign}{:02}{:02}", offset.hour, offset.minute)?;
     if let Some(second) = offset.second {
         write!(f, "{second:02}")?;
     }
@@ -233,19 +223,19 @@ fn format_utc_offset<W: Write>(f: &mut Formatter<W>, offset: ValueUtcOffset) -> 
 }
 
 /// Format a recurrence rule value (RFC 5545 Section 3.3.10).
-pub fn format_recurrence_rule<W: Write>(
+pub fn write_recurrence_rule<W: Write>(
     f: &mut Formatter<W>,
     rule: &ValueRecurrenceRule,
 ) -> io::Result<()> {
     // Format: FREQ=DAILY;INTERVAL=1;...
 
     // FREQ is required
-    write!(f, "{KW_RRULE_FREQ}={}", format_frequency(rule.freq))?;
+    write!(f, "{KW_RRULE_FREQ}={}", rule.freq)?;
 
     // UNTIL or COUNT (optional, mutually exclusive)
     if let Some(until) = &rule.until {
         write!(f, ";{KW_RRULE_UNTIL}=")?;
-        format_date_time(f, until)?;
+        write_date_time(f, until)?;
     } else if let Some(count) = rule.count {
         write!(f, ";{KW_RRULE_COUNT}={count}")?;
     }
@@ -356,45 +346,17 @@ pub fn format_recurrence_rule<W: Write>(
 
     // WKST (optional)
     if let Some(wkst) = rule.wkst {
-        write!(f, ";{KW_RRULE_WKST}={}", format_weekday(wkst))?;
+        write!(f, ";{KW_RRULE_WKST}={wkst}")?;
     }
 
     Ok(())
 }
 
-/// Format a recurrence frequency value.
-fn format_frequency(freq: RecurrenceFrequency) -> &'static str {
-    match freq {
-        RecurrenceFrequency::Secondly => KW_RRULE_FREQ_SECONDLY,
-        RecurrenceFrequency::Minutely => KW_RRULE_FREQ_MINUTELY,
-        RecurrenceFrequency::Hourly => KW_RRULE_FREQ_HOURLY,
-        RecurrenceFrequency::Daily => KW_RRULE_FREQ_DAILY,
-        RecurrenceFrequency::Weekly => KW_RRULE_FREQ_WEEKLY,
-        RecurrenceFrequency::Monthly => KW_RRULE_FREQ_MONTHLY,
-        RecurrenceFrequency::Yearly => KW_RRULE_FREQ_YEARLY,
-    }
-}
-
 /// Format a weekday number (e.g., "1MO", "-1FR", "SU").
 fn format_weekday_num(wn: WeekDayNum) -> String {
-    let day_str = format_weekday(wn.day);
-    if let Some(occ) = wn.occurrence {
-        format!("{occ}{day_str}")
-    } else {
-        day_str.to_string()
-    }
-}
-
-/// Format a weekday (e.g., "MO", "TU", "SU").
-fn format_weekday(wd: WeekDay) -> &'static str {
-    match wd {
-        WeekDay::Sunday => KW_DAY_SU,
-        WeekDay::Monday => KW_DAY_MO,
-        WeekDay::Tuesday => KW_DAY_TU,
-        WeekDay::Wednesday => KW_DAY_WE,
-        WeekDay::Thursday => KW_DAY_TH,
-        WeekDay::Friday => KW_DAY_FR,
-        WeekDay::Saturday => KW_DAY_SA,
+    match wn.occurrence {
+        Some(occ) => format!("{occ}{}", wn.day),
+        None => wn.day.to_string(),
     }
 }
 
@@ -413,7 +375,7 @@ mod tests {
         };
         let mut buffer = Vec::new();
         let mut f = Formatter::new(&mut buffer);
-        format_date(&mut f, date).unwrap();
+        write_date(&mut f, date).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "19970714");
     }
 
@@ -421,12 +383,12 @@ mod tests {
     fn test_format_time() {
         let time = ValueTime::new(13, 30, 0, false);
         let mut buffer = Vec::new();
-        format_time(&mut buffer, &time).unwrap();
+        write_time(&mut buffer, &time).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "133000");
 
         let time_utc = ValueTime::new(7, 0, 0, true);
         let mut buffer = Vec::new();
-        format_time(&mut buffer, &time_utc).unwrap();
+        write_time(&mut buffer, &time_utc).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "070000Z");
     }
 
@@ -440,7 +402,7 @@ mod tests {
         };
         let mut buffer = Vec::new();
         let mut f = Formatter::new(&mut buffer);
-        format_utc_offset(&mut f, offset).unwrap();
+        write_utc_offset(&mut f, offset).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "-0500");
 
         let offset = ValueUtcOffset {
@@ -451,7 +413,7 @@ mod tests {
         };
         let mut buffer = Vec::new();
         let mut f = Formatter::new(&mut buffer);
-        format_utc_offset(&mut f, offset).unwrap();
+        write_utc_offset(&mut f, offset).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "+0100");
     }
 }
