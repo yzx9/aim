@@ -240,25 +240,6 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        impl<T: crate::string_storage::StringStorage> $name<T> {
-            /// Tries to compare two values for equality if both are standard values.
-            /// Returns None if either value is x-name/unrecognized.
-            #[allow(dead_code)]
-            #[must_use]
-            pub(crate) fn try_eq_known(&self, other: &Self) -> Option<bool> {
-                match self {
-                    $(
-                        Self::$variant => match other {
-                            Self::$variant => Some(true),
-                            Self::XName(_) | Self::Unrecognized(_) => None, // not standard
-                            _ => Some(false),
-                        },
-                    )*
-                    Self::XName(_) | Self::Unrecognized(_) => None, // not standard
-                }
-            }
-        }
-
         impl<'src> ::core::convert::From<SpannedSegments<'src>> for $name_ref<'src> {
             fn from(segs: SpannedSegments<'src>) -> Self {
                 $(
@@ -301,4 +282,50 @@ macro_rules! define_param_enum_with_unknown {
             })
         }
     };
+
+    (
+        $(#[$meta:meta])*
+        $vis:vis enum $name:ident {
+            $(
+                $(#[$vmeta:meta])*
+                $variant:ident => $kw:ident
+            ),* $(,)?
+        }
+
+        ref    = $rvis:vis type $name_ref:ident;
+        owned  = $ovis:vis type $name_owned:ident;
+        parser = $pvis:vis fn $parse_fn:ident;
+        gen_eq_known;
+    ) => {
+        define_param_enum_with_unknown! {
+            $(#[$meta])*
+            $vis enum $name {
+            $(
+                $(#[$vmeta])*
+                $variant => $kw
+            ),*
+            }
+            ref    = $rvis type $name_ref;
+            owned  = $ovis type $name_owned;
+            parser = $pvis fn $parse_fn;
+        }
+
+        impl<T: crate::string_storage::StringStorage> $name<T> {
+            /// Tries to compare two values for equality if both are standard values.
+            /// Returns None if either value is x-name/unrecognized.
+            #[must_use]
+            pub(crate) fn try_eq_known(&self, other: &Self) -> Option<bool> {
+                match self {
+                    $(
+                        Self::$variant => match other {
+                            Self::$variant => Some(true),
+                            Self::XName(_) | Self::Unrecognized(_) => None, // not standard
+                            _ => Some(false),
+                        },
+                    )*
+                    Self::XName(_) | Self::Unrecognized(_) => None, // not standard
+                }
+            }
+        }
+    }
 }

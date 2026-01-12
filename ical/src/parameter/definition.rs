@@ -240,6 +240,7 @@ define_param_enum_with_unknown! {
     ref    = pub type ValueTypeRef;
     owned  = pub type ValueTypeOwned;
     parser = pub fn parse_value_type;
+    gen_eq_known;
 }
 
 impl<S: StringStorage> From<ValueType<&S>> for ValueType<S> {
