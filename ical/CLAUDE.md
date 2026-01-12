@@ -180,7 +180,7 @@ ical/
     ├── typed.rs         # Typed analysis tests
     ├── semantic.rs      # Semantic tests
     ├── formatter.rs     # Formatter tests
-    └── to_owned_basic.rs # To owned conversion tests
+    └── round_trip.rs    # Round-trip tests (parse → to_owned → format → parse)
 ```
 
 ## Dependencies
@@ -222,15 +222,9 @@ ical/
   dedicated wrapper types for each property (e.g., `Created`, `DtStart`, `Summary`)
 - **Generic Storage Parameter System**: Unified type system using generic storage parameter
   `S: StringStorage` for flexibility:
-  - **Parameters**: `Parameter<S: StringStorage>` with convenience aliases:
-    - `ParameterRef<'src>` = `Parameter<SpannedSegments<'src>>` for zero-copy parsing
-    - `ParameterOwned` = `Parameter<String>` for owned data
-  - **Properties**: `Property<S: StringStorage>` with convenience aliases:
-    - `PropertyRef<'src>` = `Property<SpannedSegments<'src>>`
-    - `PropertyOwned` = `Property<String>`
-  - **Values**: `Value<S: StringStorage>` with convenience aliases:
-    - `ValueRef<'src>` = `Value<SpannedSegments<'src>>`
-    - `ValueOwned` = `Value<String>`
+  - **Parameters**: `Parameter<S: StringStorage>` with convenience aliases.
+  - **Properties**: `Property<S: StringStorage>` with convenience aliases.
+  - **Values**: `Value<S: StringStorage>` with convenience aliases.
   - **Semantic Types**: All component types (e.g., `VEvent`, `VTodo`, `ICalendar`) use the same
     pattern with `Ref` and `Owned` variants
   - This enables both zero-copy parsing (borrowed data) and owned data representations with a
