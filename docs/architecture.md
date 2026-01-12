@@ -50,13 +50,14 @@ aim/
 - Table and JSON output formatting
 - Shell completion generation
 
-**ical** - iCalendar (RFC 5545) parser with:
+**ical** - iCalendar (RFC 5545) parser and formatter with:
 
 - Four-phase parsing pipeline (lexer → syntax → typed → semantic)
 - Three-pass typed analysis (parameter → value → property)
 - Type-safe representations with generic `StringStorage` trait for flexible string and span handling
 - Zero-copy parsing support with `SpannedSegments<'src>` for borrowed data
 - Comprehensive error reporting
+- RFC 5545 formatter for serializing components, properties, parameters, and values
 
 ## Technology Stack
 
