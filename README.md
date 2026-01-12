@@ -51,8 +51,75 @@ It **analyzes** your schedule using AI-driven insights,
 **interacts** naturally to understand your needs and preferences,
 and enables you to **manage** your time with clarity, control, and confidence.
 
-Built on the [iCalendar standard (RFC 5545)](https://icalendar.org/RFC-Specifications/iCalendar-RFC-5545/) and compatible with [CalDAV](https://en.wikipedia.org/wiki/CalDAV) servers like [Radicale](https://radicale.org/), AIM ensures interoperability and flexibility across systems.
+Built on the [iCalendar standard (RFC 5545)](https://icalendar.org/RFC-Specifications/iCalendar-RFC-5545/)
+and compatible with [CalDAV](https://en.wikipedia.org/wiki/CalDAV) servers like [Radicale](https://radicale.org/),
+AIM ensures interoperability and flexibility across systems.
 From smart reminders to personalized insights, AIM helps you work smarter, not harder.
+
+## What AIM Provides
+
+AIM is more than just a calendar tool—it's a comprehensive platform consisting of:
+
+### Core Library
+
+A comprehensive Rust library providing the foundation for calendar and task management, with:
+
+- Event and todo data models and management
+- Local SQLite storage with efficient querying
+- Timezone-aware datetime handling
+- Configuration management
+- Short ID mapping for efficient references
+
+### Comprehensive RFC 5545 Library
+
+A robust Rust library for reading and writing iCalendar (RFC 5545) data with:
+
+- Full RFC 5545 specification compliance
+- RRULE (recurrence rule) support for recurring events
+- Type-safe parsing and serialization
+- Zero-copy parsing for optimal performance
+- Extensive error reporting
+
+### Command-Line Interface
+
+An intuitive CLI for power users who prefer terminal-based workflows, featuring:
+
+- Quick event and todo management
+- Interactive TUI mode
+- Multiple output formats (table, JSON)
+- Shell completion support
+
+### Chat Interface (Planned)
+
+Natural language interface for interacting with your calendar through conversation, powered by LLMs
+for intelligent command parsing and execution.
+
+### REST API (Planned)
+
+A complete web API for programmatic access, enabling:
+
+- Third-party integrations
+- Webhook support
+- CalDAV synchronization
+- Cross-platform accessibility
+
+## Features
+
+Built on top of the core libraries, AIM delivers these key capabilities:
+
+- **RFC 5545 Compliance**: Full iCalendar standard support ensuring compatibility with Google
+  Calendar, Apple Calendar, Outlook, and other calendar applications
+- **High-Performance Parsing**: Zero-copy parsing with the `aimcal-ical` library for efficient
+  iCalendar data processing
+- **Recurring Events**: RRULE support for complex recurring patterns (daily, weekly, monthly,
+  yearly, and custom schedules)
+- **Interactive TUI**: Terminal-based user interface with keyboard navigation for efficient
+  calendar management
+- **Smart Queries**: Filter and search events by date, location, summary, and custom properties
+  with convenient short numeric IDs for quick event and todo references
+- **Cross-Platform**: Runs on Linux, macOS, and Windows with consistent behavior
+- **Developer-Friendly**: Modular library design lets you use individual components in your own
+  Rust projects
 
 ## Usage
 
@@ -111,11 +178,14 @@ Their work has been a significant inspiration for AIM's design and functionality
 
 ## Contribution
 
-Any help in the form of descriptive and friendly [issues](https://github.com/yzx9/aim/issues) or comprehensive pull requests are welcome!
+Any help in the form of descriptive and friendly [issues](https://github.com/yzx9/aim/issues) or
+comprehensive pull requests are welcome!
 
 Please check out [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in AIM by you, as defined in the [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) license, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
+AIM by you, as defined in the [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) license,
+without any additional terms or conditions.
 
 Thanks goes to these wonderful people:
 
