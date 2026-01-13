@@ -28,9 +28,9 @@ use crate::keyword::{
     KW_COMPLETED, KW_CONTACT, KW_CREATED, KW_DESCRIPTION, KW_DTEND, KW_DTSTAMP, KW_DTSTART, KW_DUE,
     KW_DURATION, KW_EXDATE, KW_FREEBUSY, KW_GEO, KW_LAST_MODIFIED, KW_LOCATION, KW_METHOD,
     KW_ORGANIZER, KW_PERCENT_COMPLETE, KW_PRIORITY, KW_PRODID, KW_RDATE, KW_RECURRENCE_ID,
-    KW_RELATED_TO, KW_REPEAT, KW_RESOURCES, KW_RRULE, KW_SEQUENCE, KW_STATUS, KW_SUMMARY,
-    KW_TRANSP, KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZOFFSETFROM, KW_TZOFFSETTO, KW_TZURL, KW_UID,
-    KW_URL, KW_VERSION,
+    KW_RELATED_TO, KW_REPEAT, KW_REQUEST_STATUS, KW_RESOURCES, KW_RRULE, KW_SEQUENCE, KW_STATUS,
+    KW_SUMMARY, KW_TRANSP, KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZOFFSETFROM, KW_TZOFFSETTO,
+    KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
 use crate::parameter::Parameter;
 use crate::property::{
@@ -38,8 +38,9 @@ use crate::property::{
     Comment, Completed, Contact, Created, DateTime, Description, DtEnd, DtStamp, DtStart, Due,
     Duration, ExDate, ExDateValue, FreeBusy, Geo, LastModified, Location, Method, Organizer,
     PercentComplete, Period, Priority, ProductId, Property, RDate, RDateValue, RRule, RecurrenceId,
-    RelatedTo, Repeat, Resources, Sequence, Status, Summary, Time, TimeTransparency, Trigger,
-    TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, UriProperty, Url, Version,
+    RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status, Summary, Time, TimeTransparency,
+    Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, UriProperty, Url,
+    Version,
 };
 use crate::string_storage::StringStorage;
 use crate::value::ValueText;
@@ -141,11 +142,8 @@ pub fn write_property<W: Write, S: StringStorage>(
         Property::Action(prop) => write_prop_action(f, prop),
         Property::Trigger(prop) => write_prop_trigger(f, prop),
 
-        Property::RequestStatus(_) => {
-            // TODO: Implement proper formatting for all property types
-            let name = property.kind().to_string();
-            todo!("{name}:IMPLEMENTED");
-        }
+        // Miscellaneous properties
+        Property::RequestStatus(prop) => write_prop_request_status(f, prop),
     }
 }
 
@@ -606,9 +604,9 @@ pub fn write_prop_recurrence_id<S: StringStorage, W: Write>(
 }
 
 /// Write a `Status` property.
-pub fn write_prop_status(
-    f: &mut Formatter<impl Write>,
-    prop: &Status<impl StringStorage>,
+pub fn write_prop_status<W: Write, S: StringStorage>(
+    f: &mut Formatter<W>,
+    prop: &Status<S>,
 ) -> io::Result<()> {
     write_escaped_text(
         f,
@@ -621,9 +619,9 @@ pub fn write_prop_status(
 }
 
 /// Write a `Status` property from a `StatusValue` directly.
-pub fn write_prop_status_value<S: StringStorage>(
-    f: &mut Formatter<impl Write>,
-    status: impl Into<StatusValue>,
+pub fn write_prop_status_value<W: Write, T: Into<StatusValue>, S: StringStorage>(
+    f: &mut Formatter<W>,
+    status: T,
     x_parameters: &[Parameter<S>],
     unrecognized_parameters: &[Parameter<S>],
 ) -> io::Result<()> {
@@ -730,6 +728,22 @@ pub fn write_prop_contact<S: StringStorage, W: Write>(
     write_text_with_language(
         f,
         KW_CONTACT,
+        &prop.inner.content,
+        prop.inner.language.as_ref(),
+        &prop.x_parameters,
+        &prop.unrecognized_parameters,
+    )?;
+    f.writeln()
+}
+
+/// Write a `RequestStatus` property.
+pub fn write_prop_request_status<S: StringStorage, W: Write>(
+    f: &mut Formatter<W>,
+    prop: &RequestStatus<S>,
+) -> io::Result<()> {
+    write_text_with_language(
+        f,
+        KW_REQUEST_STATUS,
         &prop.inner.content,
         prop.inner.language.as_ref(),
         &prop.x_parameters,
@@ -926,10 +940,10 @@ fn write_text_with_params<S: StringStorage, W: Write>(
 /// Write a text property.
 ///
 /// This is a generalized version for any Display content, and assumes no special escaping is needed.
-fn write_escaped_text<S: StringStorage>(
-    f: &mut Formatter<impl Write>,
+fn write_escaped_text<W: Write, D: Display, S: StringStorage>(
+    f: &mut Formatter<W>,
     name: &str,
-    content: &impl Display,
+    content: &D,
     x_params: &[Parameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
@@ -984,10 +998,10 @@ fn write_uri<S: StringStorage, W: Write>(
 }
 
 /// Write an integer property.
-fn write_integer<S: StringStorage, W: Write>(
+fn write_integer<W: Write, D: Display, S: StringStorage>(
     f: &mut Formatter<W>,
     name: &str,
-    value: impl Display,
+    value: D,
     x_params: &[Parameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
@@ -998,7 +1012,7 @@ fn write_integer<S: StringStorage, W: Write>(
 }
 
 /// Write a `DateTime` property.
-fn write_datetime<S: StringStorage, W: Write>(
+fn write_datetime<W: Write, S: StringStorage>(
     f: &mut Formatter<W>,
     name: &str,
     datetime: &DateTime<S>,

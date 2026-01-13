@@ -12,6 +12,7 @@
 use crate::property::common::TextWithLanguage;
 use crate::string_storage::StringStorage;
 
+// TODO: Check REQUEST-STATUS value grammar compliance
 simple_property_wrapper!(
     /// Text property wrapper (RFC 5545 Section 3.8.8.3)
     ///

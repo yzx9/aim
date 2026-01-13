@@ -302,3 +302,27 @@ END:VCALENDAR\r\n";
     assert!(formatted.contains("ACTION:DISPLAY"));
     assert!(formatted.contains("END:VALARM"));
 }
+
+#[test]
+fn test_format_request_status() {
+    let input = "BEGIN:VCALENDAR\r\n\
+VERSION:2.0\r\n\
+PRODID:test\r\n\
+BEGIN:VTODO\r\n\
+UID:test@example.com\r\n\
+DTSTAMP:20250110T120000Z\r\n\
+DTSTART:20250110T140000Z\r\n\
+SUMMARY:Test Task\r\n\
+REQUEST-STATUS;LANGUAGE=en:2.0;Success\r\n\
+END:VTODO\r\n\
+END:VCALENDAR\r\n";
+
+    let calendars = parse(input).unwrap();
+    let calendar = &calendars[0];
+
+    let formatted = format(calendar).unwrap();
+
+    // Check that REQUEST-STATUS with LANGUAGE parameter is formatted
+    // Semicolons in text values are escaped as \; per RFC 5545
+    assert!(formatted.contains("REQUEST-STATUS;LANGUAGE=en:2.0\\;Success"));
+}
