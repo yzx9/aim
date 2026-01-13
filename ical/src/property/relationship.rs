@@ -29,6 +29,7 @@ use crate::property::common::{
 };
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
 
@@ -37,46 +38,32 @@ use crate::value::ValueText;
 pub struct Attendee<S: StringStorage> {
     /// Calendar user address (mailto: or other URI)
     pub cal_address: S,
-
     /// Common name (optional)
     pub cn: Option<S>,
-
     /// Participation role
     pub role: ParticipationRole<S>,
-
     /// Participation status
     pub part_stat: ParticipationStatus<S>,
-
     /// RSVP expectation
     pub rsvp: Option<bool>,
-
     /// Whether the attendee is required
     pub cutype: CalendarUserType<S>,
-
     /// Member of a group (optional, multi-valued)
     pub member: Option<Vec<S>>,
-
     /// Delegated to (optional, multi-valued)
     pub delegated_to: Option<Vec<S>>,
-
     /// Delegated from (optional, multi-valued)
     pub delegated_from: Option<Vec<S>>,
-
     /// Directory entry reference (optional)
     pub dir: Option<S>,
-
     /// Sent by (optional)
     pub sent_by: Option<S>,
-
     /// Language (optional)
     pub language: Option<S>,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -109,7 +96,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
         let mut sent_by = None;
         let mut language = None;
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
@@ -201,11 +188,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
                 }
                 Parameter::Language { value, .. } => language = Some(value),
 
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -243,7 +230,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
             sent_by,
             language,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -275,9 +262,13 @@ impl Attendee<SpannedSegments<'_>> {
             dir: self.dir.as_ref().map(SpannedSegments::to_owned),
             sent_by: self.sent_by.as_ref().map(SpannedSegments::to_owned),
             language: self.language.as_ref().map(SpannedSegments::to_owned),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -299,25 +290,18 @@ simple_property_wrapper!(
 pub struct Organizer<S: StringStorage> {
     /// Calendar user address (mailto: or other URI)
     pub cal_address: S,
-
     /// Common name (optional)
     pub cn: Option<S>,
-
     /// Directory entry reference (optional)
     pub dir: Option<S>,
-
     /// Sent by (optional)
     pub sent_by: Option<S>,
-
     /// Language (optional)
     pub language: Option<S>,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -342,7 +326,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
         let mut sent_by = None;
         let mut language = None;
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
@@ -378,11 +362,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
                 }
                 Parameter::Language { value, .. } => language = Some(value),
 
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -408,7 +392,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
             sent_by,
             language,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -424,9 +408,13 @@ impl Organizer<SpannedSegments<'_>> {
             dir: self.dir.as_ref().map(SpannedSegments::to_owned),
             sent_by: self.sent_by.as_ref().map(SpannedSegments::to_owned),
             language: self.language.as_ref().map(SpannedSegments::to_owned),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -454,23 +442,18 @@ simple_property_wrapper!(
 pub struct RelatedTo<S: StringStorage> {
     /// The related component's persistent, globally unique identifier
     pub content: ValueText<S>,
-
     /// Relationship type (defaults to PARENT per RFC 5545)
     pub reltype: RelationshipType<S>,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
 
 /// Borrowed type alias for [`RelatedTo`]
 pub type RelatedToRef<'src> = RelatedTo<SpannedSegments<'src>>;
-
 /// Owned type alias for [`RelatedTo`]
 pub type RelatedToOwned = RelatedTo<String>;
 
@@ -489,7 +472,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<SpannedSegments<'src>> {
         let mut errors = Vec::new();
         let mut reltype = None;
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
@@ -501,11 +484,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<SpannedSegments<'src>> {
                 }
                 Parameter::RelationshipType { value, .. } => reltype = Some(value),
 
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -523,7 +506,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<SpannedSegments<'src>> {
             content,
             reltype,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -536,9 +519,13 @@ impl RelatedTo<SpannedSegments<'_>> {
         RelatedTo {
             content: self.content.to_owned(),
             reltype: self.reltype.to_owned(),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),

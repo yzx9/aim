@@ -36,6 +36,19 @@ pub fn write_parameters<W: Write, S: StringStorage>(
     Ok(())
 }
 
+/// Format all syntax parameters to the formatter.
+///
+/// This formats multiple syntax parameters (for `x_parameters`), each prefixed with a semicolon.
+pub fn write_syntax_parameters<W: Write, S: StringStorage>(
+    f: &mut Formatter<W>,
+    parameters: &[SyntaxParameter<S>],
+) -> io::Result<()> {
+    for param in parameters {
+        write_param_syntax(f, param)?;
+    }
+    Ok(())
+}
+
 /// Format a single parameter (with semicolon prefix).
 fn write_parameter<W: Write, S: StringStorage>(
     f: &mut Formatter<W>,

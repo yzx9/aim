@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use chumsky::error::Rich;
 use thiserror::Error;
 
-use crate::parameter::{Parameter, ParameterKindRef, ParameterRef, ValueTypeRef};
+use crate::parameter::{Parameter, ParameterKindRef, ParameterRef, ValueType, ValueTypeRef};
 use crate::property::{Property, PropertyKindRef, PropertyRef};
 use crate::string_storage::{Span, SpannedSegments};
 use crate::syntax::{SyntaxComponent, SyntaxParameterRef, SyntaxProperty};
@@ -354,7 +354,7 @@ fn value_types<'src>(
             // NOTE: For x-name/unrecognized properties, allow any value type.
             // But we don't return all possible types for type inference, since
             // we cannot infer the allowed types.
-            None => Ok(vec![ValueTypeRef::Unrecognized(SpannedSegments::default())]),
+            None => Ok(vec![ValueType::Unrecognized(SpannedSegments::default())]),
         }
     }
 }

@@ -19,6 +19,7 @@ use crate::parameter::{Parameter, ValueType};
 use crate::property::common::take_single_value;
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
 
@@ -53,13 +54,10 @@ simple_property_wrapper!(
 pub struct Sequence<S: StringStorage> {
     /// Sequence number
     pub value: u32,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -77,15 +75,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -116,7 +114,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
                 Ok(Self {
                     value: value as u32, // SAFETY: i < i32::MAX < u32::MAX
                     x_parameters,
-                    unrecognized_parameters,
+                    retained_parameters,
                     span: prop.span,
                 })
             }
@@ -137,9 +135,13 @@ impl Sequence<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Sequence<String> {
         Sequence {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),

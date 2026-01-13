@@ -7,7 +7,8 @@
 use crate::keyword::KW_VFREEBUSY;
 use crate::parameter::FreeBusyType;
 use crate::property::{
-    Contact, DtEnd, DtStamp, DtStart, Duration, Organizer, Period, Property, PropertyKind, Uid, Url,
+    Contact, DtEnd, DtStamp, DtStart, Duration, Organizer, Period, Property, PropertyKind, Uid,
+    Url, XNameProperty,
 };
 use crate::semantic::SemanticError;
 use crate::string_storage::{SpannedSegments, StringStorage};
@@ -41,14 +42,13 @@ pub struct VFreeBusy<S: StringStorage> {
     /// Unavailable periods
     pub busy_unavailable: Vec<Period<S>>,
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<S>>,
-    /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<S>>,
+    pub x_properties: Vec<XNameProperty<S>>,
+    /// Unrecognized / Non-standard properties (preserved for round-trip)
+    pub retained_properties: Vec<Property<S>>,
 }
 
 /// Type alias for `VFreeBusy` with borrowed data
 pub type VFreeBusyRef<'src> = VFreeBusy<SpannedSegments<'src>>;
-
 /// Type alias for `VFreeBusy` with owned data
 pub type VFreeBusyOwned<'src> = VFreeBusy<String>;
 
@@ -146,7 +146,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
                     None => props.url = Some(url),
                 },
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                Property::XName(prop) => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by VFreeBusy for round-trip
@@ -196,7 +196,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
                 busy_tentative: props.busy_tentative,
                 busy_unavailable: props.busy_unavailable,
                 x_properties: props.x_properties,
-                unrecognized_properties: props.unrecognized_properties,
+                retained_properties: props.unrecognized_properties,
             })
         } else {
             Err(errors)
@@ -220,9 +220,13 @@ impl<'src> VFreeBusyRef<'src> {
             free: self.free.iter().map(Period::to_owned).collect(),
             busy_tentative: self.busy_tentative.iter().map(Period::to_owned).collect(),
             busy_unavailable: self.busy_unavailable.iter().map(Period::to_owned).collect(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
+            x_properties: self
+                .x_properties
+                .iter()
+                .map(XNameProperty::to_owned)
+                .collect(),
+            retained_properties: self
+                .retained_properties
                 .iter()
                 .map(Property::to_owned)
                 .collect(),
@@ -246,6 +250,6 @@ struct PropertyCollector<S: StringStorage> {
     free:               Vec<Period<S>>,
     busy_tentative:     Vec<Period<S>>,
     busy_unavailable:   Vec<Period<S>>,
-    x_properties:       Vec<Property<S>>,
+    x_properties:       Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }

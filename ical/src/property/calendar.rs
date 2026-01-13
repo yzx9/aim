@@ -24,6 +24,7 @@ use crate::parameter::Parameter;
 use crate::property::PropertyKind;
 use crate::property::common::take_single_text;
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
 
@@ -44,10 +45,10 @@ pub struct CalendarScale<S: StringStorage> {
     pub value: CalendarScaleValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -66,15 +67,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<SpannedSegments<'src>
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -92,7 +93,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<SpannedSegments<'src>
         Ok(CalendarScale {
             value,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -104,9 +105,13 @@ impl CalendarScale<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> CalendarScale<String> {
         CalendarScale {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -122,25 +127,18 @@ define_prop_value_enum! {
         /// Publish an event (most common)
         #[default]
         Publish         => KW_METHOD_PUBLISH,
-
         /// Request an event
         Request         => KW_METHOD_REQUEST,
-
         /// Reply to an event
         Reply           => KW_METHOD_REPLY,
-
         /// Add an event
         Add             => KW_METHOD_ADD,
-
         /// Cancel an event
         Cancel          => KW_METHOD_CANCEL,
-
         /// Refresh an event
         Refresh         => KW_METHOD_REFRESH,
-
         /// Counter an event
         Counter         => KW_METHOD_COUNTER,
-
         /// Decline counter
         DeclineCounter  => KW_METHOD_DECLINECOUNTER,
     }
@@ -153,10 +151,10 @@ pub struct Method<S: StringStorage> {
     pub value: MethodValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -175,15 +173,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -201,7 +199,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<SpannedSegments<'src>> {
         Ok(Method {
             value,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -213,9 +211,13 @@ impl Method<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Method<String> {
         Method {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -233,10 +235,10 @@ pub struct ProductId<S: StringStorage> {
     pub value: ValueText<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -255,14 +257,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -271,7 +273,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<SpannedSegments<'src>> {
         Ok(ProductId {
             value,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -283,9 +285,13 @@ impl ProductId<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> ProductId<String> {
         ProductId {
             value: self.value.to_owned(),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -311,10 +317,10 @@ pub struct Version<S: StringStorage> {
     pub value: VersionValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -333,15 +339,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Version<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -359,7 +365,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Version<SpannedSegments<'src>> {
         Ok(Version {
             value,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -371,9 +377,13 @@ impl Version<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Version<String> {
         Version {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),

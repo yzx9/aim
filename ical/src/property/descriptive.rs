@@ -18,8 +18,7 @@
 //! - 3.8.1.12: `Summary` - Summary/subject
 
 use std::convert::TryFrom;
-use std::fmt;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 use chumsky::{Parser, error::Rich, extra, input::Stream};
 
@@ -32,6 +31,7 @@ use crate::parameter::{Encoding, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::common::{Text, take_single_text, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueText, values_float_semicolon};
 
@@ -48,10 +48,10 @@ pub struct Attachment<S: StringStorage> {
     pub encoding: Option<Encoding>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -62,14 +62,12 @@ pub struct Attachment<S: StringStorage> {
 pub enum AttachmentValue<S: StringStorage> {
     /// URI reference
     Uri(S),
-
     /// Binary data
     Binary(S),
 }
 
 /// Type alias for borrowed attachment value
 pub type AttachmentValueRef<'src> = AttachmentValue<SpannedSegments<'src>>;
-
 /// Type alias for owned attachment value
 pub type AttachmentValueOwned = AttachmentValue<String>;
 
@@ -91,7 +89,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
         let mut fmt_type = None;
         let mut encoding = None;
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
@@ -111,11 +109,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
                 }
                 Parameter::Encoding { value, .. } => encoding = Some(value),
 
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -150,7 +148,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
             fmt_type,
             encoding,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -164,9 +162,13 @@ impl Attachment<SpannedSegments<'_>> {
             value: self.value.to_owned(),
             fmt_type: self.fmt_type.as_ref().map(SpannedSegments::to_owned),
             encoding: self.encoding,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -209,10 +211,10 @@ pub struct Classification<S: StringStorage> {
     pub value: ClassificationValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -237,15 +239,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification<SpannedSegments<'src
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -263,7 +265,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification<SpannedSegments<'src
         Ok(Self {
             value,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -275,9 +277,13 @@ impl Classification<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Classification<String> {
         Classification {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -312,10 +318,10 @@ pub struct Geo<S: StringStorage> {
     pub lon: f64,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -334,15 +340,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -371,7 +377,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
                     lat: result.first().copied().unwrap_or_default(),
                     lon: result.get(1).copied().unwrap_or_default(),
                     x_parameters,
-                    unrecognized_parameters,
+                    retained_parameters,
                     span: prop.span,
                 })
             }
@@ -391,9 +397,13 @@ impl Geo<SpannedSegments<'_>> {
         Geo {
             lat: self.lat,
             lon: self.lon,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -450,10 +460,10 @@ pub struct Status<S: StringStorage> {
     pub value: StatusValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -472,15 +482,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -498,7 +508,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status<SpannedSegments<'src>> {
         Ok(Self {
             value,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -510,9 +520,13 @@ impl Status<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Status<String> {
         Status {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -531,10 +545,10 @@ pub struct PercentComplete<S: StringStorage> {
     pub value: u8,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -553,15 +567,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'sr
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -577,7 +591,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'sr
                     Ok(Self {
                         value: i as u8,
                         x_parameters,
-                        unrecognized_parameters,
+                        retained_parameters,
                         span: prop.span,
                     })
                 } else {
@@ -613,9 +627,13 @@ impl PercentComplete<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> PercentComplete<String> {
         PercentComplete {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -634,10 +652,10 @@ pub struct Priority<S: StringStorage> {
     pub value: u8,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -656,15 +674,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -680,7 +698,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
                     Ok(Self {
                         value: i as u8,
                         x_parameters,
-                        unrecognized_parameters,
+                        retained_parameters,
                         span: prop.span,
                     })
                 } else {
@@ -716,9 +734,13 @@ impl Priority<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Priority<String> {
         Priority {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -741,10 +763,10 @@ pub struct Categories<S: StringStorage> {
     pub language: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -770,7 +792,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Categories<SpannedSegments<'src>> {
 
         let mut language = None;
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
@@ -782,11 +804,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Categories<SpannedSegments<'src>> {
                 }
                 Parameter::Language { value, .. } => language = Some(value),
 
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -805,7 +827,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Categories<SpannedSegments<'src>> {
             values,
             language,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -818,9 +840,13 @@ impl Categories<SpannedSegments<'_>> {
         Categories {
             values: self.values.iter().map(ValueText::to_owned).collect(),
             language: self.language.as_ref().map(SpannedSegments::to_owned),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -846,10 +872,10 @@ pub struct Resources<S: StringStorage> {
     pub altrep: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
 
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 
     /// Span of the property in the source
     pub span: S::Span,
@@ -877,7 +903,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Resources<SpannedSegments<'src>> {
         let mut language = None;
         let mut altrep = None;
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
@@ -897,11 +923,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Resources<SpannedSegments<'src>> {
                 }
                 Parameter::AlternateText { value, .. } => altrep = Some(value),
 
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -925,7 +951,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Resources<SpannedSegments<'src>> {
             language,
             altrep,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -939,9 +965,13 @@ impl Resources<SpannedSegments<'_>> {
             values: self.values.iter().map(ValueText::to_owned).collect(),
             language: self.language.as_ref().map(SpannedSegments::to_owned),
             altrep: self.altrep.as_ref().map(SpannedSegments::to_owned),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),

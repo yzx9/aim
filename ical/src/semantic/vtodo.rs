@@ -12,9 +12,11 @@ use crate::property::{
     Attendee, Categories, Classification, Completed, Description, DtStamp, DtStart, Due, Duration,
     ExDate, Geo, LastModified, Location, Organizer, PercentComplete, Priority, Property,
     PropertyKind, RDate, RRule, Resources, Sequence, Status, StatusValue, Summary, Uid, Url,
+    XNameProperty,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::TypedComponent;
 
 /// To-do component (VTODO)
@@ -69,16 +71,15 @@ pub struct VTodo<S: StringStorage> {
     /// Exception dates
     pub ex_dates: Vec<ExDate<S>>,
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<S>>,
-    /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<S>>,
+    pub x_properties: Vec<XNameProperty<S>>,
+    /// Unrecognized / Non-standard properties (preserved for round-trip)
+    pub retained_properties: Vec<Property<S>>,
     /// Sub-components (like alarms)
     pub alarms: Vec<VAlarm<S>>,
 }
 
 /// Type alias for `VTodo` with borrowed data
 pub type VTodoRef<'src> = VTodo<SpannedSegments<'src>>;
-
 /// Type alias for `VTodo` with owned data
 pub type VTodoOwned = VTodo<String>;
 
@@ -256,7 +257,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
                 Property::RDate(rdate) => props.rdates.push(rdate),
                 Property::ExDate(exdate) => props.ex_dates.push(exdate),
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                Property::XName(prop) => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by VTodo for round-trip
@@ -323,7 +324,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
                 rdates: props.rdates,
                 ex_dates: props.ex_dates,
                 x_properties: props.x_properties,
-                unrecognized_properties: props.unrecognized_properties,
+                retained_properties: props.unrecognized_properties,
                 alarms,
             })
         } else {
@@ -363,9 +364,13 @@ impl VTodoRef<'_> {
             rrule: self.rrule.as_ref().map(RRule::to_owned),
             rdates: self.rdates.iter().map(RDate::to_owned).collect(),
             ex_dates: self.ex_dates.iter().map(ExDate::to_owned).collect(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
+            x_properties: self
+                .x_properties
+                .iter()
+                .map(XNameProperty::to_owned)
+                .collect(),
+            retained_properties: self
+                .retained_properties
                 .iter()
                 .map(Property::to_owned)
                 .collect(),
@@ -379,13 +384,10 @@ impl VTodoRef<'_> {
 pub enum TodoStatusValue {
     /// To-do needs action
     NeedsAction,
-
     /// To-do is completed
     Completed,
-
     /// To-do is in process
     InProcess,
-
     /// To-do is cancelled
     Cancelled,
 }
@@ -422,7 +424,6 @@ impl From<TodoStatusValue> for StatusValue {
 
 /// Type alias for `TodoStatus` with borrowed data
 pub type TodoStatusRef<'src> = TodoStatus<SpannedSegments<'src>>;
-
 /// Type alias for `TodoStatus` with owned data
 pub type TodoStatusOwned = TodoStatus<String>;
 
@@ -432,9 +433,9 @@ pub struct TodoStatus<S: StringStorage> {
     /// Status value
     pub value: TodoStatusValue,
     /// Custom X- parameters (preserved for round-trip)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
     /// Unknown IANA parameters (preserved for round-trip)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    pub retained_parameters: Vec<Parameter<S>>,
 }
 
 impl<'src> TryFrom<Status<SpannedSegments<'src>>> for TodoStatus<SpannedSegments<'src>> {
@@ -452,7 +453,7 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for TodoStatus<SpannedSegments
         Ok(TodoStatus {
             value,
             x_parameters: property.x_parameters,
-            unrecognized_parameters: property.unrecognized_parameters,
+            retained_parameters: property.retained_parameters,
         })
     }
 }
@@ -462,9 +463,13 @@ impl TodoStatusRef<'_> {
     pub fn to_owned(&self) -> TodoStatusOwned {
         TodoStatusOwned {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -500,6 +505,6 @@ struct PropertyCollector<S: StringStorage> {
     rrule:          Option<RRule<S>>,
     rdates:         Vec<RDate<S>>,
     ex_dates:       Vec<ExDate<S>>,
-    x_properties:   Vec<Property<S>>,
+    x_properties:   Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }

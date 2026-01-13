@@ -17,7 +17,7 @@ use crate::formatter::parameter::{
     write_param_delegated_to, write_param_dir, write_param_encoding, write_param_fbtype,
     write_param_fmttype, write_param_language, write_param_member, write_param_partstat,
     write_param_related, write_param_reltype, write_param_role, write_param_rsvp,
-    write_param_sent_by, write_param_tzid, write_parameters,
+    write_param_sent_by, write_param_tzid, write_parameters, write_syntax_parameters,
 };
 use crate::formatter::value::{
     format_value_text, write_date, write_duration, write_recurrence_rule, write_utc_offset,
@@ -39,10 +39,11 @@ use crate::property::{
     Duration, ExDate, ExDateValue, FreeBusy, Geo, LastModified, Location, Method, Organizer,
     PercentComplete, Period, Priority, ProductId, Property, RDate, RDateValue, RRule, RecurrenceId,
     RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status, Summary, Time, TimeTransparency,
-    Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, UriProperty, Url,
-    Version,
+    Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid,
+    UnrecognizedProperty, UriProperty, Url, Version, XNameProperty,
 };
 use crate::string_storage::StringStorage;
+use crate::syntax::SyntaxParameter;
 use crate::value::ValueText;
 
 /// Format a single property.
@@ -80,26 +81,6 @@ pub fn write_property<W: Write, S: StringStorage>(
         // URI properties
         Property::Url(prop) => write_prop_url(f, prop),
         Property::TzUrl(prop) => write_prop_tz_url(f, prop),
-
-        // XName and Unrecognized properties - use their value directly
-        Property::XName {
-            name,
-            parameters,
-            value,
-            ..
-        }
-        | Property::Unrecognized {
-            name,
-            parameters,
-            value,
-            ..
-        } => {
-            write!(f, "{name}")?;
-            write_parameters(f, parameters)?;
-            write!(f, ":")?;
-            write_value(f, value)?;
-            f.writeln()
-        }
 
         // Integer properties
         Property::Priority(prop) => write_prop_priority(f, prop),
@@ -144,6 +125,10 @@ pub fn write_property<W: Write, S: StringStorage>(
 
         // Miscellaneous properties
         Property::RequestStatus(prop) => write_prop_request_status(f, prop),
+
+        // XName and Unrecognized properties - use their value directly
+        Property::XName(prop) => write_prop_xname(f, prop),
+        Property::Unrecognized(prop) => write_prop_unrecognized(f, prop),
     }
 }
 
@@ -158,8 +143,8 @@ pub fn write_prop_rrule<S: StringStorage, W: Write>(
     rrule: &RRule<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_RRULE}")?;
-    write_parameters(f, &rrule.x_parameters)?;
-    write_parameters(f, &rrule.unrecognized_parameters)?;
+    write_syntax_parameters(f, &rrule.x_parameters)?;
+    write_parameters(f, &rrule.retained_parameters)?;
     write!(f, ":")?;
     write_recurrence_rule(f, &rrule.value)?;
     f.writeln()
@@ -172,8 +157,8 @@ pub fn write_prop_duration<S: StringStorage, W: Write>(
 ) -> io::Result<()> {
     // Write: DURATION;params:value
     write!(f, "{KW_DURATION}")?;
-    write_parameters(f, &duration.x_parameters)?;
-    write_parameters(f, &duration.unrecognized_parameters)?;
+    write_syntax_parameters(f, &duration.x_parameters)?;
+    write_parameters(f, &duration.retained_parameters)?;
     write!(f, ":")?;
     write_duration(f, &duration.value)?;
     f.writeln()
@@ -193,8 +178,8 @@ pub fn write_prop_rdate<S: StringStorage, W: Write>(
     }
 
     // Write generic parameter lists
-    write_parameters(f, &rdate.x_parameters)?;
-    write_parameters(f, &rdate.unrecognized_parameters)?;
+    write_syntax_parameters(f, &rdate.x_parameters)?;
+    write_parameters(f, &rdate.retained_parameters)?;
 
     // Write property value
     write!(f, ":")?;
@@ -235,8 +220,8 @@ pub fn write_prop_organizer<S: StringStorage, W: Write>(
     }
 
     // Write generic parameter lists
-    write_parameters(f, &organizer.x_parameters)?;
-    write_parameters(f, &organizer.unrecognized_parameters)?;
+    write_syntax_parameters(f, &organizer.x_parameters)?;
+    write_parameters(f, &organizer.retained_parameters)?;
 
     // Write property value
     write!(f, ":{}", organizer.cal_address)?;
@@ -260,8 +245,8 @@ pub fn write_prop_attach<S: StringStorage, W: Write>(
     }
 
     // Write generic parameter lists
-    write_parameters(f, &attach.x_parameters)?;
-    write_parameters(f, &attach.unrecognized_parameters)?;
+    write_syntax_parameters(f, &attach.x_parameters)?;
+    write_parameters(f, &attach.retained_parameters)?;
 
     // Write property value
     write!(f, ":")?;
@@ -284,8 +269,8 @@ pub fn write_prop_categories<S: StringStorage, W: Write>(
         write_param_language(f, lang)?;
     }
 
-    write_parameters(f, &categories.x_parameters)?;
-    write_parameters(f, &categories.unrecognized_parameters)?;
+    write_syntax_parameters(f, &categories.x_parameters)?;
+    write_parameters(f, &categories.retained_parameters)?;
 
     write!(f, ":")?;
     for (i, value) in categories.values.iter().enumerate() {
@@ -314,8 +299,8 @@ pub fn write_prop_resources<S: StringStorage, W: Write>(
         write_param_altrep(f, uri)?;
     }
 
-    write_parameters(f, &resources.x_parameters)?;
-    write_parameters(f, &resources.unrecognized_parameters)?;
+    write_syntax_parameters(f, &resources.x_parameters)?;
+    write_parameters(f, &resources.retained_parameters)?;
 
     write!(f, ":")?;
     for (i, value) in resources.values.iter().enumerate() {
@@ -339,8 +324,8 @@ pub fn write_prop_related_to<S: StringStorage, W: Write>(
     write_param_reltype(f, &related_to.reltype)?;
 
     // Write generic parameter lists
-    write_parameters(f, &related_to.x_parameters)?;
-    write_parameters(f, &related_to.unrecognized_parameters)?;
+    write_syntax_parameters(f, &related_to.x_parameters)?;
+    write_parameters(f, &related_to.retained_parameters)?;
 
     // Write property value
     write!(f, ":{}", related_to.content)?;
@@ -353,8 +338,8 @@ pub fn write_prop_geo<S: StringStorage, W: Write>(
     geo: &Geo<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_GEO}")?;
-    write_parameters(f, &geo.x_parameters)?;
-    write_parameters(f, &geo.unrecognized_parameters)?;
+    write_syntax_parameters(f, &geo.x_parameters)?;
+    write_parameters(f, &geo.retained_parameters)?;
     write!(f, ":{};{}", geo.lat, geo.lon)?;
     f.writeln()
 }
@@ -371,8 +356,8 @@ pub fn write_prop_freebusy<S: StringStorage, W: Write>(
     write_param_fbtype(f, &freebusy.fb_type)?;
 
     // Write generic parameter lists
-    write_parameters(f, &freebusy.x_parameters)?;
-    write_parameters(f, &freebusy.unrecognized_parameters)?;
+    write_syntax_parameters(f, &freebusy.x_parameters)?;
+    write_parameters(f, &freebusy.retained_parameters)?;
 
     // Write property value
     write!(f, ":")?;
@@ -460,7 +445,7 @@ pub fn write_prop_summary<S: StringStorage, W: Write>(
         prop.inner.language.as_ref(),
         prop.inner.altrep.as_ref(),
         &prop.inner.x_parameters,
-        &prop.inner.unrecognized_parameters,
+        &prop.inner.retained_parameters,
     )?;
     f.writeln()
 }
@@ -477,7 +462,7 @@ pub fn write_prop_description<S: StringStorage, W: Write>(
         prop.inner.language.as_ref(),
         prop.inner.altrep.as_ref(),
         &prop.inner.x_parameters,
-        &prop.inner.unrecognized_parameters,
+        &prop.inner.retained_parameters,
     )?;
     f.writeln()
 }
@@ -494,7 +479,7 @@ pub fn write_prop_location<S: StringStorage, W: Write>(
         prop.inner.language.as_ref(),
         prop.inner.altrep.as_ref(),
         &prop.inner.x_parameters,
-        &prop.inner.unrecognized_parameters,
+        &prop.inner.retained_parameters,
     )?;
     f.writeln()
 }
@@ -510,7 +495,7 @@ pub fn write_prop_comment<S: StringStorage, W: Write>(
         &prop.inner.content,
         prop.inner.language.as_ref(),
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -526,7 +511,7 @@ pub fn write_prop_tzname<S: StringStorage, W: Write>(
         &prop.inner.content,
         prop.inner.language.as_ref(),
         &prop.inner.x_parameters,
-        &prop.inner.unrecognized_parameters,
+        &prop.inner.retained_parameters,
     )?;
     f.writeln()
 }
@@ -613,7 +598,7 @@ pub fn write_prop_status<W: Write, S: StringStorage>(
         KW_STATUS,
         &prop.value,
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -622,11 +607,11 @@ pub fn write_prop_status<W: Write, S: StringStorage>(
 pub fn write_prop_status_value<W: Write, T: Into<StatusValue>, S: StringStorage>(
     f: &mut Formatter<W>,
     status: T,
-    x_parameters: &[Parameter<S>],
-    unrecognized_parameters: &[Parameter<S>],
+    x_parameters: &[SyntaxParameter<S>],
+    retained_parameters: &[Parameter<S>],
 ) -> io::Result<()> {
     let s: StatusValue = status.into();
-    write_escaped_text(f, KW_STATUS, &s, x_parameters, unrecognized_parameters)?;
+    write_escaped_text(f, KW_STATUS, &s, x_parameters, retained_parameters)?;
     f.writeln()
 }
 
@@ -640,7 +625,7 @@ pub fn write_prop_transp<S: StringStorage, W: Write>(
         KW_TRANSP,
         &prop.value,
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -655,7 +640,7 @@ pub fn write_prop_priority<S: StringStorage, W: Write>(
         KW_PRIORITY,
         prop.value,
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -670,7 +655,7 @@ pub fn write_prop_sequence<S: StringStorage, W: Write>(
         KW_SEQUENCE,
         prop.value,
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -685,7 +670,7 @@ pub fn write_prop_percent_complete<S: StringStorage, W: Write>(
         KW_PERCENT_COMPLETE,
         prop.value,
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -700,7 +685,7 @@ pub fn write_prop_repeat<S: StringStorage, W: Write>(
         KW_REPEAT,
         prop.value,
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -715,7 +700,7 @@ pub fn write_prop_action<S: StringStorage, W: Write>(
         KW_ACTION,
         &prop.value,
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -731,7 +716,7 @@ pub fn write_prop_contact<S: StringStorage, W: Write>(
         &prop.inner.content,
         prop.inner.language.as_ref(),
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -747,7 +732,7 @@ pub fn write_prop_request_status<S: StringStorage, W: Write>(
         &prop.inner.content,
         prop.inner.language.as_ref(),
         &prop.x_parameters,
-        &prop.unrecognized_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -766,8 +751,8 @@ pub fn write_prop_trigger<S: StringStorage, W: Write>(
     }
 
     // Write generic parameter lists
-    write_parameters(f, &prop.x_parameters)?;
-    write_parameters(f, &prop.unrecognized_parameters)?;
+    write_syntax_parameters(f, &prop.x_parameters)?;
+    write_parameters(f, &prop.retained_parameters)?;
 
     // Write property value
     write!(f, ":")?;
@@ -810,8 +795,8 @@ pub fn write_prop_ex_date<S: StringStorage, W: Write>(
     }
 
     // Write generic parameter lists
-    write_parameters(f, &prop.x_parameters)?;
-    write_parameters(f, &prop.unrecognized_parameters)?;
+    write_syntax_parameters(f, &prop.x_parameters)?;
+    write_parameters(f, &prop.retained_parameters)?;
 
     // Write property value
     write!(f, ":")?;
@@ -866,8 +851,8 @@ pub fn write_prop_attendee<S: StringStorage, W: Write>(
     }
 
     // Write generic parameter lists
-    write_parameters(f, &prop.x_parameters)?;
-    write_parameters(f, &prop.unrecognized_parameters)?;
+    write_syntax_parameters(f, &prop.x_parameters)?;
+    write_parameters(f, &prop.retained_parameters)?;
 
     // Write property value
     write!(f, ":{}", prop.cal_address)?;
@@ -880,8 +865,8 @@ pub fn write_prop_tz_offset_from<S: StringStorage, W: Write>(
     prop: &TzOffsetFrom<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_TZOFFSETFROM}")?;
-    write_parameters(f, &prop.x_parameters)?;
-    write_parameters(f, &prop.unrecognized_parameters)?;
+    write_syntax_parameters(f, &prop.x_parameters)?;
+    write_parameters(f, &prop.retained_parameters)?;
     write!(f, ":")?;
     write_utc_offset(f, prop.value)?;
     f.writeln()
@@ -893,10 +878,32 @@ pub fn write_prop_tz_offset_to<S: StringStorage, W: Write>(
     prop: &TzOffsetTo<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_TZOFFSETTO}")?;
-    write_parameters(f, &prop.x_parameters)?;
-    write_parameters(f, &prop.unrecognized_parameters)?;
+    write_syntax_parameters(f, &prop.x_parameters)?;
+    write_parameters(f, &prop.retained_parameters)?;
     write!(f, ":")?;
     write_utc_offset(f, prop.value)?;
+    f.writeln()
+}
+
+pub fn write_prop_xname<S: StringStorage, W: Write>(
+    f: &mut Formatter<W>,
+    prop: &XNameProperty<S>,
+) -> io::Result<()> {
+    write!(f, "{}", prop.name)?;
+    write_parameters(f, &prop.parameters)?;
+    write!(f, ":")?;
+    write_value(f, &prop.value)?;
+    f.writeln()
+}
+
+pub fn write_prop_unrecognized<S: StringStorage, W: Write>(
+    f: &mut Formatter<W>,
+    prop: &UnrecognizedProperty<S>,
+) -> io::Result<()> {
+    write!(f, "{}", prop.name)?;
+    write_parameters(f, &prop.parameters)?;
+    write!(f, ":")?;
+    write_value(f, &prop.value)?;
     f.writeln()
 }
 
@@ -913,7 +920,7 @@ fn write_text_with_params<S: StringStorage, W: Write>(
     content: &ValueText<S>,
     language: Option<&S>,
     altrep: Option<&S>,
-    x_params: &[Parameter<S>],
+    x_params: &[SyntaxParameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
     // Write property name
@@ -930,7 +937,7 @@ fn write_text_with_params<S: StringStorage, W: Write>(
     }
 
     // Write generic parameter lists
-    write_parameters(f, x_params)?;
+    write_syntax_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
 
     // Write property value with proper iCalendar escaping
@@ -944,14 +951,14 @@ fn write_escaped_text<W: Write, D: Display, S: StringStorage>(
     f: &mut Formatter<W>,
     name: &str,
     content: &D,
-    x_params: &[Parameter<S>],
+    x_params: &[SyntaxParameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
     // Write property name
     write!(f, "{name}")?;
 
     // Write generic parameter lists
-    write_parameters(f, x_params)?;
+    write_syntax_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
 
     // Write property value
@@ -966,7 +973,7 @@ fn write_text_with_language<W: Write, S: StringStorage>(
     name: &str,
     content: &ValueText<S>,
     language: Option<&S>,
-    x_params: &[Parameter<S>],
+    x_params: &[SyntaxParameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
     // Write property name
@@ -978,7 +985,7 @@ fn write_text_with_language<W: Write, S: StringStorage>(
     }
 
     // Write generic parameter lists
-    write_parameters(f, x_params)?;
+    write_syntax_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
 
     // Write property value with proper iCalendar escaping
@@ -992,8 +999,8 @@ fn write_uri<S: StringStorage, W: Write>(
     prop: &UriProperty<S>,
 ) -> io::Result<()> {
     write!(f, "{name}")?;
-    write_parameters(f, &prop.x_parameters)?;
-    write_parameters(f, &prop.unrecognized_parameters)?;
+    write_syntax_parameters(f, &prop.x_parameters)?;
+    write_parameters(f, &prop.retained_parameters)?;
     write!(f, ":{}", prop.uri)
 }
 
@@ -1002,11 +1009,11 @@ fn write_integer<W: Write, D: Display, S: StringStorage>(
     f: &mut Formatter<W>,
     name: &str,
     value: D,
-    x_params: &[Parameter<S>],
+    x_params: &[SyntaxParameter<S>],
     unrecognized_params: &[Parameter<S>],
 ) -> io::Result<()> {
     write!(f, "{name}")?;
-    write_parameters(f, x_params)?;
+    write_syntax_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
     write!(f, ":{value}")
 }
@@ -1021,29 +1028,29 @@ fn write_datetime<W: Write, S: StringStorage>(
     let (x_params, unrecognized_params) = match datetime {
         DateTime::Floating {
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters: unrecognized_parameters,
             ..
         }
         | DateTime::Zoned {
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters: unrecognized_parameters,
             ..
         }
         | DateTime::Utc {
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters: unrecognized_parameters,
             ..
         }
         | DateTime::Date {
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters: unrecognized_parameters,
             ..
         } => (x_parameters, unrecognized_parameters),
     };
 
     // Write: NAME;params:value
     write!(f, "{name}")?;
-    write_parameters(f, x_params)?;
+    write_syntax_parameters(f, x_params)?;
     write_parameters(f, unrecognized_params)?;
 
     // Write the value

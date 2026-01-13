@@ -73,8 +73,8 @@ pub use descriptive::{
 pub use kind::{PropertyKind, PropertyKindOwned, PropertyKindRef};
 pub use miscellaneous::{RequestStatus, RequestStatusOwned, RequestStatusRef};
 pub use recurrence::{
-    ExDate, ExDateValue, ExDateValueOwned, ExDateValueRef, RDate, RDateValue, RDateValueOwned,
-    RDateValueRef, RRule, RRuleOwned, RRuleRef,
+    ExDate, ExDateOwned, ExDateRef, ExDateValue, ExDateValueOwned, ExDateValueRef, RDate,
+    RDateValue, RDateValueOwned, RDateValueRef, RRule, RRuleOwned, RRuleRef,
 };
 pub use relationship::{
     Attendee, Contact, ContactOwned, ContactRef, Organizer, RecurrenceId, RecurrenceIdOwned,
@@ -260,16 +260,7 @@ pub enum Property<S: StringStorage> {
     /// Names starting with "X-" and "x-" are reserved for experimental use.
     ///
     /// This variant preserves the original data for round-trip compatibility.
-    XName {
-        /// Property name (e.g., "X-CUSTOM", "x-custom")
-        name: S,
-        /// Parsed parameters (may include Unknown parameters)
-        parameters: Vec<Parameter<S>>,
-        /// Parsed value(s)
-        value: Value<S>,
-        /// The span of the property
-        span: S::Span,
-    },
+    XName(XNameProperty<S>),
 
     /// Unrecognized property (not a known standard property).
     ///
@@ -277,16 +268,7 @@ pub enum Property<S: StringStorage> {
     /// these other IANA-registered properties but can ignore them.
     ///
     /// This variant preserves the original data for round-trip compatibility.
-    Unrecognized {
-        /// Property name (e.g., "SOME-IANA-PROP")
-        name: S,
-        /// Parsed parameters (may include Unknown parameters)
-        parameters: Vec<Parameter<S>>,
-        /// Parsed value(s)
-        value: Value<S>,
-        /// The span of the property
-        span: S::Span,
-    },
+    Unrecognized(UnrecognizedProperty<S>),
 }
 
 /// Type alias for borrowed property
@@ -298,91 +280,78 @@ pub type PropertyOwned = Property<String>;
 impl<'src> TryFrom<ParsedProperty<'src>> for PropertyRef<'src> {
     type Error = Vec<TypedError<'src>>;
 
+    #[rustfmt::skip]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         match prop.kind {
             // Section 3.7 - Calendar Properties
-            PropertyKind::CalScale => CalendarScale::try_from(prop).map(Property::CalScale),
-            PropertyKind::Method => Method::try_from(prop).map(Property::Method),
-            PropertyKind::ProdId => ProductId::try_from(prop).map(Property::ProdId),
-            PropertyKind::Version => Version::try_from(prop).map(Property::Version),
+            PropertyKind::CalScale      => prop.try_into().map(Property::CalScale),
+            PropertyKind::Method        => prop.try_into().map(Property::Method),
+            PropertyKind::ProdId        => prop.try_into().map(Property::ProdId),
+            PropertyKind::Version       => prop.try_into().map(Property::Version),
 
             // Section 3.8.1 - Descriptive Component Properties
-            PropertyKind::Attach => Attachment::try_from(prop).map(Property::Attach),
-            PropertyKind::Categories => Categories::try_from(prop).map(Property::Categories),
-            PropertyKind::Class => Classification::try_from(prop).map(Property::Class),
-            PropertyKind::Comment => Comment::try_from(prop).map(Property::Comment),
-            PropertyKind::Description => Description::try_from(prop).map(Property::Description),
-            PropertyKind::Geo => Geo::try_from(prop).map(Property::Geo),
-            PropertyKind::Location => Location::try_from(prop).map(Property::Location),
-            PropertyKind::PercentComplete => {
-                PercentComplete::try_from(prop).map(Property::PercentComplete)
-            }
-            PropertyKind::Priority => Priority::try_from(prop).map(Property::Priority),
-            PropertyKind::Resources => Resources::try_from(prop).map(Property::Resources),
-            PropertyKind::Status => Status::try_from(prop).map(Property::Status),
-            PropertyKind::Summary => Summary::try_from(prop).map(Property::Summary),
+            PropertyKind::Attach        => prop.try_into().map(Property::Attach),
+            PropertyKind::Categories    => prop.try_into().map(Property::Categories),
+            PropertyKind::Class         => prop.try_into().map(Property::Class),
+            PropertyKind::Comment       => prop.try_into().map(Property::Comment),
+            PropertyKind::Description   => prop.try_into().map(Property::Description),
+            PropertyKind::Geo           => prop.try_into().map(Property::Geo),
+            PropertyKind::Location      => prop.try_into().map(Property::Location),
+            PropertyKind::PercentComplete => prop.try_into().map(Property::PercentComplete),
+            PropertyKind::Priority      => prop.try_into().map(Property::Priority),
+            PropertyKind::Resources     => prop.try_into().map(Property::Resources),
+            PropertyKind::Status        => prop.try_into().map(Property::Status),
+            PropertyKind::Summary       => prop.try_into().map(Property::Summary),
 
             // Section 3.8.2 - Date and Time Properties
-            PropertyKind::Completed => Completed::try_from(prop).map(Property::Completed),
-            PropertyKind::DtEnd => DtEnd::try_from(prop).map(Property::DtEnd),
-            PropertyKind::Due => Due::try_from(prop).map(Property::Due),
-            PropertyKind::DtStart => DtStart::try_from(prop).map(Property::DtStart),
-            PropertyKind::Duration => Duration::try_from(prop).map(Property::Duration),
-            PropertyKind::FreeBusy => FreeBusy::try_from(prop).map(Property::FreeBusy),
-            PropertyKind::Transp => TimeTransparency::try_from(prop).map(Property::Transp),
+            PropertyKind::Completed     => prop.try_into().map(Property::Completed),
+            PropertyKind::DtEnd         => prop.try_into().map(Property::DtEnd),
+            PropertyKind::Due           => prop.try_into().map(Property::Due),
+            PropertyKind::DtStart       => prop.try_into().map(Property::DtStart),
+            PropertyKind::Duration      => prop.try_into().map(Property::Duration),
+            PropertyKind::FreeBusy      => prop.try_into().map(Property::FreeBusy),
+            PropertyKind::Transp        => prop.try_into().map(Property::Transp),
 
             // Section 3.8.3 - Time Zone Component Properties
-            PropertyKind::TzId => TzId::try_from(prop).map(Property::TzId),
-            PropertyKind::TzName => TzName::try_from(prop).map(Property::TzName),
-            PropertyKind::TzOffsetFrom => TzOffsetFrom::try_from(prop).map(Property::TzOffsetFrom),
-            PropertyKind::TzOffsetTo => TzOffsetTo::try_from(prop).map(Property::TzOffsetTo),
-            PropertyKind::TzUrl => TzUrl::try_from(prop).map(Property::TzUrl),
+            PropertyKind::TzId          => prop.try_into().map(Property::TzId),
+            PropertyKind::TzName        => prop.try_into().map(Property::TzName),
+            PropertyKind::TzOffsetFrom  => prop.try_into().map(Property::TzOffsetFrom),
+            PropertyKind::TzOffsetTo    => prop.try_into().map(Property::TzOffsetTo),
+            PropertyKind::TzUrl         => prop.try_into().map(Property::TzUrl),
 
             // Section 3.8.4 - Component Relationship Properties
-            PropertyKind::Attendee => Attendee::try_from(prop).map(Property::Attendee),
-            PropertyKind::Contact => Contact::try_from(prop).map(Property::Contact),
-            PropertyKind::Organizer => Organizer::try_from(prop).map(Property::Organizer),
-            PropertyKind::RecurrenceId => RecurrenceId::try_from(prop).map(Property::RecurrenceId),
-            PropertyKind::RelatedTo => RelatedTo::try_from(prop).map(Property::RelatedTo),
-            PropertyKind::Url => Url::try_from(prop).map(Property::Url),
-            PropertyKind::Uid => Uid::try_from(prop).map(Property::Uid),
+            PropertyKind::Attendee      => prop.try_into().map(Property::Attendee),
+            PropertyKind::Contact       => prop.try_into().map(Property::Contact),
+            PropertyKind::Organizer     => prop.try_into().map(Property::Organizer),
+            PropertyKind::RecurrenceId  => prop.try_into().map(Property::RecurrenceId),
+            PropertyKind::RelatedTo     => prop.try_into().map(Property::RelatedTo),
+            PropertyKind::Url           => prop.try_into().map(Property::Url),
+            PropertyKind::Uid           => prop.try_into().map(Property::Uid),
 
             // Section 3.8.5 - Recurrence Properties
-            PropertyKind::ExDate => ExDate::try_from(prop).map(Property::ExDate),
-            PropertyKind::RDate => RDate::try_from(prop).map(Property::RDate),
-            PropertyKind::RRule => RRule::try_from(prop).map(Property::RRule),
+            PropertyKind::ExDate        => prop.try_into().map(Property::ExDate),
+            PropertyKind::RDate         => prop.try_into().map(Property::RDate),
+            PropertyKind::RRule         => prop.try_into().map(Property::RRule),
 
             // Section 3.8.6 - Alarm Component Properties
-            PropertyKind::Action => Action::try_from(prop).map(Property::Action),
-            PropertyKind::Repeat => Repeat::try_from(prop).map(Property::Repeat),
-            PropertyKind::Trigger => Trigger::try_from(prop).map(Property::Trigger),
+            PropertyKind::Action        => prop.try_into().map(Property::Action),
+            PropertyKind::Repeat        => prop.try_into().map(Property::Repeat),
+            PropertyKind::Trigger       => prop.try_into().map(Property::Trigger),
 
             // Section 3.8.7 - Change Management Properties
-            PropertyKind::Created => Created::try_from(prop).map(Property::Created),
-            PropertyKind::DtStamp => DtStamp::try_from(prop).map(Property::DtStamp),
-            PropertyKind::LastModified => LastModified::try_from(prop).map(Property::LastModified),
-            PropertyKind::Sequence => Sequence::try_from(prop).map(Property::Sequence),
+            PropertyKind::Created       => prop.try_into().map(Property::Created),
+            PropertyKind::DtStamp       => prop.try_into().map(Property::DtStamp),
+            PropertyKind::LastModified  => prop.try_into().map(Property::LastModified),
+            PropertyKind::Sequence      => prop.try_into().map(Property::Sequence),
 
             // Section 3.8.8 - Miscellaneous Properties
-            PropertyKind::RequestStatus => {
-                RequestStatus::try_from(prop).map(Property::RequestStatus)
-            }
+            PropertyKind::RequestStatus => prop.try_into().map(Property::RequestStatus),
 
             // XName properties (experimental x-name properties)
-            PropertyKind::XName(_name) => Ok(Property::XName {
-                name: prop.name,
-                parameters: prop.parameters,
-                value: prop.value,
-                span: prop.span,
-            }),
+            PropertyKind::XName(_)      => Ok(Property::XName(prop.into())),
 
             // Unrecognized properties (not a known standard property)
-            PropertyKind::Unrecognized(_name) => Ok(Property::Unrecognized {
-                name: prop.name,
-                parameters: prop.parameters,
-                value: prop.value,
-                span: prop.span,
-            }),
+            PropertyKind::Unrecognized(_) => Ok(Property::Unrecognized(prop.into())),
         }
     }
 }
@@ -456,9 +425,9 @@ impl<S: StringStorage> Property<S> {
             // Section 3.8.8 - Miscellaneous Properties
             Self::RequestStatus(_) => PropertyKind::RequestStatus,
 
-            // XName and Unrecognized properties
-            Self::XName { name, .. } => PropertyKind::XName(name),
-            Self::Unrecognized { name, .. } => PropertyKind::Unrecognized(name),
+            // XName and unknown properties
+            Self::XName(v) => PropertyKind::XName(&v.name),
+            Self::Unrecognized(v) => PropertyKind::Unrecognized(&v.name),
         }
     }
 
@@ -530,8 +499,9 @@ impl<S: StringStorage> Property<S> {
             // Section 3.8.8 - Miscellaneous Properties
             Self::RequestStatus(v) => v.span,
 
-            // XName and Unrecognized properties
-            Self::XName { span, .. } | Self::Unrecognized { span, .. } => *span,
+            // XName and unknown properties
+            Self::XName(v) => v.span,
+            Self::Unrecognized(v) => v.span,
         }
     }
 }
@@ -542,92 +512,134 @@ impl PropertyRef<'_> {
     pub fn to_owned(&self) -> PropertyOwned {
         match self {
             // Section 3.7 - Calendar Properties
-            Property::CalScale(v) => PropertyOwned::CalScale(v.to_owned()),
-            Property::Method(v) => PropertyOwned::Method(v.to_owned()),
-            Property::ProdId(v) => PropertyOwned::ProdId(v.to_owned()),
-            Property::Version(v) => PropertyOwned::Version(v.to_owned()),
+            Property::CalScale(v) => Property::CalScale(v.to_owned()),
+            Property::Method(v) => Property::Method(v.to_owned()),
+            Property::ProdId(v) => Property::ProdId(v.to_owned()),
+            Property::Version(v) => Property::Version(v.to_owned()),
 
             // Section 3.8.1 - Descriptive Component Properties
-            Property::Attach(v) => PropertyOwned::Attach(v.to_owned()),
-            Property::Categories(v) => PropertyOwned::Categories(v.to_owned()),
-            Property::Class(v) => PropertyOwned::Class(v.to_owned()),
-            Property::Comment(v) => PropertyOwned::Comment(v.to_owned()),
-            Property::Description(v) => PropertyOwned::Description(v.to_owned()),
-            Property::Geo(v) => PropertyOwned::Geo(v.to_owned()),
-            Property::Location(v) => PropertyOwned::Location(v.to_owned()),
-            Property::PercentComplete(v) => PropertyOwned::PercentComplete(v.to_owned()),
-            Property::Priority(v) => PropertyOwned::Priority(v.to_owned()),
-            Property::Resources(v) => PropertyOwned::Resources(v.to_owned()),
-            Property::Status(v) => PropertyOwned::Status(v.to_owned()),
-            Property::Summary(v) => PropertyOwned::Summary(v.to_owned()),
+            Property::Attach(v) => Property::Attach(v.to_owned()),
+            Property::Categories(v) => Property::Categories(v.to_owned()),
+            Property::Class(v) => Property::Class(v.to_owned()),
+            Property::Comment(v) => Property::Comment(v.to_owned()),
+            Property::Description(v) => Property::Description(v.to_owned()),
+            Property::Geo(v) => Property::Geo(v.to_owned()),
+            Property::Location(v) => Property::Location(v.to_owned()),
+            Property::PercentComplete(v) => Property::PercentComplete(v.to_owned()),
+            Property::Priority(v) => Property::Priority(v.to_owned()),
+            Property::Resources(v) => Property::Resources(v.to_owned()),
+            Property::Status(v) => Property::Status(v.to_owned()),
+            Property::Summary(v) => Property::Summary(v.to_owned()),
 
             // Section 3.8.2 - Date and Time Properties
-            Property::Completed(v) => PropertyOwned::Completed(v.to_owned()),
-            Property::DtEnd(v) => PropertyOwned::DtEnd(v.to_owned()),
-            Property::Due(v) => PropertyOwned::Due(v.to_owned()),
-            Property::DtStart(v) => PropertyOwned::DtStart(v.to_owned()),
-            Property::Duration(v) => PropertyOwned::Duration(v.to_owned()),
-            Property::FreeBusy(v) => PropertyOwned::FreeBusy(v.to_owned()),
-            Property::Transp(v) => PropertyOwned::Transp(v.to_owned()),
+            Property::Completed(v) => Property::Completed(v.to_owned()),
+            Property::DtEnd(v) => Property::DtEnd(v.to_owned()),
+            Property::Due(v) => Property::Due(v.to_owned()),
+            Property::DtStart(v) => Property::DtStart(v.to_owned()),
+            Property::Duration(v) => Property::Duration(v.to_owned()),
+            Property::FreeBusy(v) => Property::FreeBusy(v.to_owned()),
+            Property::Transp(v) => Property::Transp(v.to_owned()),
 
             // Section 3.8.3 - Time Zone Component Properties
-            Property::TzId(v) => PropertyOwned::TzId(v.to_owned()),
-            Property::TzName(v) => PropertyOwned::TzName(v.to_owned()),
-            Property::TzOffsetFrom(v) => PropertyOwned::TzOffsetFrom(v.to_owned()),
-            Property::TzOffsetTo(v) => PropertyOwned::TzOffsetTo(v.to_owned()),
-            Property::TzUrl(v) => PropertyOwned::TzUrl(v.to_owned()),
+            Property::TzId(v) => Property::TzId(v.to_owned()),
+            Property::TzName(v) => Property::TzName(v.to_owned()),
+            Property::TzOffsetFrom(v) => Property::TzOffsetFrom(v.to_owned()),
+            Property::TzOffsetTo(v) => Property::TzOffsetTo(v.to_owned()),
+            Property::TzUrl(v) => Property::TzUrl(v.to_owned()),
 
             // Section 3.8.4 - Component Relationship Properties
-            Property::Attendee(v) => PropertyOwned::Attendee(v.to_owned()),
-            Property::Contact(v) => PropertyOwned::Contact(v.to_owned()),
-            Property::Organizer(v) => PropertyOwned::Organizer(v.to_owned()),
-            Property::RecurrenceId(v) => PropertyOwned::RecurrenceId(v.to_owned()),
-            Property::RelatedTo(v) => PropertyOwned::RelatedTo(v.to_owned()),
-            Property::Url(v) => PropertyOwned::Url(v.to_owned()),
-            Property::Uid(v) => PropertyOwned::Uid(v.to_owned()),
+            Property::Attendee(v) => Property::Attendee(v.to_owned()),
+            Property::Contact(v) => Property::Contact(v.to_owned()),
+            Property::Organizer(v) => Property::Organizer(v.to_owned()),
+            Property::RecurrenceId(v) => Property::RecurrenceId(v.to_owned()),
+            Property::RelatedTo(v) => Property::RelatedTo(v.to_owned()),
+            Property::Url(v) => Property::Url(v.to_owned()),
+            Property::Uid(v) => Property::Uid(v.to_owned()),
 
             // Section 3.8.5 - Recurrence Properties
-            Property::ExDate(v) => PropertyOwned::ExDate(v.to_owned()),
-            Property::RDate(v) => PropertyOwned::RDate(v.to_owned()),
-            Property::RRule(v) => PropertyOwned::RRule(v.to_owned()),
+            Property::ExDate(v) => Property::ExDate(v.to_owned()),
+            Property::RDate(v) => Property::RDate(v.to_owned()),
+            Property::RRule(v) => Property::RRule(v.to_owned()),
 
             // Section 3.8.6 - Alarm Component Properties
-            Property::Action(v) => PropertyOwned::Action(v.to_owned()),
-            Property::Repeat(v) => PropertyOwned::Repeat(v.to_owned()),
-            Property::Trigger(v) => PropertyOwned::Trigger(v.to_owned()),
+            Property::Action(v) => Property::Action(v.to_owned()),
+            Property::Repeat(v) => Property::Repeat(v.to_owned()),
+            Property::Trigger(v) => Property::Trigger(v.to_owned()),
 
             // Section 3.8.7 - Change Management Properties
-            Property::Created(v) => PropertyOwned::Created(v.to_owned()),
-            Property::DtStamp(v) => PropertyOwned::DtStamp(v.to_owned()),
-            Property::LastModified(v) => PropertyOwned::LastModified(v.to_owned()),
-            Property::Sequence(v) => PropertyOwned::Sequence(v.to_owned()),
+            Property::Created(v) => Property::Created(v.to_owned()),
+            Property::DtStamp(v) => Property::DtStamp(v.to_owned()),
+            Property::LastModified(v) => Property::LastModified(v.to_owned()),
+            Property::Sequence(v) => Property::Sequence(v.to_owned()),
 
             // Section 3.8.8 - Miscellaneous Properties
-            Property::RequestStatus(v) => PropertyOwned::RequestStatus(v.to_owned()),
+            Property::RequestStatus(v) => Property::RequestStatus(v.to_owned()),
 
-            // XName and Unrecognized properties
-            Property::XName {
-                name,
-                parameters,
-                value,
-                ..
-            } => PropertyOwned::XName {
-                name: name.to_owned(),
-                parameters: parameters.iter().map(Parameter::to_owned).collect(),
-                value: value.to_owned(),
-                span: (),
-            },
-            Property::Unrecognized {
-                name,
-                parameters,
-                value,
-                ..
-            } => PropertyOwned::Unrecognized {
-                name: name.to_owned(),
-                parameters: parameters.iter().map(Parameter::to_owned).collect(),
-                value: value.to_owned(),
-                span: (),
-            },
+            // XName and Unknown properties
+            Property::XName(v) => Property::XName(v.to_owned()),
+            Property::Unrecognized(v) => Property::Unrecognized(v.to_owned()),
         }
     }
+}
+
+macro_rules! define_nonstandard_property {
+    (
+        struct $ty:ident;
+        ref   = type $tyref:ident;
+        owned = type $tyowned:ident;
+    ) => {
+        /// Non-standard property structure
+        #[derive(Debug, Clone)]
+        pub struct $ty<S: StringStorage> {
+            /// Property name
+            pub name: S,
+            /// Parsed parameters (may include Unknown parameters)
+            pub parameters: Vec<Parameter<S>>,
+            /// Parsed value(s)
+            pub value: Value<S>,
+            /// The span of the property
+            pub span: S::Span,
+        }
+
+        /// Borrowed version of the non-standard property
+        pub type $tyref<'src> = $ty<SpannedSegments<'src>>;
+
+        /// Owned version of the non-standard property
+        pub type $tyowned = $ty<String>;
+
+        impl $tyref<'_> {
+            /// Convert borrowed type to owned type
+            pub fn to_owned(&self) -> $tyowned {
+                $tyowned {
+                    name: self.name.to_owned(),
+                    parameters: self.parameters.iter().map(Parameter::to_owned).collect(),
+                    value: self.value.to_owned(),
+                    span: (),
+                }
+            }
+        }
+
+        impl<'src> From<ParsedProperty<'src>> for $tyref<'src> {
+            fn from(prop: ParsedProperty<'src>) -> Self {
+                Self {
+                    name: prop.name,
+                    parameters: prop.parameters,
+                    value: prop.value,
+                    span: prop.span,
+                }
+            }
+        }
+    };
+}
+
+define_nonstandard_property! {
+    struct XNameProperty;
+    ref   = type XNamePropertyRef;
+    owned = type XNamePropertyOwned;
+}
+
+define_nonstandard_property! {
+    struct UnrecognizedProperty;
+    ref   = type UnrecognizedPropertyRef;
+    owned = type UnrecognizedPropertyOwned;
 }

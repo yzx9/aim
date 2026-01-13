@@ -9,7 +9,9 @@ use std::convert::TryFrom;
 use crate::keyword::{
     KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
-use crate::property::{CalendarScale, Method, ProductId, Property, PropertyKind, Version};
+use crate::property::{
+    CalendarScale, Method, ProductId, Property, PropertyKind, Version, XNameProperty,
+};
 use crate::semantic::{
     CustomComponent, SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
 };
@@ -21,24 +23,18 @@ use crate::typed::TypedComponent;
 pub struct ICalendar<S: StringStorage> {
     /// Product identifier that generated the iCalendar data
     pub prod_id: ProductId<S>,
-
     /// Version of iCalendar specification
     pub version: Version<S>,
-
     /// Calendar scale (usually GREGORIAN)
     pub calscale: Option<CalendarScale<S>>,
-
     /// Method for the iCalendar object (e.g., PUBLISH, REQUEST)
     pub method: Option<Method<S>>,
-
     /// All calendar components (events, todos, journals, etc.)
     pub components: Vec<CalendarComponent<S>>,
-
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<S>>,
-
-    /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<S>>,
+    pub x_properties: Vec<XNameProperty<S>>,
+    /// Unrecognized / Non-standard properties (preserved for round-trip)
+    pub retained_properties: Vec<Property<S>>,
 }
 
 /// Type alias for `ICalendar` with borrowed data
@@ -103,7 +99,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
                     None => props.method = Some(method),
                 },
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                Property::XName(prop) => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by ICalendar for round-trip
@@ -144,7 +140,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
                 method: props.method,
                 components,
                 x_properties: props.x_properties,
-                unrecognized_properties: props.unrecognized_properties,
+                retained_properties: props.unrecognized_properties,
             })
         } else {
             Err(errors)
@@ -239,7 +235,7 @@ struct PropertyCollector<S: StringStorage> {
     version:        Option<Version<S>>,
     calscale:       Option<CalendarScale<S>>,
     method:         Option<Method<S>>,
-    x_properties:   Vec<Property<S>>,
+    x_properties:   Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }
 
@@ -257,9 +253,13 @@ impl ICalendarRef<'_> {
                 .iter()
                 .map(CalendarComponent::to_owned)
                 .collect(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
+            x_properties: self
+                .x_properties
+                .iter()
+                .map(XNameProperty::to_owned)
+                .collect(),
+            retained_properties: self
+                .retained_properties
                 .iter()
                 .map(Property::to_owned)
                 .collect(),

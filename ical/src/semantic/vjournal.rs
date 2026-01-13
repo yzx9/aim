@@ -11,9 +11,11 @@ use crate::parameter::Parameter;
 use crate::property::{
     Attendee, Categories, Classification, Description, DtStamp, DtStart, ExDate, LastModified,
     Organizer, Property, PropertyKind, RDate, RRule, Status, StatusValue, Summary, Uid, Url,
+    XNameProperty,
 };
 use crate::semantic::SemanticError;
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::TypedComponent;
 
 /// Journal entry component (VJOURNAL)
@@ -50,14 +52,13 @@ pub struct VJournal<S: StringStorage> {
     /// URL associated with the journal entry
     pub url: Option<Url<S>>,
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<S>>,
-    /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<S>>,
+    pub x_properties: Vec<XNameProperty<S>>,
+    /// Unrecognized / Non-standard properties (preserved for round-trip)
+    pub retained_properties: Vec<Property<S>>,
 }
 
 /// Type alias for `VJournal` with borrowed data
 pub type VJournalRef<'src> = VJournal<SpannedSegments<'src>>;
-
 /// Type alias for `VJournal` with owned data
 pub type VJournalOwned = VJournal<String>;
 
@@ -161,7 +162,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
                     None => props.url = Some(url),
                 },
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                Property::XName(prop) => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by VJournal for round-trip
@@ -208,7 +209,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
                 ex_date: props.ex_dates,
                 url: props.url,
                 x_properties: props.x_properties,
-                unrecognized_properties: props.unrecognized_properties,
+                retained_properties: props.unrecognized_properties,
             })
         } else {
             Err(errors)
@@ -239,9 +240,13 @@ impl VJournalRef<'_> {
             rdate: self.rdate.iter().map(RDate::to_owned).collect(),
             ex_date: self.ex_date.iter().map(ExDate::to_owned).collect(),
             url: self.url.as_ref().map(Url::to_owned),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
+            x_properties: self
+                .x_properties
+                .iter()
+                .map(XNameProperty::to_owned)
+                .collect(),
+            retained_properties: self
+                .retained_properties
                 .iter()
                 .map(Property::to_owned)
                 .collect(),
@@ -301,9 +306,9 @@ pub struct JournalStatus<S: StringStorage> {
     /// Status value
     pub value: JournalStatusValue,
     /// Custom X- parameters (preserved for round-trip)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
     /// Unknown IANA parameters (preserved for round-trip)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    pub retained_parameters: Vec<Parameter<S>>,
 }
 
 impl<'src> TryFrom<Status<SpannedSegments<'src>>> for JournalStatus<SpannedSegments<'src>> {
@@ -321,7 +326,7 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for JournalStatus<SpannedSegme
         Ok(JournalStatus {
             value,
             x_parameters: property.x_parameters,
-            unrecognized_parameters: property.unrecognized_parameters,
+            retained_parameters: property.retained_parameters,
         })
     }
 }
@@ -331,9 +336,13 @@ impl JournalStatusRef<'_> {
     pub fn to_owned(&self) -> JournalStatusOwned {
         JournalStatusOwned {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -360,6 +369,6 @@ struct PropertyCollector<S: StringStorage> {
     rdate:          Vec<RDate<S>>,
     ex_dates:       Vec<ExDate<S>>,
     url:            Option<Url<S>>,
-    x_properties:   Vec<Property<S>>,
+    x_properties:   Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }

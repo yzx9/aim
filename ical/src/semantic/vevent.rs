@@ -11,10 +11,11 @@ use crate::parameter::Parameter;
 use crate::property::{
     Attendee, Categories, Classification, Description, DtEnd, DtStamp, DtStart, Duration, ExDate,
     Geo, LastModified, Location, Organizer, Priority, Property, PropertyKind, RDate, RRule,
-    Resources, Sequence, Status, StatusValue, Summary, TimeTransparency, Uid, Url,
+    Resources, Sequence, Status, StatusValue, Summary, TimeTransparency, Uid, Url, XNameProperty,
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::TypedComponent;
 
 /// Event component (VEVENT)
@@ -67,16 +68,15 @@ pub struct VEvent<S: StringStorage> {
     /// Exception dates
     pub ex_dates: Vec<ExDate<S>>,
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<S>>,
-    /// Unrecognized properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<S>>,
+    pub x_properties: Vec<XNameProperty<S>>,
+    /// Unrecognized / Non-standard properties (preserved for round-trip)
+    pub retained_properties: Vec<Property<S>>,
     /// Sub-components (like alarms)
     pub alarms: Vec<VAlarm<S>>,
 }
 
 /// Type alias for `VEvent` with borrowed data
 pub type VEventRef<'src> = VEvent<SpannedSegments<'src>>;
-
 /// Type alias for `VEvent` with owned data
 pub type VEventOwned = VEvent<String>;
 
@@ -247,7 +247,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
                 Property::RDate(rdate) => props.rdates.push(rdate),
                 Property::ExDate(exdate) => props.ex_dates.push(exdate),
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                Property::XName(prop) => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by VEvent for round-trip
@@ -322,7 +322,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
                 rdates: props.rdates,
                 ex_dates: props.ex_dates,
                 x_properties: props.x_properties,
-                unrecognized_properties: props.unrecognized_properties,
+                retained_properties: props.unrecognized_properties,
                 alarms,
             })
         } else {
@@ -358,9 +358,13 @@ impl VEventRef<'_> {
             rrule: self.rrule.as_ref().map(RRule::to_owned),
             rdates: self.rdates.iter().map(RDate::to_owned).collect(),
             ex_dates: self.ex_dates.iter().map(ExDate::to_owned).collect(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
+            x_properties: self
+                .x_properties
+                .iter()
+                .map(XNameProperty::to_owned)
+                .collect(),
+            retained_properties: self
+                .retained_properties
                 .iter()
                 .map(Property::to_owned)
                 .collect(),
@@ -416,9 +420,9 @@ pub struct EventStatus<S: StringStorage> {
     /// Status value
     pub value: EventStatusValue,
     /// Custom X- parameters (preserved for round-trip)
-    pub x_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
     /// Unknown IANA parameters (preserved for round-trip)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    pub retained_parameters: Vec<Parameter<S>>,
 }
 
 /// Type alias for `EventStatus` with borrowed data
@@ -442,7 +446,7 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for EventStatus<SpannedSegment
         Ok(EventStatus {
             value,
             x_parameters: property.x_parameters,
-            unrecognized_parameters: property.unrecognized_parameters,
+            retained_parameters: property.retained_parameters,
         })
     }
 }
@@ -452,9 +456,13 @@ impl EventStatusRef<'_> {
     pub fn to_owned(&self) -> EventStatusOwned {
         EventStatusOwned {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -489,6 +497,6 @@ struct PropertyCollector< S: StringStorage> {
     rrule:          Option<RRule<S>>,
     rdates:         Vec<RDate<S>>,
     ex_dates:       Vec<ExDate<S>>,
-    x_properties:   Vec<Property<S>>,
+    x_properties:   Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }

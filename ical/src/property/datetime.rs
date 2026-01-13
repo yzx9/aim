@@ -41,6 +41,7 @@ use crate::parameter::{FreeBusyType, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::common::{take_single_text, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
 
@@ -54,9 +55,9 @@ pub enum DateTime<S: StringStorage> {
         /// Time part
         time: Time,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<Parameter<S>>,
-        /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-        unrecognized_parameters: Vec<Parameter<S>>,
+        x_parameters: Vec<SyntaxParameter<S>>,
+        /// Unrecognized / Non-standard parameters (preserved for round-trip)
+        retained_parameters: Vec<Parameter<S>>,
     },
 
     /// Date and time with specific timezone
@@ -71,9 +72,9 @@ pub enum DateTime<S: StringStorage> {
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<Parameter<S>>,
-        /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-        unrecognized_parameters: Vec<Parameter<S>>,
+        x_parameters: Vec<SyntaxParameter<S>>,
+        /// Unrecognized / Non-standard parameters (preserved for round-trip)
+        retained_parameters: Vec<Parameter<S>>,
     },
 
     /// Date and time in UTC
@@ -83,9 +84,9 @@ pub enum DateTime<S: StringStorage> {
         /// Time part
         time: Time,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<Parameter<S>>,
-        /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-        unrecognized_parameters: Vec<Parameter<S>>,
+        x_parameters: Vec<SyntaxParameter<S>>,
+        /// Unrecognized / Non-standard parameters (preserved for round-trip)
+        retained_parameters: Vec<Parameter<S>>,
     },
 
     /// Date-only value
@@ -93,9 +94,9 @@ pub enum DateTime<S: StringStorage> {
         /// Date part
         date: ValueDate,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<Parameter<S>>,
-        /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-        unrecognized_parameters: Vec<Parameter<S>>,
+        x_parameters: Vec<SyntaxParameter<S>>,
+        /// Unrecognized / Non-standard parameters (preserved for round-trip)
+        retained_parameters: Vec<Parameter<S>>,
     },
 }
 
@@ -197,7 +198,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
         #[cfg(feature = "jiff")]
         let mut tz_jiff = None;
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
@@ -219,11 +220,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
                         tz_jiff = Some(tz);
                     }
                 }
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -243,7 +244,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
                             date: dt.date,
                             time: dt.time.into(),
                             x_parameters,
-                            unrecognized_parameters,
+                            retained_parameters,
                         })
                     } else {
                         Ok(DateTime::Zoned {
@@ -253,7 +254,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
                             #[cfg(feature = "jiff")]
                             tz_jiff: tz_jiff.unwrap(), // SAFETY: set above
                             x_parameters,
-                            unrecognized_parameters,
+                            retained_parameters,
                         })
                     }
                 }
@@ -271,7 +272,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
                     Ok(DateTime::Date {
                         date,
                         x_parameters,
-                        unrecognized_parameters,
+                        retained_parameters,
                     })
                 }
                 Value::DateTime { mut values, .. } if values.len() == 1 => {
@@ -281,14 +282,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
                             date: dt.date,
                             time: dt.time.into(),
                             x_parameters,
-                            unrecognized_parameters,
+                            retained_parameters,
                         })
                     } else {
                         Ok(DateTime::Floating {
                             date: dt.date,
                             time: dt.time.into(),
                             x_parameters,
-                            unrecognized_parameters,
+                            retained_parameters,
                         })
                     }
                 }
@@ -312,12 +313,12 @@ impl DateTime<SpannedSegments<'_>> {
                 date,
                 time,
                 x_parameters,
-                unrecognized_parameters,
+                retained_parameters,
             } => DateTime::Floating {
                 date: *date,
                 time: *time,
-                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
-                unrecognized_parameters: unrecognized_parameters
+                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
                     .collect(),
@@ -329,14 +330,14 @@ impl DateTime<SpannedSegments<'_>> {
                 tz_id,
                 tz_jiff,
                 x_parameters,
-                unrecognized_parameters,
+                retained_parameters,
             } => DateTime::Zoned {
                 date: *date,
                 time: *time,
                 tz_id: tz_id.to_owned(),
                 tz_jiff: tz_jiff.clone(),
-                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
-                unrecognized_parameters: unrecognized_parameters
+                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
                     .collect(),
@@ -347,13 +348,13 @@ impl DateTime<SpannedSegments<'_>> {
                 time,
                 tz_id,
                 x_parameters,
-                unrecognized_parameters,
+                retained_parameters,
             } => DateTime::Zoned {
                 date: *date,
                 time: *time,
                 tz_id: tz_id.to_string(),
-                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
-                unrecognized_parameters: unrecognized_parameters
+                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
                     .collect(),
@@ -362,12 +363,12 @@ impl DateTime<SpannedSegments<'_>> {
                 date,
                 time,
                 x_parameters,
-                unrecognized_parameters,
+                retained_parameters,
             } => DateTime::Utc {
                 date: *date,
                 time: *time,
-                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
-                unrecognized_parameters: unrecognized_parameters
+                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
                     .collect(),
@@ -375,11 +376,11 @@ impl DateTime<SpannedSegments<'_>> {
             DateTime::Date {
                 date,
                 x_parameters,
-                unrecognized_parameters,
+                retained_parameters,
             } => DateTime::Date {
                 date: *date,
-                x_parameters: x_parameters.iter().map(Parameter::to_owned).collect(),
-                unrecognized_parameters: unrecognized_parameters
+                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
                     .collect(),
@@ -574,7 +575,7 @@ impl<S: StringStorage> Period<S> {
                 date: *start_date,
                 time: *start_time,
                 x_parameters: Vec::new(),
-                unrecognized_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
             },
             Period::ExplicitFloating {
                 start_date,
@@ -589,7 +590,7 @@ impl<S: StringStorage> Period<S> {
                 date: *start_date,
                 time: *start_time,
                 x_parameters: Vec::new(),
-                unrecognized_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
             },
             Period::ExplicitZoned {
                 start_date,
@@ -613,7 +614,7 @@ impl<S: StringStorage> Period<S> {
                 #[cfg(feature = "jiff")]
                 tz_jiff: tz_jiff.clone(),
                 x_parameters: Vec::new(),
-                unrecognized_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
             },
         }
     }
@@ -632,7 +633,7 @@ impl<S: StringStorage> Period<S> {
                 date: *end_date,
                 time: *end_time,
                 x_parameters: Vec::new(),
-                unrecognized_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
             },
             Period::ExplicitFloating {
                 end_date, end_time, ..
@@ -640,7 +641,7 @@ impl<S: StringStorage> Period<S> {
                 date: *end_date,
                 time: *end_time,
                 x_parameters: Vec::new(),
-                unrecognized_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
             },
             Period::ExplicitZoned {
                 end_date,
@@ -654,7 +655,7 @@ impl<S: StringStorage> Period<S> {
                 tz_id: tz_id.clone(),
                 tz_jiff: tz_jiff.clone(),
                 x_parameters: Vec::new(),
-                unrecognized_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
             },
             Period::DurationUtc {
                 start_date,
@@ -678,7 +679,7 @@ impl<S: StringStorage> Period<S> {
                         .map_err(|e| format!("invalid time: {e}"))
                         .unwrap(), // SAFETY: hour, minute, second are within valid ranges
                     x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
                 }
             }
             Period::DurationFloating {
@@ -703,7 +704,7 @@ impl<S: StringStorage> Period<S> {
                         .map_err(|e| format!("invalid time: {e}"))
                         .unwrap(), // SAFETY: hour, minute, second are within valid ranges
                     x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
                 }
             }
             Period::DurationZoned {
@@ -730,7 +731,7 @@ impl<S: StringStorage> Period<S> {
                     tz_id: tz_id.clone(),
                     tz_jiff: tz_jiff.clone(),
                     x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
                 }
             }
         }
@@ -1008,13 +1009,10 @@ simple_property_wrapper!(
 pub struct Duration<S: StringStorage> {
     /// Duration value
     pub value: ValueDuration,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -1032,15 +1030,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -1063,7 +1061,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
             Ok(Value::Duration { mut values, .. }) => Ok(Self {
                 value: values.pop().unwrap(), // SAFETY: checked above
                 x_parameters,
-                unrecognized_parameters,
+                retained_parameters,
                 span: prop.span,
             }),
             Ok(v) => {
@@ -1086,9 +1084,13 @@ impl Duration<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> Duration<String> {
         Duration {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -1107,10 +1109,9 @@ pub struct FreeBusy<S: StringStorage> {
     /// List of free/busy time periods
     pub values: Vec<Period<S>>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -1130,18 +1131,18 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
         // Extract FBTYPE parameter (defaults to BUSY)
         let mut fb_type: FreeBusyType<SpannedSegments<'src>> = FreeBusyType::Busy;
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
                 Parameter::FreeBusyType { value, .. } => {
                     fb_type = value.clone();
                 }
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -1223,7 +1224,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
             fb_type,
             values,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -1236,9 +1237,13 @@ impl FreeBusy<SpannedSegments<'_>> {
         FreeBusy {
             fb_type: self.fb_type.to_owned(),
             values: self.values.iter().map(Period::to_owned).collect(),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -1254,7 +1259,6 @@ define_prop_value_enum! {
         /// Event blocks time
         #[default]
         Opaque => KW_TRANSP_OPAQUE,
-
         /// Event does not block time
         Transparent => KW_TRANSP_TRANSPARENT,
     }
@@ -1265,13 +1269,10 @@ define_prop_value_enum! {
 pub struct TimeTransparency<S: StringStorage> {
     /// Transparency value
     pub value: TimeTransparencyValue,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -1289,15 +1290,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<SpannedSegments<'s
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -1315,7 +1316,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<SpannedSegments<'s
         Ok(TimeTransparency {
             value,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -1327,9 +1328,13 @@ impl TimeTransparency<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> TimeTransparency<String> {
         TimeTransparency {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),

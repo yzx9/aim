@@ -22,6 +22,7 @@ use std::convert::TryFrom;
 use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::{DateTime, Period, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueRecurrenceRule};
 
@@ -36,7 +37,6 @@ pub enum ExDateValue<S: StringStorage> {
 
 /// Type alias for borrowed exception date-time value
 pub type ExDateValueRef<'src> = ExDateValue<SpannedSegments<'src>>;
-
 /// Type alias for owned exception date-time value
 pub type ExDateValueOwned = ExDateValue<String>;
 
@@ -88,19 +88,20 @@ impl RDateValue<SpannedSegments<'_>> {
 pub struct ExDate<S: StringStorage> {
     /// List of exception dates/times
     pub dates: Vec<ExDateValue<S>>,
-
     /// Timezone identifier (optional)
     pub tz_id: Option<S>,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
+
+/// Type alias for borrowed exception date-times
+pub type ExDateRef<'src> = ExDate<SpannedSegments<'src>>;
+/// Type alias for owned exception date-times
+pub type ExDateOwned = ExDate<String>;
 
 impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
@@ -115,7 +116,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
         let mut tz_id = None;
 
         for param in prop.parameters {
@@ -127,11 +128,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
                     }]);
                 }
                 Parameter::TimeZoneIdentifier { value, .. } => tz_id = Some(value),
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -148,7 +149,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
                         date: dt.date,
                         time: dt.time.into(),
                         x_parameters: Vec::new(),
-                        unrecognized_parameters: Vec::new(),
+                        retained_parameters: Vec::new(),
                     }))
                 })
                 .collect::<Result<Vec<_>, _>>(),
@@ -167,7 +168,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
             dates,
             tz_id,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -180,9 +181,13 @@ impl ExDate<SpannedSegments<'_>> {
         ExDate {
             dates: self.dates.iter().map(ExDateValue::to_owned).collect(),
             tz_id: self.tz_id.as_ref().map(SpannedSegments::to_owned),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -198,16 +203,12 @@ impl ExDate<SpannedSegments<'_>> {
 pub struct RDate<S: StringStorage> {
     /// List of recurrence dates/times/periods
     pub dates: Vec<RDateValue<S>>,
-
     /// Timezone identifier (optional)
     pub tz_id: Option<S>,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -226,7 +227,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
 
         let value_span = prop.value.span();
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
         let mut tz_id = None;
 
         for param in prop.parameters {
@@ -238,11 +239,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
                     }]);
                 }
                 Parameter::TimeZoneIdentifier { value, .. } => tz_id = Some(value),
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -259,7 +260,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
                         date: dt.date,
                         time: dt.time.into(),
                         x_parameters: Vec::new(),
-                        unrecognized_parameters: Vec::new(),
+                        retained_parameters: Vec::new(),
                     }))
                 })
                 .collect::<Result<Vec<_>, _>>(),
@@ -287,7 +288,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
             dates,
             tz_id,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -300,9 +301,13 @@ impl RDate<SpannedSegments<'_>> {
         RDate {
             dates: self.dates.iter().map(RDateValue::to_owned).collect(),
             tz_id: self.tz_id.as_ref().map(SpannedSegments::to_owned),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
@@ -318,20 +323,16 @@ impl RDate<SpannedSegments<'_>> {
 pub struct RRule<S: StringStorage> {
     /// Recurrence rule value
     pub value: Box<ValueRecurrenceRule>,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
-
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
     pub span: S::Span,
 }
 
 /// Type alias for borrowed recurrence rule
 pub type RRuleRef<'src> = RRule<SpannedSegments<'src>>;
-
 /// Type alias for owned recurrence rule
 pub type RRuleOwned = RRule<String>;
 
@@ -348,15 +349,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
         }
 
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -377,7 +378,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
         Ok(Self {
             value,
             x_parameters,
-            unrecognized_parameters,
+            retained_parameters,
             span: prop.span,
         })
     }
@@ -389,9 +390,13 @@ impl RRule<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> RRule<String> {
         RRule {
             value: self.value.clone(),
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),

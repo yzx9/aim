@@ -1108,7 +1108,7 @@ END:VCALENDAR\r
             // X- properties should be in x_properties
             assert_eq!(event.x_properties.len(), 2);
             // Unrecognized properties should be in unrecognized_properties
-            assert_eq!(event.unrecognized_properties.len(), 1);
+            assert_eq!(event.retained_properties.len(), 1);
         }
         _ => panic!("Expected Event component"),
     }

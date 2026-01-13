@@ -7,7 +7,7 @@
 use crate::keyword::KW_VALARM;
 use crate::property::{
     Action, ActionValue, Attachment, Attendee, Description, Duration, Property, PropertyKind,
-    Repeat, Summary, Trigger,
+    Repeat, Summary, Trigger, XNameProperty,
 };
 use crate::semantic::SemanticError;
 use crate::string_storage::{SpannedSegments, StringStorage};
@@ -33,9 +33,9 @@ pub struct VAlarm<S: StringStorage> {
     /// Attachment for audio/procedure alarm
     pub attach: Option<Attachment<S>>,
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<S>>,
-    /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<S>>,
+    pub x_properties: Vec<XNameProperty<S>>,
+    /// Unrecognized / Non-standard properties (preserved for round-trip)
+    pub retained_properties: Vec<Property<S>>,
 }
 
 /// Type alias for `VAlarm` with borrowed data
@@ -115,7 +115,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
                     None => props.attach = Some(attach),
                 },
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                Property::XName(prop) => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by VAlarm for round-trip
@@ -152,7 +152,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
         let default_action = Action {
             value: ActionValue::Audio,
             x_parameters: Vec::new(),
-            unrecognized_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
             span: comp.span,
         };
         let action = props.action.as_ref().unwrap_or(&default_action);
@@ -194,7 +194,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
                 attendees: props.attendees,
                 attach: props.attach,
                 x_properties: props.x_properties,
-                unrecognized_properties: props.unrecognized_properties,
+                retained_properties: props.unrecognized_properties,
             })
         } else {
             Err(errors)
@@ -215,9 +215,13 @@ impl<'src> VAlarmRef<'src> {
             summary: self.summary.as_ref().map(Summary::to_owned),
             attendees: self.attendees.iter().map(Attendee::to_owned).collect(),
             attach: self.attach.as_ref().map(Attachment::to_owned),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
+            x_properties: self
+                .x_properties
+                .iter()
+                .map(XNameProperty::to_owned)
+                .collect(),
+            retained_properties: self
+                .retained_properties
                 .iter()
                 .map(Property::to_owned)
                 .collect(),
@@ -237,6 +241,6 @@ struct PropertyCollector<S: StringStorage> {
     summary:        Option<Summary<S>>,
     attendees:      Vec<Attendee<S>>,
     attach:         Option<Attachment<S>>,
-    x_properties:   Vec<Property<S>>,
+    x_properties:   Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }

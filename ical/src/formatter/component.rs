@@ -20,7 +20,8 @@ use crate::formatter::property::{
     write_prop_repeat, write_prop_resources, write_prop_rrule, write_prop_sequence,
     write_prop_status_value, write_prop_summary, write_prop_transp, write_prop_trigger,
     write_prop_tz_offset_from, write_prop_tz_offset_to, write_prop_tz_url, write_prop_tzid,
-    write_prop_tzname, write_prop_uid, write_prop_url, write_prop_version, write_property,
+    write_prop_tzname, write_prop_uid, write_prop_url, write_prop_version, write_prop_xname,
+    write_property,
 };
 use crate::keyword::{
     KW_BEGIN, KW_DAYLIGHT, KW_END, KW_STANDARD, KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY,
@@ -54,11 +55,11 @@ pub fn write_icalendar<W: Write, S: StringStorage>(
 
         // X-properties
         for prop in &calendar.x_properties {
-            write_property(f, prop)?;
+            write_prop_xname(f, prop)?;
         }
 
         // Unrecognized properties
-        for prop in &calendar.unrecognized_properties {
+        for prop in &calendar.retained_properties {
             write_property(f, prop)?;
         }
 
@@ -136,7 +137,7 @@ fn write_vevent<W: Write, S: StringStorage>(
                 f,
                 status.value,
                 &status.x_parameters,
-                &status.unrecognized_parameters,
+                &status.retained_parameters,
             )?;
         }
         if let Some(transparency) = &event.transparency {
@@ -169,11 +170,11 @@ fn write_vevent<W: Write, S: StringStorage>(
 
         // X-properties
         for prop in &event.x_properties {
-            write_property(f, prop)?;
+            write_prop_xname(f, prop)?;
         }
 
         // Unrecognized properties
-        for prop in &event.unrecognized_properties {
+        for prop in &event.retained_properties {
             write_property(f, prop)?;
         }
 
@@ -238,7 +239,7 @@ fn write_vtodo<W: Write, S: StringStorage>(
                 f,
                 status.value,
                 &status.x_parameters,
-                &status.unrecognized_parameters,
+                &status.retained_parameters,
             )?;
         }
         if let Some(sequence) = &todo.sequence {
@@ -271,11 +272,11 @@ fn write_vtodo<W: Write, S: StringStorage>(
 
         // X-properties
         for prop in &todo.x_properties {
-            write_property(f, prop)?;
+            write_prop_xname(f, prop)?;
         }
 
         // Unrecognized properties
-        for prop in &todo.unrecognized_properties {
+        for prop in &todo.retained_properties {
             write_property(f, prop)?;
         }
 
@@ -320,7 +321,7 @@ fn write_vjournal<W: Write, S: StringStorage>(
                 f,
                 status.value,
                 &status.x_parameters,
-                &status.unrecognized_parameters,
+                &status.retained_parameters,
             )?;
         }
         if let Some(classification) = &journal.classification {
@@ -344,11 +345,11 @@ fn write_vjournal<W: Write, S: StringStorage>(
 
         // X-properties
         for prop in &journal.x_properties {
-            write_property(f, prop)?;
+            write_prop_xname(f, prop)?;
         }
 
         // Unrecognized properties
-        for prop in &journal.unrecognized_properties {
+        for prop in &journal.retained_properties {
             write_property(f, prop)?;
         }
 
@@ -390,7 +391,7 @@ fn write_vfreebusy<W: Write, S: StringStorage>(
                     values: vec![period.clone()], // TODO: avoid clone
                     fb_type: FreeBusyType::Busy,
                     x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
                     span: freebusy.uid.span, // placeholder span
                 },
             )?;
@@ -402,7 +403,7 @@ fn write_vfreebusy<W: Write, S: StringStorage>(
                     values: vec![period.clone()],
                     fb_type: FreeBusyType::Free,
                     x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
                     span: freebusy.uid.span, // placeholder span
                 },
             )?;
@@ -414,7 +415,7 @@ fn write_vfreebusy<W: Write, S: StringStorage>(
                     values: vec![period.clone()],
                     fb_type: FreeBusyType::BusyTentative,
                     x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
                     span: freebusy.uid.span, // placeholder span
                 },
             )?;
@@ -426,7 +427,7 @@ fn write_vfreebusy<W: Write, S: StringStorage>(
                     values: vec![period.clone()],
                     fb_type: FreeBusyType::BusyUnavailable,
                     x_parameters: Vec::new(),
-                    unrecognized_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
                     span: freebusy.uid.span, // placeholder span
                 },
             )?;
@@ -434,11 +435,11 @@ fn write_vfreebusy<W: Write, S: StringStorage>(
 
         // X-properties
         for prop in &freebusy.x_properties {
-            write_property(f, prop)?;
+            write_prop_xname(f, prop)?;
         }
 
         // Unrecognized properties
-        for prop in &freebusy.unrecognized_properties {
+        for prop in &freebusy.retained_properties {
             write_property(f, prop)?;
         }
 
@@ -465,11 +466,11 @@ fn write_vtimezone<W: Write, S: StringStorage>(
 
         // X-name properties
         for prop in &timezone.x_properties {
-            write_property(f, prop)?;
+            write_prop_xname(f, prop)?;
         }
 
         // Unrecognized properties
-        for prop in &timezone.unrecognized_properties {
+        for prop in &timezone.retained_properties {
             write_property(f, prop)?;
         }
 
@@ -511,11 +512,11 @@ fn format_tz_observance<W: Write, S: StringStorage>(
 
         // X-name properties
         for prop in &observance.x_properties {
-            write_property(f, prop)?;
+            write_prop_xname(f, prop)?;
         }
 
         // Unrecognized properties
-        for prop in &observance.unrecognized_properties {
+        for prop in &observance.retained_properties {
             write_property(f, prop)?;
         }
 
@@ -563,11 +564,11 @@ fn write_valarm<W: Write, S: StringStorage>(
 
         // X-name properties
         for prop in &alarm.x_properties {
-            write_property(f, prop)?;
+            write_prop_xname(f, prop)?;
         }
 
         // Unrecognized properties
-        for prop in &alarm.unrecognized_properties {
+        for prop in &alarm.retained_properties {
             write_property(f, prop)?;
         }
 

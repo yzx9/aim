@@ -15,6 +15,7 @@ use std::convert::TryFrom;
 use crate::parameter::{Parameter, ValueType};
 use crate::property::common::{TextOnly, TextWithLanguage, UriProperty, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::syntax::SyntaxParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueUtcOffset};
 
@@ -46,12 +47,10 @@ simple_property_wrapper!(
 pub struct UtcOffsetProperty<S: StringStorage> {
     /// UTC offset value
     pub value: ValueUtcOffset,
-
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<Parameter<S>>,
-
-    /// Unrecognized parameters (IANA tokens not recognized by this implementation)
-    pub unrecognized_parameters: Vec<Parameter<S>>,
+    pub x_parameters: Vec<SyntaxParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<SpannedSegments<'src>> {
@@ -59,15 +58,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<SpannedSegments<'
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut x_parameters = Vec::new();
-        let mut unrecognized_parameters = Vec::new();
+        let mut retained_parameters = Vec::new();
 
         for param in prop.parameters {
             match param {
-                p @ Parameter::XName { .. } => x_parameters.push(p),
-                p @ Parameter::Unrecognized { .. } => unrecognized_parameters.push(p),
+                Parameter::XName(raw) => x_parameters.push(raw),
+                p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
                     // Preserve other parameters not used by this property for round-trip
-                    unrecognized_parameters.push(p);
+                    retained_parameters.push(p);
                 }
             }
         }
@@ -78,17 +77,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<SpannedSegments<'
             Ok(Value::UtcOffset { value, .. }) => Ok(Self {
                 value,
                 x_parameters,
-                unrecognized_parameters,
+                retained_parameters,
             }),
-            Ok(v) => {
-                let span = v.span();
-                Err(vec![TypedError::PropertyUnexpectedValue {
-                    property: kind,
-                    expected: ValueType::UtcOffset,
-                    found: v.kind().into(),
-                    span,
-                }])
-            }
+            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
+                property: kind,
+                expected: ValueType::UtcOffset,
+                found: v.kind().into(),
+                span: v.span(),
+            }]),
             Err(e) => Err(e),
         }
     }
@@ -100,9 +96,13 @@ impl UtcOffsetProperty<SpannedSegments<'_>> {
     pub fn to_owned(&self) -> UtcOffsetProperty<String> {
         UtcOffsetProperty {
             value: self.value,
-            x_parameters: self.x_parameters.iter().map(Parameter::to_owned).collect(),
-            unrecognized_parameters: self
-                .unrecognized_parameters
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(SyntaxParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),

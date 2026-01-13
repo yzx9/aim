@@ -7,7 +7,7 @@
 use crate::keyword::{KW_DAYLIGHT, KW_STANDARD, KW_VTIMEZONE};
 use crate::property::{
     DtStart, LastModified, Property, PropertyKind, RRule, TzId, TzName, TzOffsetFrom, TzOffsetTo,
-    TzUrl,
+    TzUrl, XNameProperty,
 };
 use crate::semantic::SemanticError;
 use crate::string_storage::{SpannedSegments, StringStorage};
@@ -27,14 +27,13 @@ pub struct VTimeZone<S: StringStorage> {
     /// Daylight saving time observances
     pub daylight: Vec<TimeZoneObservance<S>>,
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<S>>,
-    /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<S>>,
+    pub x_properties: Vec<XNameProperty<S>>,
+    /// Unrecognized / Non-standard properties (preserved for round-trip)
+    pub retained_properties: Vec<Property<S>>,
 }
 
 /// Type alias for `VTimeZone` with borrowed data
 pub type VTimeZoneRef<'src> = VTimeZone<SpannedSegments<'src>>;
-
 /// Type alias for `VTimeZone` with owned data
 pub type VTimeZoneOwned = VTimeZone<String>;
 
@@ -79,7 +78,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
                     None => props.tz_url = Some(tz_url),
                 },
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                Property::XName(prop) => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by VTimeZone for round-trip
@@ -132,7 +131,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
                 standard,
                 daylight,
                 x_properties: props.x_properties,
-                unrecognized_properties: props.unrecognized_properties,
+                retained_properties: props.unrecognized_properties,
             })
         } else {
             Err(errors)
@@ -157,9 +156,13 @@ impl VTimeZoneRef<'_> {
                 .iter()
                 .map(TimeZoneObservance::to_owned)
                 .collect(),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
+            x_properties: self
+                .x_properties
+                .iter()
+                .map(XNameProperty::to_owned)
+                .collect(),
+            retained_properties: self
+                .retained_properties
                 .iter()
                 .map(Property::to_owned)
                 .collect(),
@@ -181,9 +184,9 @@ pub struct TimeZoneObservance<S: StringStorage> {
     /// Recurrence rule for this observance
     pub rrule: Option<RRule<S>>,
     /// Custom X- properties (preserved for round-trip)
-    pub x_properties: Vec<Property<S>>,
-    /// Unknown IANA properties (preserved for round-trip)
-    pub unrecognized_properties: Vec<Property<S>>,
+    pub x_properties: Vec<XNameProperty<S>>,
+    /// Unrecognized / Non-standard properties (preserved for round-trip)
+    pub retained_properties: Vec<Property<S>>,
 }
 
 /// Type alias for `TimeZoneObservance` with borrowed data
@@ -234,7 +237,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<
                     None => props.rrule = Some(rrule),
                 },
                 // Preserve unknown properties for round-trip
-                prop @ Property::XName { .. } => props.x_properties.push(prop),
+                Property::XName(prop) => props.x_properties.push(prop),
                 prop @ Property::Unrecognized { .. } => props.unrecognized_properties.push(prop),
                 prop => {
                     // Preserve other properties not used by TimeZoneObservance for round-trip
@@ -275,7 +278,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<
             tz_names: props.tz_name,
             rrule: props.rrule,
             x_properties: props.x_properties,
-            unrecognized_properties: props.unrecognized_properties,
+            retained_properties: props.unrecognized_properties,
         })
     }
 }
@@ -289,9 +292,13 @@ impl TimeZoneObservance<SpannedSegments<'_>> {
             tz_offset_to: self.tz_offset_to.to_owned(),
             tz_names: self.tz_names.iter().map(TzName::to_owned).collect(),
             rrule: self.rrule.as_ref().map(RRule::to_owned),
-            x_properties: self.x_properties.iter().map(Property::to_owned).collect(),
-            unrecognized_properties: self
-                .unrecognized_properties
+            x_properties: self
+                .x_properties
+                .iter()
+                .map(XNameProperty::to_owned)
+                .collect(),
+            retained_properties: self
+                .retained_properties
                 .iter()
                 .map(Property::to_owned)
                 .collect(),
@@ -306,7 +313,7 @@ struct PropertyCollector<S: StringStorage> {
     tz_id:            Option<TzId<S>>,
     last_modified:    Option<LastModified<S>>,
     tz_url:           Option<TzUrl<S>>,
-    x_properties:     Vec<Property<S>>,
+    x_properties:     Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }
 
@@ -319,6 +326,6 @@ struct ObservanceCollector<S: StringStorage> {
     tz_offset_to:   Option<TzOffsetTo<S>>,
     tz_name:        Vec<TzName<S>>,
     rrule:          Option<RRule<S>>,
-    x_properties:   Vec<Property<S>>,
+    x_properties:   Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
 }
