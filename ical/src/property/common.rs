@@ -12,7 +12,7 @@ use std::convert::TryFrom;
 use crate::parameter::{Parameter, ValueType};
 use crate::property::PropertyKindRef;
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueRef, ValueText, ValueTextRef};
 
@@ -107,7 +107,7 @@ pub struct UriProperty<S: StringStorage> {
     /// The URI value
     pub uri: S,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
 }
@@ -149,7 +149,7 @@ impl UriProperty<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -174,7 +174,7 @@ pub struct TextOnly<S: StringStorage> {
     /// The actual text content
     pub content: ValueText<S>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
 }
@@ -216,7 +216,7 @@ impl TextOnly<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -245,7 +245,7 @@ pub struct TextWithLanguage<S: StringStorage> {
     pub language: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
 
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
@@ -305,7 +305,7 @@ impl TextWithLanguage<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -341,7 +341,7 @@ pub struct Text<S: StringStorage> {
     pub altrep: Option<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
 
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
@@ -414,7 +414,7 @@ impl Text<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters

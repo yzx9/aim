@@ -29,7 +29,7 @@ use crate::property::common::{
 };
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
 
@@ -61,7 +61,7 @@ pub struct Attendee<S: StringStorage> {
     /// Language (optional)
     pub language: Option<S>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -265,7 +265,7 @@ impl Attendee<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -299,7 +299,7 @@ pub struct Organizer<S: StringStorage> {
     /// Language (optional)
     pub language: Option<S>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -411,7 +411,7 @@ impl Organizer<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -445,7 +445,7 @@ pub struct RelatedTo<S: StringStorage> {
     /// Relationship type (defaults to PARENT per RFC 5545)
     pub reltype: RelationshipType<S>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -522,7 +522,7 @@ impl RelatedTo<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters

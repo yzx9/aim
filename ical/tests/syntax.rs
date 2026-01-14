@@ -7,19 +7,11 @@
 //! These tests validate the syntax parser's behavior on realistic iCalendar content
 //! and edge cases.
 
-use aimcal_ical::lexer::{Token, lex_analysis};
-use aimcal_ical::syntax::{SyntaxComponent, syntax_analysis};
-use chumsky::error::Rich;
-
-/// Test helper to parse iCalendar source and get components
-fn parse_ical(src: &str) -> Result<Vec<SyntaxComponent<'_>>, Vec<Rich<'_, Token<'_>>>> {
-    let token_stream = lex_analysis(src);
-    syntax_analysis(src, token_stream)
-}
+use aimcal_ical::syntax::{RawComponent, syntax_analysis};
 
 /// Test helper to parse and get the first component
-fn parse_first_component(src: &str) -> SyntaxComponent<'_> {
-    let components = parse_ical(src).unwrap();
+fn parse_first_component(src: &str) -> RawComponent<'_> {
+    let components = syntax_analysis(src).unwrap();
     components.into_iter().next().unwrap()
 }
 
@@ -29,9 +21,9 @@ fn syntax_empty_component() {
 BEGIN:VCALENDAR\r
 END:VCALENDAR\r
 ";
-    let components = parse_ical(src).unwrap();
+    let components = syntax_analysis(src).unwrap();
     assert_eq!(components.len(), 1);
-    assert_eq!(components[0].name, "VCALENDAR");
+    assert_eq!(components[0].name.to_owned(), "VCALENDAR");
     assert!(components[0].properties.is_empty());
     assert!(components[0].children.is_empty());
 }
@@ -168,12 +160,12 @@ END:VEVENT\r
 END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.name, "VCALENDAR");
+    assert_eq!(comp.name.to_owned(), "VCALENDAR");
     assert_eq!(comp.properties.len(), 1);
     assert_eq!(comp.children.len(), 1);
 
     let event = &comp.children[0];
-    assert_eq!(event.name, "VEVENT");
+    assert_eq!(event.name.to_owned(), "VEVENT");
     assert_eq!(event.properties.len(), 2);
     assert_eq!(event.properties[0].name.to_owned(), "UID");
     assert_eq!(event.properties[1].name.to_owned(), "DTSTART");
@@ -194,8 +186,8 @@ END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
     assert_eq!(comp.children.len(), 2);
-    assert_eq!(comp.children[0].name, "VEVENT");
-    assert_eq!(comp.children[1].name, "VTODO");
+    assert_eq!(comp.children[0].name.to_owned(), "VEVENT");
+    assert_eq!(comp.children[1].name.to_owned(), "VTODO");
 }
 
 #[test]
@@ -211,15 +203,15 @@ END:VTIMEZONE\r
 END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.name, "VCALENDAR");
+    assert_eq!(comp.name.to_owned(), "VCALENDAR");
     assert_eq!(comp.children.len(), 1);
 
     let tz = &comp.children[0];
-    assert_eq!(tz.name, "VTIMEZONE");
+    assert_eq!(tz.name.to_owned(), "VTIMEZONE");
     assert_eq!(tz.children.len(), 1);
 
     let daylight = &tz.children[0];
-    assert_eq!(daylight.name, "DAYLIGHT");
+    assert_eq!(daylight.name.to_owned(), "DAYLIGHT");
 }
 
 #[test]
@@ -303,11 +295,11 @@ END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
     let event = &comp.children[0];
-    assert_eq!(event.name, "VEVENT");
+    assert_eq!(event.name.to_owned(), "VEVENT");
     assert_eq!(event.children.len(), 1);
 
     let alarm = &event.children[0];
-    assert_eq!(alarm.name, "VALARM");
+    assert_eq!(alarm.name.to_owned(), "VALARM");
     assert_eq!(alarm.properties.len(), 3);
 }
 
@@ -387,16 +379,16 @@ SUMMARY:Team Meeting\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let components = parse_ical(src).unwrap();
+    let components = syntax_analysis(src).unwrap();
     assert_eq!(components.len(), 1);
 
     let cal = &components[0];
-    assert_eq!(cal.name, "VCALENDAR");
+    assert_eq!(cal.name.to_owned(), "VCALENDAR");
     assert_eq!(cal.properties.len(), 2);
     assert_eq!(cal.children.len(), 1);
 
     let event = &cal.children[0];
-    assert_eq!(event.name, "VEVENT");
+    assert_eq!(event.name.to_owned(), "VEVENT");
     assert_eq!(event.properties.len(), 5);
 }
 
@@ -406,7 +398,7 @@ fn syntax_mismatched_begin_end() {
 BEGIN:VCALENDAR\r
 END:VEVENT\r
 ";
-    let result = parse_ical(src);
+    let result = syntax_analysis(src);
     assert!(result.is_err());
 }
 
@@ -416,7 +408,7 @@ fn syntax_missing_end() {
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
 ";
-    let result = parse_ical(src);
+    let result = syntax_analysis(src);
     assert!(result.is_err());
 }
 
@@ -427,7 +419,7 @@ BEGIN:VCALENDAR\r
 VERSION 2.0\r
 END:VCALENDAR\r
 ";
-    let result = parse_ical(src);
+    let result = syntax_analysis(src);
     // The parser should fail because there's no colon
     assert!(result.is_err());
 }
@@ -442,10 +434,10 @@ BEGIN:VCALENDAR\r
 VERSION:2.0\r
 END:VCALENDAR\r
 ";
-    let components = parse_ical(src).unwrap();
+    let components = syntax_analysis(src).unwrap();
     assert_eq!(components.len(), 2);
-    assert_eq!(components[0].name, "VCALENDAR");
-    assert_eq!(components[1].name, "VCALENDAR");
+    assert_eq!(components[0].name.to_owned(), "VCALENDAR");
+    assert_eq!(components[1].name.to_owned(), "VCALENDAR");
 }
 
 #[test]
@@ -485,12 +477,12 @@ END:VCALENDAR\r
     assert_eq!(comp.children.len(), 1);
 
     let tz = &comp.children[0];
-    assert_eq!(tz.name, "VTIMEZONE");
+    assert_eq!(tz.name.to_owned(), "VTIMEZONE");
     assert_eq!(tz.properties.len(), 1);
     assert_eq!(tz.children.len(), 2);
 
-    assert_eq!(tz.children[0].name, "STANDARD");
-    assert_eq!(tz.children[1].name, "DAYLIGHT");
+    assert_eq!(tz.children[0].name.to_owned(), "STANDARD");
+    assert_eq!(tz.children[1].name.to_owned(), "DAYLIGHT");
 }
 
 #[test]
@@ -506,7 +498,7 @@ END:VJOURNAL\r
 END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.children[0].name, "VJOURNAL");
+    assert_eq!(comp.children[0].name.to_owned(), "VJOURNAL");
     assert_eq!(comp.children[0].properties.len(), 4);
 }
 
@@ -523,7 +515,7 @@ END:VFREEBUSY\r
 END:VCALENDAR\r
 ";
     let comp = parse_first_component(src);
-    assert_eq!(comp.children[0].name, "VFREEBUSY");
+    assert_eq!(comp.children[0].name.to_owned(), "VFREEBUSY");
 }
 
 #[test]
@@ -704,15 +696,23 @@ END:VALARM\r
 END:VEVENT\r
 END:VCALENDAR\r
 ";
-    let components = parse_ical(src).unwrap();
+    let components = syntax_analysis(src).unwrap();
     assert_eq!(components.len(), 1);
 
     let cal = &components[0];
-    assert_eq!(cal.name, "VCALENDAR");
-    assert!(cal.children.iter().any(|c| c.name == "VTIMEZONE"));
-    assert!(cal.children.iter().any(|c| c.name == "VEVENT"));
+    assert_eq!(cal.name.to_owned(), "VCALENDAR");
+    assert!(
+        cal.children
+            .iter()
+            .any(|c| c.name.to_owned() == "VTIMEZONE")
+    );
+    assert!(cal.children.iter().any(|c| c.name.to_owned() == "VEVENT"));
 
-    let event = cal.children.iter().find(|c| c.name == "VEVENT").unwrap();
+    let event = cal
+        .children
+        .iter()
+        .find(|c| c.name.to_owned() == "VEVENT")
+        .unwrap();
     assert!(
         event
             .properties
@@ -725,5 +725,5 @@ END:VCALENDAR\r
             .iter()
             .any(|p| p.name.to_owned() == "RRULE")
     );
-    assert!(event.children.iter().any(|c| c.name == "VALARM"));
+    assert!(event.children.iter().any(|c| c.name.to_owned() == "VALARM"));
 }

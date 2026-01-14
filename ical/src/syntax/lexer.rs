@@ -6,32 +6,20 @@
 
 use std::fmt::{self, Display};
 
-use chumsky::extra::ParserExtra;
-use chumsky::input::{Input, MapExtra, Stream, ValueInput};
-use chumsky::span::SimpleSpan;
 use logos::Logos;
 
 use crate::string_storage::Span;
 
-/// Create a lexer for iCalendar source code
+/// Tokenize iCalendar source code into a vector of `SpannedToken`
+///
+/// This is a simpler alternative to `lex_analysis` that returns a Vec directly,
+/// which is useful for the new scanner-based parser.
 #[must_use]
-pub fn lex_analysis(src: &'_ str) -> impl ValueInput<'_, Token = Token<'_>, Span = SimpleSpan> {
-    // Create a logos lexer over the source code
-    let token_iter = Token::lexer(src)
-        .spanned()
-        // Convert logos errors into tokens. We want parsing to be recoverable and not fail at the lexing stage, so
-        // we have a dedicated `Token::Error` variant that represents a token error that was previously encountered
-        .map(|(tok, span)| match tok {
-            // Convert logos' `Range<usize>` spans to our custom `Span` type, then to chumsky's `SimpleSpan`
-            Ok(tok) => (tok, span.into()),
-            Err(()) => (Token::Error, span.into()),
-        });
-
-    // Turn the token iterator into a stream that chumsky can use for things like backtracking
-    Stream::from_iter(token_iter)
-        // Tell chumsky to split the (Token, SimpleSpan) stream into its parts so that it can handle the spans for us
-        // This involves giving chumsky an 'end of input' span: we just use a zero-width span at the end of the string
-        .map((0..src.len()).into(), |(t, s): (_, _)| (t, s))
+pub fn tokenize<'src>(src: &'src str) -> impl IntoIterator<Item = SpannedToken<'src>> {
+    Token::lexer(src).spanned().map(|(tok, span)| match tok {
+        Ok(tok) => SpannedToken(tok, Span::new(span.start, span.end)),
+        Err(()) => SpannedToken(Token::Error, Span::new(span.start, span.end)),
+    })
 }
 
 /// Token emitted by the iCalendar lexer
@@ -106,21 +94,6 @@ impl fmt::Debug for Token<'_> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SpannedToken<'src>(pub Token<'src>, pub Span);
 
-impl<'src> SpannedToken<'src> {
-    pub(crate) fn from_map_extra<'tokens, I, E>(
-        token: Token<'src>,
-        e: &mut MapExtra<'tokens, '_, I, E>,
-    ) -> Self
-    where
-        'src: 'tokens,
-        I: Input<'tokens, Token = Token<'src>, Span = SimpleSpan>,
-        E: ParserExtra<'tokens, I>,
-    {
-        let span = e.span();
-        SpannedToken(token, span.into())
-    }
-}
-
 impl Display for SpannedToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}@{:?}", self.0, self.1)
@@ -129,6 +102,8 @@ impl Display for SpannedToken<'_> {
 
 #[cfg(test)]
 mod tests {
+    #![expect(clippy::indexing_slicing)]
+
     use super::Token::*;
     use super::*;
 
@@ -182,7 +157,7 @@ mod tests {
         test_ascii_range!(test_ascii_chars_7b_7e, 0x7B..=0x7E, Symbol, false);
     }
 
-    fn tokenize(src: &str, expected: &[Token]) {
+    fn assert_tokenize(src: &str, expected: &[Token]) {
         let tokens: Vec<_> = Token::lexer(src).map(|t| t.unwrap()).collect();
         assert_eq!(tokens, expected);
     }
@@ -209,7 +184,7 @@ mod tests {
             Symbol(r"\"),
             Word("_"),
         ];
-        tokenize(src, &expected);
+        assert_tokenize(src, &expected);
     }
 
     #[test]
@@ -224,7 +199,7 @@ mod tests {
             Newline,
             Word("WORD4"),
         ];
-        tokenize(src, &expected);
+        assert_tokenize(src, &expected);
     }
 
     #[test]
@@ -242,7 +217,7 @@ mod tests {
             Symbol(r"\"),
             Word("r"),
         ];
-        tokenize(src, &expected);
+        assert_tokenize(src, &expected);
     }
 
     #[test]
@@ -257,7 +232,7 @@ mod tests {
             Word("Hello"),
             UnicodeText("世界"),
         ];
-        tokenize(src, &expected);
+        assert_tokenize(src, &expected);
     }
 
     #[test]
@@ -275,7 +250,7 @@ mod tests {
             Symbol(" "),
             Word("folding"),
         ];
-        tokenize(src, &expected);
+        assert_tokenize(src, &expected);
     }
 
     #[test]
@@ -354,5 +329,115 @@ mod tests {
         // HTAB (0x09) should be tokenized as Symbol, not Error
         let tokens = tokenize_with_errors("WORD1\tWORD2");
         assert_eq!(tokens, vec![Word("WORD1"), Symbol("\t"), Word("WORD2")]);
+    }
+
+    // Tests for realistic iCalendar scenarios
+    #[test]
+    fn lexer_tokenizes_complete_minimal_icalendar() {
+        let src = "\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VEVENT
+UID:12345@example.com
+DTSTAMP:20250101T120000Z
+DTSTART:20250615T133000Z
+DTEND:20250615T143000Z
+SUMMARY:Team Meeting
+END:VEVENT
+END:VCALENDAR
+";
+        let tokens = tokenize_with_errors(src);
+
+        // Verify key tokens are present
+        assert!(tokens.contains(&Word("BEGIN")));
+        assert!(tokens.contains(&Word("VCALENDAR")));
+        assert!(tokens.contains(&Word("VERSION")));
+        assert!(tokens.contains(&Word("VEVENT")));
+        assert!(tokens.contains(&Word("SUMMARY")));
+        assert!(tokens.contains(&Word("Team")));
+        assert!(tokens.contains(&Word("Meeting")));
+    }
+
+    #[test]
+    fn lexer_handles_multiline_unicode_description() {
+        let src = "\
+DESCRIPTION:Important meeting with team members from 中国🇨🇳 and Japan 🇯🇵\
+\r\n to discuss Q1 2025 strategy and planning.\r\n Please prepare your reports.\
+";
+        let tokens = tokenize_with_errors(src);
+
+        // Verify unicode tokens are properly recognized
+        assert!(tokens.iter().any(|t| matches!(t, UnicodeText(_))));
+        assert!(tokens.contains(&Word("DESCRIPTION")));
+        assert!(tokens.contains(&Word("Important")));
+    }
+
+    #[test]
+    fn lexer_returns_token_positions() {
+        let src = "BEGIN:VCALENDAR";
+        let tokens: Vec<_> = tokenize(src).into_iter().collect();
+
+        // Check that we get proper span information
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].0, Word("BEGIN"));
+        assert_eq!(tokens[0].1, Span::new(0, 5));
+        assert_eq!(tokens[1].0, Colon);
+        assert_eq!(tokens[1].1, Span::new(5, 6));
+        assert_eq!(tokens[2].0, Word("VCALENDAR"));
+        assert_eq!(tokens[2].1, Span::new(6, 15));
+    }
+
+    #[test]
+    fn lexer_handles_complex_nested_components() {
+        // Test a realistic calendar with nested VTIMEZONE and VEVENT
+        let src = "\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=America/New_York:20250101T090000
+DURATION:PT1H
+SUMMARY:Test Event with 参数
+END:VEVENT
+END:VCALENDAR
+";
+        let tokens = tokenize_with_errors(src);
+
+        // Verify structure is recognized
+        assert!(tokens.contains(&Word("VTIMEZONE")));
+        assert!(tokens.contains(&Word("DAYLIGHT")));
+        assert!(tokens.contains(&Word("VEVENT")));
+        assert!(tokens.contains(&Word("TZID")));
+    }
+
+    #[test]
+    fn lexer_handles_real_world_attendee_list() {
+        // Test realistic attendee list with parameters
+        let src = "\
+BEGIN:VEVENT
+UID:meeting123@example.com
+DTSTART:20250115T140000Z
+ATTENDEE;RSVP=TRUE;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION:mailto:alice@example.com
+ATTENDEE;RSVP=FALSE;CUTYPE=ROOM;PARTSTAT=ACCEPTED:mailto:conf-room@example.com
+ATTENDEE;RSVP=TRUE;CUTYPE=GROUP;PARTSTAT=TENTATIVE:mailto:team@example.com
+END:VEVENT
+";
+        let tokens = tokenize_with_errors(src);
+
+        // Verify all attendees are tokenized
+        assert!(tokens.contains(&Word("ATTENDEE")));
+        // Check that parameters are recognized
+        assert!(tokens.contains(&Word("RSVP")));
+        assert!(tokens.contains(&Word("CUTYPE")));
+        assert!(tokens.contains(&Word("PARTSTAT")));
     }
 }

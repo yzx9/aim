@@ -244,7 +244,7 @@ impl SpanCollector {
                     }
                 } else if span.end > item.1.end {
                     // need next segment
-                    let i = span.start - item.1.start;
+                    let i = span.start.saturating_sub(item.1.start);
                     let s = item.0.get(i..).unwrap(); // SAFETY: since in range
                     match iter.next() {
                         Some(a) => item = a,
@@ -254,8 +254,8 @@ impl SpanCollector {
                 } else {
                     // within this segment
                     flag = false;
-                    let i = span.start - item.1.start;
-                    let j = span.end - item.1.start;
+                    let i = span.start.saturating_sub(item.1.start);
+                    let j = span.end.saturating_sub(item.1.start);
                     let s = item.0.get(i..j).unwrap(); // SAFETY: since i,j are in range
                     vec.push(SpannedSegments::new(vec![(s, span.into())]));
                 }
@@ -290,7 +290,6 @@ enum Either<L, R> {
 mod tests {
     use chumsky::input::Stream;
 
-    use crate::lexer::lex_analysis;
     use crate::syntax::syntax_analysis;
 
     use super::*;
@@ -308,8 +307,7 @@ mod tests {
     }
 
     fn parse(src: &str) -> ValueTextRef<'_> {
-        let token_stream = lex_analysis(src);
-        let comps = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
+        let comps = syntax_analysis(src).unwrap();
         assert_eq!(comps.len(), 1);
         let syntax_component = comps.first().unwrap();
         assert_eq!(syntax_component.properties.len(), 1);

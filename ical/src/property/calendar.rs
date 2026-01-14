@@ -24,7 +24,7 @@ use crate::parameter::Parameter;
 use crate::property::PropertyKind;
 use crate::property::common::take_single_text;
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
 
@@ -45,7 +45,7 @@ pub struct CalendarScale<S: StringStorage> {
     pub value: CalendarScaleValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
 
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
@@ -108,7 +108,7 @@ impl CalendarScale<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -151,7 +151,7 @@ pub struct Method<S: StringStorage> {
     pub value: MethodValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
 
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
@@ -214,7 +214,7 @@ impl Method<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -235,7 +235,7 @@ pub struct ProductId<S: StringStorage> {
     pub value: ValueText<S>,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
 
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
@@ -288,7 +288,7 @@ impl ProductId<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -317,7 +317,7 @@ pub struct Version<S: StringStorage> {
     pub value: VersionValue,
 
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
 
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
@@ -380,7 +380,7 @@ impl Version<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters

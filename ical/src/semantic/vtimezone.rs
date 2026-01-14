@@ -44,7 +44,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        if comp.name != KW_VTIMEZONE {
+        if !comp.name.eq_str_ignore_ascii_case(KW_VTIMEZONE) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VTIMEZONE,
                 got: comp.name,
@@ -99,26 +99,26 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
         let mut standard = Vec::new();
         let mut daylight = Vec::new();
         for child in comp.children {
-            match child.name {
-                KW_STANDARD => match child.try_into() {
+            if child.name.eq_str_ignore_ascii_case(KW_STANDARD) {
+                match child.try_into() {
                     Ok(v) => standard.push(v),
                     Err(e) => errors.extend(e),
-                },
-                KW_DAYLIGHT => match child.try_into() {
+                }
+            } else if child.name.eq_str_ignore_ascii_case(KW_DAYLIGHT) {
+                match child.try_into() {
                     Ok(v) => daylight.push(v),
                     Err(e) => errors.extend(e),
-                },
-                _ => {
-                    errors.push(SemanticError::UnknownComponent {
-                        span: child.span,
-                        component: child.name.to_string(),
-                    });
+                }
+            } else {
+                errors.push(SemanticError::UnknownComponent {
+                    span: child.span,
+                    component: child.name.to_owned(),
+                });
 
-                    // still attempt to parse to collect errors
-                    match TimeZoneObservance::try_from(child) {
-                        Ok(_) => {}
-                        Err(e) => errors.extend(e),
-                    }
+                // still attempt to parse to collect errors
+                match TimeZoneObservance::try_from(child) {
+                    Ok(_) => {}
+                    Err(e) => errors.extend(e),
                 }
             }
         }

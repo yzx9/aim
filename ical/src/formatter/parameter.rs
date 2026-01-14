@@ -20,7 +20,7 @@ use crate::parameter::{
     ParticipationRole, ParticipationStatus, RelationshipType,
 };
 use crate::string_storage::StringStorage;
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::{RecurrenceIdRange, ValueType};
 
 /// Format all parameters to the formatter.
@@ -41,7 +41,7 @@ pub fn write_parameters<W: Write, S: StringStorage>(
 /// This formats multiple syntax parameters (for `x_parameters`), each prefixed with a semicolon.
 pub fn write_syntax_parameters<W: Write, S: StringStorage>(
     f: &mut Formatter<W>,
-    parameters: &[SyntaxParameter<S>],
+    parameters: &[RawParameter<S>],
 ) -> io::Result<()> {
     for param in parameters {
         write_param_syntax(f, param)?;
@@ -255,7 +255,7 @@ pub fn write_param_value<W: Write, S: StringStorage>(
 /// Write an X-NAME parameter
 pub fn write_param_xname<W: Write, S: StringStorage>(
     f: &mut Formatter<W>,
-    syntax: &SyntaxParameter<S>,
+    syntax: &RawParameter<S>,
 ) -> io::Result<()> {
     write_param_syntax(f, syntax)
 }
@@ -263,14 +263,14 @@ pub fn write_param_xname<W: Write, S: StringStorage>(
 /// Write an unrecognized parameter
 pub fn write_param_unrecognized<W: Write, S: StringStorage>(
     f: &mut Formatter<W>,
-    raw: &SyntaxParameter<S>,
+    raw: &RawParameter<S>,
 ) -> io::Result<()> {
     write_param_syntax(f, raw)
 }
 
 fn write_param_syntax<W: Write, S: StringStorage>(
     f: &mut Formatter<W>,
-    raw: &SyntaxParameter<S>,
+    raw: &RawParameter<S>,
 ) -> io::Result<()> {
     // Unrecognized: name=value
     write!(f, ";{}", raw.name)?;

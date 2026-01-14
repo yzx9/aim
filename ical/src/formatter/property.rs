@@ -43,7 +43,7 @@ use crate::property::{
     UnrecognizedProperty, UriProperty, Url, Version, XNameProperty,
 };
 use crate::string_storage::StringStorage;
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::value::ValueText;
 
 /// Format a single property.
@@ -607,7 +607,7 @@ pub fn write_prop_status<W: Write, S: StringStorage>(
 pub fn write_prop_status_value<W: Write, T: Into<StatusValue>, S: StringStorage>(
     f: &mut Formatter<W>,
     status: T,
-    x_parameters: &[SyntaxParameter<S>],
+    x_parameters: &[RawParameter<S>],
     retained_parameters: &[Parameter<S>],
 ) -> io::Result<()> {
     let s: StatusValue = status.into();
@@ -920,8 +920,8 @@ fn write_text_with_params<S: StringStorage, W: Write>(
     content: &ValueText<S>,
     language: Option<&S>,
     altrep: Option<&S>,
-    x_params: &[SyntaxParameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    x_params: &[RawParameter<S>],
+    retained_params: &[Parameter<S>],
 ) -> io::Result<()> {
     // Write property name
     write!(f, "{name}")?;
@@ -938,7 +938,7 @@ fn write_text_with_params<S: StringStorage, W: Write>(
 
     // Write generic parameter lists
     write_syntax_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    write_parameters(f, retained_params)?;
 
     // Write property value with proper iCalendar escaping
     write!(f, ":{}", format_value_text(content))
@@ -951,15 +951,15 @@ fn write_escaped_text<W: Write, D: Display, S: StringStorage>(
     f: &mut Formatter<W>,
     name: &str,
     content: &D,
-    x_params: &[SyntaxParameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    x_params: &[RawParameter<S>],
+    retained_params: &[Parameter<S>],
 ) -> io::Result<()> {
     // Write property name
     write!(f, "{name}")?;
 
     // Write generic parameter lists
     write_syntax_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    write_parameters(f, retained_params)?;
 
     // Write property value
     write!(f, ":{content}")
@@ -973,8 +973,8 @@ fn write_text_with_language<W: Write, S: StringStorage>(
     name: &str,
     content: &ValueText<S>,
     language: Option<&S>,
-    x_params: &[SyntaxParameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    x_params: &[RawParameter<S>],
+    retained_params: &[Parameter<S>],
 ) -> io::Result<()> {
     // Write property name
     write!(f, "{name}")?;
@@ -986,7 +986,7 @@ fn write_text_with_language<W: Write, S: StringStorage>(
 
     // Write generic parameter lists
     write_syntax_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    write_parameters(f, retained_params)?;
 
     // Write property value with proper iCalendar escaping
     write!(f, ":{}", format_value_text(content))
@@ -1009,12 +1009,12 @@ fn write_integer<W: Write, D: Display, S: StringStorage>(
     f: &mut Formatter<W>,
     name: &str,
     value: D,
-    x_params: &[SyntaxParameter<S>],
-    unrecognized_params: &[Parameter<S>],
+    x_params: &[RawParameter<S>],
+    retainedzed_params: &[Parameter<S>],
 ) -> io::Result<()> {
     write!(f, "{name}")?;
     write_syntax_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    write_parameters(f, retainedzed_params)?;
     write!(f, ":{value}")
 }
 
@@ -1025,33 +1025,33 @@ fn write_datetime<W: Write, S: StringStorage>(
     datetime: &DateTime<S>,
 ) -> io::Result<()> {
     // Collect all parameters using a helper
-    let (x_params, unrecognized_params) = match datetime {
+    let (x_params, retained_params) = match datetime {
         DateTime::Floating {
             x_parameters,
-            retained_parameters: unrecognized_parameters,
+            retained_parameters,
             ..
         }
         | DateTime::Zoned {
             x_parameters,
-            retained_parameters: unrecognized_parameters,
+            retained_parameters,
             ..
         }
         | DateTime::Utc {
             x_parameters,
-            retained_parameters: unrecognized_parameters,
+            retained_parameters,
             ..
         }
         | DateTime::Date {
             x_parameters,
-            retained_parameters: unrecognized_parameters,
+            retained_parameters,
             ..
-        } => (x_parameters, unrecognized_parameters),
+        } => (x_parameters, retained_parameters),
     };
 
     // Write: NAME;params:value
     write!(f, "{name}")?;
     write_syntax_parameters(f, x_params)?;
-    write_parameters(f, unrecognized_params)?;
+    write_parameters(f, retained_params)?;
 
     // Write the value
     write!(f, ":")?;

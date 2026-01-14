@@ -19,7 +19,7 @@ use crate::parameter::{Parameter, ValueType};
 use crate::property::common::take_single_value;
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
 
@@ -55,7 +55,7 @@ pub struct Sequence<S: StringStorage> {
     /// Sequence number
     pub value: u32,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -138,7 +138,7 @@ impl Sequence<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters

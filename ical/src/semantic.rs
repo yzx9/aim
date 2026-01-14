@@ -30,6 +30,7 @@ pub use vtimezone::{
 };
 pub use vtodo::{TodoStatus, TodoStatusOwned, VTodo, VTodoOwned, VTodoRef};
 
+use crate::SpannedSegments;
 use crate::keyword::KW_VCALENDAR;
 use crate::property::PropertyKindRef;
 use crate::string_storage::Span;
@@ -89,7 +90,7 @@ pub enum SemanticError<'src> {
         /// The expected component name
         expected: &'src str,
         /// The actual component name that was found
-        got: &'src str,
+        got: SpannedSegments<'src>,
         /// The span of the error
         span: Span,
     },

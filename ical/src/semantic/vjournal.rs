@@ -15,7 +15,7 @@ use crate::property::{
 };
 use crate::semantic::SemanticError;
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::typed::TypedComponent;
 
 /// Journal entry component (VJOURNAL)
@@ -70,7 +70,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        if comp.name != KW_VJOURNAL {
+        if !comp.name.eq_str_ignore_ascii_case(KW_VJOURNAL) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VJOURNAL,
                 got: comp.name,
@@ -306,7 +306,7 @@ pub struct JournalStatus<S: StringStorage> {
     /// Status value
     pub value: JournalStatusValue,
     /// Custom X- parameters (preserved for round-trip)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unknown IANA parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
 }
@@ -339,7 +339,7 @@ impl JournalStatusRef<'_> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters

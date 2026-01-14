@@ -28,7 +28,7 @@ use crate::parameter::definition::{
 };
 use crate::parameter::util::{parse_multiple_quoted, parse_single, parse_single_quoted};
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::{SyntaxParameter, SyntaxParameterRef};
+use crate::syntax::{RawParameter, RawParameterRef};
 use crate::typed::TypedError;
 
 /// A typed iCalendar parameter with validated values.
@@ -260,7 +260,7 @@ pub enum Parameter<S: StringStorage> {
     /// but preserve the data for round-trip compatibility.
     ///
     /// See also: RFC 5545 Section 3.2 (Parameter definition)
-    XName(SyntaxParameter<S>),
+    XName(RawParameter<S>),
 
     /// Unrecognized iana-token parameter.
     ///
@@ -268,7 +268,7 @@ pub enum Parameter<S: StringStorage> {
     /// they don't recognize, but preserve the data for round-trip compatibility.
     ///
     /// See also: RFC 5545 Section 3.2 (Parameter definition)
-    Unrecognized(SyntaxParameter<S>),
+    Unrecognized(RawParameter<S>),
 }
 
 /// Type alias for borrowed parameter
@@ -439,10 +439,10 @@ impl ParameterRef<'_> {
     }
 }
 
-impl<'src> TryFrom<SyntaxParameterRef<'src>> for ParameterRef<'src> {
+impl<'src> TryFrom<RawParameterRef<'src>> for ParameterRef<'src> {
     type Error = Vec<TypedError<'src>>;
 
-    fn try_from(mut param: SyntaxParameterRef<'src>) -> Result<Self, Self::Error> {
+    fn try_from(mut param: RawParameterRef<'src>) -> Result<Self, Self::Error> {
         // Parse the parameter kind
         let kind = ParameterKind::from(param.name.clone());
 

@@ -22,7 +22,7 @@ use std::convert::TryFrom;
 use crate::parameter::{Parameter, ValueTypeRef};
 use crate::property::{DateTime, Period, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueRecurrenceRule};
 
@@ -91,7 +91,7 @@ pub struct ExDate<S: StringStorage> {
     /// Timezone identifier (optional)
     pub tz_id: Option<S>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -184,7 +184,7 @@ impl ExDate<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -206,7 +206,7 @@ pub struct RDate<S: StringStorage> {
     /// Timezone identifier (optional)
     pub tz_id: Option<S>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -304,7 +304,7 @@ impl RDate<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -324,7 +324,7 @@ pub struct RRule<S: StringStorage> {
     /// Recurrence rule value
     pub value: Box<ValueRecurrenceRule>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -393,7 +393,7 @@ impl RRule<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters

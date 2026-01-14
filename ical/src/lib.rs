@@ -28,7 +28,6 @@
 
 pub mod formatter;
 pub mod keyword;
-pub mod lexer;
 pub mod parameter;
 mod parser;
 pub mod property;

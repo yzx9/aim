@@ -2,12 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use chumsky::error::Rich;
-
-use crate::lexer::{Token, lex_analysis};
 use crate::semantic::{ICalendarRef, SemanticError, semantic_analysis};
-use crate::syntax::syntax_analysis;
 use crate::typed::{TypedError, typed_analysis};
+use std::fmt;
 
 /// Parse an iCalendar component from source code
 ///
@@ -43,11 +40,10 @@ use crate::typed::{TypedError, typed_analysis};
 /// assert_eq!(calendars[0].prod_id.value.to_string(), "-//Example Corp.//CalDAV Client//EN");
 /// ```
 ///
-/// Parsing invalid iCalendar source will return error reports:
+/// Parsing invalid iCalendar source will return errors:
 ///
 /// ```
-/// # use aimcal_ical::{ParseError, parse};
-/// use ariadne::{Color, Label, Report, ReportKind, Source};
+/// # use aimcal_ical::parse;
 /// let invalid_ical_src = "\
 /// BEGIN:VCALENDAR\r\n\
 /// BEGIN:VEVENT\r\n\
@@ -56,51 +52,15 @@ use crate::typed::{TypedError, typed_analysis};
 /// ";
 /// let result = parse(invalid_ical_src);
 /// assert!(result.is_err());
-/// let reports = result.unwrap_err().into_iter().map(|e| {
-///   match e {
-///     ParseError::Syntax(e) => {
-///       Report::build(ReportKind::Error, e.span().into_range())
-///         .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
-///         .with_code(3)
-///         .with_message(e.to_string())
-///         .with_label(
-///           Label::new(e.span().into_range())
-///             .with_message(e.reason().to_string())
-///             .with_color(Color::Red),
-///         )
-///         .finish()
-///     }
-///     ParseError::Typed(e) => {
-///       Report::build(ReportKind::Error, e.span().into_range())
-///          .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
-///          .with_code(3)
-///          .with_message(e.to_string())
-///          .with_label(
-///            Label::new(e.span().into_range())
-///              .with_message(e.to_string())
-///              .with_color(Color::Red),
-///          )
-///          .finish()
-///     }
-///     ParseError::Semantic(e) => {
-///         Report::build(ReportKind::Error, e.span().into_range())
-///             .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
-///             .with_code(3)
-///             .with_message(e.to_string())
-///             .finish()
-///     }
-///     e => todo!("Other errors not implemented yet: {:?}", e),
-///   }
-/// }).collect::<Vec<_>>();
-///
-/// for report in reports {
-///   report.eprint(Source::from(invalid_ical_src));
+/// let errors = result.unwrap_err();
+/// // Each error can be converted to a string for display
+/// for error in &errors {
+///   eprintln!("{}", error);
 /// }
 /// ```
 pub fn parse(src: &'_ str) -> Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>> {
-    let token_stream = lex_analysis(src);
-
-    let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream)
+    // Syntax analysis (includes tokenization, scanning, and tree building)
+    let syntax_components = crate::syntax::syntax_analysis(src)
         .map_err(|errs| errs.into_iter().map(ParseError::Syntax).collect::<Vec<_>>())?;
 
     let typed_components = typed_analysis(syntax_components)
@@ -121,11 +81,21 @@ pub fn parse(src: &'_ str) -> Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>>
 #[derive(Debug)]
 pub enum ParseError<'src> {
     /// Errors from syntax analysis
-    Syntax(Rich<'src, Token<'src>>),
+    Syntax(crate::syntax::SyntaxError<'src>),
 
     /// Errors from typed analysis
     Typed(TypedError<'src>),
 
     /// Errors from semantic analysis
     Semantic(SemanticError<'src>),
+}
+
+impl fmt::Display for ParseError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseError::Syntax(err) => write!(f, "{err}"),
+            ParseError::Typed(err) => write!(f, "{err}"),
+            ParseError::Semantic(err) => write!(f, "{err}"),
+        }
+    }
 }

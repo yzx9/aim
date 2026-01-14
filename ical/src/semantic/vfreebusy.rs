@@ -60,7 +60,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        if comp.name != KW_VFREEBUSY {
+        if !comp.name.eq_str_ignore_ascii_case(KW_VFREEBUSY) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VFREEBUSY,
                 got: comp.name,

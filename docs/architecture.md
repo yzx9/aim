@@ -52,8 +52,8 @@ aim/
 
 **ical** - iCalendar (RFC 5545) parser and formatter with:
 
-- Four-phase parsing pipeline (lexer → syntax → typed → semantic)
-- Three-pass typed analysis (parameter → value → property)
+- Three-phase parsing pipeline (syntax → typed → semantic)
+  - Three-pass typed analysis (parameter → value → property)
 - Type-safe representations with generic `StringStorage` trait for flexible string and span handling
 - Zero-copy parsing support with `SpannedSegments<'src>` for borrowed data
 - Comprehensive error reporting

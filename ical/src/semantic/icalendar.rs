@@ -58,7 +58,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        if comp.name != KW_VCALENDAR {
+        if !comp.name.eq_str_ignore_ascii_case(KW_VCALENDAR) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VCALENDAR,
                 got: comp.name,
@@ -161,37 +161,67 @@ pub(crate) fn parse_component_children(
     let mut errors = Vec::new();
 
     for child in children {
-        match child.name {
-            KW_VEVENT => match child.try_into() {
-                Ok(v) => components.push(CalendarComponent::Event(v)),
-                Err(e) => errors.extend(e),
-            },
-            KW_VTODO => match child.try_into() {
-                Ok(v) => components.push(CalendarComponent::Todo(v)),
-                Err(e) => errors.extend(e),
-            },
-            KW_VJOURNAL => match child.try_into() {
-                Ok(v) => components.push(CalendarComponent::VJournal(v)),
-                Err(e) => errors.extend(e),
-            },
-            KW_VFREEBUSY => match child.try_into() {
-                Ok(v) => components.push(CalendarComponent::VFreeBusy(v)),
-                Err(e) => errors.extend(e),
-            },
-            KW_VTIMEZONE => match child.try_into() {
-                Ok(v) => components.push(CalendarComponent::VTimeZone(v)),
-                Err(e) => errors.extend(e),
-            },
-            KW_VALARM => match child.try_into() {
-                Ok(v) => components.push(CalendarComponent::VAlarm(v)),
-                Err(e) => errors.extend(e),
-            },
+        // Use if-else chain since SpannedSegments doesn't match directly against &str
+        let component = if child.name.eq_str_ignore_ascii_case(KW_VEVENT) {
+            match child.try_into() {
+                Ok(v) => CalendarComponent::Event(v),
+                Err(e) => {
+                    errors.extend(e);
+                    return Ok(components);
+                }
+            }
+        } else if child.name.eq_str_ignore_ascii_case(KW_VTODO) {
+            match child.try_into() {
+                Ok(v) => CalendarComponent::Todo(v),
+                Err(e) => {
+                    errors.extend(e);
+                    return Ok(components);
+                }
+            }
+        } else if child.name.eq_str_ignore_ascii_case(KW_VJOURNAL) {
+            match child.try_into() {
+                Ok(v) => CalendarComponent::VJournal(v),
+                Err(e) => {
+                    errors.extend(e);
+                    return Ok(components);
+                }
+            }
+        } else if child.name.eq_str_ignore_ascii_case(KW_VFREEBUSY) {
+            match child.try_into() {
+                Ok(v) => CalendarComponent::VFreeBusy(v),
+                Err(e) => {
+                    errors.extend(e);
+                    return Ok(components);
+                }
+            }
+        } else if child.name.eq_str_ignore_ascii_case(KW_VTIMEZONE) {
+            match child.try_into() {
+                Ok(v) => CalendarComponent::VTimeZone(v),
+                Err(e) => {
+                    errors.extend(e);
+                    return Ok(components);
+                }
+            }
+        } else if child.name.eq_str_ignore_ascii_case(KW_VALARM) {
+            match child.try_into() {
+                Ok(v) => CalendarComponent::VAlarm(v),
+                Err(e) => {
+                    errors.extend(e);
+                    return Ok(components);
+                }
+            }
+        } else {
             // Parse custom component with all its children (recursively)
-            _ => match CustomComponent::try_from(child) {
-                Ok(custom) => components.push(CalendarComponent::Custom(custom)),
-                Err(e) => errors.extend(e),
-            },
-        }
+            match CustomComponent::try_from(child) {
+                Ok(custom) => CalendarComponent::Custom(custom),
+                Err(e) => {
+                    errors.extend(e);
+                    return Ok(components);
+                }
+            }
+        };
+
+        components.push(component);
     }
 
     // Return error only if no components were parsed successfully

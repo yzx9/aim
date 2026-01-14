@@ -52,7 +52,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        if comp.name != KW_VALARM {
+        if !comp.name.eq_str_ignore_ascii_case(KW_VALARM) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VALARM,
                 got: comp.name,

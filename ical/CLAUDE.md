@@ -2,32 +2,32 @@
 
 The iCal module provides a comprehensive parser and formatter for the iCalendar format (RFC 5545)
 using a multi-phase analysis approach. The architecture separates concerns through distinct layers
-for lexical analysis, syntax parsing, and type validation.
+for syntax parsing, typed analysis and semantic validation.
 
 ## Architecture Overview
 
 The parser follows a **four-phase pipeline**:
 
-1. **Lexical Analysis** - Tokenizes raw iCalendar text into structured tokens
-2. **Syntax Analysis** - Assembles tokens into component structure
-3. **Typed Analysis** - Validates and converts components to strongly-typed representations through
+1. **Syntax Analysis** - Tokenizes raw iCalendar text and builds component structure
+   - **Lexer** - Tokenizes raw iCalendar text into structured tokens
+   - **Scanner** - Scans token streams into content lines
+   - **Tree Builder** - Builds component tree from content lines using stack-based algorithm
+2. **Typed Analysis** - Validates and converts components to strongly-typed representations through
    three sub-passes:
    - **Parameter Pass** - Parses and validates iCalendar parameters (RFC 5545 Section 3.2)
    - **Value Pass** - Parses and validates property value types (RFC 5545 Section 3.3)
    - **Property Pass** - Validates property-specific constraints
-4. **Semantic Analysis** - Validates RFC 5545 semantics (required properties, constraints,
+3. **Semantic Analysis** - Validates RFC 5545 semantics (required properties, constraints,
    relationships)
-5. **Formatter** - Format icalendar to RFC 5545
+4. **Formatter** - Format icalendar to RFC 5545
 
-### Lexer Phase
+### Syntax Analysis Phase
 
-Transforms raw iCalendar text into tokens while preserving source position information for error
-reporting.
+Transforms raw iCalendar text into a hierarchical component tree through three sub-phases:
 
-### Syntax Phase
-
-Builds a tree of components with properties and parameters, validates component nesting (BEGIN/END
-matching), and collects text for further processing in the Value Pass.
+1. **Lexer** - Tokenizes raw iCalendar text into structured tokens while preserving source position information for error reporting
+2. **Scanner** - Scans token streams into content lines, validating structure and collecting errors
+3. **Tree Builder** - Builds a tree of components with properties and parameters using a stack-based algorithm, validates component nesting (BEGIN/END matching)
 
 ### Typed Analysis Phase
 
@@ -127,10 +127,13 @@ ical/
 ├── src/
 │   ├── lib.rs              # Public API exports
 │   ├── keyword.rs          # RFC 5545 keyword constants
-│   ├── lexer.rs            # Lexical analysis (tokenization)
-│   ├── syntax.rs           # Syntax analysis
 │   ├── string_storage.rs   # String storage abstraction (StringStorage trait, Span, SpannedSegments)
 │   ├── parser.rs           # Unified parser orchestration
+│   ├── syntax.rs           # Syntax analysis
+│   ├── syntax/             # Syntax analysis implementation
+│   │   ├── lexer.rs        # Lexical analysis (tokenization)
+│   │   ├── scanner.rs      # Scans tokens into content lines
+│   │   └── tree_builder.rs # Builds component tree from content lines
 │   ├── typed.rs            # Typed module entry point
 │   ├── parameter.rs        # Parameter enum and TryFrom implementation
 │   ├── parameter/          # Parameter pass implementation

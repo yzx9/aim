@@ -274,3 +274,36 @@ impl Iterator for SegmentedSpannedChars<'_> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spanned_segments_starts_with_str_ignore_ascii_case() {
+        fn make_segments<'a>(parts: &[(&'a str, Span)]) -> SpannedSegments<'a> {
+            let segments = parts.iter().map(|&(s, span)| (s, span)).collect();
+            SpannedSegments::new(segments)
+        }
+
+        // Test X- properties (case-insensitive)
+        let segments = make_segments(&[("X-CUSTOM-PROP", Span::new(0, 12))]);
+        assert!(segments.starts_with_str_ignore_ascii_case("X-"));
+        assert!(segments.starts_with_str_ignore_ascii_case("x-"));
+
+        // Test non-X- properties
+        let segments = make_segments(&[("NONSTANDARD-PROP", Span::new(0, 15))]);
+        assert!(!segments.starts_with_str_ignore_ascii_case("X-"));
+        assert!(!segments.starts_with_str_ignore_ascii_case("x-"));
+
+        // Test mixed case
+        let segments = make_segments(&[("x-custom", Span::new(0, 7))]);
+        assert!(segments.starts_with_str_ignore_ascii_case("X-"));
+        assert!(segments.starts_with_str_ignore_ascii_case("x-"));
+
+        // Test multi-segment
+        let segments = make_segments(&[("X-", Span::new(0, 2)), ("CUSTOM", Span::new(2, 7))]);
+        assert!(segments.starts_with_str_ignore_ascii_case("x-"));
+        assert!(segments.starts_with_str_ignore_ascii_case("X-C"));
+    }
+}

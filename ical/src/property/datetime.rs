@@ -41,7 +41,7 @@ use crate::parameter::{FreeBusyType, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::common::{take_single_text, take_single_value};
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
 
@@ -55,7 +55,7 @@ pub enum DateTime<S: StringStorage> {
         /// Time part
         time: Time,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<SyntaxParameter<S>>,
+        x_parameters: Vec<RawParameter<S>>,
         /// Unrecognized / Non-standard parameters (preserved for round-trip)
         retained_parameters: Vec<Parameter<S>>,
     },
@@ -72,7 +72,7 @@ pub enum DateTime<S: StringStorage> {
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<SyntaxParameter<S>>,
+        x_parameters: Vec<RawParameter<S>>,
         /// Unrecognized / Non-standard parameters (preserved for round-trip)
         retained_parameters: Vec<Parameter<S>>,
     },
@@ -84,7 +84,7 @@ pub enum DateTime<S: StringStorage> {
         /// Time part
         time: Time,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<SyntaxParameter<S>>,
+        x_parameters: Vec<RawParameter<S>>,
         /// Unrecognized / Non-standard parameters (preserved for round-trip)
         retained_parameters: Vec<Parameter<S>>,
     },
@@ -94,7 +94,7 @@ pub enum DateTime<S: StringStorage> {
         /// Date part
         date: ValueDate,
         /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<SyntaxParameter<S>>,
+        x_parameters: Vec<RawParameter<S>>,
         /// Unrecognized / Non-standard parameters (preserved for round-trip)
         retained_parameters: Vec<Parameter<S>>,
     },
@@ -317,7 +317,7 @@ impl DateTime<SpannedSegments<'_>> {
             } => DateTime::Floating {
                 date: *date,
                 time: *time,
-                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
                 retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
@@ -336,7 +336,7 @@ impl DateTime<SpannedSegments<'_>> {
                 time: *time,
                 tz_id: tz_id.to_owned(),
                 tz_jiff: tz_jiff.clone(),
-                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
                 retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
@@ -353,7 +353,7 @@ impl DateTime<SpannedSegments<'_>> {
                 date: *date,
                 time: *time,
                 tz_id: tz_id.to_string(),
-                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
                 retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
@@ -367,7 +367,7 @@ impl DateTime<SpannedSegments<'_>> {
             } => DateTime::Utc {
                 date: *date,
                 time: *time,
-                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
                 retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
@@ -379,7 +379,7 @@ impl DateTime<SpannedSegments<'_>> {
                 retained_parameters,
             } => DateTime::Date {
                 date: *date,
-                x_parameters: x_parameters.iter().map(SyntaxParameter::to_owned).collect(),
+                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
                 retained_parameters: retained_parameters
                     .iter()
                     .map(Parameter::to_owned)
@@ -1010,7 +1010,7 @@ pub struct Duration<S: StringStorage> {
     /// Duration value
     pub value: ValueDuration,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -1087,7 +1087,7 @@ impl Duration<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -1109,7 +1109,7 @@ pub struct FreeBusy<S: StringStorage> {
     /// List of free/busy time periods
     pub values: Vec<Period<S>>,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -1240,7 +1240,7 @@ impl FreeBusy<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters
@@ -1270,7 +1270,7 @@ pub struct TimeTransparency<S: StringStorage> {
     /// Transparency value
     pub value: TimeTransparencyValue,
     /// X-name parameters (custom experimental parameters)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
     /// Span of the property in the source
@@ -1331,7 +1331,7 @@ impl TimeTransparency<SpannedSegments<'_>> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters

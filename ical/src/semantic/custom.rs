@@ -81,7 +81,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for CustomComponent<SpannedSegments<'sr
 
         if errors.is_empty() {
             Ok(CustomComponent {
-                name: comp.name.to_string(),
+                name: comp.name.to_owned(),
                 properties: comp.properties,
                 children,
                 span: comp.span,

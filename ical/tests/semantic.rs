@@ -7,9 +7,6 @@
 //! These tests validate the semantic analyzer's behavior on realistic iCalendar content
 //! and edge cases.
 
-use chumsky::error::Rich;
-
-use aimcal_ical::lexer::lex_analysis;
 use aimcal_ical::semantic::{CalendarComponent, SemanticError, semantic_analysis};
 use aimcal_ical::string_storage::SpannedSegments;
 use aimcal_ical::syntax::syntax_analysis;
@@ -24,8 +21,7 @@ use aimcal_ical::{
 fn parse_semantic(
     src: &'_ str,
 ) -> Result<Vec<ICalendar<SpannedSegments<'_>>>, Vec<SemanticError<'_>>> {
-    let token_stream = lex_analysis(src);
-    let syntax_components = syntax_analysis::<'_, '_, _, Rich<'_, _>>(src, token_stream).unwrap();
+    let syntax_components = syntax_analysis(src).unwrap();
     let typed_components = typed_analysis(syntax_components).unwrap();
     semantic_analysis(typed_components)
 }

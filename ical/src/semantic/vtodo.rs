@@ -16,7 +16,7 @@ use crate::property::{
 };
 use crate::semantic::{SemanticError, VAlarm};
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::SyntaxParameter;
+use crate::syntax::RawParameter;
 use crate::typed::TypedComponent;
 
 /// To-do component (VTODO)
@@ -91,7 +91,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
-        if comp.name != KW_VTODO {
+        if !comp.name.eq_str_ignore_ascii_case(KW_VTODO) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VTODO,
                 got: comp.name,
@@ -284,9 +284,12 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
         let alarms = comp
             .children
             .into_iter()
-            .filter_map(|child| match child.name {
-                KW_VALARM => Some(VAlarm::try_from(child)),
-                _ => None,
+            .filter_map(|child| {
+                if child.name.eq_str_ignore_ascii_case(KW_VALARM) {
+                    Some(VAlarm::try_from(child))
+                } else {
+                    None
+                }
             })
             .filter_map(|result| match result {
                 Ok(v) => Some(v),
@@ -433,7 +436,7 @@ pub struct TodoStatus<S: StringStorage> {
     /// Status value
     pub value: TodoStatusValue,
     /// Custom X- parameters (preserved for round-trip)
-    pub x_parameters: Vec<SyntaxParameter<S>>,
+    pub x_parameters: Vec<RawParameter<S>>,
     /// Unknown IANA parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
 }
@@ -466,7 +469,7 @@ impl TodoStatusRef<'_> {
             x_parameters: self
                 .x_parameters
                 .iter()
-                .map(SyntaxParameter::to_owned)
+                .map(RawParameter::to_owned)
                 .collect(),
             retained_parameters: self
                 .retained_parameters

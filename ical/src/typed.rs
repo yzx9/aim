@@ -16,7 +16,7 @@ use thiserror::Error;
 use crate::parameter::{Parameter, ParameterKindRef, ParameterRef, ValueType, ValueTypeRef};
 use crate::property::{Property, PropertyKindRef, PropertyRef};
 use crate::string_storage::{Span, SpannedSegments};
-use crate::syntax::{SyntaxComponent, SyntaxParameterRef, SyntaxProperty};
+use crate::syntax::{RawComponent, RawParameterRef, RawProperty};
 use crate::value::{ValueRef, parse_value};
 
 /// Perform typed analysis on raw components, returning typed components or errors.
@@ -24,7 +24,7 @@ use crate::value::{ValueRef, parse_value};
 /// ## Errors
 /// If there are typing errors, a vector of errors will be returned.
 pub fn typed_analysis(
-    components: Vec<SyntaxComponent<'_>>,
+    components: Vec<RawComponent<'_>>,
 ) -> Result<Vec<TypedComponent<'_>>, Vec<TypedError<'_>>> {
     let mut typed_components = Vec::with_capacity(components.len());
     let mut errors = Vec::new();
@@ -42,7 +42,7 @@ pub fn typed_analysis(
     }
 }
 
-fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<TypedError<'_>>> {
+fn typed_component(comp: RawComponent<'_>) -> Result<TypedComponent<'_>, Vec<TypedError<'_>>> {
     let mut existing_props = HashSet::with_capacity(comp.properties.len());
     let mut properties = Vec::with_capacity(comp.properties.len());
     let mut errors = Vec::new();
@@ -79,7 +79,7 @@ fn typed_component(comp: SyntaxComponent<'_>) -> Result<TypedComponent<'_>, Vec<
 
 fn parsed_property<'src>(
     _existing: &mut HashSet<&str>,
-    prop: SyntaxProperty<'src>,
+    prop: RawProperty<'src>,
 ) -> Result<ParsedProperty<'src>, Vec<TypedError<'src>>> {
     // Determine property kind from name (infallible - always returns a kind)
     let kind = PropertyKindRef::from(prop.name.clone());
@@ -110,7 +110,7 @@ fn parsed_property<'src>(
 #[derive(Debug, Clone)]
 pub struct TypedComponent<'src> {
     /// Component name (e.g., "VCALENDAR", "VEVENT", "VTIMEZONE", "VALARM")
-    pub name: &'src str,
+    pub name: SpannedSegments<'src>,
     /// Properties in original order
     pub properties: Vec<PropertyRef<'src>>,
     /// Nested child components
@@ -124,14 +124,14 @@ pub struct TypedComponent<'src> {
 pub struct ParsedProperty<'src> {
     /// Property kind
     pub kind: PropertyKindRef<'src>,
+    /// Property name (preserved for unknown properties)
+    pub name: SpannedSegments<'src>,
     /// Property parameters
     pub parameters: Vec<ParameterRef<'src>>,
     /// Property value
     pub value: ValueRef<'src>,
     /// The span of the property name (for error reporting)
     pub span: Span,
-    /// Property name (preserved for unknown properties)
-    pub name: SpannedSegments<'src>,
 }
 
 /// Errors that can occur during typed analysis of iCalendar components.
@@ -292,7 +292,7 @@ impl TypedError<'_> {
 }
 
 fn parameters(
-    params: Vec<SyntaxParameterRef<'_>>,
+    params: Vec<RawParameterRef<'_>>,
 ) -> Result<Vec<ParameterRef<'_>>, Vec<TypedError<'_>>> {
     let mut parsed = Vec::with_capacity(params.len());
     let mut errors = Vec::new();
