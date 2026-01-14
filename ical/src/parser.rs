@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::semantic::{ICalendarRef, SemanticError, semantic_analysis};
+use crate::syntax::SyntaxError;
 use crate::typed::{TypedError, typed_analysis};
-use std::fmt;
 
 /// Parse an iCalendar component from source code
 ///
@@ -78,24 +78,17 @@ pub fn parse(src: &'_ str) -> Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>>
 /// Errors that can occur during parsing
 // TODO: generic over error type, support different error types
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum ParseError<'src> {
     /// Errors from syntax analysis
-    Syntax(crate::syntax::SyntaxError<'src>),
+    #[error("{0}")]
+    Syntax(SyntaxError<'src>),
 
     /// Errors from typed analysis
+    #[error("{0}")]
     Typed(TypedError<'src>),
 
     /// Errors from semantic analysis
+    #[error("{0}")]
     Semantic(SemanticError<'src>),
-}
-
-impl fmt::Display for ParseError<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParseError::Syntax(err) => write!(f, "{err}"),
-            ParseError::Typed(err) => write!(f, "{err}"),
-            ParseError::Semantic(err) => write!(f, "{err}"),
-        }
-    }
 }
