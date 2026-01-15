@@ -38,7 +38,7 @@
 use std::fmt;
 use std::iter::Peekable;
 
-use crate::string_storage::{Span, SpannedSegments};
+use crate::string_storage::{Segments, Span};
 use crate::syntax::lexer::{SpannedToken, Token};
 
 /// A scanned iCalendar content line.
@@ -50,13 +50,13 @@ use crate::syntax::lexer::{SpannedToken, Token};
 #[derive(Debug, Clone)]
 pub struct ContentLine<'src> {
     /// Property name (e.g., "DTSTART", "SUMMARY")
-    pub name: SpannedSegments<'src>,
+    pub name: Segments<'src>,
 
     /// Property parameters (semicolon-separated)
     pub parameters: Vec<ScannedParameter<'src>>,
 
     /// Property value
-    pub value: SpannedSegments<'src>,
+    pub value: Segments<'src>,
 
     /// Span of the entire content line (from name start to newline end)
     pub span: Span,
@@ -79,7 +79,7 @@ impl ContentLine<'_> {
 #[derive(Debug, Clone)]
 pub struct ScannedParameter<'src> {
     /// Parameter name (e.g., "TZID", "VALUE")
-    pub name: SpannedSegments<'src>,
+    pub name: Segments<'src>,
 
     /// Parameter values (comma-separated)
     pub values: Vec<ScannedParameterValue<'src>>,
@@ -92,7 +92,7 @@ pub struct ScannedParameter<'src> {
 #[derive(Debug, Clone)]
 pub struct ScannedParameterValue<'src> {
     /// The parameter value
-    pub value: SpannedSegments<'src>,
+    pub value: Segments<'src>,
 
     /// Whether the value was quoted in the source
     pub quoted: bool,
@@ -259,9 +259,9 @@ fn scan_one_content_line<'src>(
     if matches!(first_token.0, Token::Newline) {
         let newline = tokens.next()?;
         return Some(ContentLine {
-            name: SpannedSegments::default(),
+            name: Segments::default(),
             parameters: Vec::new(),
-            value: SpannedSegments::default(),
+            value: Segments::default(),
             span: newline.1,
             error: Some(ContentLineError::EmptyLine { span: newline.1 }),
         });
@@ -296,7 +296,7 @@ fn parse_content_line_structure<'src>(
                 return ContentLine {
                     name,
                     parameters,
-                    value: SpannedSegments::default(),
+                    value: Segments::default(),
                     span: Span::new(line_start.start, line_end),
                     error: Some(ContentLineError::InvalidParameter {
                         span: semi_span,
@@ -319,7 +319,7 @@ fn parse_content_line_structure<'src>(
             return ContentLine {
                 name,
                 parameters,
-                value: SpannedSegments::default(),
+                value: Segments::default(),
                 span: Span::new(line_start.start, span.end),
                 error: Some(ContentLineError::MissingColon {
                     expected_at: span,
@@ -332,7 +332,7 @@ fn parse_content_line_structure<'src>(
             return ContentLine {
                 name,
                 parameters,
-                value: SpannedSegments::default(),
+                value: Segments::default(),
                 span: line_start,
                 error: Some(ContentLineError::MissingColon {
                     expected_at: Span::new(line_start.end, line_start.end + 1),
@@ -386,10 +386,10 @@ fn parse_content_line_structure<'src>(
 
 /// Parse property name from tokens.
 ///
-/// Returns [`SpannedSegments`] and [`Span`] of the property name.
+/// Returns [`Segments`] and [`Span`] of the property name.
 fn parse_property_name<'src>(
     tokens: &mut Peekable<impl Iterator<Item = SpannedToken<'src>>>,
-) -> (SpannedSegments<'src>, Span) {
+) -> (Segments<'src>, Span) {
     let mut segments = Vec::new();
     let mut start = None;
     let mut end = None;
@@ -405,10 +405,10 @@ fn parse_property_name<'src>(
     }
 
     if segments.is_empty() {
-        (SpannedSegments::default(), Span::new(0, 0))
+        (Segments::default(), Span::new(0, 0))
     } else {
         let name_span = Span::new(start.unwrap(), end.unwrap());
-        (SpannedSegments::new(segments), name_span)
+        (Segments::new(segments), name_span)
     }
 }
 
@@ -438,7 +438,7 @@ fn parse_parameter<'src>(
         return Err(ParameterErrorKind::EmptyName);
     }
 
-    let name = SpannedSegments::new(name_segments);
+    let name = Segments::new(name_segments);
 
     // Expect equals sign
     match tokens.next() {
@@ -511,7 +511,7 @@ fn parse_parameter_value<'src>(
                 // End of quoted string
                 Some(SpannedToken(Token::DQuote, span)) => {
                     return Ok(Some(ScannedParameterValue {
-                        value: SpannedSegments::new(segments),
+                        value: Segments::new(segments),
                         quoted: true,
                         span: Span::new(start, span.end),
                     }));
@@ -548,7 +548,7 @@ fn parse_parameter_value<'src>(
 
         let end = segments.last().map_or(start, |(_, s)| s.end);
         Ok(Some(ScannedParameterValue {
-            value: SpannedSegments::new(segments),
+            value: Segments::new(segments),
             quoted: false,
             span: Span::new(start, end),
         }))
@@ -557,10 +557,10 @@ fn parse_parameter_value<'src>(
 
 /// Parse value content (everything until newline).
 ///
-/// Returns ([`SpannedSegments`], `usize`) - value segments and end position.
+/// Returns ([`Segments`], `usize`) - value segments and end position.
 fn parse_value<'src>(
     tokens: &mut Peekable<impl Iterator<Item = SpannedToken<'src>>>,
-) -> (SpannedSegments<'src>, usize) {
+) -> (Segments<'src>, usize) {
     let mut segments = Vec::new();
     let mut end = 0;
 
@@ -580,10 +580,10 @@ fn parse_value<'src>(
     }
 
     if segments.is_empty() {
-        return (SpannedSegments::default(), 0);
+        return (Segments::default(), 0);
     }
 
-    (SpannedSegments::new(segments), end)
+    (Segments::new(segments), end)
 }
 
 /// Get the current end position from token iterator.

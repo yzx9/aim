@@ -12,7 +12,7 @@ use chumsky::container::Container;
 use chumsky::extra::ParserExtra;
 use chumsky::prelude::*;
 
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 
 /// Text value type defined in RFC 5545 Section 3.3.11.
 #[derive(Default, Debug, Clone)]
@@ -20,7 +20,7 @@ pub struct ValueText<S: StringStorage> {
     tokens: Vec<ValueTextToken<S>>,
 }
 
-impl ValueText<SpannedSegments<'_>> {
+impl ValueText<Segments<'_>> {
     /// Resolve the text value into a single string, processing escapes.
     ///
     /// This version tries to avoid allocation when there's only a single string token.
@@ -143,7 +143,7 @@ impl fmt::Display for ValueTextEscape {
 pub struct RawValueText(Vec<Either<SpanCollector, ValueTextEscape>>);
 
 impl RawValueText {
-    pub fn build<'src>(self, src: &SpannedSegments<'src>) -> ValueText<SpannedSegments<'src>> {
+    pub fn build<'src>(self, src: &Segments<'src>) -> ValueText<Segments<'src>> {
         let size = self.0.iter().fold(0, |acc, t| match t {
             Either::Left(collector) => acc + collector.0.len(),
             Either::Right(_) => acc + 1,
@@ -219,7 +219,7 @@ where
 struct SpanCollector(Vec<SimpleSpan>);
 
 impl SpanCollector {
-    fn build<'src>(self, src: &SpannedSegments<'src>) -> Vec<SpannedSegments<'src>> {
+    fn build<'src>(self, src: &Segments<'src>) -> Vec<Segments<'src>> {
         // assume src segments are non-overlapping and sorted
         let mut iter = src.segments.iter();
         let Some(mut item) = iter.next() else {
@@ -244,14 +244,14 @@ impl SpanCollector {
                         Some(a) => item = a,
                         None => flag = false, // no more segments
                     }
-                    vec.push(SpannedSegments::new(vec![(s, span.into())]));
+                    vec.push(Segments::new(vec![(s, span.into())]));
                 } else {
                     // within this segment
                     flag = false;
                     let i = span.start.saturating_sub(item.1.start);
                     let j = span.end.saturating_sub(item.1.start);
                     let s = item.0.get(i..j).unwrap(); // SAFETY: since i,j are in range
-                    vec.push(SpannedSegments::new(vec![(s, span.into())]));
+                    vec.push(Segments::new(vec![(s, span.into())]));
                 }
             }
         }
@@ -288,7 +288,7 @@ mod tests {
 
     use super::*;
 
-    fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
+    fn make_input(segs: Segments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
         let eoi = match (segs.segments.first(), segs.segments.last()) {
             (Some(first), Some(last)) => SimpleSpan::new((), first.1.start..last.1.end),
             _ => SimpleSpan::new((), 0..0),
@@ -300,7 +300,7 @@ mod tests {
         })
     }
 
-    fn parse(src: &str) -> ValueText<SpannedSegments<'_>> {
+    fn parse(src: &str) -> ValueText<Segments<'_>> {
         let comps = syntax_analysis(src).unwrap();
         assert_eq!(comps.len(), 1);
         let syntax_component = comps.first().unwrap();
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn value_text_eq_str_ignore_ascii_case_empty() {
-        let segs = SpannedSegments::default();
+        let segs = Segments::default();
         let stream = make_input(segs.clone());
         let result = value_text::<'_, _, extra::Err<Rich<_>>>()
             .parse(stream)

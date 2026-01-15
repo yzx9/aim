@@ -17,7 +17,7 @@ use crate::keyword::{
     KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
 use crate::parameter::ValueType;
-use crate::string_storage::SpannedSegments;
+use crate::string_storage::Segments;
 
 /// Macro to define `PropertyKind` with associated value types.
 ///
@@ -58,8 +58,8 @@ macro_rules! property_kind {
             }
         }
 
-        impl<'src> ::core::convert::From<SpannedSegments<'src>> for PropertyKind<crate::string_storage::SpannedSegments<'src>> {
-            fn from(name: crate::string_storage::SpannedSegments<'src>) -> Self {
+        impl<'src> ::core::convert::From<Segments<'src>> for PropertyKind<crate::string_storage::Segments<'src>> {
+            fn from(name: crate::string_storage::Segments<'src>) -> Self {
                 $(
                     if name.eq_str_ignore_ascii_case($kw) {
                         return PropertyKind::$variant;
@@ -83,7 +83,7 @@ macro_rules! property_kind {
             }
         }
 
-        impl PropertyKind<SpannedSegments<'_>> {
+        impl PropertyKind<Segments<'_>> {
             /// Convert borrowed type to owned type
             #[must_use]
             pub fn to_owned(&self) -> PropertyKind<String> {
@@ -98,7 +98,7 @@ macro_rules! property_kind {
         }
 
         #[cfg(test)]
-        const KINDS: &[PropertyKind<crate::string_storage::SpannedSegments<'static>>] = &[
+        const KINDS: &[PropertyKind<crate::string_storage::Segments<'static>>] = &[
             $(
                 PropertyKind::$variant,
             )*

@@ -15,7 +15,7 @@ use thiserror::Error;
 
 use crate::parameter::{Parameter, ParameterKind, ValueType};
 use crate::property::{Property, PropertyKind};
-use crate::string_storage::{Span, SpannedSegments};
+use crate::string_storage::{Segments, Span};
 use crate::syntax::{RawComponent, RawParameter, RawProperty};
 use crate::value::{Value, parse_value};
 
@@ -110,9 +110,9 @@ fn parsed_property<'src>(
 #[derive(Debug, Clone)]
 pub struct TypedComponent<'src> {
     /// Component name (e.g., "VCALENDAR", "VEVENT", "VTIMEZONE", "VALARM")
-    pub name: SpannedSegments<'src>,
+    pub name: Segments<'src>,
     /// Properties in original order
-    pub properties: Vec<Property<SpannedSegments<'src>>>,
+    pub properties: Vec<Property<Segments<'src>>>,
     /// Nested child components
     pub children: Vec<TypedComponent<'src>>,
     /// Span of the entire component (from BEGIN to END)
@@ -123,13 +123,13 @@ pub struct TypedComponent<'src> {
 #[derive(Debug, Clone)]
 pub struct ParsedProperty<'src> {
     /// Property kind
-    pub kind: PropertyKind<SpannedSegments<'src>>,
+    pub kind: PropertyKind<Segments<'src>>,
     /// Property name (preserved for unknown properties)
-    pub name: SpannedSegments<'src>,
+    pub name: Segments<'src>,
     /// Property parameters
-    pub parameters: Vec<Parameter<SpannedSegments<'src>>>,
+    pub parameters: Vec<Parameter<Segments<'src>>>,
     /// Property value
-    pub value: Value<SpannedSegments<'src>>,
+    pub value: Value<Segments<'src>>,
     /// The span of the property name (for error reporting)
     pub span: Span,
 }
@@ -142,7 +142,7 @@ pub enum TypedError<'src> {
     #[error("Parameter '{parameter}' occurs multiple times")]
     ParameterDuplicated {
         /// The parameter name
-        parameter: ParameterKind<SpannedSegments<'src>>,
+        parameter: ParameterKind<Segments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -151,7 +151,7 @@ pub enum TypedError<'src> {
     #[error("Parameter '{parameter}' does not allow multiple values")]
     ParameterMultipleValuesDisallowed {
         /// The parameter name
-        parameter: ParameterKind<SpannedSegments<'src>>,
+        parameter: ParameterKind<Segments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -160,9 +160,9 @@ pub enum TypedError<'src> {
     #[error("Parameter '{parameter}={value}' value must be quoted")]
     ParameterValueMustBeQuoted {
         /// The parameter name
-        parameter: ParameterKind<SpannedSegments<'src>>,
+        parameter: ParameterKind<Segments<'src>>,
         /// The parameter value
-        value: SpannedSegments<'src>,
+        value: Segments<'src>,
         /// The span of the error
         span: Span,
     },
@@ -171,9 +171,9 @@ pub enum TypedError<'src> {
     #[error("Parameter '{parameter}=\"{value}\"' value must not be quoted")]
     ParameterValueMustNotBeQuoted {
         /// The parameter name
-        parameter: ParameterKind<SpannedSegments<'src>>,
+        parameter: ParameterKind<Segments<'src>>,
         /// The parameter value
-        value: SpannedSegments<'src>,
+        value: Segments<'src>,
         /// The span of the error
         span: Span,
     },
@@ -182,9 +182,9 @@ pub enum TypedError<'src> {
     #[error("Invalid value for parameter '{parameter}={value}'")]
     ParameterValueInvalid {
         /// The parameter name
-        parameter: ParameterKind<SpannedSegments<'src>>,
+        parameter: ParameterKind<Segments<'src>>,
         /// The parameter value
-        value: SpannedSegments<'src>,
+        value: Segments<'src>,
         /// The span of the error
         span: Span,
     },
@@ -193,9 +193,9 @@ pub enum TypedError<'src> {
     #[error("Invalid value type '{value_type}' for property '{property}'")]
     ValueTypeDisallowed {
         /// The property name
-        property: PropertyKind<SpannedSegments<'src>>,
+        property: PropertyKind<Segments<'src>>,
         /// The value type that was provided
-        value_type: ValueType<SpannedSegments<'src>>,
+        value_type: ValueType<Segments<'src>>,
         /// The expected value types
         expected_types: &'static [ValueType<String>],
         /// The span of the error
@@ -206,7 +206,7 @@ pub enum TypedError<'src> {
     #[error("Syntax error in value '{value}': {err}")]
     ValueSyntax {
         /// The value
-        value: SpannedSegments<'src>,
+        value: Segments<'src>,
         /// The syntax error details
         err: Rich<'src, char>,
     },
@@ -215,9 +215,9 @@ pub enum TypedError<'src> {
     #[error("Expected property kind '{expected}', found '{found}'")]
     PropertyUnexpectedKind {
         /// Expected property kind
-        expected: PropertyKind<SpannedSegments<'src>>,
+        expected: PropertyKind<Segments<'src>>,
         /// Actual property kind found
-        found: PropertyKind<SpannedSegments<'src>>,
+        found: PropertyKind<Segments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -226,7 +226,7 @@ pub enum TypedError<'src> {
     #[error("Property '{property}' has no values")]
     PropertyMissingValue {
         /// The property that is missing values
-        property: PropertyKind<SpannedSegments<'src>>,
+        property: PropertyKind<Segments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -235,7 +235,7 @@ pub enum TypedError<'src> {
     #[error("Property '{property}' requires exactly {expected} value(s), but found {found}")]
     PropertyInvalidValueCount {
         /// The property kind
-        property: PropertyKind<SpannedSegments<'src>>,
+        property: PropertyKind<Segments<'src>>,
         /// Expected number of values
         expected: usize,
         /// Actual number of values found
@@ -248,7 +248,7 @@ pub enum TypedError<'src> {
     #[error("Invalid value '{value}' for property '{property}'")]
     PropertyInvalidValue {
         /// The property that has the invalid value
-        property: PropertyKind<SpannedSegments<'src>>,
+        property: PropertyKind<Segments<'src>>,
         /// Description of why the value is invalid
         value: String,
         /// The span of the error
@@ -259,11 +259,11 @@ pub enum TypedError<'src> {
     #[error("Expected {expected} value for property '{property}', found {found}")]
     PropertyUnexpectedValue {
         /// The property that has the wrong type
-        property: PropertyKind<SpannedSegments<'src>>,
+        property: PropertyKind<Segments<'src>>,
         /// Expected value type
-        expected: ValueType<SpannedSegments<'src>>,
+        expected: ValueType<Segments<'src>>,
         /// Actual value type found
-        found: ValueType<SpannedSegments<'src>>,
+        found: ValueType<Segments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -292,8 +292,8 @@ impl TypedError<'_> {
 }
 
 fn parameters(
-    params: Vec<RawParameter<SpannedSegments<'_>>>,
-) -> Result<Vec<Parameter<SpannedSegments<'_>>>, Vec<TypedError<'_>>> {
+    params: Vec<RawParameter<Segments<'_>>>,
+) -> Result<Vec<Parameter<Segments<'_>>>, Vec<TypedError<'_>>> {
     let mut parsed = Vec::with_capacity(params.len());
     let mut errors = Vec::new();
     for param in params {
@@ -311,8 +311,8 @@ fn parameters(
 }
 
 fn value_types<'src>(
-    prop_kind: &PropertyKind<SpannedSegments<'src>>,
-    params: &Vec<Parameter<SpannedSegments<'src>>>,
+    prop_kind: &PropertyKind<Segments<'src>>,
+    params: &Vec<Parameter<Segments<'src>>>,
 ) -> Result<Vec<ValueType<String>>, Vec<TypedError<'src>>> {
     // If VALUE parameter is explicitly specified, use only that type
     if let Some(Parameter::ValueType { value, span }) = params
@@ -355,7 +355,7 @@ fn value_types<'src>(
             // But we don't return all possible types for type inference, since
             // we cannot infer the allowed types.
             None => Ok(vec![ValueType::<String>::Unrecognized(
-                SpannedSegments::default().to_string(),
+                Segments::default().to_string(),
             )]),
         }
     }

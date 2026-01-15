@@ -29,7 +29,7 @@ use crate::keyword::{
 use crate::parameter::{Encoding, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::common::{Text, take_single_text, take_single_value};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueText, values_float_semicolon};
@@ -65,7 +65,7 @@ pub enum AttachmentValue<S: StringStorage> {
     Binary(S),
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -148,13 +148,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
     }
 }
 
-impl Attachment<SpannedSegments<'_>> {
+impl Attachment<Segments<'_>> {
     /// Convert borrowed `Attachment` to owned `Attachment`
     #[must_use]
     pub fn to_owned(&self) -> Attachment<String> {
         Attachment {
             value: self.value.to_owned(),
-            fmt_type: self.fmt_type.as_ref().map(SpannedSegments::to_owned),
+            fmt_type: self.fmt_type.as_ref().map(Segments::to_owned),
             encoding: self.encoding,
             x_parameters: self
                 .x_parameters
@@ -171,7 +171,7 @@ impl Attachment<SpannedSegments<'_>> {
     }
 }
 
-impl AttachmentValue<SpannedSegments<'_>> {
+impl AttachmentValue<Segments<'_>> {
     /// Convert borrowed `AttachmentValue` to owned `AttachmentValue`
     #[must_use]
     pub fn to_owned(&self) -> AttachmentValue<String> {
@@ -214,7 +214,7 @@ pub struct Classification<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Classification<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Classification<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -259,7 +259,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Classification<SpannedSegments<'src
     }
 }
 
-impl Classification<SpannedSegments<'_>> {
+impl Classification<Segments<'_>> {
     /// Convert borrowed `Classification` to owned `Classification`
     #[must_use]
     pub fn to_owned(&self) -> Classification<String> {
@@ -309,7 +309,7 @@ pub struct Geo<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Geo<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -372,7 +372,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<SpannedSegments<'src>> {
     }
 }
 
-impl Geo<SpannedSegments<'_>> {
+impl Geo<Segments<'_>> {
     /// Convert borrowed `Geo` to owned `Geo`
     #[must_use]
     pub fn to_owned(&self) -> Geo<String> {
@@ -448,7 +448,7 @@ pub struct Status<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Status<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Status<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -493,7 +493,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Status<SpannedSegments<'src>> {
     }
 }
 
-impl Status<SpannedSegments<'_>> {
+impl Status<Segments<'_>> {
     /// Convert borrowed `Status` to owned `Status`
     #[must_use]
     pub fn to_owned(&self) -> Status<String> {
@@ -533,7 +533,7 @@ pub struct PercentComplete<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -600,7 +600,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<SpannedSegments<'sr
     }
 }
 
-impl PercentComplete<SpannedSegments<'_>> {
+impl PercentComplete<Segments<'_>> {
     /// Convert borrowed `PercentComplete` to owned `PercentComplete`
     #[must_use]
     pub fn to_owned(&self) -> PercentComplete<String> {
@@ -640,7 +640,7 @@ pub struct Priority<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Priority<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -707,7 +707,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<SpannedSegments<'src>> {
     }
 }
 
-impl Priority<SpannedSegments<'_>> {
+impl Priority<Segments<'_>> {
     /// Convert borrowed `Priority` to owned `Priority`
     #[must_use]
     pub fn to_owned(&self) -> Priority<String> {
@@ -751,7 +751,7 @@ pub struct Categories<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Categories<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Categories<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -806,13 +806,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Categories<SpannedSegments<'src>> {
     }
 }
 
-impl Categories<SpannedSegments<'_>> {
+impl Categories<Segments<'_>> {
     /// Convert borrowed `Categories` to owned `Categories`
     #[must_use]
     pub fn to_owned(&self) -> Categories<String> {
         Categories {
             values: self.values.iter().map(ValueText::to_owned).collect(),
-            language: self.language.as_ref().map(SpannedSegments::to_owned),
+            language: self.language.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -854,7 +854,7 @@ pub struct Resources<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Resources<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Resources<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -924,14 +924,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Resources<SpannedSegments<'src>> {
     }
 }
 
-impl Resources<SpannedSegments<'_>> {
+impl Resources<Segments<'_>> {
     /// Convert borrowed `Resources` to owned `Resources`
     #[must_use]
     pub fn to_owned(&self) -> Resources<String> {
         Resources {
             values: self.values.iter().map(ValueText::to_owned).collect(),
-            language: self.language.as_ref().map(SpannedSegments::to_owned),
-            altrep: self.altrep.as_ref().map(SpannedSegments::to_owned),
+            language: self.language.as_ref().map(Segments::to_owned),
+            altrep: self.altrep.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
                 .iter()

@@ -40,7 +40,7 @@ use crate::keyword::{KW_TRANSP_OPAQUE, KW_TRANSP_TRANSPARENT};
 use crate::parameter::{FreeBusyType, Parameter, ValueType};
 use crate::property::PropertyKind;
 use crate::property::common::{take_single_text, take_single_value};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
@@ -178,7 +178,7 @@ impl<S: StringStorage> DateTime<S> {
     }
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -304,7 +304,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<SpannedSegments<'src>> {
     }
 }
 
-impl DateTime<SpannedSegments<'_>> {
+impl DateTime<Segments<'_>> {
     /// Convert borrowed `DateTime` to owned `DateTime`
     #[must_use]
     pub fn to_owned(&self) -> DateTime<String> {
@@ -764,10 +764,10 @@ impl<S: StringStorage> Period<S> {
     }
 }
 
-impl<'src> TryFrom<Value<SpannedSegments<'src>>> for Period<SpannedSegments<'src>> {
+impl<'src> TryFrom<Value<Segments<'src>>> for Period<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
-    fn try_from(value: Value<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value<Segments<'src>>) -> Result<Self, Self::Error> {
         let span = value.span();
         match value {
             Value::Period { mut values, .. } if values.len() == 1 => {
@@ -826,7 +826,7 @@ impl<'src> TryFrom<Value<SpannedSegments<'src>>> for Period<SpannedSegments<'src
     }
 }
 
-impl Period<SpannedSegments<'_>> {
+impl Period<Segments<'_>> {
     /// Convert borrowed `Period` to owned `Period`
     #[must_use]
     pub fn to_owned(&self) -> Period<String> {
@@ -1005,7 +1005,7 @@ pub struct Duration<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Duration<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -1066,7 +1066,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<SpannedSegments<'src>> {
     }
 }
 
-impl Duration<SpannedSegments<'_>> {
+impl Duration<Segments<'_>> {
     /// Convert borrowed `Duration` to owned `Duration`
     #[must_use]
     pub fn to_owned(&self) -> Duration<String> {
@@ -1104,7 +1104,7 @@ pub struct FreeBusy<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -1117,7 +1117,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
         }
 
         // Extract FBTYPE parameter (defaults to BUSY)
-        let mut fb_type: FreeBusyType<SpannedSegments<'src>> = FreeBusyType::Busy;
+        let mut fb_type: FreeBusyType<Segments<'src>> = FreeBusyType::Busy;
         let mut x_parameters = Vec::new();
         let mut retained_parameters = Vec::new();
 
@@ -1218,7 +1218,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<SpannedSegments<'src>> {
     }
 }
 
-impl FreeBusy<SpannedSegments<'_>> {
+impl FreeBusy<Segments<'_>> {
     /// Convert borrowed `FreeBusy` to owned `FreeBusy`
     #[must_use]
     pub fn to_owned(&self) -> FreeBusy<String> {
@@ -1265,7 +1265,7 @@ pub struct TimeTransparency<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -1310,7 +1310,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TimeTransparency<SpannedSegments<'s
     }
 }
 
-impl TimeTransparency<SpannedSegments<'_>> {
+impl TimeTransparency<Segments<'_>> {
     /// Convert borrowed `TimeTransparency` to owned `TimeTransparency`
     #[must_use]
     pub fn to_owned(&self) -> TimeTransparency<String> {

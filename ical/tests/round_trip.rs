@@ -9,8 +9,8 @@
 
 use aimcal_ical::formatter::format;
 use aimcal_ical::{
-    CalendarComponent, ICalendar, SpannedSegments, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone,
-    VTodo, parse,
+    CalendarComponent, ICalendar, Segments, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
+    parse,
 };
 
 #[test]
@@ -537,10 +537,7 @@ END:VCALENDAR\r\n";
 ///
 /// This is a simplified comparison that checks the essential properties
 /// are preserved through the round-trip process.
-fn calendars_equal(
-    cal1: &ICalendar<SpannedSegments<'_>>,
-    cal2: &ICalendar<SpannedSegments<'_>>,
-) -> bool {
+fn calendars_equal(cal1: &ICalendar<Segments<'_>>, cal2: &ICalendar<Segments<'_>>) -> bool {
     // Compare prod_id
     let prod_id1 = cal1.prod_id.value.to_string();
     let prod_id2 = cal2.prod_id.value.to_string();
@@ -591,8 +588,8 @@ fn calendars_equal(
 
 /// Helper function to compare two CalendarComponents.
 fn components_equal(
-    comp1: &CalendarComponent<SpannedSegments<'_>>,
-    comp2: &CalendarComponent<SpannedSegments<'_>>,
+    comp1: &CalendarComponent<Segments<'_>>,
+    comp2: &CalendarComponent<Segments<'_>>,
 ) -> bool {
     match (comp1, comp2) {
         (CalendarComponent::Event(e1), CalendarComponent::Event(e2)) => events_equal(e1, e2),
@@ -612,7 +609,7 @@ fn components_equal(
 }
 
 /// Helper function to compare two VEvents.
-fn events_equal(e1: &VEvent<SpannedSegments<'_>>, e2: &VEvent<SpannedSegments<'_>>) -> bool {
+fn events_equal(e1: &VEvent<Segments<'_>>, e2: &VEvent<Segments<'_>>) -> bool {
     // Compare UID
     if e1.uid.content.to_string() != e2.uid.content.to_string() {
         return false;
@@ -672,7 +669,7 @@ fn events_equal(e1: &VEvent<SpannedSegments<'_>>, e2: &VEvent<SpannedSegments<'_
 }
 
 /// Helper function to compare two VTodos.
-fn todos_equal(t1: &VTodo<SpannedSegments<'_>>, t2: &VTodo<SpannedSegments<'_>>) -> bool {
+fn todos_equal(t1: &VTodo<Segments<'_>>, t2: &VTodo<Segments<'_>>) -> bool {
     // Compare UID
     if t1.uid.content.to_string() != t2.uid.content.to_string() {
         return false;
@@ -713,7 +710,7 @@ fn todos_equal(t1: &VTodo<SpannedSegments<'_>>, t2: &VTodo<SpannedSegments<'_>>)
 }
 
 /// Helper function to compare two VJournals.
-fn journals_equal(j1: &VJournal<SpannedSegments<'_>>, j2: &VJournal<SpannedSegments<'_>>) -> bool {
+fn journals_equal(j1: &VJournal<Segments<'_>>, j2: &VJournal<Segments<'_>>) -> bool {
     // Compare UID
     if j1.uid.content.to_string() != j2.uid.content.to_string() {
         return false;
@@ -733,10 +730,7 @@ fn journals_equal(j1: &VJournal<SpannedSegments<'_>>, j2: &VJournal<SpannedSegme
 }
 
 /// Helper function to compare two VTimeZones.
-fn timezones_equal(
-    tz1: &VTimeZone<SpannedSegments<'_>>,
-    tz2: &VTimeZone<SpannedSegments<'_>>,
-) -> bool {
+fn timezones_equal(tz1: &VTimeZone<Segments<'_>>, tz2: &VTimeZone<Segments<'_>>) -> bool {
     // Compare TZID
     if tz1.tz_id.content.to_string() != tz2.tz_id.content.to_string() {
         return false;
@@ -756,10 +750,7 @@ fn timezones_equal(
 }
 
 /// Helper function to compare two VFreeBusys.
-fn freebusies_equal(
-    fb1: &VFreeBusy<SpannedSegments<'_>>,
-    fb2: &VFreeBusy<SpannedSegments<'_>>,
-) -> bool {
+fn freebusies_equal(fb1: &VFreeBusy<Segments<'_>>, fb2: &VFreeBusy<Segments<'_>>) -> bool {
     // Compare UID
     if fb1.uid.content.to_string() != fb2.uid.content.to_string() {
         return false;
@@ -784,7 +775,7 @@ fn freebusies_equal(
 }
 
 /// Helper function to compare two VAlarms.
-fn alarms_equal(a1: &VAlarm<SpannedSegments<'_>>, a2: &VAlarm<SpannedSegments<'_>>) -> bool {
+fn alarms_equal(a1: &VAlarm<Segments<'_>>, a2: &VAlarm<Segments<'_>>) -> bool {
     // Compare ACTION
     if format!("{:?}", a1.action.value) != format!("{:?}", a2.action.value) {
         return false;

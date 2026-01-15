@@ -15,7 +15,7 @@ use crate::property::{
 use crate::semantic::{
     CustomComponent, SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
 };
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Main iCalendar object that contains components and properties
@@ -46,7 +46,7 @@ pub struct ICalendar<S: StringStorage> {
 /// - Required properties (PRODID, VERSION) are missing
 /// - Property values are invalid or malformed
 /// - Child components cannot be parsed
-impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<Segments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
@@ -150,12 +150,12 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<SpannedSegments<'src>> {
 /// Individual component parsing errors are collected and included in the result.
 pub(crate) fn parse_component_children(
     children: Vec<TypedComponent<'_>>,
-) -> Result<Vec<CalendarComponent<SpannedSegments<'_>>>, Vec<SemanticError<'_>>> {
+) -> Result<Vec<CalendarComponent<Segments<'_>>>, Vec<SemanticError<'_>>> {
     let mut components = Vec::with_capacity(children.len());
     let mut errors = Vec::new();
 
     for child in children {
-        // Use if-else chain since SpannedSegments doesn't match directly against &str
+        // Use if-else chain since `Segments` doesn't match directly against &str
         let component = if child.name.eq_str_ignore_ascii_case(KW_VEVENT) {
             match child.try_into() {
                 Ok(v) => CalendarComponent::Event(v),
@@ -263,7 +263,7 @@ struct PropertyCollector<S: StringStorage> {
     unrecognized_properties: Vec<Property<S>>,
 }
 
-impl ICalendar<SpannedSegments<'_>> {
+impl ICalendar<Segments<'_>> {
     /// Convert borrowed data to owned data
     #[must_use]
     pub fn to_owned(&self) -> ICalendar<String> {
@@ -291,7 +291,7 @@ impl ICalendar<SpannedSegments<'_>> {
     }
 }
 
-impl CalendarComponent<SpannedSegments<'_>> {
+impl CalendarComponent<Segments<'_>> {
     /// Convert borrowed data to owned data
     #[must_use]
     pub fn to_owned(&self) -> CalendarComponent<String> {

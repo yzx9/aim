@@ -21,11 +21,11 @@ use chumsky::span::SimpleSpan;
 /// # Implementors
 ///
 /// - `String` - Owned string data
-/// - `SpannedSegments<'src>` - Zero-copy borrowed segments
+/// - `Segments<'src>` - Zero-copy borrowed segments
 pub trait StringStorage: Clone + Display {
     /// The span type used by this storage.
     ///
-    /// For zero-copy parsing (`SpannedSegments`), this is `Span` representing
+    /// For zero-copy parsing (`Segments`), this is `Span` representing
     /// source positions. For owned data (`String`), this is `()` since span
     /// information is not preserved.
     type Span: Copy + Debug + PartialEq + Eq + Hash;
@@ -95,19 +95,19 @@ impl Display for Span {
 }
 
 /// A spanned text segment (text with its position in the source)
-pub type SpannedSegment<'src> = (&'src str, Span);
+pub type Segment<'src> = (&'src str, Span);
 
 /// A collection of spanned text segments (multi-segment value with positions)
 #[derive(Default, Clone, Debug)]
-pub struct SpannedSegments<'src> {
-    pub(crate) segments: Vec<SpannedSegment<'src>>,
+pub struct Segments<'src> {
+    pub(crate) segments: Vec<Segment<'src>>,
     len: usize,
 }
 
-impl<'src> SpannedSegments<'src> {
-    /// Create a new `SpannedSegments` from a vector of segments
+impl<'src> Segments<'src> {
+    /// Create a new `Segments` from a vector of segments
     #[must_use]
-    pub(crate) fn new(segments: Vec<SpannedSegment<'src>>) -> Self {
+    pub(crate) fn new(segments: Vec<Segment<'src>>) -> Self {
         let len = segments.iter().map(|(s, _)| s.len()).sum();
         Self { segments, len }
     }
@@ -141,7 +141,7 @@ impl<'src> SpannedSegments<'src> {
     /// # Panics
     ///
     /// Panics if there are no segments. This should never happen in practice
-    /// as `SpannedSegments` is always created with at least one segment.
+    /// as `Segments` is always created with at least one segment.
     #[must_use]
     pub fn resolve(&self) -> Cow<'src, str> {
         if self.segments.len() == 1 {
@@ -224,7 +224,7 @@ impl<'src> SpannedSegments<'src> {
     }
 }
 
-impl Display for SpannedSegments<'_> {
+impl Display for Segments<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (seg, _) in &self.segments {
             Display::fmt(seg, f)?;
@@ -233,14 +233,14 @@ impl Display for SpannedSegments<'_> {
     }
 }
 
-impl StringStorage for SpannedSegments<'_> {
+impl StringStorage for Segments<'_> {
     type Span = Span;
 }
 
 /// Iterator over characters in spanned segments
 #[derive(Debug, Clone)]
 pub struct SegmentedSpannedChars<'src> {
-    segments: Vec<SpannedSegment<'src>>,
+    segments: Vec<Segment<'src>>,
     seg_idx: usize,
     chars: Option<(Span, Peekable<CharIndices<'src>>)>,
 }
@@ -281,9 +281,9 @@ mod tests {
 
     #[test]
     fn spanned_segments_starts_with_str_ignore_ascii_case() {
-        fn make_segments<'a>(parts: &[(&'a str, Span)]) -> SpannedSegments<'a> {
+        fn make_segments<'a>(parts: &[(&'a str, Span)]) -> Segments<'a> {
             let segments = parts.iter().map(|&(s, span)| (s, span)).collect();
-            SpannedSegments::new(segments)
+            Segments::new(segments)
         }
 
         // Test X- properties (case-insensitive)

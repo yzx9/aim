@@ -10,7 +10,7 @@ use crate::property::{
     TzUrl, XNameProperty,
 };
 use crate::semantic::SemanticError;
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Timezone component (VTIMEZONE)
@@ -33,7 +33,7 @@ pub struct VTimeZone<S: StringStorage> {
 }
 
 /// Parse a `TypedComponent` into a `VTimeZone`
-impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<Segments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
@@ -134,7 +134,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
     }
 }
 
-impl VTimeZone<SpannedSegments<'_>> {
+impl VTimeZone<Segments<'_>> {
     /// Convert borrowed data to owned data
     pub fn to_owned(&self) -> VTimeZone<String> {
         VTimeZone {
@@ -184,7 +184,7 @@ pub struct TimeZoneObservance<S: StringStorage> {
     pub retained_properties: Vec<Property<S>>,
 }
 
-impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<Segments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     /// Parse a timezone observance (STANDARD or DAYLIGHT) component
@@ -272,7 +272,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<
     }
 }
 
-impl TimeZoneObservance<SpannedSegments<'_>> {
+impl TimeZoneObservance<Segments<'_>> {
     /// Convert borrowed data to owned data
     pub fn to_owned(&self) -> TimeZoneObservance<String> {
         TimeZoneObservance {

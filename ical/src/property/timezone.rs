@@ -14,7 +14,7 @@ use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
 use crate::property::common::{TextOnly, TextWithLanguage, UriProperty, take_single_value};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueUtcOffset};
@@ -47,7 +47,7 @@ pub struct UtcOffsetProperty<S: StringStorage> {
     pub retained_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -84,7 +84,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<SpannedSegments<'
     }
 }
 
-impl UtcOffsetProperty<SpannedSegments<'_>> {
+impl UtcOffsetProperty<Segments<'_>> {
     /// Convert borrowed `UtcOffsetProperty` to owned `UtcOffsetProperty`
     #[must_use]
     pub fn to_owned(&self) -> UtcOffsetProperty<String> {

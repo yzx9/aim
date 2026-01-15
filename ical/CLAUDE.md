@@ -73,7 +73,7 @@ specification.
 
 ### Unified Parser
 
-The main `parse()` function coordinates all phases, returns `Result<Vec<ICalendar<SpannedSegments<'_>>>, Vec<ParseError<'_>>>`
+The main `parse()` function coordinates all phases, returns `Result<Vec<ICalendar<Segments<'_>>>, Vec<ParseError<'_>>>`
 which provides zero-copy parsing by default, with the option to convert to owned types using the
 `to_owned()` method.
 
@@ -89,13 +89,13 @@ both zero-copy parsing and owned data representations with a unified API.
 
 **Implementations:**
 
-- `SpannedSegments<'src>` - For zero-copy borrowed segments with position information
+- `Segments<'src>` - For zero-copy borrowed segments with position information
 - `String` - For owned string data (after calling `.to_owned()`)
 
 This abstraction enables the entire type system to use generic bounds like `S: StringStorage`
 instead of being tied to specific string types, providing flexibility while maintaining type safety.
 
-Types use `SpannedSegments<'src>` for zero-copy borrowed data and `String` for owned data.
+Types use `Segments<'src>` for zero-copy borrowed data and `String` for owned data.
 Conversion between the two is done through the `to_owned()` method on each type.
 
 ## Module Structure
@@ -108,7 +108,7 @@ ical/
 ├── src/
 │   ├── lib.rs              # Public API exports
 │   ├── keyword.rs          # RFC 5545 keyword constants
-│   ├── string_storage.rs   # String storage abstraction (StringStorage trait, Span, SpannedSegments)
+│   ├── string_storage.rs   # String storage abstraction (StringStorage trait, Span, Segments)
 │   ├── parser.rs           # Unified parser orchestration
 │   ├── syntax.rs           # Syntax analysis
 │   ├── syntax/             # Syntax analysis implementation
@@ -212,7 +212,7 @@ ical/
   - **Semantic Types**: All component types (e.g., `VEvent`, `VTodo`, `ICalendar`) use the same
     pattern
   - This enables both zero-copy parsing (borrowed data) and owned data representations
-  - Use `Type<SpannedSegments<'src>>` for borrowed data and `Type<String>` for owned data
+  - Use `Type<Segments<'src>>` for borrowed data and `Type<String>` for owned data
   - Convert between representations using the `to_owned()` method
 - **Performance**: Zero-copy parsing where possible, minimal allocations
 - **Optional datetime dependencies**: All types use the value module's `ValueDate`, `ValueTime`,
@@ -239,8 +239,8 @@ The architecture provides comprehensive error reporting with:
   - Preserves original data for round-trip serialization compatibility
 - **Extensible Property Support**: Property types organized by RFC 5545 sections for easy
   maintenance and extension
-- **Semantic Type System**: High-level semantic representations of iCalendar components
-  using `Type<SpannedSegments<'src>>` for borrowed data and `Type<String>` for owned data
+- **Semantic Type System**: High-level semantic representations of iCalendar components using
+  `Type<Segments<'src>>` for borrowed data and `Type<String>` for owned data
 - **RFC 5545 Compliance**: Complete support for all required value types and parameters
 - **RFC 5545 Serialization**: Complete formatter module for writing iCalendar data
 - **(feature-gated) Timezone Validation**: Optional integration with `jiff` for timezone database

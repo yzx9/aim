@@ -67,7 +67,7 @@ pub use relationship::{Attendee, Contact, Organizer, RecurrenceId, RelatedTo, Ui
 pub use timezone::{TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl};
 
 use crate::parameter::Parameter;
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
 
@@ -251,7 +251,7 @@ pub enum Property<S: StringStorage> {
     Unrecognized(UnrecognizedProperty<S>),
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Property<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Property<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[rustfmt::skip]
@@ -480,7 +480,7 @@ impl<S: StringStorage> Property<S> {
     }
 }
 
-impl Property<SpannedSegments<'_>> {
+impl Property<Segments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
     pub fn to_owned(&self) -> Property<String> {
@@ -573,7 +573,7 @@ macro_rules! define_nonstandard_property {
             pub span: S::Span,
         }
 
-        impl $ty<SpannedSegments<'_>> {
+        impl $ty<Segments<'_>> {
             /// Convert borrowed type to owned type
             pub fn to_owned(&self) -> $ty<String> {
                 $ty {
@@ -585,7 +585,7 @@ macro_rules! define_nonstandard_property {
             }
         }
 
-        impl<'src> From<ParsedProperty<'src>> for $ty<SpannedSegments<'src>> {
+        impl<'src> From<ParsedProperty<'src>> for $ty<Segments<'src>> {
             fn from(prop: ParsedProperty<'src>) -> Self {
                 Self {
                     name: prop.name,

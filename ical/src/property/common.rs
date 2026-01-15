@@ -11,16 +11,16 @@ use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
 use crate::property::PropertyKind;
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueText};
 
 /// Get the first value from a property, ensuring it has exactly one value
 pub fn take_single_value<'src>(
-    kind: &PropertyKind<SpannedSegments<'src>>,
-    value: Value<SpannedSegments<'src>>,
-) -> Result<Value<SpannedSegments<'src>>, Vec<TypedError<'src>>> {
+    kind: &PropertyKind<Segments<'src>>,
+    value: Value<Segments<'src>>,
+) -> Result<Value<Segments<'src>>, Vec<TypedError<'src>>> {
     if !value.len() == 1 {
         return Err(vec![TypedError::PropertyInvalidValueCount {
             property: kind.clone(),
@@ -35,9 +35,9 @@ pub fn take_single_value<'src>(
 
 /// Get a single calendar user address value from a property
 pub fn take_single_cal_address<'src>(
-    kind: &PropertyKind<SpannedSegments<'src>>,
-    value: Value<SpannedSegments<'src>>,
-) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
+    kind: &PropertyKind<Segments<'src>>,
+    value: Value<Segments<'src>>,
+) -> Result<Segments<'src>, Vec<TypedError<'src>>> {
     let value = take_single_value(kind, value)?;
     match value {
         Value::CalAddress { value, .. } => Ok(value),
@@ -52,9 +52,9 @@ pub fn take_single_cal_address<'src>(
 
 /// Get a single URI value from a property
 pub fn take_single_uri<'src>(
-    kind: &PropertyKind<SpannedSegments<'src>>,
-    value: Value<SpannedSegments<'src>>,
-) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
+    kind: &PropertyKind<Segments<'src>>,
+    value: Value<Segments<'src>>,
+) -> Result<Segments<'src>, Vec<TypedError<'src>>> {
     let value = take_single_value(kind, value)?;
     match value {
         Value::Uri { value, .. } => Ok(value),
@@ -69,9 +69,9 @@ pub fn take_single_uri<'src>(
 
 /// Get a single text value from a property
 pub fn take_single_text<'src>(
-    kind: &PropertyKind<SpannedSegments<'src>>,
-    value: Value<SpannedSegments<'src>>,
-) -> Result<ValueText<SpannedSegments<'src>>, Vec<TypedError<'src>>> {
+    kind: &PropertyKind<Segments<'src>>,
+    value: Value<Segments<'src>>,
+) -> Result<ValueText<Segments<'src>>, Vec<TypedError<'src>>> {
     let value = take_single_value(kind, value)?;
 
     match value {
@@ -112,7 +112,7 @@ pub struct UriProperty<S: StringStorage> {
     pub retained_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for UriProperty<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for UriProperty<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -140,7 +140,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UriProperty<SpannedSegments<'src>> 
     }
 }
 
-impl UriProperty<SpannedSegments<'_>> {
+impl UriProperty<Segments<'_>> {
     /// Convert borrowed `UriProperty` to owned `UriProperty`
     #[must_use]
     pub fn to_owned(&self) -> UriProperty<String> {
@@ -179,7 +179,7 @@ pub struct TextOnly<S: StringStorage> {
     pub retained_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for TextOnly<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for TextOnly<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -207,7 +207,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TextOnly<SpannedSegments<'src>> {
     }
 }
 
-impl TextOnly<SpannedSegments<'_>> {
+impl TextOnly<Segments<'_>> {
     /// Convert borrowed `TextOnly` to owned `TextOnly`
     #[must_use]
     pub fn to_owned(&self) -> TextOnly<String> {
@@ -251,7 +251,7 @@ pub struct TextWithLanguage<S: StringStorage> {
     pub retained_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for TextWithLanguage<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for TextWithLanguage<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -295,13 +295,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TextWithLanguage<SpannedSegments<'s
     }
 }
 
-impl TextWithLanguage<SpannedSegments<'_>> {
+impl TextWithLanguage<Segments<'_>> {
     /// Convert borrowed `TextWithLanguage` to owned `TextWithLanguage`
     #[must_use]
     pub fn to_owned(&self) -> TextWithLanguage<String> {
         TextWithLanguage {
             content: self.content.to_owned(),
-            language: self.language.as_ref().map(SpannedSegments::to_owned),
+            language: self.language.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -347,7 +347,7 @@ pub struct Text<S: StringStorage> {
     pub retained_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Text<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Text<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -403,14 +403,14 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<SpannedSegments<'src>> {
     }
 }
 
-impl Text<SpannedSegments<'_>> {
+impl Text<Segments<'_>> {
     /// Convert borrowed Text to owned Text
     #[must_use]
     pub fn to_owned(&self) -> Text<String> {
         Text {
             content: self.content.to_owned(),
-            language: self.language.as_ref().map(SpannedSegments::to_owned),
-            altrep: self.altrep.as_ref().map(SpannedSegments::to_owned),
+            language: self.language.as_ref().map(Segments::to_owned),
+            altrep: self.altrep.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -478,9 +478,9 @@ macro_rules! simple_property_wrapper {
             }
         }
 
-        impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name<crate::string_storage::SpannedSegments<'src>>
+        impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name<crate::string_storage::Segments<'src>>
         where
-            $inner<crate::string_storage::SpannedSegments<'src>>: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
+            $inner<crate::string_storage::Segments<'src>>: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
         {
             type Error = Vec<crate::typed::TypedError<'src>>;
 
@@ -494,11 +494,11 @@ macro_rules! simple_property_wrapper {
                 }
 
                 let span = prop.span;
-                <$inner<crate::string_storage::SpannedSegments<'src>>>::try_from(prop).map(|inner| $name { inner, span })
+                <$inner<crate::string_storage::Segments<'src>>>::try_from(prop).map(|inner| $name { inner, span })
             }
         }
 
-        impl $name<crate::string_storage::SpannedSegments<'_>> {
+        impl $name<crate::string_storage::Segments<'_>> {
             /// Convert borrowed type to owned type
             #[must_use]
             pub fn to_owned(&self) -> $name<String> {
@@ -536,10 +536,10 @@ macro_rules! define_prop_value_enum {
         }
 
 
-        impl<'src> TryFrom<crate::value::ValueText<SpannedSegments<'src>>> for $Name {
-            type Error = crate::value::ValueText<SpannedSegments<'src>>;
+        impl<'src> TryFrom<crate::value::ValueText<Segments<'src>>> for $Name {
+            type Error = crate::value::ValueText<Segments<'src>>;
 
-            fn try_from(segs: crate::value::ValueText<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
+            fn try_from(segs: crate::value::ValueText<Segments<'src>>) -> Result<Self, Self::Error> {
                 $(
                     if segs.eq_str_ignore_ascii_case($kw) {
                         return Ok(Self::$Variant);

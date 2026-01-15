@@ -21,7 +21,7 @@ use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
 use crate::property::{DateTime, Period, PropertyKind};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueRecurrenceRule};
@@ -35,7 +35,7 @@ pub enum ExDateValue<S: StringStorage> {
     DateTime(DateTime<S>),
 }
 
-impl ExDateValue<SpannedSegments<'_>> {
+impl ExDateValue<Segments<'_>> {
     /// Convert borrowed `ExDateValue` to owned `ExDateValue`
     #[must_use]
     pub fn to_owned(&self) -> ExDateValue<String> {
@@ -57,7 +57,7 @@ pub enum RDateValue<S: StringStorage> {
     Period(Period<S>),
 }
 
-impl RDateValue<SpannedSegments<'_>> {
+impl RDateValue<Segments<'_>> {
     /// Convert borrowed `RDateValue` to owned `RDateValue`
     #[must_use]
     pub fn to_owned(&self) -> RDateValue<String> {
@@ -87,7 +87,7 @@ pub struct ExDate<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -158,13 +158,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
     }
 }
 
-impl ExDate<SpannedSegments<'_>> {
+impl ExDate<Segments<'_>> {
     /// Convert borrowed `ExDate` to owned `ExDate`
     #[must_use]
     pub fn to_owned(&self) -> ExDate<String> {
         ExDate {
             dates: self.dates.iter().map(ExDateValue::to_owned).collect(),
-            tz_id: self.tz_id.as_ref().map(SpannedSegments::to_owned),
+            tz_id: self.tz_id.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -197,7 +197,7 @@ pub struct RDate<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for RDate<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -278,13 +278,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
     }
 }
 
-impl RDate<SpannedSegments<'_>> {
+impl RDate<Segments<'_>> {
     /// Convert borrowed `RDate` to owned `RDate`
     #[must_use]
     pub fn to_owned(&self) -> RDate<String> {
         RDate {
             dates: self.dates.iter().map(RDateValue::to_owned).collect(),
-            tz_id: self.tz_id.as_ref().map(SpannedSegments::to_owned),
+            tz_id: self.tz_id.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -315,7 +315,7 @@ pub struct RRule<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for RRule<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -363,7 +363,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
     }
 }
 
-impl RRule<SpannedSegments<'_>> {
+impl RRule<Segments<'_>> {
     /// Convert borrowed `RRule` to owned `RRule`
     #[must_use]
     pub fn to_owned(&self) -> RRule<String> {

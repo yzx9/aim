@@ -10,7 +10,7 @@ use crate::property::{
     Repeat, Summary, Trigger, XNameProperty,
 };
 use crate::semantic::SemanticError;
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Alarm component (VALARM)
@@ -39,7 +39,7 @@ pub struct VAlarm<S: StringStorage> {
 }
 
 /// Parse a `TypedComponent` into a `VAlarm`
-impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -196,7 +196,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
     }
 }
 
-impl VAlarm<SpannedSegments<'_>> {
+impl VAlarm<Segments<'_>> {
     /// Convert borrowed data to owned data
     #[must_use]
     pub fn to_owned(&self) -> VAlarm<String> {

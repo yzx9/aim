@@ -18,7 +18,7 @@ use std::convert::TryFrom;
 use crate::parameter::{Parameter, ValueType};
 use crate::property::common::take_single_value;
 use crate::property::{DateTime, PropertyKind};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::Value;
@@ -53,7 +53,7 @@ pub struct Sequence<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -120,7 +120,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<SpannedSegments<'src>> {
     }
 }
 
-impl Sequence<SpannedSegments<'_>> {
+impl Sequence<Segments<'_>> {
     /// Convert borrowed `Sequence` to owned `Sequence`
     #[must_use]
     pub fn to_owned(&self) -> Sequence<String> {

@@ -55,7 +55,7 @@ aim/
 - Three-phase parsing pipeline (syntax → typed → semantic)
   - Three-pass typed analysis (parameter → value → property)
 - Type-safe representations with generic `StringStorage` trait for flexible string and span handling
-- Zero-copy parsing support with `SpannedSegments<'src>` for borrowed data
+- Zero-copy parsing support with `Segments<'src>` for borrowed data
 - Comprehensive error reporting
 - RFC 5545 formatter for serializing components, properties, parameters, and values
 

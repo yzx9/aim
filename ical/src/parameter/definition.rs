@@ -17,7 +17,7 @@ use crate::keyword::{
 };
 use crate::parameter::util::{ParseResult, parse_single, parse_single_not_quoted};
 use crate::parameter::{Parameter, ParameterKind};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::{RawParameter, RawParameterValue};
 use crate::typed::TypedError;
 
@@ -26,7 +26,7 @@ use crate::typed::TypedError;
 /// # Errors
 ///
 /// Returns an error if the parameter value is not `TRUE` or `FALSE`.
-pub fn parse_rsvp(mut param: RawParameter<SpannedSegments<'_>>) -> ParseResult<'_> {
+pub fn parse_rsvp(mut param: RawParameter<Segments<'_>>) -> ParseResult<'_> {
     let span = param.span;
     parse_single(&mut param, ParameterKind::RsvpExpectation).and_then(|v| {
         if v.value.eq_str_ignore_ascii_case(KW_RSVP_TRUE) {
@@ -50,11 +50,11 @@ pub fn parse_rsvp(mut param: RawParameter<SpannedSegments<'_>>) -> ParseResult<'
 /// Returns an error if:
 /// - The parameter does not have exactly one value (when jiff feature is enabled)
 /// - The timezone identifier is not valid (when jiff feature is enabled)
-pub fn parse_tzid<'src>(mut param: RawParameter<SpannedSegments<'src>>) -> ParseResult<'src> {
+pub fn parse_tzid<'src>(mut param: RawParameter<Segments<'src>>) -> ParseResult<'src> {
     let span = param.span;
 
     #[cfg(feature = "jiff")]
-    let op = |v: RawParameterValue<SpannedSegments<'src>>| {
+    let op = |v: RawParameterValue<Segments<'src>>| {
         // Use jiff to validate time zone identifier
         let tzid_str = v.value.resolve();
         match jiff::tz::TimeZone::get(tzid_str.as_ref()) {
@@ -72,7 +72,7 @@ pub fn parse_tzid<'src>(mut param: RawParameter<SpannedSegments<'src>>) -> Parse
     };
 
     #[cfg(not(feature = "jiff"))]
-    let op = |v: RawParameterValue<SpannedSegments<'src>>| {
+    let op = |v: RawParameterValue<Segments<'src>>| {
         Ok(Parameter::TimeZoneIdentifier {
             value: v.value,
             span,

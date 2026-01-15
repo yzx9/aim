@@ -11,7 +11,7 @@ use crate::property::{
     Url, XNameProperty,
 };
 use crate::semantic::SemanticError;
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Free/busy time component (VFREEBUSY)
@@ -48,7 +48,7 @@ pub struct VFreeBusy<S: StringStorage> {
 }
 
 /// Parse a `TypedComponent` into a `VFreeBusy`
-impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<Segments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -199,7 +199,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
     }
 }
 
-impl VFreeBusy<SpannedSegments<'_>> {
+impl VFreeBusy<Segments<'_>> {
     /// Convert borrowed data to owned data
     pub fn to_owned(&self) -> VFreeBusy<String> {
         VFreeBusy {

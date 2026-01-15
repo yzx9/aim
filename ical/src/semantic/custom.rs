@@ -7,7 +7,7 @@
 use crate::property::Property;
 use crate::semantic::icalendar::parse_component_children;
 use crate::semantic::{CalendarComponent, SemanticError};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::typed::TypedComponent;
 
 /// Custom component (x-comp or iana-comp)
@@ -39,7 +39,7 @@ pub struct CustomComponent<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl CustomComponent<SpannedSegments<'_>> {
+impl CustomComponent<Segments<'_>> {
     /// Convert borrowed data to owned data
     #[must_use]
     pub fn to_owned(&self) -> CustomComponent<String> {
@@ -56,13 +56,13 @@ impl CustomComponent<SpannedSegments<'_>> {
     }
 }
 
-impl<'src> TryFrom<TypedComponent<'src>> for CustomComponent<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for CustomComponent<Segments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     /// Parse a custom component with all its children
     fn try_from(
         comp: TypedComponent<'_>,
-    ) -> Result<CustomComponent<SpannedSegments<'_>>, Vec<SemanticError<'_>>> {
+    ) -> Result<CustomComponent<Segments<'_>>, Vec<SemanticError<'_>>> {
         let mut errors = Vec::new();
 
         // Parse child components recursively

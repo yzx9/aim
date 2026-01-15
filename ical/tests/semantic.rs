@@ -8,7 +8,7 @@
 //! and edge cases.
 
 use aimcal_ical::semantic::{CalendarComponent, SemanticError, semantic_analysis};
-use aimcal_ical::string_storage::SpannedSegments;
+use aimcal_ical::string_storage::Segments;
 use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::typed_analysis;
 use aimcal_ical::value::ValueDuration;
@@ -18,9 +18,7 @@ use aimcal_ical::{
 };
 
 /// Test helper to parse iCalendar source through semantic phase
-fn parse_semantic(
-    src: &'_ str,
-) -> Result<Vec<ICalendar<SpannedSegments<'_>>>, Vec<SemanticError<'_>>> {
+fn parse_semantic(src: &'_ str) -> Result<Vec<ICalendar<Segments<'_>>>, Vec<SemanticError<'_>>> {
     let syntax_components = syntax_analysis(src).unwrap();
     let typed_components = typed_analysis(syntax_components).unwrap();
     semantic_analysis(typed_components)

@@ -24,7 +24,7 @@ use crate::parameter::definition::{
     parse_range, parse_reltype, parse_role, parse_rsvp, parse_tzid, parse_value_type,
 };
 use crate::parameter::util::{parse_multiple_quoted, parse_single, parse_single_quoted};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::TypedError;
 
@@ -328,7 +328,7 @@ impl<S: StringStorage> Parameter<S> {
     }
 }
 
-impl Parameter<SpannedSegments<'_>> {
+impl Parameter<Segments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
     pub fn to_owned(&self) -> Parameter<String> {
@@ -346,11 +346,11 @@ impl Parameter<SpannedSegments<'_>> {
                 span: (),
             },
             Parameter::Delegators { values, .. } => Parameter::Delegators {
-                values: values.iter().map(SpannedSegments::to_owned).collect(),
+                values: values.iter().map(Segments::to_owned).collect(),
                 span: (),
             },
             Parameter::Delegatees { values, .. } => Parameter::Delegatees {
-                values: values.iter().map(SpannedSegments::to_owned).collect(),
+                values: values.iter().map(Segments::to_owned).collect(),
                 span: (),
             },
             Parameter::Directory { value, .. } => Parameter::Directory {
@@ -374,7 +374,7 @@ impl Parameter<SpannedSegments<'_>> {
                 span: (),
             },
             Parameter::GroupOrListMembership { values, .. } => Parameter::GroupOrListMembership {
-                values: values.iter().map(SpannedSegments::to_owned).collect(),
+                values: values.iter().map(Segments::to_owned).collect(),
                 span: (),
             },
             Parameter::ParticipationStatus { value, .. } => Parameter::ParticipationStatus {
@@ -428,10 +428,10 @@ impl Parameter<SpannedSegments<'_>> {
     }
 }
 
-impl<'src> TryFrom<RawParameter<SpannedSegments<'src>>> for Parameter<SpannedSegments<'src>> {
+impl<'src> TryFrom<RawParameter<Segments<'src>>> for Parameter<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
-    fn try_from(mut param: RawParameter<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
+    fn try_from(mut param: RawParameter<Segments<'src>>) -> Result<Self, Self::Error> {
         // Parse the parameter kind
         let kind = ParameterKind::from(param.name.clone());
 

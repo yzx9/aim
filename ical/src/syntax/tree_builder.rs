@@ -22,14 +22,14 @@
 
 use crate::StringStorage;
 use crate::keyword::{KW_BEGIN, KW_END};
-use crate::string_storage::{Span, SpannedSegments};
+use crate::string_storage::{Segments, Span};
 use crate::syntax::scanner::ContentLine;
 
 /// A parsed iCalendar component (e.g., VCALENDAR, VEVENT, VTODO)
 #[derive(Debug, Clone)]
 pub struct RawComponent<'src> {
     /// Component name (e.g., "VCALENDAR", "VEVENT", "VTIMEZONE", "VALARM")
-    pub name: SpannedSegments<'src>,
+    pub name: Segments<'src>,
     /// Properties in original order
     pub properties: Vec<RawProperty<'src>>,
     /// Nested child components
@@ -42,11 +42,11 @@ pub struct RawComponent<'src> {
 #[derive(Debug, Clone)]
 pub struct RawProperty<'src> {
     /// Property name (case-insensitive, original casing preserved)
-    pub name: SpannedSegments<'src>,
+    pub name: Segments<'src>,
     /// Property parameters (allow duplicates & multi-values)
-    pub parameters: Vec<RawParameter<SpannedSegments<'src>>>,
+    pub parameters: Vec<RawParameter<Segments<'src>>>,
     /// Raw property value (may need further parsing by typed analysis)
-    pub value: SpannedSegments<'src>,
+    pub value: Segments<'src>,
 }
 
 /// A parsed iCalendar parameter (e.g., `TZID=America/New_York`)
@@ -60,7 +60,7 @@ pub struct RawParameter<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl RawParameter<SpannedSegments<'_>> {
+impl RawParameter<Segments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
     pub fn to_owned(&self) -> RawParameter<String> {
@@ -85,7 +85,7 @@ pub struct RawParameterValue<S: StringStorage> {
     pub quoted: bool,
 }
 
-impl RawParameterValue<SpannedSegments<'_>> {
+impl RawParameterValue<Segments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
     pub fn to_owned(&self) -> RawParameterValue<String> {
@@ -179,7 +179,7 @@ pub fn build_tree<'src>(lines: &[ContentLine<'src>]) -> TreeBuilderResult<'src> 
             let end_name = line.value.clone();
 
             if let Some(component) = stack.pop() {
-                // Check if BEGIN/END names match using SpannedSegments comparison
+                // Check if BEGIN/END names match using Segments comparison
                 if !component.name.eq_str_ignore_ascii_case(&end_name.resolve()) {
                     errors.push(TreeBuildError::MismatchedNesting {
                         expected: component.name.clone(),
@@ -204,7 +204,7 @@ pub fn build_tree<'src>(lines: &[ContentLine<'src>]) -> TreeBuilderResult<'src> 
         } else if let Some(current) = stack.last_mut() {
             // Regular property - add to current component
             // Build RawParameter from ScannedParameter
-            let parameters: Vec<RawParameter<SpannedSegments<'src>>> = line
+            let parameters: Vec<RawParameter<Segments<'src>>> = line
                 .parameters
                 .iter()
                 .map(|scanned_param| RawParameter {
@@ -250,7 +250,7 @@ pub enum TreeBuildError<'src> {
     #[error("unmatched END:{name} (no corresponding BEGIN)")]
     UnmatchedEnd {
         /// Component name that was being closed
-        name: SpannedSegments<'src>,
+        name: Segments<'src>,
         /// Span of the END line
         span: Span,
     },
@@ -259,7 +259,7 @@ pub enum TreeBuildError<'src> {
     #[error("unmatched BEGIN:{name} (component not closed)")]
     UnmatchedBegin {
         /// Component name that was not closed
-        name: SpannedSegments<'src>,
+        name: Segments<'src>,
         /// Span of the BEGIN line
         span: Span,
     },
@@ -268,9 +268,9 @@ pub enum TreeBuildError<'src> {
     #[error("mismatched nesting: expected END:{expected}, found END:{found}")]
     MismatchedNesting {
         /// Expected component name
-        expected: SpannedSegments<'src>,
+        expected: Segments<'src>,
         /// Actual component name found
-        found: SpannedSegments<'src>,
+        found: Segments<'src>,
         /// Span of the END line
         span: Span,
     },
@@ -279,7 +279,7 @@ pub enum TreeBuildError<'src> {
     #[error("{name} line with parameters (not allowed per RFC 5545)")]
     BeginEndWithParameters {
         /// The component name
-        name: SpannedSegments<'src>,
+        name: Segments<'src>,
         /// Span of the line
         span: Span,
     },

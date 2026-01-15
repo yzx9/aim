@@ -14,7 +14,7 @@ use crate::property::{
     Resources, Sequence, Status, StatusValue, Summary, TimeTransparency, Uid, Url, XNameProperty,
 };
 use crate::semantic::{SemanticError, VAlarm};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::TypedComponent;
 
@@ -76,7 +76,7 @@ pub struct VEvent<S: StringStorage> {
 }
 
 /// Parse a `TypedComponent` into a `VEvent`
-impl<'src> TryFrom<TypedComponent<'src>> for VEvent<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for VEvent<Segments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -326,7 +326,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEvent<SpannedSegments<'src>> {
     }
 }
 
-impl VEvent<SpannedSegments<'_>> {
+impl VEvent<Segments<'_>> {
     /// Convert borrowed data to owned data
     pub fn to_owned(&self) -> VEvent<String> {
         VEvent {
@@ -420,10 +420,10 @@ pub struct EventStatus<S: StringStorage> {
     pub retained_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<Status<SpannedSegments<'src>>> for EventStatus<SpannedSegments<'src>> {
+impl<'src> TryFrom<Status<Segments<'src>>> for EventStatus<Segments<'src>> {
     type Error = SemanticError<'src>;
 
-    fn try_from(property: Status<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
+    fn try_from(property: Status<Segments<'src>>) -> Result<Self, Self::Error> {
         let Ok(value) = property.value.try_into() else {
             return Err(SemanticError::InvalidValue {
                 property: PropertyKind::Status,
@@ -440,7 +440,7 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for EventStatus<SpannedSegment
     }
 }
 
-impl EventStatus<SpannedSegments<'_>> {
+impl EventStatus<Segments<'_>> {
     /// Convert borrowed data to owned data
     pub fn to_owned(&self) -> EventStatus<String> {
         EventStatus {

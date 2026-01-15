@@ -25,10 +25,9 @@ pub use vjournal::{JournalStatus, VJournal};
 pub use vtimezone::{TimeZoneObservance, VTimeZone};
 pub use vtodo::{TodoStatus, VTodo};
 
-use crate::SpannedSegments;
 use crate::keyword::KW_VCALENDAR;
 use crate::property::PropertyKind;
-use crate::string_storage::Span;
+use crate::string_storage::{Segments, Span};
 use crate::typed::TypedComponent;
 
 /// Perform semantic analysis on typed components.
@@ -40,7 +39,7 @@ use crate::typed::TypedComponent;
 /// - Any components failed to parse
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
-) -> Result<Vec<ICalendar<SpannedSegments<'_>>>, Vec<SemanticError<'_>>> {
+) -> Result<Vec<ICalendar<Segments<'_>>>, Vec<SemanticError<'_>>> {
     // Return error only if no calendars
     if typed_components.is_empty() {
         return Err(vec![SemanticError::ConstraintViolation {
@@ -85,7 +84,7 @@ pub enum SemanticError<'src> {
         /// The expected component name
         expected: &'src str,
         /// The actual component name that was found
-        got: SpannedSegments<'src>,
+        got: Segments<'src>,
         /// The span of the error
         span: Span,
     },
@@ -94,7 +93,7 @@ pub enum SemanticError<'src> {
     #[error("Duplicate property '{property}'")]
     DuplicateProperty {
         /// The property that is duplicated
-        property: PropertyKind<SpannedSegments<'src>>,
+        property: PropertyKind<Segments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -103,7 +102,7 @@ pub enum SemanticError<'src> {
     #[error("Missing required property '{property}'")]
     MissingProperty {
         /// The property that is missing
-        property: PropertyKind<SpannedSegments<'src>>,
+        property: PropertyKind<Segments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -112,7 +111,7 @@ pub enum SemanticError<'src> {
     #[error("Invalid value '{value}' for property: {property}")]
     InvalidValue {
         /// The property that has the invalid value
-        property: PropertyKind<SpannedSegments<'src>>,
+        property: PropertyKind<Segments<'src>>,
         /// The invalid value description
         value: String,
         /// The span of the error

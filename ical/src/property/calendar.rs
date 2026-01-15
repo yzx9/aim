@@ -23,7 +23,7 @@ use crate::keyword::{
 use crate::parameter::Parameter;
 use crate::property::PropertyKind;
 use crate::property::common::take_single_text;
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
@@ -51,7 +51,7 @@ pub struct CalendarScale<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -96,7 +96,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for CalendarScale<SpannedSegments<'src>
     }
 }
 
-impl CalendarScale<SpannedSegments<'_>> {
+impl CalendarScale<Segments<'_>> {
     /// Convert borrowed `CalendarScale` to owned `CalendarScale`
     #[must_use]
     pub fn to_owned(&self) -> CalendarScale<String> {
@@ -154,7 +154,7 @@ pub struct Method<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Method<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Method<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -199,7 +199,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Method<SpannedSegments<'src>> {
     }
 }
 
-impl Method<SpannedSegments<'_>> {
+impl Method<Segments<'_>> {
     /// Convert borrowed `Method` to owned `Method`
     #[must_use]
     pub fn to_owned(&self) -> Method<String> {
@@ -235,7 +235,7 @@ pub struct ProductId<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -270,7 +270,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ProductId<SpannedSegments<'src>> {
     }
 }
 
-impl ProductId<SpannedSegments<'_>> {
+impl ProductId<Segments<'_>> {
     /// Convert borrowed `ProductId` to owned `ProductId`
     #[must_use]
     pub fn to_owned(&self) -> ProductId<String> {
@@ -314,7 +314,7 @@ pub struct Version<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Version<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Version<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -359,7 +359,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Version<SpannedSegments<'src>> {
     }
 }
 
-impl Version<SpannedSegments<'_>> {
+impl Version<Segments<'_>> {
     /// Convert borrowed `Version` to owned `Version`
     #[must_use]
     pub fn to_owned(&self) -> Version<String> {

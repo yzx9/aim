@@ -19,7 +19,7 @@ use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACT
 use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueType};
 use crate::property::common::{take_single_text, take_single_value};
 use crate::property::{DateTime, PropertyKind};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDuration};
@@ -67,7 +67,7 @@ pub struct Action<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Action<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Action<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -122,7 +122,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Action<SpannedSegments<'src>> {
     }
 }
 
-impl Action<SpannedSegments<'_>> {
+impl Action<Segments<'_>> {
     /// Convert borrowed Action to owned Action
     #[must_use]
     pub fn to_owned(&self) -> Action<String> {
@@ -158,7 +158,7 @@ pub struct Repeat<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[allow(clippy::cast_sign_loss)]
@@ -233,7 +233,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<SpannedSegments<'src>> {
     }
 }
 
-impl Repeat<SpannedSegments<'_>> {
+impl Repeat<Segments<'_>> {
     /// Convert borrowed Repeat to owned Repeat
     #[must_use]
     pub fn to_owned(&self) -> Repeat<String> {
@@ -278,7 +278,7 @@ pub enum TriggerValue<S: StringStorage> {
     DateTime(DateTime<S>),
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -355,7 +355,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<SpannedSegments<'src>> {
     }
 }
 
-impl Trigger<SpannedSegments<'_>> {
+impl Trigger<Segments<'_>> {
     /// Convert borrowed Trigger to owned Trigger
     #[must_use]
     pub fn to_owned(&self) -> Trigger<String> {
@@ -377,7 +377,7 @@ impl Trigger<SpannedSegments<'_>> {
     }
 }
 
-impl TriggerValue<SpannedSegments<'_>> {
+impl TriggerValue<Segments<'_>> {
     /// Convert borrowed `TriggerValue` to owned `TriggerValue`
     #[must_use]
     pub fn to_owned(&self) -> TriggerValue<String> {

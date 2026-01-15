@@ -28,7 +28,7 @@ use crate::property::common::{
     Text, TextOnly, UriProperty, take_single_cal_address, take_single_text,
 };
 use crate::property::{DateTime, PropertyKind};
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::ValueText;
@@ -68,7 +68,7 @@ pub struct Attendee<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -236,13 +236,13 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attendee<SpannedSegments<'src>> {
     }
 }
 
-impl Attendee<SpannedSegments<'_>> {
+impl Attendee<Segments<'_>> {
     /// Convert borrowed `Attendee` to owned `Attendee`
     #[must_use]
     pub fn to_owned(&self) -> Attendee<String> {
         Attendee {
             cal_address: self.cal_address.to_owned(),
-            cn: self.cn.as_ref().map(SpannedSegments::to_owned),
+            cn: self.cn.as_ref().map(Segments::to_owned),
             role: self.role.to_owned(),
             part_stat: self.part_stat.to_owned(),
             rsvp: self.rsvp,
@@ -250,18 +250,18 @@ impl Attendee<SpannedSegments<'_>> {
             member: self
                 .member
                 .as_ref()
-                .map(|v| v.iter().map(SpannedSegments::to_owned).collect()),
+                .map(|v| v.iter().map(Segments::to_owned).collect()),
             delegated_to: self
                 .delegated_to
                 .as_ref()
-                .map(|v| v.iter().map(SpannedSegments::to_owned).collect()),
+                .map(|v| v.iter().map(Segments::to_owned).collect()),
             delegated_from: self
                 .delegated_from
                 .as_ref()
-                .map(|v| v.iter().map(SpannedSegments::to_owned).collect()),
-            dir: self.dir.as_ref().map(SpannedSegments::to_owned),
-            sent_by: self.sent_by.as_ref().map(SpannedSegments::to_owned),
-            language: self.language.as_ref().map(SpannedSegments::to_owned),
+                .map(|v| v.iter().map(Segments::to_owned).collect()),
+            dir: self.dir.as_ref().map(Segments::to_owned),
+            sent_by: self.sent_by.as_ref().map(Segments::to_owned),
+            language: self.language.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -303,7 +303,7 @@ pub struct Organizer<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -395,16 +395,16 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Organizer<SpannedSegments<'src>> {
     }
 }
 
-impl Organizer<SpannedSegments<'_>> {
+impl Organizer<Segments<'_>> {
     /// Convert borrowed `Organizer` to owned `Organizer`
     #[must_use]
     pub fn to_owned(&self) -> Organizer<String> {
         Organizer {
             cal_address: self.cal_address.to_owned(),
-            cn: self.cn.as_ref().map(SpannedSegments::to_owned),
-            dir: self.dir.as_ref().map(SpannedSegments::to_owned),
-            sent_by: self.sent_by.as_ref().map(SpannedSegments::to_owned),
-            language: self.language.as_ref().map(SpannedSegments::to_owned),
+            cn: self.cn.as_ref().map(Segments::to_owned),
+            dir: self.dir.as_ref().map(Segments::to_owned),
+            sent_by: self.sent_by.as_ref().map(Segments::to_owned),
+            language: self.language.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -446,7 +446,7 @@ pub struct RelatedTo<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<SpannedSegments<'src>> {
+impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
@@ -501,7 +501,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<SpannedSegments<'src>> {
     }
 }
 
-impl RelatedTo<SpannedSegments<'_>> {
+impl RelatedTo<Segments<'_>> {
     /// Convert borrowed `RelatedTo` to owned `RelatedTo`
     #[must_use]
     pub fn to_owned(&self) -> RelatedTo<String> {

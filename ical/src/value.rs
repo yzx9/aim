@@ -26,7 +26,7 @@ use chumsky::input::Stream;
 use chumsky::prelude::*;
 
 use crate::parameter::ValueType;
-use crate::string_storage::{Span, SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, Span, StringStorage};
 use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
 use crate::value::duration::values_duration;
 use crate::value::miscellaneous::{value_binary, value_boolean};
@@ -339,7 +339,7 @@ impl<S: StringStorage> Value<S> {
     }
 }
 
-impl Value<SpannedSegments<'_>> {
+impl Value<Segments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
     pub fn to_owned(&self) -> Value<String> {
@@ -425,8 +425,8 @@ impl Value<SpannedSegments<'_>> {
 /// Parse errors from all attempted types
 pub fn parse_value<'src>(
     value_types: &[ValueType<String>],
-    value: &SpannedSegments<'src>,
-) -> Result<Value<SpannedSegments<'src>>, Vec<Rich<'src, char>>> {
+    value: &Segments<'src>,
+) -> Result<Value<Segments<'src>>, Vec<Rich<'src, char>>> {
     // Collect errors from all attempted types
     let mut all_errors: Vec<Rich<'src, char>> = Vec::new();
 
@@ -450,8 +450,8 @@ pub fn parse_value<'src>(
 #[expect(clippy::too_many_lines)]
 fn parse_value_single_type<'src>(
     value_type: &ValueType<String>,
-    value: &SpannedSegments<'src>,
-) -> Result<Value<SpannedSegments<'src>>, Vec<Rich<'src, char>>> {
+    value: &Segments<'src>,
+) -> Result<Value<Segments<'src>>, Vec<Rich<'src, char>>> {
     // Try the specified value type
     match value_type {
         ValueType::Binary => value_binary::<'_, _, extra::Err<_>>()
@@ -577,7 +577,7 @@ fn parse_value_single_type<'src>(
     }
 }
 
-fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
+fn make_input(segs: Segments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
     let eoi = match (segs.segments.first(), segs.segments.last()) {
         (Some(first), Some(last)) => Span {
             start: first.1.start,
@@ -588,9 +588,7 @@ fn make_input(segs: SpannedSegments<'_>) -> impl Input<'_, Token = char, Span = 
     Stream::from_iter(segs.into_spanned_chars()).map(eoi.into(), |(t, s)| (t, s.into()))
 }
 
-fn make_uppercase_input(
-    segs: SpannedSegments<'_>,
-) -> impl Input<'_, Token = char, Span = SimpleSpan> {
+fn make_uppercase_input(segs: Segments<'_>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
     let eoi = match (segs.segments.first(), segs.segments.last()) {
         (Some(first), Some(last)) => Span {
             start: first.1.start,

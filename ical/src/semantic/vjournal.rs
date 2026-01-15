@@ -14,7 +14,7 @@ use crate::property::{
     XNameProperty,
 };
 use crate::semantic::SemanticError;
-use crate::string_storage::{SpannedSegments, StringStorage};
+use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::TypedComponent;
 
@@ -59,7 +59,7 @@ pub struct VJournal<S: StringStorage> {
 
 /// Parse a `TypedComponent` into a `VJournal`
 #[expect(clippy::too_many_lines)]
-impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
+impl<'src> TryFrom<TypedComponent<'src>> for VJournal<Segments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
@@ -212,7 +212,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
     }
 }
 
-impl VJournal<SpannedSegments<'_>> {
+impl VJournal<Segments<'_>> {
     /// Convert borrowed data to owned data
     pub fn to_owned(&self) -> VJournal<String> {
         VJournal {
@@ -300,10 +300,10 @@ pub struct JournalStatus<S: StringStorage> {
     pub retained_parameters: Vec<Parameter<S>>,
 }
 
-impl<'src> TryFrom<Status<SpannedSegments<'src>>> for JournalStatus<SpannedSegments<'src>> {
+impl<'src> TryFrom<Status<Segments<'src>>> for JournalStatus<Segments<'src>> {
     type Error = SemanticError<'src>;
 
-    fn try_from(property: Status<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
+    fn try_from(property: Status<Segments<'src>>) -> Result<Self, Self::Error> {
         let Ok(value) = property.value.try_into() else {
             return Err(SemanticError::InvalidValue {
                 property: PropertyKind::Status,
@@ -320,7 +320,7 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for JournalStatus<SpannedSegme
     }
 }
 
-impl JournalStatus<SpannedSegments<'_>> {
+impl JournalStatus<Segments<'_>> {
     /// Convert borrowed data to owned data
     pub fn to_owned(&self) -> JournalStatus<String> {
         JournalStatus {

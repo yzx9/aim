@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::parameter::{Parameter, ParameterKind};
-use crate::string_storage::SpannedSegments;
+use crate::string_storage::Segments;
 use crate::syntax::{RawParameter, RawParameterValue};
 use crate::typed::TypedError;
 
-pub type ParseResult<'src> = Result<Parameter<SpannedSegments<'src>>, Vec<TypedError<'src>>>;
+pub type ParseResult<'src> = Result<Parameter<Segments<'src>>, Vec<TypedError<'src>>>;
 
 /// Parse a single value from a parameter.
 ///
@@ -21,9 +21,9 @@ pub type ParseResult<'src> = Result<Parameter<SpannedSegments<'src>>, Vec<TypedE
 /// This should never happen in practice as the length check ensures there is
 /// exactly one value.
 pub fn parse_single<'src>(
-    param: &mut RawParameter<SpannedSegments<'src>>,
-    kind: ParameterKind<SpannedSegments<'src>>,
-) -> Result<RawParameterValue<SpannedSegments<'src>>, Vec<TypedError<'src>>> {
+    param: &mut RawParameter<Segments<'src>>,
+    kind: ParameterKind<Segments<'src>>,
+) -> Result<RawParameterValue<Segments<'src>>, Vec<TypedError<'src>>> {
     match param.values.len() {
         1 => Ok(param.values.pop().unwrap()),
         _ => Err(vec![TypedError::ParameterMultipleValuesDisallowed {
@@ -41,9 +41,9 @@ pub fn parse_single<'src>(
 /// - The parameter does not have exactly one value
 /// - The value is not quoted
 pub fn parse_single_quoted<'src>(
-    param: &mut RawParameter<SpannedSegments<'src>>,
-    kind: ParameterKind<SpannedSegments<'src>>,
-) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
+    param: &mut RawParameter<Segments<'src>>,
+    kind: ParameterKind<Segments<'src>>,
+) -> Result<Segments<'src>, Vec<TypedError<'src>>> {
     match param.values.len() {
         1 => {
             let v = param.values.pop().unwrap(); // SAFETY: length check
@@ -72,9 +72,9 @@ pub fn parse_single_quoted<'src>(
 /// - The parameter does not have exactly one value
 /// - The value is quoted
 pub fn parse_single_not_quoted<'src>(
-    param: &mut RawParameter<SpannedSegments<'src>>,
-    kind: ParameterKind<SpannedSegments<'src>>,
-) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
+    param: &mut RawParameter<Segments<'src>>,
+    kind: ParameterKind<Segments<'src>>,
+) -> Result<Segments<'src>, Vec<TypedError<'src>>> {
     match param.values.len() {
         1 => {
             let v = param.values.pop().unwrap();
@@ -101,9 +101,9 @@ pub fn parse_single_not_quoted<'src>(
 ///
 /// Returns an error if any of the values are not quoted.
 pub fn parse_multiple_quoted<'src>(
-    param: RawParameter<SpannedSegments<'src>>,
-    kind: &ParameterKind<SpannedSegments<'src>>,
-) -> Result<Vec<SpannedSegments<'src>>, Vec<TypedError<'src>>> {
+    param: RawParameter<Segments<'src>>,
+    kind: &ParameterKind<Segments<'src>>,
+) -> Result<Vec<Segments<'src>>, Vec<TypedError<'src>>> {
     let mut values = Vec::with_capacity(param.values.len());
     let mut errors = Vec::new();
     for v in param.values {
@@ -151,10 +151,10 @@ macro_rules! define_param_enum {
             )*
         }
 
-        impl<'src> TryFrom<SpannedSegments<'src>> for $name {
-            type Error = SpannedSegments<'src>;
+        impl<'src> TryFrom<Segments<'src>> for $name {
+            type Error = Segments<'src>;
 
-            fn try_from(segs: SpannedSegments<'src>) -> Result<Self, Self::Error> {
+            fn try_from(segs: Segments<'src>) -> Result<Self, Self::Error> {
                 $(
                     if segs.eq_str_ignore_ascii_case($kw) {
                         return Ok(Self::$variant);
@@ -174,7 +174,7 @@ macro_rules! define_param_enum {
             }
         }
 
-        $pvis fn $parse_fn(mut param: crate::syntax::RawParameter<SpannedSegments<'_>>) -> crate::parameter::util::ParseResult<'_> {
+        $pvis fn $parse_fn(mut param: crate::syntax::RawParameter<Segments<'_>>) -> crate::parameter::util::ParseResult<'_> {
             parse_single_not_quoted(&mut param, crate::parameter::ParameterKind::$name).and_then(|value| {
                 match $name::try_from(value) {
                     Ok(value) => Ok(crate::parameter::Parameter::$name {
@@ -233,8 +233,8 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        impl<'src> ::core::convert::From<SpannedSegments<'src>> for $name<SpannedSegments<'src>> {
-            fn from(segs: SpannedSegments<'src>) -> Self {
+        impl<'src> ::core::convert::From<Segments<'src>> for $name<Segments<'src>> {
+            fn from(segs: Segments<'src>) -> Self {
                 $(
                     if segs.eq_str_ignore_ascii_case($kw) {
                         return Self::$variant;
@@ -251,7 +251,7 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        impl $name<SpannedSegments<'_>> {
+        impl $name<Segments<'_>> {
             /// Convert borrowed type to owned type
             #[must_use]
             pub fn to_owned(&self) -> $name<String> {
@@ -265,7 +265,7 @@ macro_rules! define_param_enum_with_unknown {
             }
         }
 
-        $pvis fn $parse_fn(mut param: crate::syntax::RawParameter<SpannedSegments<'_>>) -> ParseResult<'_> {
+        $pvis fn $parse_fn(mut param: crate::syntax::RawParameter<Segments<'_>>) -> ParseResult<'_> {
             parse_single_not_quoted(&mut param, crate::parameter::ParameterKind::$name).map(|value| {
                 let enum_value = $name::try_from(value).unwrap(); // Never fails due to XName/Unrecognized variants
                 Parameter::$name {

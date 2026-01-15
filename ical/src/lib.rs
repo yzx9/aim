@@ -57,7 +57,7 @@ pub use crate::semantic::{
     CalendarComponent, EventStatus, ICalendar, JournalStatus, TimeZoneObservance, TodoStatus,
     VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
 };
-pub use crate::string_storage::{SpannedSegments, StringStorage};
+pub use crate::string_storage::{Segments, StringStorage};
 pub use crate::value::{
     RecurrenceFrequency, Value, ValueDate, ValueDateTime, ValueDuration, ValuePeriod,
     ValueRecurrenceRule, ValueText, ValueTime, ValueUtcOffset, WeekDay, WeekDayNum,
