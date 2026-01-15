@@ -26,8 +26,8 @@ use crate::{RecurrenceIdRange, ValueType};
 /// Format all parameters to the formatter.
 ///
 /// This formats multiple parameters, each prefixed with a semicolon.
-pub fn write_parameters<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_parameters<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     parameters: &[Parameter<S>],
 ) -> io::Result<()> {
     for param in parameters {
@@ -39,8 +39,8 @@ pub fn write_parameters<W: Write, S: StringStorage>(
 /// Format all syntax parameters to the formatter.
 ///
 /// This formats multiple syntax parameters (for `x_parameters`), each prefixed with a semicolon.
-pub fn write_syntax_parameters<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_syntax_parameters<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     parameters: &[RawParameter<S>],
 ) -> io::Result<()> {
     for param in parameters {
@@ -50,8 +50,8 @@ pub fn write_syntax_parameters<W: Write, S: StringStorage>(
 }
 
 /// Format a single parameter (with semicolon prefix).
-fn write_parameter<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_parameter<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     param: &Parameter<S>,
 ) -> io::Result<()> {
     match param {
@@ -88,8 +88,8 @@ fn write_parameter<W: Write, S: StringStorage>(
 // Each function writes the parameter with semicolon prefix: ";NAME=value"
 
 /// Write an ALTREP parameter
-pub fn write_param_altrep<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_altrep<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &S,
 ) -> io::Result<()> {
     let quoted = quote_if_needed(value.to_string());
@@ -97,8 +97,8 @@ pub fn write_param_altrep<W: Write, S: StringStorage>(
 }
 
 /// Write a CN parameter
-pub fn write_param_cn<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_cn<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &S,
 ) -> io::Result<()> {
     let quoted = quote_if_needed(value.to_string());
@@ -106,16 +106,16 @@ pub fn write_param_cn<W: Write, S: StringStorage>(
 }
 
 /// Write a CUTYPE parameter
-pub fn write_param_cutype<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_cutype<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &CalendarUserType<S>,
 ) -> io::Result<()> {
     write!(f, ";{KW_CUTYPE}={value}")
 }
 
 /// Write DELEGATED-FROM parameter (multi-value, quoted)
-pub fn write_param_delegated_from<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_delegated_from<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     values: &[S],
 ) -> io::Result<()> {
     write!(f, ";{KW_DELEGATED_FROM}=")?;
@@ -123,8 +123,8 @@ pub fn write_param_delegated_from<W: Write, S: StringStorage>(
 }
 
 /// Write DELEGATED-TO parameter (multi-value, quoted)
-pub fn write_param_delegated_to<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_delegated_to<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     values: &[S],
 ) -> io::Result<()> {
     write!(f, ";{KW_DELEGATED_TO}=")?;
@@ -132,8 +132,8 @@ pub fn write_param_delegated_to<W: Write, S: StringStorage>(
 }
 
 /// Write a DIR parameter
-pub fn write_param_dir<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_dir<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &S,
 ) -> io::Result<()> {
     let quoted = quote_if_needed(value.to_string());
@@ -141,13 +141,13 @@ pub fn write_param_dir<W: Write, S: StringStorage>(
 }
 
 /// Write an ENCODING parameter
-pub fn write_param_encoding<W: Write>(f: &mut Formatter<W>, value: Encoding) -> io::Result<()> {
+pub fn write_param_encoding(f: &mut Formatter<impl Write>, value: Encoding) -> io::Result<()> {
     write!(f, ";{KW_ENCODING}={value}")
 }
 
 /// Write an FMTTYPE parameter
-pub fn write_param_fmttype<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_fmttype<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &S,
 ) -> io::Result<()> {
     let quoted = quote_if_needed(value.to_string());
@@ -155,16 +155,16 @@ pub fn write_param_fmttype<W: Write, S: StringStorage>(
 }
 
 /// Write an FBTYPE parameter
-pub fn write_param_fbtype<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_fbtype<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &FreeBusyType<S>,
 ) -> io::Result<()> {
     write!(f, ";{KW_FBTYPE}={value}")
 }
 
 /// Write a LANGUAGE parameter
-pub fn write_param_language<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_language<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &S,
 ) -> io::Result<()> {
     let quoted = quote_if_needed(value.to_string());
@@ -172,8 +172,8 @@ pub fn write_param_language<W: Write, S: StringStorage>(
 }
 
 /// Write a MEMBER parameter (multi-value, quoted)
-pub fn write_param_member<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_member<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     values: &[S],
 ) -> io::Result<()> {
     write!(f, ";{KW_MEMBER}=")?;
@@ -181,48 +181,48 @@ pub fn write_param_member<W: Write, S: StringStorage>(
 }
 
 /// Write a PARTSTAT parameter
-pub fn write_param_partstat<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_partstat<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &ParticipationStatus<S>,
 ) -> io::Result<()> {
     write!(f, ";{KW_PARTSTAT}={value}")
 }
 
 /// Write a RANGE parameter
-pub fn write_param_range<W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_param_range(
+    f: &mut Formatter<impl Write>,
     value: RecurrenceIdRange,
 ) -> io::Result<()> {
     write!(f, ";{KW_RANGE}={value}")
 }
 
 /// Write a RELATED parameter
-pub fn write_param_related<W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_param_related(
+    f: &mut Formatter<impl Write>,
     value: AlarmTriggerRelationship,
 ) -> io::Result<()> {
     write!(f, ";{KW_RELATED}={value}")
 }
 
 /// Write a RELTYPE parameter
-pub fn write_param_reltype<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_reltype<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &RelationshipType<S>,
 ) -> io::Result<()> {
     write!(f, ";{KW_RELTYPE}={value}")
 }
 
 /// Write a ROLE parameter
-pub fn write_param_role<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_role<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &ParticipationRole<S>,
 ) -> io::Result<()> {
     write!(f, ";{KW_ROLE}={value}")
 }
 
 /// Write a SENT-BY parameter
-pub fn write_param_sent_by<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_sent_by<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &S,
 ) -> io::Result<()> {
     let quoted = quote_if_needed(value.to_string());
@@ -230,14 +230,14 @@ pub fn write_param_sent_by<W: Write, S: StringStorage>(
 }
 
 /// Write an RSVP parameter
-pub fn write_param_rsvp<W: Write>(f: &mut Formatter<W>, value: bool) -> io::Result<()> {
+pub fn write_param_rsvp(f: &mut Formatter<impl Write>, value: bool) -> io::Result<()> {
     let v = if value { KW_RSVP_TRUE } else { KW_RSVP_FALSE };
     write!(f, ";{KW_RSVP}={v}")
 }
 
 /// Write a TZID parameter
-pub fn write_param_tzid<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_tzid<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &S,
 ) -> io::Result<()> {
     let quoted = quote_if_needed(value.to_string());
@@ -245,31 +245,31 @@ pub fn write_param_tzid<W: Write, S: StringStorage>(
 }
 
 /// Write a VALUE parameter
-pub fn write_param_value<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_value<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &ValueType<S>,
 ) -> io::Result<()> {
     write!(f, ";{KW_VALUE}={value}")
 }
 
 /// Write an X-NAME parameter
-pub fn write_param_xname<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_xname<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     syntax: &RawParameter<S>,
 ) -> io::Result<()> {
     write_param_syntax(f, syntax)
 }
 
 /// Write an unrecognized parameter
-pub fn write_param_unrecognized<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_param_unrecognized<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     raw: &RawParameter<S>,
 ) -> io::Result<()> {
     write_param_syntax(f, raw)
 }
 
-fn write_param_syntax<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_param_syntax<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     raw: &RawParameter<S>,
 ) -> io::Result<()> {
     // Unrecognized: name=value
@@ -313,8 +313,8 @@ fn quote_if_needed<S: AsRef<str>>(s: S) -> String {
 }
 
 /// Format a quoted list for multi-value parameters (MEMBER, DELEGATED-TO, DELEGATED-FROM)
-fn format_quoted_list<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn format_quoted_list<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     values: &[S],
 ) -> io::Result<()> {
     for (i, value) in values.iter().enumerate() {

@@ -25,8 +25,8 @@ use crate::value::{
 /// Format a value to the formatter.
 ///
 /// This is the main entry point for formatting values.
-pub fn write_value<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_value<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     value: &Value<S>,
 ) -> io::Result<()> {
     match value {
@@ -124,19 +124,19 @@ pub fn write_value<W: Write, S: StringStorage>(
 }
 
 /// Format a date value as `YYYYMMDD`.
-pub fn write_date<W: Write>(f: &mut Formatter<W>, date: ValueDate) -> io::Result<()> {
+pub fn write_date(f: &mut Formatter<impl Write>, date: ValueDate) -> io::Result<()> {
     write!(f, "{:04}{:02}{:02}", date.year, date.month, date.day)
 }
 
 /// Format a date-time value as `YYYYMMDDTHHMMSS[Z]`.
-fn write_date_time<W: Write>(f: &mut Formatter<W>, datetime: &ValueDateTime) -> io::Result<()> {
+fn write_date_time(f: &mut Formatter<impl Write>, datetime: &ValueDateTime) -> io::Result<()> {
     write_date(f, datetime.date)?;
     write!(f, "T")?;
     write_time(f, &datetime.time)
 }
 
 /// Format a duration value as `P[n]DT[n]H[n]M[n]S` (RFC 5545 Section 3.3.6).
-pub fn write_duration<W: Write>(f: &mut Formatter<W>, duration: &ValueDuration) -> io::Result<()> {
+pub fn write_duration(f: &mut Formatter<impl Write>, duration: &ValueDuration) -> io::Result<()> {
     // Get positive flag and write sign
     match duration {
         ValueDuration::Week { positive, .. } | ValueDuration::DateTime { positive, .. }
@@ -185,7 +185,7 @@ pub fn write_duration<W: Write>(f: &mut Formatter<W>, duration: &ValueDuration) 
 }
 
 /// Format a period value as `start/end` or `start/duration`.
-pub fn write_period<W: Write>(f: &mut Formatter<W>, period: &ValuePeriod) -> io::Result<()> {
+pub fn write_period(f: &mut Formatter<impl Write>, period: &ValuePeriod) -> io::Result<()> {
     // Format: start/end OR start/duration
     match period {
         ValuePeriod::Explicit { start, end } => {
@@ -203,7 +203,7 @@ pub fn write_period<W: Write>(f: &mut Formatter<W>, period: &ValuePeriod) -> io:
 }
 
 /// Format a time value as `HHMMSS[Z]`.
-pub fn write_time<W: Write>(w: &mut W, time: &ValueTime) -> io::Result<()> {
+pub fn write_time(w: &mut impl Write, time: &ValueTime) -> io::Result<()> {
     let utc = if time.utc { "Z" } else { "" };
     write!(
         w,
@@ -213,7 +213,7 @@ pub fn write_time<W: Write>(w: &mut W, time: &ValueTime) -> io::Result<()> {
 }
 
 /// Format a UTC offset value as `+HHMM` or `-HHMM` (with optional seconds).
-pub fn write_utc_offset<W: Write>(f: &mut Formatter<W>, offset: ValueUtcOffset) -> io::Result<()> {
+pub fn write_utc_offset(f: &mut Formatter<impl Write>, offset: ValueUtcOffset) -> io::Result<()> {
     let sign = if offset.positive { "+" } else { "-" };
     write!(f, "{sign}{:02}{:02}", offset.hour, offset.minute)?;
     if let Some(second) = offset.second {
@@ -223,8 +223,8 @@ pub fn write_utc_offset<W: Write>(f: &mut Formatter<W>, offset: ValueUtcOffset) 
 }
 
 /// Format a recurrence rule value (RFC 5545 Section 3.3.10).
-pub fn write_recurrence_rule<W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_recurrence_rule(
+    f: &mut Formatter<impl Write>,
     rule: &ValueRecurrenceRule,
 ) -> io::Result<()> {
     // Format: FREQ=DAILY;INTERVAL=1;...
@@ -400,7 +400,7 @@ pub fn format_value_text<S: StringStorage>(text: &ValueText<S>) -> String {
 mod tests {
     use super::*;
 
-    use crate::formatter::Formatter;
+    use crate::formatter::{FormatOptions, Formatter};
 
     #[test]
     fn test_format_date() {
@@ -410,7 +410,7 @@ mod tests {
             day: 14,
         };
         let mut buffer = Vec::new();
-        let mut f = Formatter::new(&mut buffer);
+        let mut f = Formatter::new(&mut buffer, FormatOptions::default());
         write_date(&mut f, date).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "19970714");
     }
@@ -437,7 +437,7 @@ mod tests {
             second: None,
         };
         let mut buffer = Vec::new();
-        let mut f = Formatter::new(&mut buffer);
+        let mut f = Formatter::new(&mut buffer, FormatOptions::default());
         write_utc_offset(&mut f, offset).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "-0500");
 
@@ -448,7 +448,7 @@ mod tests {
             second: None,
         };
         let mut buffer = Vec::new();
-        let mut f = Formatter::new(&mut buffer);
+        let mut f = Formatter::new(&mut buffer, FormatOptions::default());
         write_utc_offset(&mut f, offset).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "+0100");
     }

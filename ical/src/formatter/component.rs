@@ -36,8 +36,8 @@ use crate::semantic::{
 use crate::string_storage::StringStorage;
 
 /// Format an `ICalendar` component.
-pub fn write_icalendar<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_icalendar<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     calendar: &ICalendar<S>,
 ) -> io::Result<()> {
     with_block(f, KW_VCALENDAR, |f| {
@@ -75,8 +75,8 @@ pub fn write_icalendar<W: Write, S: StringStorage>(
 /// Format a calendar component (handles all component types).
 ///
 /// This handles `Property::XName` and `Property::Unrecognized` variants.
-fn write_calendar_component<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_calendar_component<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     component: &CalendarComponent<S>,
 ) -> io::Result<()> {
     match component {
@@ -91,8 +91,8 @@ fn write_calendar_component<W: Write, S: StringStorage>(
 }
 
 /// Format a `VEvent` component.
-fn write_vevent<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_vevent<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     event: &VEvent<S>,
 ) -> io::Result<()> {
     with_block(f, KW_VEVENT, |f| {
@@ -188,10 +188,7 @@ fn write_vevent<W: Write, S: StringStorage>(
 }
 
 /// Format a `VTodo` component.
-fn write_vtodo<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
-    todo: &VTodo<S>,
-) -> io::Result<()> {
+fn write_vtodo<S: StringStorage>(f: &mut Formatter<impl Write>, todo: &VTodo<S>) -> io::Result<()> {
     with_block(f, KW_VTODO, |f| {
         // Required properties
         write_prop_uid(f, &todo.uid)?;
@@ -290,8 +287,8 @@ fn write_vtodo<W: Write, S: StringStorage>(
 }
 
 /// Format a `VJournal` component.
-fn write_vjournal<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_vjournal<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     journal: &VJournal<S>,
 ) -> io::Result<()> {
     with_block(f, KW_VJOURNAL, |f| {
@@ -358,8 +355,8 @@ fn write_vjournal<W: Write, S: StringStorage>(
 }
 
 /// Format a `VFreeBusy` component.
-fn write_vfreebusy<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_vfreebusy<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     freebusy: &VFreeBusy<S>,
 ) -> io::Result<()> {
     with_block(f, KW_VFREEBUSY, |f| {
@@ -448,8 +445,8 @@ fn write_vfreebusy<W: Write, S: StringStorage>(
 }
 
 /// Format a `VTimeZone` component.
-fn write_vtimezone<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_vtimezone<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     timezone: &VTimeZone<S>,
 ) -> io::Result<()> {
     with_block(f, KW_VTIMEZONE, |f| {
@@ -489,8 +486,8 @@ fn write_vtimezone<W: Write, S: StringStorage>(
 }
 
 /// Format a timezone observance (STANDARD or DAYLIGHT) component.
-fn format_tz_observance<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn format_tz_observance<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     name: &str,
     observance: &TimeZoneObservance<S>,
 ) -> io::Result<()> {
@@ -525,8 +522,8 @@ fn format_tz_observance<W: Write, S: StringStorage>(
 }
 
 /// Format a `VAlarm` component.
-fn write_valarm<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_valarm<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     alarm: &VAlarm<S>,
 ) -> io::Result<()> {
     with_block(f, KW_VALARM, |f| {
@@ -577,8 +574,8 @@ fn write_valarm<W: Write, S: StringStorage>(
 }
 
 /// Format a custom component (x-comp).
-fn write_custom_component<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_custom_component<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     component: &CustomComponent<S>,
 ) -> io::Result<()> {
     with_block(f, &component.name, |f| {

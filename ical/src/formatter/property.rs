@@ -49,8 +49,8 @@ use crate::value::ValueText;
 /// Format a single property.
 ///
 /// This is the main entry point for formatting properties.
-pub fn write_property<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_property<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     property: &Property<S>,
 ) -> io::Result<()> {
     match property {
@@ -138,8 +138,8 @@ pub fn write_property<W: Write, S: StringStorage>(
 // ============================================================================
 
 /// Write an `RRule` property.
-pub fn write_prop_rrule<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_rrule<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     rrule: &RRule<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_RRULE}")?;
@@ -151,8 +151,8 @@ pub fn write_prop_rrule<S: StringStorage, W: Write>(
 }
 
 /// Write a Duration property.
-pub fn write_prop_duration<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_duration<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     duration: &Duration<S>,
 ) -> io::Result<()> {
     // Write: DURATION;params:value
@@ -165,8 +165,8 @@ pub fn write_prop_duration<S: StringStorage, W: Write>(
 }
 
 /// Write an `RDate` property (can contain DATE, DATE-TIME, or PERIOD values).
-pub fn write_prop_rdate<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_rdate<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     rdate: &RDate<S>,
 ) -> io::Result<()> {
     // Write property name
@@ -198,8 +198,8 @@ pub fn write_prop_rdate<S: StringStorage, W: Write>(
 }
 
 /// Write an Organizer property.
-pub fn write_prop_organizer<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_organizer<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     organizer: &Organizer<S>,
 ) -> io::Result<()> {
     // Write property name
@@ -229,8 +229,8 @@ pub fn write_prop_organizer<S: StringStorage, W: Write>(
 }
 
 /// Write an Attach property.
-pub fn write_prop_attach<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_attach<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     attach: &Attachment<S>,
 ) -> io::Result<()> {
     // Write property name
@@ -258,8 +258,8 @@ pub fn write_prop_attach<S: StringStorage, W: Write>(
 }
 
 /// Write a Categories property.
-pub fn write_prop_categories<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_categories<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     categories: &Categories<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_CATEGORIES}")?;
@@ -283,8 +283,8 @@ pub fn write_prop_categories<S: StringStorage, W: Write>(
 }
 
 /// Write a Resources property.
-pub fn write_prop_resources<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_resources<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     resources: &Resources<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_RESOURCES}")?;
@@ -313,8 +313,8 @@ pub fn write_prop_resources<S: StringStorage, W: Write>(
 }
 
 /// Write a `RelatedTo` property.
-pub fn write_prop_related_to<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_related_to<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     related_to: &RelatedTo<S>,
 ) -> io::Result<()> {
     // Write property name
@@ -333,8 +333,8 @@ pub fn write_prop_related_to<S: StringStorage, W: Write>(
 }
 
 /// Write a `Geo` property.
-pub fn write_prop_geo<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_geo<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     geo: &Geo<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_GEO}")?;
@@ -345,8 +345,8 @@ pub fn write_prop_geo<S: StringStorage, W: Write>(
 }
 
 /// Write a `FreeBusy` property.
-pub fn write_prop_freebusy<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_freebusy<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     freebusy: &FreeBusy<S>,
 ) -> io::Result<()> {
     // Write property name
@@ -371,8 +371,8 @@ pub fn write_prop_freebusy<S: StringStorage, W: Write>(
 }
 
 /// Write a `CalScale` property.
-pub fn write_prop_calscale<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_calscale<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &CalendarScale<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_CALSCALE}:{}", prop.value)?;
@@ -380,8 +380,8 @@ pub fn write_prop_calscale<S: StringStorage, W: Write>(
 }
 
 /// Write a `Method` property.
-pub fn write_prop_method<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_method<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Method<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_METHOD}:{}", prop.value)?;
@@ -389,8 +389,8 @@ pub fn write_prop_method<S: StringStorage, W: Write>(
 }
 
 /// Write a `ProdId` property.
-pub fn write_prop_prodid<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_prodid<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &ProductId<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_PRODID}:{}", prop.value)?;
@@ -398,8 +398,8 @@ pub fn write_prop_prodid<S: StringStorage, W: Write>(
 }
 
 /// Write a `Version` property.
-pub fn write_prop_version<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_version<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Version<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_VERSION}:{}", prop.value)?;
@@ -407,8 +407,8 @@ pub fn write_prop_version<S: StringStorage, W: Write>(
 }
 
 /// Write a `Class` property.
-pub fn write_prop_class<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_class<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Classification<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_CLASS}:{}", prop.value)?;
@@ -416,8 +416,8 @@ pub fn write_prop_class<S: StringStorage, W: Write>(
 }
 
 /// Write a `TzId` property.
-pub fn write_prop_tzid<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_tzid<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &TzId<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_TZID}:{}", prop.inner.content)?;
@@ -425,8 +425,8 @@ pub fn write_prop_tzid<S: StringStorage, W: Write>(
 }
 
 /// Write a `Uid` property.
-pub fn write_prop_uid<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_uid<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Uid<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_UID}:{}", prop.inner.content)?;
@@ -434,8 +434,8 @@ pub fn write_prop_uid<S: StringStorage, W: Write>(
 }
 
 /// Write a `Summary` property.
-pub fn write_prop_summary<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_summary<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Summary<S>,
 ) -> io::Result<()> {
     write_text_with_params(
@@ -451,8 +451,8 @@ pub fn write_prop_summary<S: StringStorage, W: Write>(
 }
 
 /// Write a `Description` property.
-pub fn write_prop_description<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_description<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Description<S>,
 ) -> io::Result<()> {
     write_text_with_params(
@@ -468,8 +468,8 @@ pub fn write_prop_description<S: StringStorage, W: Write>(
 }
 
 /// Write a `Location` property.
-pub fn write_prop_location<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_location<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Location<S>,
 ) -> io::Result<()> {
     write_text_with_params(
@@ -485,8 +485,8 @@ pub fn write_prop_location<S: StringStorage, W: Write>(
 }
 
 /// Write a `Comment` property.
-pub fn write_prop_comment<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_comment<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Comment<S>,
 ) -> io::Result<()> {
     write_text_with_language(
@@ -501,8 +501,8 @@ pub fn write_prop_comment<S: StringStorage, W: Write>(
 }
 
 /// Write a `TzName` property.
-pub fn write_prop_tzname<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_tzname<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &TzName<S>,
 ) -> io::Result<()> {
     write_text_with_language(
@@ -517,8 +517,8 @@ pub fn write_prop_tzname<S: StringStorage, W: Write>(
 }
 
 /// Write a `DtStart` property.
-pub fn write_prop_dtstart<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_dtstart<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &DtStart<S>,
 ) -> io::Result<()> {
     write_datetime(f, KW_DTSTART, &prop.inner)?;
@@ -526,8 +526,8 @@ pub fn write_prop_dtstart<S: StringStorage, W: Write>(
 }
 
 /// Write a `DtEnd` property.
-pub fn write_prop_dtend<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_dtend<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &DtEnd<S>,
 ) -> io::Result<()> {
     write_datetime(f, KW_DTEND, &prop.inner)?;
@@ -535,8 +535,8 @@ pub fn write_prop_dtend<S: StringStorage, W: Write>(
 }
 
 /// Write a `DtStamp` property.
-pub fn write_prop_dtstamp<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_dtstamp<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &DtStamp<S>,
 ) -> io::Result<()> {
     write_datetime(f, KW_DTSTAMP, &prop.inner)?;
@@ -544,8 +544,8 @@ pub fn write_prop_dtstamp<S: StringStorage, W: Write>(
 }
 
 /// Write a `Created` property.
-pub fn write_prop_created<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_created<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Created<S>,
 ) -> io::Result<()> {
     write_datetime(f, KW_CREATED, &prop.inner)?;
@@ -553,8 +553,8 @@ pub fn write_prop_created<S: StringStorage, W: Write>(
 }
 
 /// Write a `LastModified` property.
-pub fn write_prop_last_modified<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_last_modified<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &LastModified<S>,
 ) -> io::Result<()> {
     write_datetime(f, KW_LAST_MODIFIED, &prop.inner)?;
@@ -562,8 +562,8 @@ pub fn write_prop_last_modified<S: StringStorage, W: Write>(
 }
 
 /// Write a `Completed` property.
-pub fn write_prop_completed<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_completed<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Completed<S>,
 ) -> io::Result<()> {
     write_datetime(f, KW_COMPLETED, &prop.inner)?;
@@ -571,8 +571,8 @@ pub fn write_prop_completed<S: StringStorage, W: Write>(
 }
 
 /// Write a `Due` property.
-pub fn write_prop_due<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_due<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Due<S>,
 ) -> io::Result<()> {
     write_datetime(f, KW_DUE, &prop.inner)?;
@@ -580,8 +580,8 @@ pub fn write_prop_due<S: StringStorage, W: Write>(
 }
 
 /// Write a `RecurrenceId` property.
-pub fn write_prop_recurrence_id<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_recurrence_id<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &RecurrenceId<S>,
 ) -> io::Result<()> {
     write_datetime(f, KW_RECURRENCE_ID, &prop.inner)?;
@@ -589,8 +589,8 @@ pub fn write_prop_recurrence_id<S: StringStorage, W: Write>(
 }
 
 /// Write a `Status` property.
-pub fn write_prop_status<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_prop_status<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Status<S>,
 ) -> io::Result<()> {
     write_escaped_text(
@@ -604,8 +604,8 @@ pub fn write_prop_status<W: Write, S: StringStorage>(
 }
 
 /// Write a `Status` property from a `StatusValue` directly.
-pub fn write_prop_status_value<W: Write, T: Into<StatusValue>, S: StringStorage>(
-    f: &mut Formatter<W>,
+pub fn write_prop_status_value<T: Into<StatusValue>, S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     status: T,
     x_parameters: &[RawParameter<S>],
     retained_parameters: &[Parameter<S>],
@@ -616,8 +616,8 @@ pub fn write_prop_status_value<W: Write, T: Into<StatusValue>, S: StringStorage>
 }
 
 /// Write a `Transp` property.
-pub fn write_prop_transp<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_transp<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &TimeTransparency<S>,
 ) -> io::Result<()> {
     write_escaped_text(
@@ -631,8 +631,8 @@ pub fn write_prop_transp<S: StringStorage, W: Write>(
 }
 
 /// Write a `Priority` property.
-pub fn write_prop_priority<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_priority<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Priority<S>,
 ) -> io::Result<()> {
     write_integer(
@@ -646,8 +646,8 @@ pub fn write_prop_priority<S: StringStorage, W: Write>(
 }
 
 /// Write a `Sequence` property.
-pub fn write_prop_sequence<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_sequence<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Sequence<S>,
 ) -> io::Result<()> {
     write_integer(
@@ -661,8 +661,8 @@ pub fn write_prop_sequence<S: StringStorage, W: Write>(
 }
 
 /// Write a `PercentComplete` property.
-pub fn write_prop_percent_complete<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_percent_complete<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &PercentComplete<S>,
 ) -> io::Result<()> {
     write_integer(
@@ -676,8 +676,8 @@ pub fn write_prop_percent_complete<S: StringStorage, W: Write>(
 }
 
 /// Write a `Repeat` property.
-pub fn write_prop_repeat<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_repeat<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Repeat<S>,
 ) -> io::Result<()> {
     write_integer(
@@ -691,8 +691,8 @@ pub fn write_prop_repeat<S: StringStorage, W: Write>(
 }
 
 /// Write an `Action` property.
-pub fn write_prop_action<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_action<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Action<S>,
 ) -> io::Result<()> {
     write_escaped_text(
@@ -706,8 +706,8 @@ pub fn write_prop_action<S: StringStorage, W: Write>(
 }
 
 /// Write a `Contact` property.
-pub fn write_prop_contact<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_contact<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Contact<S>,
 ) -> io::Result<()> {
     write_text_with_language(
@@ -722,8 +722,8 @@ pub fn write_prop_contact<S: StringStorage, W: Write>(
 }
 
 /// Write a `RequestStatus` property.
-pub fn write_prop_request_status<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_request_status<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &RequestStatus<S>,
 ) -> io::Result<()> {
     write_text_with_language(
@@ -738,8 +738,8 @@ pub fn write_prop_request_status<S: StringStorage, W: Write>(
 }
 
 /// Write a `Trigger` property.
-pub fn write_prop_trigger<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_trigger<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Trigger<S>,
 ) -> io::Result<()> {
     // Write property name
@@ -764,8 +764,8 @@ pub fn write_prop_trigger<S: StringStorage, W: Write>(
 }
 
 /// Write a `Url` property.
-pub fn write_prop_url<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_url<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Url<S>,
 ) -> io::Result<()> {
     write_uri(f, KW_URL, prop)?;
@@ -773,8 +773,8 @@ pub fn write_prop_url<S: StringStorage, W: Write>(
 }
 
 /// Write a `TzUrl` property.
-pub fn write_prop_tz_url<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_tz_url<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &TzUrl<S>,
 ) -> io::Result<()> {
     write_uri(f, KW_TZURL, prop)?;
@@ -782,8 +782,8 @@ pub fn write_prop_tz_url<S: StringStorage, W: Write>(
 }
 
 /// Write an `ExDate` property.
-pub fn write_prop_ex_date<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_ex_date<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &ExDate<S>,
 ) -> io::Result<()> {
     // Write property name
@@ -814,8 +814,8 @@ pub fn write_prop_ex_date<S: StringStorage, W: Write>(
 }
 
 /// Write an `Attendee` property.
-pub fn write_prop_attendee<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_attendee<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &Attendee<S>,
 ) -> io::Result<()> {
     // Write property name
@@ -860,8 +860,8 @@ pub fn write_prop_attendee<S: StringStorage, W: Write>(
 }
 
 /// Write a `TzOffsetFrom` property.
-pub fn write_prop_tz_offset_from<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_tz_offset_from<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &TzOffsetFrom<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_TZOFFSETFROM}")?;
@@ -873,8 +873,8 @@ pub fn write_prop_tz_offset_from<S: StringStorage, W: Write>(
 }
 
 /// Write a `TzOffsetTo` property.
-pub fn write_prop_tz_offset_to<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_tz_offset_to<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &TzOffsetTo<S>,
 ) -> io::Result<()> {
     write!(f, "{KW_TZOFFSETTO}")?;
@@ -885,8 +885,8 @@ pub fn write_prop_tz_offset_to<S: StringStorage, W: Write>(
     f.writeln()
 }
 
-pub fn write_prop_xname<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_xname<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &XNameProperty<S>,
 ) -> io::Result<()> {
     write!(f, "{}", prop.name)?;
@@ -896,8 +896,8 @@ pub fn write_prop_xname<S: StringStorage, W: Write>(
     f.writeln()
 }
 
-pub fn write_prop_unrecognized<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+pub fn write_prop_unrecognized<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     prop: &UnrecognizedProperty<S>,
 ) -> io::Result<()> {
     write!(f, "{}", prop.name)?;
@@ -914,8 +914,8 @@ pub fn write_prop_unrecognized<S: StringStorage, W: Write>(
 /// Write a text property with parameters (Text type).
 ///
 /// This handles properties like Summary, Description, Location, etc.
-fn write_text_with_params<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+fn write_text_with_params<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     name: &str,
     content: &ValueText<S>,
     language: Option<&S>,
@@ -947,8 +947,8 @@ fn write_text_with_params<S: StringStorage, W: Write>(
 /// Write a text property.
 ///
 /// This is a generalized version for any Display content, and assumes no special escaping is needed.
-fn write_escaped_text<W: Write, D: Display, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_escaped_text<D: Display, S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     name: &str,
     content: &D,
     x_params: &[RawParameter<S>],
@@ -968,8 +968,8 @@ fn write_escaped_text<W: Write, D: Display, S: StringStorage>(
 /// Write a text property with LANGUAGE parameter only for `ValueText` content.
 ///
 /// This is a specialized version for `ValueText` that properly escapes special characters.
-fn write_text_with_language<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_text_with_language<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     name: &str,
     content: &ValueText<S>,
     language: Option<&S>,
@@ -993,8 +993,8 @@ fn write_text_with_language<W: Write, S: StringStorage>(
 }
 
 /// Write a URI property (`Url` or `TzUrl`).
-fn write_uri<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+fn write_uri<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     name: &str,
     prop: &UriProperty<S>,
 ) -> io::Result<()> {
@@ -1005,8 +1005,8 @@ fn write_uri<S: StringStorage, W: Write>(
 }
 
 /// Write an integer property.
-fn write_integer<W: Write, D: Display, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_integer<D: Display, S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     name: &str,
     value: D,
     x_params: &[RawParameter<S>],
@@ -1019,8 +1019,8 @@ fn write_integer<W: Write, D: Display, S: StringStorage>(
 }
 
 /// Write a `DateTime` property.
-fn write_datetime<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_datetime<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     name: &str,
     datetime: &DateTime<S>,
 ) -> io::Result<()> {
@@ -1059,8 +1059,8 @@ fn write_datetime<W: Write, S: StringStorage>(
 }
 
 /// Write a `DateTime` value (without property name or params).
-fn write_datetime_value<W: Write, S: StringStorage>(
-    f: &mut Formatter<W>,
+fn write_datetime_value<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     datetime: &DateTime<S>,
 ) -> io::Result<()> {
     match datetime {
@@ -1081,7 +1081,7 @@ fn write_datetime_value<W: Write, S: StringStorage>(
 }
 
 /// Format a `property::datetime::Time` value as `HHMMSS[Z]`.
-fn write_time<W: Write>(f: &mut Formatter<W>, time: &Time, utc: bool) -> io::Result<()> {
+fn write_time(f: &mut Formatter<impl Write>, time: &Time, utc: bool) -> io::Result<()> {
     let utc = if utc { "Z" } else { "" };
     write!(
         f,
@@ -1091,8 +1091,8 @@ fn write_time<W: Write>(f: &mut Formatter<W>, time: &Time, utc: bool) -> io::Res
 }
 
 /// Format a property Period value as date-time/date-time or date-time/duration.
-fn write_period<S: StringStorage, W: Write>(
-    f: &mut Formatter<W>,
+fn write_period<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
     period: &Period<S>,
 ) -> io::Result<()> {
     match period {

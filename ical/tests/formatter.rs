@@ -4,7 +4,8 @@
 
 //! Integration tests for the iCalendar formatter.
 
-use aimcal_ical::{formatter::format, parse};
+use aimcal_ical::formatter::{FormatOptions, format};
+use aimcal_ical::parse;
 
 #[test]
 fn test_format_simple_event() {
@@ -325,4 +326,116 @@ END:VCALENDAR\r\n";
     // Check that REQUEST-STATUS with LANGUAGE parameter is formatted
     // Semicolons in text values are escaped as \; per RFC 5545
     assert!(formatted.contains("REQUEST-STATUS;LANGUAGE=en:2.0\\;Success"));
+}
+
+#[test]
+fn test_line_folding_long_description() {
+    let input = "BEGIN:VCALENDAR\r\n\
+VERSION:2.0\r\n\
+PRODID:test\r\n\
+BEGIN:VEVENT\r\n\
+UID:test@example.com\r\n\
+DTSTAMP:20250110T120000Z\r\n\
+DTSTART:20250110T140000Z\r\n\
+DTEND:20250110T150000Z\r\n\
+SUMMARY:Test Event\r\n\
+END:VEVENT\r\n\
+END:VCALENDAR\r\n";
+
+    let calendars = parse(input).unwrap();
+    let calendar = &calendars[0];
+
+    // Format with folding disabled
+    let options_no_fold = FormatOptions::default().folding(None);
+    let formatted_no_fold = options_no_fold.write_to_string(calendar).unwrap();
+
+    // Format with folding enabled (RFC 5545 standard)
+    let options_fold = FormatOptions::default().folding(Some(75));
+    let formatted_fold = options_fold.write_to_string(calendar).unwrap();
+
+    // Both should produce valid iCalendar
+    assert!(formatted_no_fold.contains("BEGIN:VCALENDAR"));
+    assert!(formatted_fold.contains("BEGIN:VCALENDAR"));
+}
+
+#[test]
+fn test_line_folding_disabled() {
+    let input = "BEGIN:VCALENDAR\r\n\
+VERSION:2.0\r\n\
+PRODID:test\r\n\
+BEGIN:VEVENT\r\n\
+UID:test@example.com\r\n\
+DTSTAMP:20250110T120000Z\r\n\
+DTSTART:20250110T140000Z\r\n\
+DTEND:20250110T150000Z\r\n\
+SUMMARY:Test Event\r\n\
+END:VEVENT\r\n\
+END:VCALENDAR\r\n";
+
+    let calendars = parse(input).unwrap();
+    let calendar = &calendars[0];
+
+    // Test with folding disabled
+    let options = FormatOptions::default().folding(None);
+    let formatted = options.write_to_string(calendar).unwrap();
+
+    // Verify it produces valid output
+    assert!(formatted.contains("BEGIN:VCALENDAR"));
+    assert!(formatted.contains("SUMMARY:Test Event"));
+}
+
+#[test]
+fn test_line_folding_round_trip() {
+    // Create a calendar with a long description that would require folding
+    let long_description = "This is a very long description that exceeds the 75 octet limit \
+    and should be folded when formatted with folding enabled according to RFC 5545.";
+
+    let input = format!(
+        "BEGIN:VCALENDAR\r\n\
+VERSION:2.0\r\n\
+PRODID:test\r\n\
+BEGIN:VEVENT\r\n\
+UID:test@example.com\r\n\
+DTSTAMP:20250110T120000Z\r\n\
+DTSTART:20250110T140000Z\r\n\
+DTEND:20250110T150000Z\r\n\
+SUMMARY:Test Event\r\n\
+DESCRIPTION:{long_description}\r\n\
+END:VEVENT\r\n\
+END:VCALENDAR\r\n"
+    );
+
+    // Parse the original
+    let calendars1 = parse(&input).unwrap();
+    let calendar1 = &calendars1[0];
+
+    // Format with folding enabled
+    let options = FormatOptions::default().folding(Some(75));
+    let formatted = options.write_to_string(calendar1).unwrap();
+
+    // Parse the formatted version
+    let calendars2 = parse(&formatted).unwrap();
+    let calendar2 = &calendars2[0];
+
+    // Both should have the same number of components
+    assert_eq!(calendar1.components.len(), calendar2.components.len());
+}
+
+#[test]
+fn test_format_with_options_function() {
+    let input = "BEGIN:VCALENDAR\r\n\
+VERSION:2.0\r\n\
+PRODID:test\r\n\
+END:VCALENDAR\r\n";
+
+    let calendars = parse(input).unwrap();
+    let calendar = &calendars[0];
+
+    // Test default options
+    let options = FormatOptions::default();
+    let formatted = options.write_to_string(calendar).unwrap();
+
+    // Should produce valid iCalendar
+    assert!(formatted.contains("BEGIN:VCALENDAR"));
+    assert!(formatted.contains("VERSION:2.0"));
 }
