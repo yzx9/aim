@@ -18,7 +18,6 @@
 //! - 3.8.1.12: `Summary` - Summary/subject
 
 use std::convert::TryFrom;
-use std::fmt::{self, Display};
 
 use chumsky::{Parser, error::Rich, extra, input::Stream};
 
@@ -65,11 +64,6 @@ pub enum AttachmentValue<S: StringStorage> {
     /// Binary data
     Binary(S),
 }
-
-/// Type alias for borrowed attachment value
-pub type AttachmentValueRef<'src> = AttachmentValue<SpannedSegments<'src>>;
-/// Type alias for owned attachment value
-pub type AttachmentValueOwned = AttachmentValue<String>;
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
@@ -220,12 +214,6 @@ pub struct Classification<S: StringStorage> {
     pub span: S::Span,
 }
 
-impl<S: StringStorage> Display for Classification<S> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(f)
-    }
-}
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Classification<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
@@ -295,17 +283,11 @@ impl Classification<SpannedSegments<'_>> {
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.4)
     pub Comment<S> => Text
-
-    ref   = pub type CommentRef;
-    owned = pub type CommentOwned;
 );
 
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.5)
     pub Description<S> => Text
-
-    ref   = pub type DescriptionRef;
-    owned = pub type DescriptionOwned;
 );
 
 /// Geographic position (RFC 5545 Section 3.8.1.6)
@@ -415,9 +397,6 @@ impl Geo<SpannedSegments<'_>> {
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.7)
     pub Location<S> => Text
-
-    ref   = pub type LocationRef;
-    owned = pub type LocationOwned;
 );
 
 define_prop_value_enum! {
@@ -772,12 +751,6 @@ pub struct Categories<S: StringStorage> {
     pub span: S::Span,
 }
 
-/// Borrowed type alias for [`Categories`]
-pub type CategoriesRef<'src> = Categories<SpannedSegments<'src>>;
-
-/// Owned type alias for [`Categories`]
-pub type CategoriesOwned = Categories<String>;
-
 impl<'src> TryFrom<ParsedProperty<'src>> for Categories<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
@@ -836,7 +809,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Categories<SpannedSegments<'src>> {
 impl Categories<SpannedSegments<'_>> {
     /// Convert borrowed `Categories` to owned `Categories`
     #[must_use]
-    pub fn to_owned(&self) -> CategoriesOwned {
+    pub fn to_owned(&self) -> Categories<String> {
         Categories {
             values: self.values.iter().map(ValueText::to_owned).collect(),
             language: self.language.as_ref().map(SpannedSegments::to_owned),
@@ -880,12 +853,6 @@ pub struct Resources<S: StringStorage> {
     /// Span of the property in the source
     pub span: S::Span,
 }
-
-/// Borrowed type alias for [`Resources`]
-pub type ResourcesRef<'src> = Resources<SpannedSegments<'src>>;
-
-/// Owned type alias for [`Resources`]
-pub type ResourcesOwned = Resources<String>;
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Resources<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
@@ -960,7 +927,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Resources<SpannedSegments<'src>> {
 impl Resources<SpannedSegments<'_>> {
     /// Convert borrowed `Resources` to owned `Resources`
     #[must_use]
-    pub fn to_owned(&self) -> ResourcesOwned {
+    pub fn to_owned(&self) -> Resources<String> {
         Resources {
             values: self.values.iter().map(ValueText::to_owned).collect(),
             language: self.language.as_ref().map(SpannedSegments::to_owned),
@@ -983,7 +950,4 @@ impl Resources<SpannedSegments<'_>> {
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.12)
     pub Summary<S> => Text
-
-    ref   = pub type SummaryRef;
-    owned = pub type SummaryOwned;
 );

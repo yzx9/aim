@@ -20,12 +20,12 @@ pub use duration::ValueDuration;
 pub(crate) use numeric::values_float_semicolon;
 pub use period::ValuePeriod;
 pub use rrule::{RecurrenceFrequency, ValueRecurrenceRule, WeekDay, WeekDayNum};
-pub use text::{ValueText, ValueTextOwned, ValueTextRef};
+pub use text::ValueText;
 
 use chumsky::input::Stream;
 use chumsky::prelude::*;
 
-use crate::parameter::{ValueType, ValueTypeRef};
+use crate::parameter::ValueType;
 use crate::string_storage::{Span, SpannedSegments, StringStorage};
 use crate::value::datetime::{value_utc_offset, values_date, values_date_time, values_time};
 use crate::value::duration::values_duration;
@@ -260,12 +260,6 @@ pub enum Value<S: StringStorage> {
     },
 }
 
-/// Type alias for borrowed value
-pub type ValueRef<'src> = Value<SpannedSegments<'src>>;
-
-/// Type alias for owned value
-pub type ValueOwned = Value<String>;
-
 impl<S: StringStorage> Value<S> {
     /// Get the kind of this value.
     #[must_use]
@@ -345,73 +339,73 @@ impl<S: StringStorage> Value<S> {
     }
 }
 
-impl ValueRef<'_> {
+impl Value<SpannedSegments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
-    pub fn to_owned(&self) -> ValueOwned {
+    pub fn to_owned(&self) -> Value<String> {
         match self {
-            Value::Binary { value: raw, .. } => ValueOwned::Binary {
+            Value::Binary { value: raw, .. } => Value::Binary {
                 value: raw.to_owned(),
                 span: (),
             },
-            Value::Boolean { value, .. } => ValueOwned::Boolean {
+            Value::Boolean { value, .. } => Value::Boolean {
                 value: *value,
                 span: (),
             },
-            Value::CalAddress { value, .. } => ValueOwned::CalAddress {
+            Value::CalAddress { value, .. } => Value::CalAddress {
                 value: value.to_owned(),
                 span: (),
             },
-            Value::Date { values, .. } => ValueOwned::Date {
+            Value::Date { values, .. } => Value::Date {
                 values: values.clone(),
                 span: (),
             },
-            Value::DateTime { values, .. } => ValueOwned::DateTime {
+            Value::DateTime { values, .. } => Value::DateTime {
                 values: values.clone(),
                 span: (),
             },
-            Value::Duration { values, .. } => ValueOwned::Duration {
+            Value::Duration { values, .. } => Value::Duration {
                 values: values.clone(),
                 span: (),
             },
-            Value::Float { values, .. } => ValueOwned::Float {
+            Value::Float { values, .. } => Value::Float {
                 values: values.clone(),
                 span: (),
             },
-            Value::Integer { values, .. } => ValueOwned::Integer {
+            Value::Integer { values, .. } => Value::Integer {
                 values: values.clone(),
                 span: (),
             },
-            Value::RecurrenceRule { value, .. } => ValueOwned::RecurrenceRule {
+            Value::RecurrenceRule { value, .. } => Value::RecurrenceRule {
                 value: value.clone(),
                 span: (),
             },
-            Value::Period { values, .. } => ValueOwned::Period {
+            Value::Period { values, .. } => Value::Period {
                 values: values.clone(),
                 span: (),
             },
-            Value::Text { values, .. } => ValueOwned::Text {
+            Value::Text { values, .. } => Value::Text {
                 values: values.iter().map(ValueText::to_owned).collect(),
                 span: (),
             },
-            Value::Time { values, .. } => ValueOwned::Time {
+            Value::Time { values, .. } => Value::Time {
                 values: values.clone(),
                 span: (),
             },
-            Value::Uri { value, .. } => ValueOwned::Uri {
+            Value::Uri { value, .. } => Value::Uri {
                 value: value.to_owned(),
                 span: (),
             },
-            Value::UtcOffset { value, .. } => ValueOwned::UtcOffset {
+            Value::UtcOffset { value, .. } => Value::UtcOffset {
                 value: *value,
                 span: (),
             },
-            Value::XName { raw, kind, .. } => ValueOwned::XName {
+            Value::XName { raw, kind, .. } => Value::XName {
                 raw: raw.to_owned(),
                 kind: kind.to_owned(),
                 span: (),
             },
-            Value::Unrecognized { raw, kind, .. } => ValueOwned::Unrecognized {
+            Value::Unrecognized { raw, kind, .. } => Value::Unrecognized {
                 raw: raw.to_owned(),
                 kind: kind.to_owned(),
                 span: (),
@@ -430,9 +424,9 @@ impl ValueRef<'_> {
 ///
 /// Parse errors from all attempted types
 pub fn parse_value<'src>(
-    value_types: &Vec<ValueTypeRef<'src>>,
+    value_types: &[ValueType<String>],
     value: &SpannedSegments<'src>,
-) -> Result<ValueRef<'src>, Vec<Rich<'src, char>>> {
+) -> Result<Value<SpannedSegments<'src>>, Vec<Rich<'src, char>>> {
     // Collect errors from all attempted types
     let mut all_errors: Vec<Rich<'src, char>> = Vec::new();
 
@@ -455,9 +449,9 @@ pub fn parse_value<'src>(
 /// Parse property value for a single specified value type.
 #[expect(clippy::too_many_lines)]
 fn parse_value_single_type<'src>(
-    value_type: &ValueTypeRef<'src>,
+    value_type: &ValueType<String>,
     value: &SpannedSegments<'src>,
-) -> Result<ValueRef<'src>, Vec<Rich<'src, char>>> {
+) -> Result<Value<SpannedSegments<'src>>, Vec<Rich<'src, char>>> {
     // Try the specified value type
     match value_type {
         ValueType::Binary => value_binary::<'_, _, extra::Err<_>>()
@@ -570,14 +564,14 @@ fn parse_value_single_type<'src>(
 
         // For unknown value types, preserve raw data as XName or Unrecognized
         // value per RFC 5545 Section 3.2.20
-        ValueType::XName(kind) => Ok(Value::XName {
+        ValueType::XName(_) => Ok(Value::XName {
             raw: value.clone(),
-            kind: kind.clone(),
+            kind: value.clone(),
             span: value.span(),
         }),
-        ValueType::Unrecognized(kind) => Ok(Value::Unrecognized {
+        ValueType::Unrecognized(_) => Ok(Value::Unrecognized {
             raw: value.clone(),
-            kind: kind.clone(),
+            kind: value.clone(),
             span: value.span(),
         }),
     }

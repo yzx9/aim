@@ -18,7 +18,7 @@ use crate::keyword::{
 use crate::parameter::util::{ParseResult, parse_single, parse_single_not_quoted};
 use crate::parameter::{Parameter, ParameterKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::{RawParameterRef, RawParameterValueRef};
+use crate::syntax::{RawParameter, RawParameterValue};
 use crate::typed::TypedError;
 
 /// Parse RSVP expectation parameter.
@@ -26,7 +26,7 @@ use crate::typed::TypedError;
 /// # Errors
 ///
 /// Returns an error if the parameter value is not `TRUE` or `FALSE`.
-pub fn parse_rsvp(mut param: RawParameterRef<'_>) -> ParseResult<'_> {
+pub fn parse_rsvp(mut param: RawParameter<SpannedSegments<'_>>) -> ParseResult<'_> {
     let span = param.span;
     parse_single(&mut param, ParameterKind::RsvpExpectation).and_then(|v| {
         if v.value.eq_str_ignore_ascii_case(KW_RSVP_TRUE) {
@@ -50,11 +50,11 @@ pub fn parse_rsvp(mut param: RawParameterRef<'_>) -> ParseResult<'_> {
 /// Returns an error if:
 /// - The parameter does not have exactly one value (when jiff feature is enabled)
 /// - The timezone identifier is not valid (when jiff feature is enabled)
-pub fn parse_tzid<'src>(mut param: RawParameterRef<'src>) -> ParseResult<'src> {
+pub fn parse_tzid<'src>(mut param: RawParameter<SpannedSegments<'src>>) -> ParseResult<'src> {
     let span = param.span;
 
     #[cfg(feature = "jiff")]
-    let op = |v: RawParameterValueRef<'src>| {
+    let op = |v: RawParameterValue<SpannedSegments<'src>>| {
         // Use jiff to validate time zone identifier
         let tzid_str = v.value.resolve();
         match jiff::tz::TimeZone::get(tzid_str.as_ref()) {
@@ -72,7 +72,7 @@ pub fn parse_tzid<'src>(mut param: RawParameterRef<'src>) -> ParseResult<'src> {
     };
 
     #[cfg(not(feature = "jiff"))]
-    let op = |v: RawParameterValueRef<'src>| {
+    let op = |v: RawParameterValue<SpannedSegments<'src>>| {
         Ok(Parameter::TimeZoneIdentifier {
             value: v.value,
             span,
@@ -98,8 +98,6 @@ define_param_enum_with_unknown! {
         Unknown    => KW_CUTYPE_UNKNOWN,
     }
 
-    ref    = pub type CalendarUserTypeRef;
-    owned  = pub type CalendarUserTypeOwned;
     parser = pub fn parse_cutype;
 }
 
@@ -136,8 +134,6 @@ define_param_enum_with_unknown! {
         BusyTentative    => KW_FBTYPE_BUSY_TENTATIVE,
     }
 
-    ref    = pub type FreeBusyTypeRef;
-    owned  = pub type FreeBusyTypeOwned;
     parser = pub fn parse_fbtype;
 }
 
@@ -152,8 +148,6 @@ define_param_enum_with_unknown! {
         InProcess    => KW_PARTSTAT_IN_PROCESS,
     }
 
-    ref    = pub type ParticipationStatusRef;
-    owned  = pub type ParticipationStatusOwned;
     parser = pub fn parse_partstat;
 }
 
@@ -199,8 +193,6 @@ define_param_enum_with_unknown! {
         Sibling => KW_RELTYPE_SIBLING,
     }
 
-    ref    = pub type RelationshipTypeRef;
-    owned  = pub type RelationshipTypeOwned;
     parser = pub fn parse_reltype;
 }
 
@@ -214,8 +206,6 @@ define_param_enum_with_unknown! {
         NonParticipant    => KW_ROLE_NON_PARTICIPANT,
     }
 
-    ref    = pub type ParticipationRoleRef;
-    owned  = pub type ParticipationRoleOwned;
     parser = pub fn parse_role;
 }
 
@@ -237,8 +227,6 @@ define_param_enum_with_unknown! {
         UtcOffset           => KW_UTC_OFFSET,
     }
 
-    ref    = pub type ValueTypeRef;
-    owned  = pub type ValueTypeOwned;
     parser = pub fn parse_value_type;
     gen_eq_known;
 }

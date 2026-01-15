@@ -24,9 +24,6 @@ simple_property_wrapper!(
     ///
     /// Per RFC 5545, TZID does not support any standard parameters.
     pub TzId<S> => TextOnly
-
-    ref   = pub type TzIdRef;
-    owned = pub type TzIdOwned;
 );
 
 simple_property_wrapper!(
@@ -34,9 +31,6 @@ simple_property_wrapper!(
     ///
     /// Per RFC 5545, TZNAME supports the LANGUAGE parameter but not ALTREP.
     pub TzName<S> => TextWithLanguage
-
-    ref   = pub type TzNameRef;
-    owned = pub type TzNameOwned;
 );
 
 /// UTC offset property with parameters (RFC 5545 Section 3.8.3.3 & 3.8.3.4)
@@ -113,23 +107,14 @@ impl UtcOffsetProperty<SpannedSegments<'_>> {
 simple_property_wrapper!(
     /// Time Zone Offset From property wrapper (RFC 5545 Section 3.8.3.3)
     pub TzOffsetFrom<S> => UtcOffsetProperty
-
-    ref   = pub type TzOffsetFromRef;
-    owned = pub type TzOffsetFromOwned;
 );
 
 simple_property_wrapper!(
     /// Time Zone Offset To property wrapper (RFC 5545 Section 3.8.3.4)
     pub TzOffsetTo<S> => UtcOffsetProperty
-
-    ref   = pub type TzOffsetToRef;
-    owned = pub type TzOffsetToOwned;
 );
 
 simple_property_wrapper!(
     /// URI property wrapper for `TzUrl` (RFC 5545 Section 3.8.3.5)
     pub TzUrl<S> => UriProperty
-
-    ref   = pub type TzUrlRef;
-    owned = pub type TzUrlOwned;
 );

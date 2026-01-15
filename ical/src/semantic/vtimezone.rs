@@ -32,11 +32,6 @@ pub struct VTimeZone<S: StringStorage> {
     pub retained_properties: Vec<Property<S>>,
 }
 
-/// Type alias for `VTimeZone` with borrowed data
-pub type VTimeZoneRef<'src> = VTimeZone<SpannedSegments<'src>>;
-/// Type alias for `VTimeZone` with owned data
-pub type VTimeZoneOwned = VTimeZone<String>;
-
 /// Parse a `TypedComponent` into a `VTimeZone`
 impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
@@ -139,10 +134,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<SpannedSegments<'src>> {
     }
 }
 
-impl VTimeZoneRef<'_> {
+impl VTimeZone<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VTimeZoneOwned {
-        VTimeZoneOwned {
+    pub fn to_owned(&self) -> VTimeZone<String> {
+        VTimeZone {
             tz_id: self.tz_id.to_owned(),
             last_modified: self.last_modified.as_ref().map(LastModified::to_owned),
             tz_url: self.tz_url.as_ref().map(TzUrl::to_owned),
@@ -188,12 +183,6 @@ pub struct TimeZoneObservance<S: StringStorage> {
     /// Unrecognized / Non-standard properties (preserved for round-trip)
     pub retained_properties: Vec<Property<S>>,
 }
-
-/// Type alias for `TimeZoneObservance` with borrowed data
-pub type TimeZoneObservanceRef<'src> = TimeZoneObservance<SpannedSegments<'src>>;
-
-/// Type alias for `TimeZoneObservance` with owned data
-pub type TimeZoneObservanceOwned = TimeZoneObservance<String>;
 
 impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;

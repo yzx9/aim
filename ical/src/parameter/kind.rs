@@ -86,12 +86,6 @@ impl_typed_parameter_kind_mapping! {
     }
 }
 
-/// Type alias for borrowed parameter kind
-pub type ParameterKindRef<'src> = ParameterKind<SpannedSegments<'src>>;
-
-/// Type alias for owned parameter kind
-pub type ParameterKindOwned = ParameterKind<String>;
-
 impl<S: StringStorage> From<ParameterKind<&S>> for ParameterKind<S> {
     fn from(value: ParameterKind<&S>) -> Self {
         match value {
@@ -121,33 +115,33 @@ impl<S: StringStorage> From<ParameterKind<&S>> for ParameterKind<S> {
     }
 }
 
-impl ParameterKindRef<'_> {
+impl ParameterKind<SpannedSegments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
-    pub fn to_owned(&self) -> ParameterKindOwned {
+    pub fn to_owned(&self) -> ParameterKind<String> {
         match self {
-            Self::AlternateText => ParameterKindOwned::AlternateText,
-            Self::CommonName => ParameterKindOwned::CommonName,
-            Self::CalendarUserType => ParameterKindOwned::CalendarUserType,
-            Self::Delegators => ParameterKindOwned::Delegators,
-            Self::Delegatees => ParameterKindOwned::Delegatees,
-            Self::Directory => ParameterKindOwned::Directory,
-            Self::Encoding => ParameterKindOwned::Encoding,
-            Self::FormatType => ParameterKindOwned::FormatType,
-            Self::FreeBusyType => ParameterKindOwned::FreeBusyType,
-            Self::Language => ParameterKindOwned::Language,
-            Self::GroupOrListMembership => ParameterKindOwned::GroupOrListMembership,
-            Self::ParticipationStatus => ParameterKindOwned::ParticipationStatus,
-            Self::RecurrenceIdRange => ParameterKindOwned::RecurrenceIdRange,
-            Self::AlarmTriggerRelationship => ParameterKindOwned::AlarmTriggerRelationship,
-            Self::RelationshipType => ParameterKindOwned::RelationshipType,
-            Self::ParticipationRole => ParameterKindOwned::ParticipationRole,
-            Self::SendBy => ParameterKindOwned::SendBy,
-            Self::RsvpExpectation => ParameterKindOwned::RsvpExpectation,
-            Self::TimeZoneIdentifier => ParameterKindOwned::TimeZoneIdentifier,
-            Self::ValueType => ParameterKindOwned::ValueType,
-            Self::XName(s) => ParameterKindOwned::XName(s.to_owned()),
-            Self::Unrecognized(s) => ParameterKindOwned::Unrecognized(s.to_owned()),
+            Self::AlternateText => ParameterKind::AlternateText,
+            Self::CommonName => ParameterKind::CommonName,
+            Self::CalendarUserType => ParameterKind::CalendarUserType,
+            Self::Delegators => ParameterKind::Delegators,
+            Self::Delegatees => ParameterKind::Delegatees,
+            Self::Directory => ParameterKind::Directory,
+            Self::Encoding => ParameterKind::Encoding,
+            Self::FormatType => ParameterKind::FormatType,
+            Self::FreeBusyType => ParameterKind::FreeBusyType,
+            Self::Language => ParameterKind::Language,
+            Self::GroupOrListMembership => ParameterKind::GroupOrListMembership,
+            Self::ParticipationStatus => ParameterKind::ParticipationStatus,
+            Self::RecurrenceIdRange => ParameterKind::RecurrenceIdRange,
+            Self::AlarmTriggerRelationship => ParameterKind::AlarmTriggerRelationship,
+            Self::RelationshipType => ParameterKind::RelationshipType,
+            Self::ParticipationRole => ParameterKind::ParticipationRole,
+            Self::SendBy => ParameterKind::SendBy,
+            Self::RsvpExpectation => ParameterKind::RsvpExpectation,
+            Self::TimeZoneIdentifier => ParameterKind::TimeZoneIdentifier,
+            Self::ValueType => ParameterKind::ValueType,
+            Self::XName(s) => ParameterKind::XName(s.to_owned()),
+            Self::Unrecognized(s) => ParameterKind::Unrecognized(s.to_owned()),
         }
     }
 }

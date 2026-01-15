@@ -7,8 +7,6 @@
 //! This module defines the `PropertyKind` enum that represents all standard
 //! iCalendar properties defined in RFC 5545, along with their allowed value types.
 
-use std::fmt;
-
 use crate::keyword::{
     KW_ACTION, KW_ATTACH, KW_ATTENDEE, KW_CALSCALE, KW_CATEGORIES, KW_CLASS, KW_COMMENT,
     KW_COMPLETED, KW_CONTACT, KW_CREATED, KW_DESCRIPTION, KW_DTEND, KW_DTSTAMP, KW_DTSTART, KW_DUE,
@@ -18,7 +16,7 @@ use crate::keyword::{
     KW_SUMMARY, KW_TRANSP, KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZOFFSETFROM, KW_TZOFFSETTO,
     KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
-use crate::parameter::ValueTypeRef;
+use crate::parameter::ValueType;
 use crate::string_storage::SpannedSegments;
 
 /// Macro to define `PropertyKind` with associated value types.
@@ -50,7 +48,7 @@ macro_rules! property_kind {
             /// Returns the allowed value types for this property kind, if known.
             /// Returns `None` for unrecognized or x-name properties.
             #[must_use]
-            pub(crate) fn value_types(&self) -> Option<&'static [ValueTypeRef<'static>]> {
+            pub(crate) fn value_types(&self) -> Option<&'static [ValueType<String>]> {
                 match self {
                     $(PropertyKind::$variant => Some($value_types),)*
 
@@ -60,8 +58,8 @@ macro_rules! property_kind {
             }
         }
 
-        impl<'src> From<SpannedSegments<'src>> for PropertyKindRef<'src> {
-            fn from(name: SpannedSegments<'src>) -> Self {
+        impl<'src> ::core::convert::From<SpannedSegments<'src>> for PropertyKind<crate::string_storage::SpannedSegments<'src>> {
+            fn from(name: crate::string_storage::SpannedSegments<'src>) -> Self {
                 $(
                     if name.eq_str_ignore_ascii_case($kw) {
                         return PropertyKind::$variant;
@@ -76,8 +74,8 @@ macro_rules! property_kind {
             }
         }
 
-        impl<S: crate::string_storage::StringStorage> fmt::Display for PropertyKind<S> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        impl<S: crate::string_storage::StringStorage> ::core::fmt::Display for PropertyKind<S> {
+            fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 match self {
                     $(PropertyKind::$variant => write!(f, "{}", $kw),)*
                     PropertyKind::XName(s) | PropertyKind::Unrecognized(s) => write!(f, "{}", s),
@@ -85,8 +83,22 @@ macro_rules! property_kind {
             }
         }
 
+        impl PropertyKind<SpannedSegments<'_>> {
+            /// Convert borrowed type to owned type
+            #[must_use]
+            pub fn to_owned(&self) -> PropertyKind<String> {
+                match self {
+                    $(
+                        PropertyKind::$variant => PropertyKind::$variant,
+                    )*
+                    PropertyKind::XName(s) => PropertyKind::XName(s.to_owned()),
+                    PropertyKind::Unrecognized(s) => PropertyKind::Unrecognized(s.to_owned()),
+                }
+            }
+        }
+
         #[cfg(test)]
-        const KINDS: &[PropertyKindRef<'static>] = &[
+        const KINDS: &[PropertyKind<crate::string_storage::SpannedSegments<'static>>] = &[
             $(
                 PropertyKind::$variant,
             )*
@@ -97,160 +109,97 @@ macro_rules! property_kind {
 // Define PropertyKind with all RFC 5545 properties and their value types
 property_kind! {
     // 3.7.1.  Calendar Scale
-    CalScale    => KW_CALSCALE  => &[ValueTypeRef::Text],
+    CalScale    => KW_CALSCALE  => &[ValueType::<String>::Text],
     // 3.7.2.  Method
-    Method      => KW_METHOD    => &[ValueTypeRef::Text],
+    Method      => KW_METHOD    => &[ValueType::<String>::Text],
     // 3.7.3.  Product Identifier
-    ProdId      => KW_PRODID    => &[ValueTypeRef::Text],
+    ProdId      => KW_PRODID    => &[ValueType::<String>::Text],
     // 3.7.4.  Version
-    Version     => KW_VERSION   => &[ValueTypeRef::Text],
+    Version     => KW_VERSION   => &[ValueType::<String>::Text],
     // 3.8.1.1.  Attachment
-    Attach      => KW_ATTACH    => &[ValueTypeRef::Uri, ValueTypeRef::Binary],
+    Attach      => KW_ATTACH    => &[ValueType::<String>::Uri, ValueType::Binary],
     // 3.8.1.2.  Categories
-    Categories  => KW_CATEGORIES => &[ValueTypeRef::Text],
+    Categories  => KW_CATEGORIES => &[ValueType::<String>::Text],
     // 3.8.1.3.  Classification
-    Class       => KW_CLASS     => &[ValueTypeRef::Text],
+    Class       => KW_CLASS     => &[ValueType::<String>::Text],
     // 3.8.1.4.  Comment
-    Comment     => KW_COMMENT   => &[ValueTypeRef::Text],
+    Comment     => KW_COMMENT   => &[ValueType::<String>::Text],
     // 3.8.1.5.  Description
-    Description => KW_DESCRIPTION => &[ValueTypeRef::Text],
+    Description => KW_DESCRIPTION => &[ValueType::<String>::Text],
     // 3.8.1.6.  Geographic Position
-    Geo         => KW_GEO       => &[ValueTypeRef::Text],
+    Geo         => KW_GEO       => &[ValueType::<String>::Text],
     // 3.8.1.7.  Location
-    Location    => KW_LOCATION  => &[ValueTypeRef::Text],
+    Location    => KW_LOCATION  => &[ValueType::<String>::Text],
     // 3.8.1.8.  Percent Complete
-    PercentComplete => KW_PERCENT_COMPLETE => &[ValueTypeRef::Integer],
+    PercentComplete => KW_PERCENT_COMPLETE => &[ValueType::<String>::Integer],
     // 3.8.1.9.  Priority
-    Priority    => KW_PRIORITY  => &[ValueTypeRef::Integer],
+    Priority    => KW_PRIORITY  => &[ValueType::<String>::Integer],
     // 3.8.1.10.  Resources
-    Resources   => KW_RESOURCES => &[ValueTypeRef::Text],
+    Resources   => KW_RESOURCES => &[ValueType::<String>::Text],
     // 3.8.1.11.  Status
-    Status      => KW_STATUS    => &[ValueTypeRef::Text],
+    Status      => KW_STATUS    => &[ValueType::<String>::Text],
     // 3.8.1.12.  Summary
-    Summary     => KW_SUMMARY   => &[ValueTypeRef::Text],
+    Summary     => KW_SUMMARY   => &[ValueType::<String>::Text],
     // 3.8.2.1.  Date-Time Completed
-    Completed   => KW_COMPLETED => &[ValueTypeRef::DateTime],
+    Completed   => KW_COMPLETED => &[ValueType::<String>::DateTime],
     // 3.8.2.2.  Date-Time End
-    DtEnd       => KW_DTEND     => &[ValueTypeRef::DateTime, ValueTypeRef::Date],
+    DtEnd       => KW_DTEND     => &[ValueType::<String>::DateTime, ValueType::Date],
     // 3.8.2.3.  Date-Time Due
-    Due         => KW_DUE       => &[ValueTypeRef::DateTime, ValueTypeRef::Date],
+    Due         => KW_DUE       => &[ValueType::<String>::DateTime, ValueType::Date],
     // 3.8.2.4.  Date-Time Start
-    DtStart     => KW_DTSTART   => &[ValueTypeRef::DateTime, ValueTypeRef::Date],
+    DtStart     => KW_DTSTART   => &[ValueType::<String>::DateTime, ValueType::Date],
     // 3.8.2.5.  Duration
-    Duration    => KW_DURATION  => &[ValueTypeRef::Duration],
+    Duration    => KW_DURATION  => &[ValueType::<String>::Duration],
     // 3.8.2.6.  Free/Busy Time
-    FreeBusy    => KW_FREEBUSY  => &[ValueTypeRef::Period],
+    FreeBusy    => KW_FREEBUSY  => &[ValueType::<String>::Period],
     // 3.8.2.7.  Time Transparency
-    Transp      => KW_TRANSP    => &[ValueTypeRef::Text],
+    Transp      => KW_TRANSP    => &[ValueType::<String>::Text],
     // 3.8.3.1.  Time Zone Identifier
-    TzId        => KW_TZID      => &[ValueTypeRef::Text],
+    TzId        => KW_TZID      => &[ValueType::<String>::Text],
     // 3.8.3.2.  Time Zone Name
-    TzName      => KW_TZNAME    => &[ValueTypeRef::Text],
+    TzName      => KW_TZNAME    => &[ValueType::<String>::Text],
     // 3.8.3.3.  Time Zone Offset From
-    TzOffsetFrom => KW_TZOFFSETFROM => &[ValueTypeRef::UtcOffset],
+    TzOffsetFrom => KW_TZOFFSETFROM => &[ValueType::<String>::UtcOffset],
     // 3.8.3.4.  Time Zone Offset To
-    TzOffsetTo  => KW_TZOFFSETTO => &[ValueTypeRef::UtcOffset],
+    TzOffsetTo  => KW_TZOFFSETTO => &[ValueType::<String>::UtcOffset],
     // 3.8.3.5.  Time Zone URL
-    TzUrl       => KW_TZURL     => &[ValueTypeRef::Uri],
+    TzUrl       => KW_TZURL     => &[ValueType::<String>::Uri],
     // 3.8.4.1.  Attendee
-    Attendee    => KW_ATTENDEE  => &[ValueTypeRef::CalendarUserAddress],
+    Attendee    => KW_ATTENDEE  => &[ValueType::<String>::CalendarUserAddress],
     // 3.8.4.2.  Contact
-    Contact     => KW_CONTACT   => &[ValueTypeRef::Text],
+    Contact     => KW_CONTACT   => &[ValueType::<String>::Text],
     // 3.8.4.3.  Organizer
-    Organizer   => KW_ORGANIZER => &[ValueTypeRef::CalendarUserAddress],
+    Organizer   => KW_ORGANIZER => &[ValueType::<String>::CalendarUserAddress],
     // 3.8.4.4.  Recurrence ID
-    RecurrenceId => KW_RECURRENCE_ID => &[ValueTypeRef::DateTime, ValueTypeRef::Date],
+    RecurrenceId => KW_RECURRENCE_ID => &[ValueType::<String>::DateTime, ValueType::Date],
     // 3.8.4.5.  Related To
-    RelatedTo   => KW_RELATED_TO => &[ValueTypeRef::Text],
+    RelatedTo   => KW_RELATED_TO => &[ValueType::<String>::Text],
     // 3.8.4.6.  Uniform Resource Locator
-    Url         => KW_URL       => &[ValueTypeRef::Uri],
+    Url         => KW_URL       => &[ValueType::<String>::Uri],
     // 3.8.4.7.  Unique Identifier
-    Uid         => KW_UID       => &[ValueTypeRef::Text],
+    Uid         => KW_UID       => &[ValueType::<String>::Text],
     // 3.8.5.1.  Exception Date-Times
-    ExDate      => KW_EXDATE    => &[ValueTypeRef::DateTime, ValueTypeRef::Date],
+    ExDate      => KW_EXDATE    => &[ValueType::<String>::DateTime, ValueType::Date],
     // 3.8.5.2.  Recurrence Date-Times
-    RDate       => KW_RDATE     => &[ValueTypeRef::DateTime, ValueTypeRef::Date, ValueTypeRef::Period],
+    RDate       => KW_RDATE     => &[ValueType::<String>::DateTime, ValueType::Date, ValueType::Period],
     // 3.8.5.3.  Recurrence Rule
-    RRule       => KW_RRULE     => &[ValueTypeRef::RecurrenceRule],
+    RRule       => KW_RRULE     => &[ValueType::<String>::RecurrenceRule],
     // 3.8.6.1.  Action
-    Action      => KW_ACTION    => &[ValueTypeRef::Text],
+    Action      => KW_ACTION    => &[ValueType::<String>::Text],
     // 3.8.6.2.  Repeat Count
-    Repeat      => KW_REPEAT    => &[ValueTypeRef::Integer],
+    Repeat      => KW_REPEAT    => &[ValueType::<String>::Integer],
     // 3.8.6.3.  Trigger
-    Trigger     => KW_TRIGGER   => &[ValueTypeRef::Duration, ValueTypeRef::DateTime],
+    Trigger     => KW_TRIGGER   => &[ValueType::<String>::Duration, ValueType::DateTime],
     // 3.8.7.1.  Date-Time Created
-    Created     => KW_CREATED   => &[ValueTypeRef::DateTime],
+    Created     => KW_CREATED   => &[ValueType::<String>::DateTime],
     // 3.8.7.2.  Date-Time Stamp
-    DtStamp     => KW_DTSTAMP   => &[ValueTypeRef::DateTime],
+    DtStamp     => KW_DTSTAMP   => &[ValueType::<String>::DateTime],
     // 3.8.7.3.  Last Modified
-    LastModified => KW_LAST_MODIFIED => &[ValueTypeRef::DateTime],
+    LastModified => KW_LAST_MODIFIED => &[ValueType::<String>::DateTime],
     // 3.8.7.4.  Sequence Number
-    Sequence    => KW_SEQUENCE  => &[ValueTypeRef::Integer],
+    Sequence    => KW_SEQUENCE  => &[ValueType::<String>::Integer],
     // 3.8.8.3.  Request Status
-    RequestStatus => KW_REQUEST_STATUS => &[ValueTypeRef::Text],
-}
-
-/// Type alias for borrowed `PropertyKind`
-pub type PropertyKindRef<'src> = PropertyKind<SpannedSegments<'src>>;
-
-/// Type alias for owned `PropertyKind`
-pub type PropertyKindOwned = PropertyKind<String>;
-
-impl PropertyKindRef<'_> {
-    /// Convert borrowed type to owned type
-    #[must_use]
-    pub fn to_owned(&self) -> PropertyKindOwned {
-        match self {
-            PropertyKind::Action => PropertyKindOwned::Action,
-            PropertyKind::Attach => PropertyKindOwned::Attach,
-            PropertyKind::Attendee => PropertyKindOwned::Attendee,
-            PropertyKind::CalScale => PropertyKindOwned::CalScale,
-            PropertyKind::Categories => PropertyKindOwned::Categories,
-            PropertyKind::Class => PropertyKindOwned::Class,
-            PropertyKind::Comment => PropertyKindOwned::Comment,
-            PropertyKind::Completed => PropertyKindOwned::Completed,
-            PropertyKind::Contact => PropertyKindOwned::Contact,
-            PropertyKind::Created => PropertyKindOwned::Created,
-            PropertyKind::Description => PropertyKindOwned::Description,
-            PropertyKind::DtEnd => PropertyKindOwned::DtEnd,
-            PropertyKind::DtStamp => PropertyKindOwned::DtStamp,
-            PropertyKind::DtStart => PropertyKindOwned::DtStart,
-            PropertyKind::Due => PropertyKindOwned::Due,
-            PropertyKind::Duration => PropertyKindOwned::Duration,
-            PropertyKind::ExDate => PropertyKindOwned::ExDate,
-            PropertyKind::FreeBusy => PropertyKindOwned::FreeBusy,
-            PropertyKind::Geo => PropertyKindOwned::Geo,
-            PropertyKind::LastModified => PropertyKindOwned::LastModified,
-            PropertyKind::Location => PropertyKindOwned::Location,
-            PropertyKind::Method => PropertyKindOwned::Method,
-            PropertyKind::Organizer => PropertyKindOwned::Organizer,
-            PropertyKind::PercentComplete => PropertyKindOwned::PercentComplete,
-            PropertyKind::Priority => PropertyKindOwned::Priority,
-            PropertyKind::ProdId => PropertyKindOwned::ProdId,
-            PropertyKind::RDate => PropertyKindOwned::RDate,
-            PropertyKind::RecurrenceId => PropertyKindOwned::RecurrenceId,
-            PropertyKind::RelatedTo => PropertyKindOwned::RelatedTo,
-            PropertyKind::Repeat => PropertyKindOwned::Repeat,
-            PropertyKind::RequestStatus => PropertyKindOwned::RequestStatus,
-            PropertyKind::Resources => PropertyKindOwned::Resources,
-            PropertyKind::RRule => PropertyKindOwned::RRule,
-            PropertyKind::Sequence => PropertyKindOwned::Sequence,
-            PropertyKind::Status => PropertyKindOwned::Status,
-            PropertyKind::Summary => PropertyKindOwned::Summary,
-            PropertyKind::Transp => PropertyKindOwned::Transp,
-            PropertyKind::Trigger => PropertyKindOwned::Trigger,
-            PropertyKind::TzId => PropertyKindOwned::TzId,
-            PropertyKind::TzName => PropertyKindOwned::TzName,
-            PropertyKind::TzOffsetFrom => PropertyKindOwned::TzOffsetFrom,
-            PropertyKind::TzOffsetTo => PropertyKindOwned::TzOffsetTo,
-            PropertyKind::TzUrl => PropertyKindOwned::TzUrl,
-            PropertyKind::Uid => PropertyKindOwned::Uid,
-            PropertyKind::Url => PropertyKindOwned::Url,
-            PropertyKind::Version => PropertyKindOwned::Version,
-            PropertyKind::XName(s) => PropertyKindOwned::XName(s.to_owned()),
-            PropertyKind::Unrecognized(s) => PropertyKindOwned::Unrecognized(s.to_owned()),
-        }
-    }
+    RequestStatus => KW_REQUEST_STATUS => &[ValueType::<String>::Text],
 }
 
 #[cfg(test)]

@@ -280,9 +280,6 @@ impl Attendee<SpannedSegments<'_>> {
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.4.2)
     pub Contact<S> => Text
-
-    ref   = pub type ContactRef;
-    owned = pub type ContactOwned;
 );
 
 /// Organizer information (RFC 5545 Section 3.8.4.3)
@@ -426,9 +423,6 @@ impl Organizer<SpannedSegments<'_>> {
 simple_property_wrapper!(
     /// Recurrence ID property wrapper (RFC 5545 Section 3.8.4.4)
     pub RecurrenceId<S> => DateTime
-
-    ref   = pub type RecurrenceIdRef;
-    owned = pub type RecurrenceIdOwned;
 );
 
 /// Related To property (RFC 5545 Section 3.8.4.5)
@@ -451,11 +445,6 @@ pub struct RelatedTo<S: StringStorage> {
     /// Span of the property in the source
     pub span: S::Span,
 }
-
-/// Borrowed type alias for [`RelatedTo`]
-pub type RelatedToRef<'src> = RelatedTo<SpannedSegments<'src>>;
-/// Owned type alias for [`RelatedTo`]
-pub type RelatedToOwned = RelatedTo<String>;
 
 impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
@@ -515,7 +504,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RelatedTo<SpannedSegments<'src>> {
 impl RelatedTo<SpannedSegments<'_>> {
     /// Convert borrowed `RelatedTo` to owned `RelatedTo`
     #[must_use]
-    pub fn to_owned(&self) -> RelatedToOwned {
+    pub fn to_owned(&self) -> RelatedTo<String> {
         RelatedTo {
             content: self.content.to_owned(),
             reltype: self.reltype.to_owned(),
@@ -537,9 +526,6 @@ impl RelatedTo<SpannedSegments<'_>> {
 simple_property_wrapper!(
     /// URI property wrapper (RFC 5545 Section 3.8.4.6)
     pub Url<S> => UriProperty
-
-    ref   = pub type UrlRef;
-    owned = pub type UrlOwned;
 );
 
 simple_property_wrapper!(
@@ -547,7 +533,4 @@ simple_property_wrapper!(
     ///
     /// Per RFC 5545, UID does not support any standard parameters.
     pub Uid<S> => TextOnly
-
-    ref   = pub type UidRef;
-    owned = pub type UidOwned;
 );

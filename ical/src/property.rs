@@ -46,45 +46,25 @@ mod recurrence;
 mod relationship;
 mod timezone;
 
-pub use alarm::{
-    Action, ActionValue, Repeat, Trigger, TriggerOwned, TriggerRef, TriggerValue,
-    TriggerValueOwned, TriggerValueRef,
-};
+pub use alarm::{Action, ActionValue, Repeat, Trigger, TriggerValue};
 pub use calendar::{
     CalendarScale, CalendarScaleValue, Method, MethodValue, ProductId, Version, VersionValue,
 };
-pub use changemgmt::{
-    Created, CreatedOwned, CreatedRef, DtStamp, DtStampOwned, DtStampRef, LastModified,
-    LastModifiedOwned, LastModifiedRef, Sequence,
-};
+pub use changemgmt::{Created, DtStamp, LastModified, Sequence};
 pub use common::{Text, TextOnly, TextWithLanguage, UriProperty};
 pub use datetime::{
-    Completed, CompletedOwned, CompletedRef, DateTime, DtEnd, DtEndOwned, DtEndRef, DtStart,
-    DtStartOwned, DtStartRef, Due, DueOwned, DueRef, Duration, FreeBusy, Period, Time,
-    TimeTransparency, TimeTransparencyValue,
+    Completed, DateTime, DtEnd, DtStart, Due, Duration, FreeBusy, Period, Time, TimeTransparency,
+    TimeTransparencyValue,
 };
 pub use descriptive::{
-    Attachment, AttachmentValue, AttachmentValueOwned, AttachmentValueRef, Categories,
-    CategoriesOwned, CategoriesRef, Classification, ClassificationValue, Comment, CommentOwned,
-    CommentRef, Description, DescriptionOwned, DescriptionRef, Geo, Location, LocationOwned,
-    LocationRef, PercentComplete, Priority, Resources, ResourcesOwned, ResourcesRef, Status,
-    StatusValue, Summary, SummaryOwned, SummaryRef,
+    Attachment, AttachmentValue, Categories, Classification, ClassificationValue, Comment,
+    Description, Geo, Location, PercentComplete, Priority, Resources, Status, StatusValue, Summary,
 };
-pub use kind::{PropertyKind, PropertyKindOwned, PropertyKindRef};
-pub use miscellaneous::{RequestStatus, RequestStatusOwned, RequestStatusRef};
-pub use recurrence::{
-    ExDate, ExDateOwned, ExDateRef, ExDateValue, ExDateValueOwned, ExDateValueRef, RDate,
-    RDateValue, RDateValueOwned, RDateValueRef, RRule, RRuleOwned, RRuleRef,
-};
-pub use relationship::{
-    Attendee, Contact, ContactOwned, ContactRef, Organizer, RecurrenceId, RecurrenceIdOwned,
-    RecurrenceIdRef, RelatedTo, RelatedToOwned, RelatedToRef, Uid, UidOwned, UidRef, Url, UrlOwned,
-    UrlRef,
-};
-pub use timezone::{
-    TzId, TzIdOwned, TzIdRef, TzName, TzNameOwned, TzNameRef, TzOffsetFrom, TzOffsetFromOwned,
-    TzOffsetFromRef, TzOffsetTo, TzOffsetToOwned, TzOffsetToRef, TzUrl, TzUrlOwned, TzUrlRef,
-};
+pub use kind::PropertyKind;
+pub use miscellaneous::RequestStatus;
+pub use recurrence::{ExDate, ExDateValue, RDate, RDateValue, RRule};
+pub use relationship::{Attendee, Contact, Organizer, RecurrenceId, RelatedTo, Uid, Url};
+pub use timezone::{TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl};
 
 use crate::parameter::Parameter;
 use crate::string_storage::{SpannedSegments, StringStorage};
@@ -271,13 +251,7 @@ pub enum Property<S: StringStorage> {
     Unrecognized(UnrecognizedProperty<S>),
 }
 
-/// Type alias for borrowed property
-pub type PropertyRef<'src> = Property<SpannedSegments<'src>>;
-
-/// Type alias for owned property (not yet implemented, would require owned semantic types)
-pub type PropertyOwned = Property<String>;
-
-impl<'src> TryFrom<ParsedProperty<'src>> for PropertyRef<'src> {
+impl<'src> TryFrom<ParsedProperty<'src>> for Property<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[rustfmt::skip]
@@ -506,10 +480,10 @@ impl<S: StringStorage> Property<S> {
     }
 }
 
-impl PropertyRef<'_> {
+impl Property<SpannedSegments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
-    pub fn to_owned(&self) -> PropertyOwned {
+    pub fn to_owned(&self) -> Property<String> {
         match self {
             // Section 3.7 - Calendar Properties
             Property::CalScale(v) => Property::CalScale(v.to_owned()),
@@ -585,8 +559,6 @@ impl PropertyRef<'_> {
 macro_rules! define_nonstandard_property {
     (
         struct $ty:ident;
-        ref   = type $tyref:ident;
-        owned = type $tyowned:ident;
     ) => {
         /// Non-standard property structure
         #[derive(Debug, Clone)]
@@ -601,16 +573,10 @@ macro_rules! define_nonstandard_property {
             pub span: S::Span,
         }
 
-        /// Borrowed version of the non-standard property
-        pub type $tyref<'src> = $ty<SpannedSegments<'src>>;
-
-        /// Owned version of the non-standard property
-        pub type $tyowned = $ty<String>;
-
-        impl $tyref<'_> {
+        impl $ty<SpannedSegments<'_>> {
             /// Convert borrowed type to owned type
-            pub fn to_owned(&self) -> $tyowned {
-                $tyowned {
+            pub fn to_owned(&self) -> $ty<String> {
+                $ty {
                     name: self.name.to_owned(),
                     parameters: self.parameters.iter().map(Parameter::to_owned).collect(),
                     value: self.value.to_owned(),
@@ -619,7 +585,7 @@ macro_rules! define_nonstandard_property {
             }
         }
 
-        impl<'src> From<ParsedProperty<'src>> for $tyref<'src> {
+        impl<'src> From<ParsedProperty<'src>> for $ty<SpannedSegments<'src>> {
             fn from(prop: ParsedProperty<'src>) -> Self {
                 Self {
                     name: prop.name,
@@ -634,12 +600,8 @@ macro_rules! define_nonstandard_property {
 
 define_nonstandard_property! {
     struct XNameProperty;
-    ref   = type XNamePropertyRef;
-    owned = type XNamePropertyOwned;
 }
 
 define_nonstandard_property! {
     struct UnrecognizedProperty;
-    ref   = type UnrecognizedPropertyRef;
-    owned = type UnrecognizedPropertyOwned;
 }

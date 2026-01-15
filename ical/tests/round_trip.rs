@@ -7,11 +7,16 @@
 //! These tests verify that parsing, converting to owned, formatting,
 //! and parsing again produces equivalent results.
 
-use aimcal_ical::{formatter::format, parse};
+use aimcal_ical::formatter::format;
+use aimcal_ical::{
+    CalendarComponent, ICalendar, SpannedSegments, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone,
+    VTodo, parse,
+};
 
 #[test]
 fn round_trip_simple_calendar() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -46,7 +51,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_multiple_events() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -89,7 +95,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_todo() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VTODO\r\n\
@@ -125,7 +132,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_journal() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VJOURNAL\r\n\
@@ -159,7 +167,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_alarm() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -199,7 +208,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_rrule() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -238,7 +248,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_parameters() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -277,7 +288,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_custom_property() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -316,7 +328,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_mixed_components() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -358,7 +371,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_duration() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -396,7 +410,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_date_only() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -435,7 +450,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_calendar_with_text_escaping() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -471,7 +487,8 @@ END:VCALENDAR\r\n";
 
 #[test]
 fn round_trip_double_format() {
-    let original = "BEGIN:VCALENDAR\r\n\
+    let original = "\
+BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
 BEGIN:VEVENT\r\n\
@@ -521,8 +538,8 @@ END:VCALENDAR\r\n";
 /// This is a simplified comparison that checks the essential properties
 /// are preserved through the round-trip process.
 fn calendars_equal(
-    cal1: &aimcal_ical::ICalendarRef<'_>,
-    cal2: &aimcal_ical::ICalendarRef<'_>,
+    cal1: &ICalendar<SpannedSegments<'_>>,
+    cal2: &ICalendar<SpannedSegments<'_>>,
 ) -> bool {
     // Compare prod_id
     let prod_id1 = cal1.prod_id.value.to_string();
@@ -574,38 +591,28 @@ fn calendars_equal(
 
 /// Helper function to compare two CalendarComponents.
 fn components_equal(
-    comp1: &aimcal_ical::CalendarComponent<aimcal_ical::SpannedSegments<'_>>,
-    comp2: &aimcal_ical::CalendarComponent<aimcal_ical::SpannedSegments<'_>>,
+    comp1: &CalendarComponent<SpannedSegments<'_>>,
+    comp2: &CalendarComponent<SpannedSegments<'_>>,
 ) -> bool {
     match (comp1, comp2) {
-        (aimcal_ical::CalendarComponent::Event(e1), aimcal_ical::CalendarComponent::Event(e2)) => {
-            events_equal(e1, e2)
+        (CalendarComponent::Event(e1), CalendarComponent::Event(e2)) => events_equal(e1, e2),
+        (CalendarComponent::Todo(t1), CalendarComponent::Todo(t2)) => todos_equal(t1, t2),
+        (CalendarComponent::VJournal(j1), CalendarComponent::VJournal(j2)) => {
+            journals_equal(j1, j2)
         }
-        (aimcal_ical::CalendarComponent::Todo(t1), aimcal_ical::CalendarComponent::Todo(t2)) => {
-            todos_equal(t1, t2)
+        (CalendarComponent::VTimeZone(tz1), CalendarComponent::VTimeZone(tz2)) => {
+            timezones_equal(tz1, tz2)
         }
-        (
-            aimcal_ical::CalendarComponent::VJournal(j1),
-            aimcal_ical::CalendarComponent::VJournal(j2),
-        ) => journals_equal(j1, j2),
-        (
-            aimcal_ical::CalendarComponent::VTimeZone(tz1),
-            aimcal_ical::CalendarComponent::VTimeZone(tz2),
-        ) => timezones_equal(tz1, tz2),
-        (
-            aimcal_ical::CalendarComponent::VFreeBusy(fb1),
-            aimcal_ical::CalendarComponent::VFreeBusy(fb2),
-        ) => freebusies_equal(fb1, fb2),
-        (
-            aimcal_ical::CalendarComponent::VAlarm(a1),
-            aimcal_ical::CalendarComponent::VAlarm(a2),
-        ) => alarms_equal(a1, a2),
+        (CalendarComponent::VFreeBusy(fb1), CalendarComponent::VFreeBusy(fb2)) => {
+            freebusies_equal(fb1, fb2)
+        }
+        (CalendarComponent::VAlarm(a1), CalendarComponent::VAlarm(a2)) => alarms_equal(a1, a2),
         _ => false,
     }
 }
 
 /// Helper function to compare two VEvents.
-fn events_equal(e1: &aimcal_ical::VEventRef<'_>, e2: &aimcal_ical::VEventRef<'_>) -> bool {
+fn events_equal(e1: &VEvent<SpannedSegments<'_>>, e2: &VEvent<SpannedSegments<'_>>) -> bool {
     // Compare UID
     if e1.uid.content.to_string() != e2.uid.content.to_string() {
         return false;
@@ -665,7 +672,7 @@ fn events_equal(e1: &aimcal_ical::VEventRef<'_>, e2: &aimcal_ical::VEventRef<'_>
 }
 
 /// Helper function to compare two VTodos.
-fn todos_equal(t1: &aimcal_ical::VTodoRef<'_>, t2: &aimcal_ical::VTodoRef<'_>) -> bool {
+fn todos_equal(t1: &VTodo<SpannedSegments<'_>>, t2: &VTodo<SpannedSegments<'_>>) -> bool {
     // Compare UID
     if t1.uid.content.to_string() != t2.uid.content.to_string() {
         return false;
@@ -706,7 +713,7 @@ fn todos_equal(t1: &aimcal_ical::VTodoRef<'_>, t2: &aimcal_ical::VTodoRef<'_>) -
 }
 
 /// Helper function to compare two VJournals.
-fn journals_equal(j1: &aimcal_ical::VJournalRef<'_>, j2: &aimcal_ical::VJournalRef<'_>) -> bool {
+fn journals_equal(j1: &VJournal<SpannedSegments<'_>>, j2: &VJournal<SpannedSegments<'_>>) -> bool {
     // Compare UID
     if j1.uid.content.to_string() != j2.uid.content.to_string() {
         return false;
@@ -727,8 +734,8 @@ fn journals_equal(j1: &aimcal_ical::VJournalRef<'_>, j2: &aimcal_ical::VJournalR
 
 /// Helper function to compare two VTimeZones.
 fn timezones_equal(
-    tz1: &aimcal_ical::VTimeZoneRef<'_>,
-    tz2: &aimcal_ical::VTimeZoneRef<'_>,
+    tz1: &VTimeZone<SpannedSegments<'_>>,
+    tz2: &VTimeZone<SpannedSegments<'_>>,
 ) -> bool {
     // Compare TZID
     if tz1.tz_id.content.to_string() != tz2.tz_id.content.to_string() {
@@ -750,8 +757,8 @@ fn timezones_equal(
 
 /// Helper function to compare two VFreeBusys.
 fn freebusies_equal(
-    fb1: &aimcal_ical::VFreeBusyRef<'_>,
-    fb2: &aimcal_ical::VFreeBusyRef<'_>,
+    fb1: &VFreeBusy<SpannedSegments<'_>>,
+    fb2: &VFreeBusy<SpannedSegments<'_>>,
 ) -> bool {
     // Compare UID
     if fb1.uid.content.to_string() != fb2.uid.content.to_string() {
@@ -777,7 +784,7 @@ fn freebusies_equal(
 }
 
 /// Helper function to compare two VAlarms.
-fn alarms_equal(a1: &aimcal_ical::VAlarmRef<'_>, a2: &aimcal_ical::VAlarmRef<'_>) -> bool {
+fn alarms_equal(a1: &VAlarm<SpannedSegments<'_>>, a2: &VAlarm<SpannedSegments<'_>>) -> bool {
     // Compare ACTION
     if format!("{:?}", a1.action.value) != format!("{:?}", a2.action.value) {
         return false;

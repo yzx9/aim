@@ -10,17 +10,17 @@
 use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
-use crate::property::PropertyKindRef;
+use crate::property::PropertyKind;
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, ValueRef, ValueText, ValueTextRef};
+use crate::value::{Value, ValueText};
 
 /// Get the first value from a property, ensuring it has exactly one value
 pub fn take_single_value<'src>(
-    kind: &PropertyKindRef<'src>,
-    value: ValueRef<'src>,
-) -> Result<ValueRef<'src>, Vec<TypedError<'src>>> {
+    kind: &PropertyKind<SpannedSegments<'src>>,
+    value: Value<SpannedSegments<'src>>,
+) -> Result<Value<SpannedSegments<'src>>, Vec<TypedError<'src>>> {
     if !value.len() == 1 {
         return Err(vec![TypedError::PropertyInvalidValueCount {
             property: kind.clone(),
@@ -35,8 +35,8 @@ pub fn take_single_value<'src>(
 
 /// Get a single calendar user address value from a property
 pub fn take_single_cal_address<'src>(
-    kind: &PropertyKindRef<'src>,
-    value: ValueRef<'src>,
+    kind: &PropertyKind<SpannedSegments<'src>>,
+    value: Value<SpannedSegments<'src>>,
 ) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
     let value = take_single_value(kind, value)?;
     match value {
@@ -52,8 +52,8 @@ pub fn take_single_cal_address<'src>(
 
 /// Get a single URI value from a property
 pub fn take_single_uri<'src>(
-    kind: &PropertyKindRef<'src>,
-    value: ValueRef<'src>,
+    kind: &PropertyKind<SpannedSegments<'src>>,
+    value: Value<SpannedSegments<'src>>,
 ) -> Result<SpannedSegments<'src>, Vec<TypedError<'src>>> {
     let value = take_single_value(kind, value)?;
     match value {
@@ -69,9 +69,9 @@ pub fn take_single_uri<'src>(
 
 /// Get a single text value from a property
 pub fn take_single_text<'src>(
-    kind: &PropertyKindRef<'src>,
-    value: ValueRef<'src>,
-) -> Result<ValueTextRef<'src>, Vec<TypedError<'src>>> {
+    kind: &PropertyKind<SpannedSegments<'src>>,
+    value: Value<SpannedSegments<'src>>,
+) -> Result<ValueText<SpannedSegments<'src>>, Vec<TypedError<'src>>> {
     let value = take_single_value(kind, value)?;
 
     match value {
@@ -448,11 +448,6 @@ macro_rules! simple_property_wrapper {
     (
         $(#[$meta:meta])*
         $vis:vis $name:ident <S> => $inner:ident
-
-        $(#[$rmeta:meta])*
-        ref   = $rvis:vis type $name_ref:ident;
-        $(#[$ometa:meta])*
-        owned = $ovis:vis type $name_owned:ident;
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone)]
@@ -462,13 +457,6 @@ macro_rules! simple_property_wrapper {
             /// Span of the property in the source
             pub span: S::Span,
         }
-
-        #[doc = concat!("Borrowed type alias for [`", stringify!($name), "`]")]
-        $(#[$rmeta])*
-        $rvis type $name_ref<'src> = $name<crate::string_storage::SpannedSegments<'src>>;
-        #[doc = concat!("Owned type alias for [`", stringify!($name), "`]")]
-        $(#[$ometa])*
-        $ovis type $name_owned = $name<String>;
 
         impl<S> ::core::ops::Deref for $name<S>
         where
@@ -490,7 +478,7 @@ macro_rules! simple_property_wrapper {
             }
         }
 
-        impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name_ref<'src>
+        impl<'src> ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>> for $name<crate::string_storage::SpannedSegments<'src>>
         where
             $inner<crate::string_storage::SpannedSegments<'src>>: ::core::convert::TryFrom<crate::typed::ParsedProperty<'src>, Error = Vec<crate::typed::TypedError<'src>>>,
         {
@@ -510,7 +498,7 @@ macro_rules! simple_property_wrapper {
             }
         }
 
-        impl<'src> $name_ref<'src> {
+        impl $name<crate::string_storage::SpannedSegments<'_>> {
             /// Convert borrowed type to owned type
             #[must_use]
             pub fn to_owned(&self) -> $name<String> {
@@ -548,10 +536,10 @@ macro_rules! define_prop_value_enum {
         }
 
 
-        impl<'src> TryFrom<crate::value::ValueTextRef<'src>> for $Name {
-            type Error = crate::value::ValueTextRef<'src>;
+        impl<'src> TryFrom<crate::value::ValueText<SpannedSegments<'src>>> for $Name {
+            type Error = crate::value::ValueText<SpannedSegments<'src>>;
 
-            fn try_from(segs: crate::value::ValueTextRef<'src>) -> Result<Self, Self::Error> {
+            fn try_from(segs: crate::value::ValueText<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
                 $(
                     if segs.eq_str_ignore_ascii_case($kw) {
                         return Ok(Self::$Variant);

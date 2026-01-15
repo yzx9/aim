@@ -57,11 +57,6 @@ pub struct VJournal<S: StringStorage> {
     pub retained_properties: Vec<Property<S>>,
 }
 
-/// Type alias for `VJournal` with borrowed data
-pub type VJournalRef<'src> = VJournal<SpannedSegments<'src>>;
-/// Type alias for `VJournal` with owned data
-pub type VJournalOwned = VJournal<String>;
-
 /// Parse a `TypedComponent` into a `VJournal`
 #[expect(clippy::too_many_lines)]
 impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
@@ -217,10 +212,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<SpannedSegments<'src>> {
     }
 }
 
-impl VJournalRef<'_> {
+impl VJournal<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VJournalOwned {
-        VJournalOwned {
+    pub fn to_owned(&self) -> VJournal<String> {
+        VJournal {
             uid: self.uid.to_owned(),
             dt_stamp: self.dt_stamp.to_owned(),
             dt_start: self.dt_start.to_owned(),
@@ -264,12 +259,6 @@ pub enum JournalStatusValue {
     /// Journal entry is cancelled
     Cancelled,
 }
-
-/// Type alias for `JournalStatus` with borrowed data
-pub type JournalStatusRef<'src> = JournalStatus<SpannedSegments<'src>>;
-
-/// Type alias for `JournalStatus` with owned data
-pub type JournalStatusOwned = JournalStatus<String>;
 
 impl TryFrom<StatusValue> for JournalStatusValue {
     type Error = ();
@@ -331,10 +320,10 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for JournalStatus<SpannedSegme
     }
 }
 
-impl JournalStatusRef<'_> {
+impl JournalStatus<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> JournalStatusOwned {
-        JournalStatusOwned {
+    pub fn to_owned(&self) -> JournalStatus<String> {
+        JournalStatus {
             value: self.value,
             x_parameters: self
                 .x_parameters

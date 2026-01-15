@@ -14,13 +14,10 @@ mod definition;
 mod kind;
 
 pub use definition::{
-    AlarmTriggerRelationship, CalendarUserType, CalendarUserTypeOwned, CalendarUserTypeRef,
-    Encoding, FreeBusyType, FreeBusyTypeOwned, FreeBusyTypeRef, ParticipationRole,
-    ParticipationRoleOwned, ParticipationRoleRef, ParticipationStatus, ParticipationStatusOwned,
-    ParticipationStatusRef, RecurrenceIdRange, RelationshipType, RelationshipTypeOwned,
-    RelationshipTypeRef, ValueType, ValueTypeOwned, ValueTypeRef,
+    AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, ParticipationRole,
+    ParticipationStatus, RecurrenceIdRange, RelationshipType, ValueType,
 };
-pub use kind::{ParameterKind, ParameterKindOwned, ParameterKindRef};
+pub use kind::ParameterKind;
 
 use crate::parameter::definition::{
     parse_alarm_trigger_relationship, parse_cutype, parse_encoding, parse_fbtype, parse_partstat,
@@ -28,7 +25,7 @@ use crate::parameter::definition::{
 };
 use crate::parameter::util::{parse_multiple_quoted, parse_single, parse_single_quoted};
 use crate::string_storage::{SpannedSegments, StringStorage};
-use crate::syntax::{RawParameter, RawParameterRef};
+use crate::syntax::RawParameter;
 use crate::typed::TypedError;
 
 /// A typed iCalendar parameter with validated values.
@@ -271,12 +268,6 @@ pub enum Parameter<S: StringStorage> {
     Unrecognized(RawParameter<S>),
 }
 
-/// Type alias for borrowed parameter
-pub type ParameterRef<'src> = Parameter<SpannedSegments<'src>>;
-
-/// Type alias for owned parameter
-pub type ParameterOwned = Parameter<String>;
-
 impl<S: StringStorage> Parameter<S> {
     /// Get the kind of the parameter
     #[must_use]
@@ -337,84 +328,82 @@ impl<S: StringStorage> Parameter<S> {
     }
 }
 
-impl ParameterRef<'_> {
+impl Parameter<SpannedSegments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
-    pub fn to_owned(&self) -> ParameterOwned {
+    pub fn to_owned(&self) -> Parameter<String> {
         match self {
-            Parameter::AlternateText { value, .. } => ParameterOwned::AlternateText {
+            Parameter::AlternateText { value, .. } => Parameter::AlternateText {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::CommonName { value, .. } => ParameterOwned::CommonName {
+            Parameter::CommonName { value, .. } => Parameter::CommonName {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::CalendarUserType { value, .. } => ParameterOwned::CalendarUserType {
+            Parameter::CalendarUserType { value, .. } => Parameter::CalendarUserType {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::Delegators { values, .. } => ParameterOwned::Delegators {
+            Parameter::Delegators { values, .. } => Parameter::Delegators {
                 values: values.iter().map(SpannedSegments::to_owned).collect(),
                 span: (),
             },
-            Parameter::Delegatees { values, .. } => ParameterOwned::Delegatees {
+            Parameter::Delegatees { values, .. } => Parameter::Delegatees {
                 values: values.iter().map(SpannedSegments::to_owned).collect(),
                 span: (),
             },
-            Parameter::Directory { value, .. } => ParameterOwned::Directory {
+            Parameter::Directory { value, .. } => Parameter::Directory {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::Encoding { value, .. } => ParameterOwned::Encoding {
+            Parameter::Encoding { value, .. } => Parameter::Encoding {
                 value: *value,
                 span: (),
             },
-            Parameter::FormatType { value, .. } => ParameterOwned::FormatType {
+            Parameter::FormatType { value, .. } => Parameter::FormatType {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::FreeBusyType { value, .. } => ParameterOwned::FreeBusyType {
+            Parameter::FreeBusyType { value, .. } => Parameter::FreeBusyType {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::Language { value, .. } => ParameterOwned::Language {
+            Parameter::Language { value, .. } => Parameter::Language {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::GroupOrListMembership { values, .. } => {
-                ParameterOwned::GroupOrListMembership {
-                    values: values.iter().map(SpannedSegments::to_owned).collect(),
-                    span: (),
-                }
-            }
-            Parameter::ParticipationStatus { value, .. } => ParameterOwned::ParticipationStatus {
+            Parameter::GroupOrListMembership { values, .. } => Parameter::GroupOrListMembership {
+                values: values.iter().map(SpannedSegments::to_owned).collect(),
+                span: (),
+            },
+            Parameter::ParticipationStatus { value, .. } => Parameter::ParticipationStatus {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::RecurrenceIdRange { value, .. } => ParameterOwned::RecurrenceIdRange {
+            Parameter::RecurrenceIdRange { value, .. } => Parameter::RecurrenceIdRange {
                 value: *value,
                 span: (),
             },
             Parameter::AlarmTriggerRelationship { value, .. } => {
-                ParameterOwned::AlarmTriggerRelationship {
+                Parameter::AlarmTriggerRelationship {
                     value: *value,
                     span: (),
                 }
             }
-            Parameter::RelationshipType { value, .. } => ParameterOwned::RelationshipType {
+            Parameter::RelationshipType { value, .. } => Parameter::RelationshipType {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::ParticipationRole { value, .. } => ParameterOwned::ParticipationRole {
+            Parameter::ParticipationRole { value, .. } => Parameter::ParticipationRole {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::SendBy { value, .. } => ParameterOwned::SendBy {
+            Parameter::SendBy { value, .. } => Parameter::SendBy {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::RsvpExpectation { value, .. } => ParameterOwned::RsvpExpectation {
+            Parameter::RsvpExpectation { value, .. } => Parameter::RsvpExpectation {
                 value: *value,
                 span: (),
             },
@@ -423,26 +412,26 @@ impl ParameterRef<'_> {
                 #[cfg(feature = "jiff")]
                 tz,
                 ..
-            } => ParameterOwned::TimeZoneIdentifier {
+            } => Parameter::TimeZoneIdentifier {
                 value: value.to_owned(),
                 #[cfg(feature = "jiff")]
                 tz: tz.clone(),
                 span: (),
             },
-            Parameter::ValueType { value, .. } => ParameterOwned::ValueType {
+            Parameter::ValueType { value, .. } => Parameter::ValueType {
                 value: value.to_owned(),
                 span: (),
             },
-            Parameter::XName(raw) => ParameterOwned::XName(raw.to_owned()),
-            Parameter::Unrecognized(raw) => ParameterOwned::Unrecognized(raw.to_owned()),
+            Parameter::XName(raw) => Parameter::XName(raw.to_owned()),
+            Parameter::Unrecognized(raw) => Parameter::Unrecognized(raw.to_owned()),
         }
     }
 }
 
-impl<'src> TryFrom<RawParameterRef<'src>> for ParameterRef<'src> {
+impl<'src> TryFrom<RawParameter<SpannedSegments<'src>>> for Parameter<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
-    fn try_from(mut param: RawParameterRef<'src>) -> Result<Self, Self::Error> {
+    fn try_from(mut param: RawParameter<SpannedSegments<'src>>) -> Result<Self, Self::Error> {
         // Parse the parameter kind
         let kind = ParameterKind::from(param.name.clone());
 

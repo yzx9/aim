@@ -26,25 +26,16 @@ use crate::value::Value;
 simple_property_wrapper!(
     /// Created property wrapper (RFC 5545 Section 3.8.7.1)
     pub Created<S> => DateTime
-
-    ref   = pub type CreatedRef;
-    owned = pub type CreatedOwned;
 );
 
 simple_property_wrapper!(
     /// Date-Time Stamp property wrapper (RFC 5545 Section 3.8.7.2)
     pub DtStamp<S> => DateTime
-
-    ref   = pub type DtStampRef;
-    owned = pub type DtStampOwned;
 );
 
 simple_property_wrapper!(
     /// Last Modified property wrapper (RFC 5545 Section 3.8.7.3)
     pub LastModified<S> => DateTime
-
-    ref   = pub type LastModifiedRef;
-    owned = pub type LastModifiedOwned;
 );
 
 /// Sequence Number (RFC 5545 Section 3.8.7.4)

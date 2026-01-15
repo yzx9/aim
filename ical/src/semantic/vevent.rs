@@ -75,13 +75,8 @@ pub struct VEvent<S: StringStorage> {
     pub alarms: Vec<VAlarm<S>>,
 }
 
-/// Type alias for `VEvent` with borrowed data
-pub type VEventRef<'src> = VEvent<SpannedSegments<'src>>;
-/// Type alias for `VEvent` with owned data
-pub type VEventOwned = VEvent<String>;
-
 /// Parse a `TypedComponent` into a `VEvent`
-impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
+impl<'src> TryFrom<TypedComponent<'src>> for VEvent<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
 
     #[expect(clippy::too_many_lines)]
@@ -331,10 +326,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VEventRef<'src> {
     }
 }
 
-impl VEventRef<'_> {
+impl VEvent<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VEventOwned {
-        VEventOwned {
+    pub fn to_owned(&self) -> VEvent<String> {
+        VEvent {
             uid: self.uid.to_owned(),
             dt_stamp: self.dt_stamp.to_owned(),
             dt_start: self.dt_start.to_owned(),
@@ -425,12 +420,6 @@ pub struct EventStatus<S: StringStorage> {
     pub retained_parameters: Vec<Parameter<S>>,
 }
 
-/// Type alias for `EventStatus` with borrowed data
-pub type EventStatusRef<'src> = EventStatus<SpannedSegments<'src>>;
-
-/// Type alias for `EventStatus` with owned data
-pub type EventStatusOwned = EventStatus<String>;
-
 impl<'src> TryFrom<Status<SpannedSegments<'src>>> for EventStatus<SpannedSegments<'src>> {
     type Error = SemanticError<'src>;
 
@@ -451,10 +440,10 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for EventStatus<SpannedSegment
     }
 }
 
-impl EventStatusRef<'_> {
+impl EventStatus<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> EventStatusOwned {
-        EventStatusOwned {
+    pub fn to_owned(&self) -> EventStatus<String> {
+        EventStatus {
             value: self.value,
             x_parameters: self
                 .x_parameters

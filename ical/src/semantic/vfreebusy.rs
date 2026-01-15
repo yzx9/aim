@@ -47,11 +47,6 @@ pub struct VFreeBusy<S: StringStorage> {
     pub retained_properties: Vec<Property<S>>,
 }
 
-/// Type alias for `VFreeBusy` with borrowed data
-pub type VFreeBusyRef<'src> = VFreeBusy<SpannedSegments<'src>>;
-/// Type alias for `VFreeBusy` with owned data
-pub type VFreeBusyOwned<'src> = VFreeBusy<String>;
-
 /// Parse a `TypedComponent` into a `VFreeBusy`
 impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
@@ -204,10 +199,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<SpannedSegments<'src>> {
     }
 }
 
-impl<'src> VFreeBusyRef<'src> {
+impl VFreeBusy<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VFreeBusyOwned<'src> {
-        VFreeBusyOwned {
+    pub fn to_owned(&self) -> VFreeBusy<String> {
+        VFreeBusy {
             uid: self.uid.to_owned(),
             dt_stamp: self.dt_stamp.to_owned(),
             dt_start: self.dt_start.to_owned(),

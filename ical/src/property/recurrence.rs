@@ -19,7 +19,7 @@
 
 use std::convert::TryFrom;
 
-use crate::parameter::{Parameter, ValueTypeRef};
+use crate::parameter::{Parameter, ValueType};
 use crate::property::{DateTime, Period, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
 use crate::syntax::RawParameter;
@@ -34,11 +34,6 @@ pub enum ExDateValue<S: StringStorage> {
     /// Date-time value
     DateTime(DateTime<S>),
 }
-
-/// Type alias for borrowed exception date-time value
-pub type ExDateValueRef<'src> = ExDateValue<SpannedSegments<'src>>;
-/// Type alias for owned exception date-time value
-pub type ExDateValueOwned = ExDateValue<String>;
 
 impl ExDateValue<SpannedSegments<'_>> {
     /// Convert borrowed `ExDateValue` to owned `ExDateValue`
@@ -61,12 +56,6 @@ pub enum RDateValue<S: StringStorage> {
     /// Period value
     Period(Period<S>),
 }
-
-/// Type alias for borrowed recurrence date-time value
-pub type RDateValueRef<'src> = RDateValue<SpannedSegments<'src>>;
-
-/// Type alias for owned recurrence date-time value
-pub type RDateValueOwned = RDateValue<String>;
 
 impl RDateValue<SpannedSegments<'_>> {
     /// Convert borrowed `RDateValue` to owned `RDateValue`
@@ -97,11 +86,6 @@ pub struct ExDate<S: StringStorage> {
     /// Span of the property in the source
     pub span: S::Span,
 }
-
-/// Type alias for borrowed exception date-times
-pub type ExDateRef<'src> = ExDate<SpannedSegments<'src>>;
-/// Type alias for owned exception date-times
-pub type ExDateOwned = ExDate<String>;
 
 impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
@@ -157,7 +141,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<SpannedSegments<'src>> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueTypeRef::Date,
+                    expected: ValueType::Date,
                     found: v.kind().into(),
                     span,
                 }])
@@ -277,7 +261,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<SpannedSegments<'src>> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueTypeRef::Period,
+                    expected: ValueType::Period,
                     found: v.kind().into(),
                     span,
                 }])
@@ -331,11 +315,6 @@ pub struct RRule<S: StringStorage> {
     pub span: S::Span,
 }
 
-/// Type alias for borrowed recurrence rule
-pub type RRuleRef<'src> = RRule<SpannedSegments<'src>>;
-/// Type alias for owned recurrence rule
-pub type RRuleOwned = RRule<String>;
-
 impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
@@ -368,7 +347,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RRule<SpannedSegments<'src>> {
                 let span = v.span();
                 return Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueTypeRef::RecurrenceRule,
+                    expected: ValueType::RecurrenceRule,
                     found: v.kind().into(),
                     span,
                 }]);

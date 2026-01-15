@@ -15,7 +15,7 @@ use crate::string_storage::Span;
 /// This is a simpler alternative to `lex_analysis` that returns a Vec directly,
 /// which is useful for the new scanner-based parser.
 #[must_use]
-pub fn tokenize<'src>(src: &'src str) -> impl IntoIterator<Item = SpannedToken<'src>> {
+pub fn tokenize(src: &str) -> impl IntoIterator<Item = SpannedToken<'_>> {
     Token::lexer(src).spanned().map(|(tok, span)| match tok {
         Ok(tok) => SpannedToken(tok, Span::new(span.start, span.end)),
         Err(()) => SpannedToken(Token::Error, Span::new(span.start, span.end)),

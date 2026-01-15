@@ -38,12 +38,6 @@ pub struct VAlarm<S: StringStorage> {
     pub retained_properties: Vec<Property<S>>,
 }
 
-/// Type alias for `VAlarm` with borrowed data
-pub type VAlarmRef<'src> = VAlarm<SpannedSegments<'src>>;
-
-/// Type alias for `VAlarm` with owned data
-pub type VAlarmOwned<'src> = VAlarm<String>;
-
 /// Parse a `TypedComponent` into a `VAlarm`
 impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
@@ -202,11 +196,11 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<SpannedSegments<'src>> {
     }
 }
 
-impl<'src> VAlarmRef<'src> {
+impl VAlarm<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
     #[must_use]
-    pub fn to_owned(&self) -> VAlarmOwned<'src> {
-        VAlarmOwned {
+    pub fn to_owned(&self) -> VAlarm<String> {
+        VAlarm {
             action: self.action.to_owned(),
             trigger: self.trigger.to_owned(),
             repeat: self.repeat.as_ref().map(Repeat::to_owned),

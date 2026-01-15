@@ -37,12 +37,6 @@ pub struct ICalendar<S: StringStorage> {
     pub retained_properties: Vec<Property<S>>,
 }
 
-/// Type alias for `ICalendar` with borrowed data
-pub type ICalendarRef<'src> = ICalendar<SpannedSegments<'src>>;
-
-/// Type alias for `ICalendar` with owned data
-pub type ICalendarOwned = ICalendar<String>;
-
 /// Parse a `TypedComponent` into typed `ICalendar`
 ///
 /// # Errors
@@ -269,11 +263,11 @@ struct PropertyCollector<S: StringStorage> {
     unrecognized_properties: Vec<Property<S>>,
 }
 
-impl ICalendarRef<'_> {
+impl ICalendar<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
     #[must_use]
-    pub fn to_owned(&self) -> ICalendarOwned {
-        ICalendarOwned {
+    pub fn to_owned(&self) -> ICalendar<String> {
+        ICalendar {
             prod_id: self.prod_id.to_owned(),
             version: self.version.to_owned(),
             calscale: self.calscale.as_ref().map(CalendarScale::to_owned),

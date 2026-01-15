@@ -16,7 +16,7 @@
 use std::convert::TryFrom;
 
 use crate::keyword::{KW_ACTION_AUDIO, KW_ACTION_DISPLAY, KW_ACTION_EMAIL, KW_ACTION_PROCEDURE};
-use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueTypeRef};
+use crate::parameter::{AlarmTriggerRelationship, Parameter, ValueType};
 use crate::property::common::{take_single_text, take_single_value};
 use crate::property::{DateTime, PropertyKind};
 use crate::string_storage::{SpannedSegments, StringStorage};
@@ -224,7 +224,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<SpannedSegments<'src>> {
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueTypeRef::Integer,
+                    expected: ValueType::Integer,
                     found: v.kind().into(),
                     span,
                 }])
@@ -269,11 +269,6 @@ pub struct Trigger<S: StringStorage> {
     pub span: S::Span,
 }
 
-/// Type alias for borrowed trigger
-pub type TriggerRef<'src> = Trigger<SpannedSegments<'src>>;
-/// Type alias for owned trigger
-pub type TriggerOwned = Trigger<String>;
-
 /// Trigger value (relative duration or absolute date/time)
 #[derive(Debug, Clone)]
 pub enum TriggerValue<S: StringStorage> {
@@ -282,12 +277,6 @@ pub enum TriggerValue<S: StringStorage> {
     /// Absolute date/time
     DateTime(DateTime<S>),
 }
-
-/// Type alias for borrowed trigger value
-pub type TriggerValueRef<'src> = TriggerValue<SpannedSegments<'src>>;
-
-/// Type alias for owned trigger value
-pub type TriggerValueOwned = TriggerValue<String>;
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<SpannedSegments<'src>> {
     type Error = Vec<TypedError<'src>>;

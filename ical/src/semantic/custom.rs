@@ -39,15 +39,10 @@ pub struct CustomComponent<S: StringStorage> {
     pub span: S::Span,
 }
 
-/// Type alias for `CustomComponent` with borrowed data
-pub type CustomComponentRef<'src> = CustomComponent<SpannedSegments<'src>>;
-/// Type alias for `CustomComponent` with owned data
-pub type CustomComponentOwned = CustomComponent<String>;
-
-impl CustomComponentRef<'_> {
+impl CustomComponent<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
     #[must_use]
-    pub fn to_owned(&self) -> CustomComponentOwned {
+    pub fn to_owned(&self) -> CustomComponent<String> {
         CustomComponent {
             name: self.name.clone(),
             properties: self.properties.iter().map(Property::to_owned).collect(),

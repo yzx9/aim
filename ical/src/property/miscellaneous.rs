@@ -18,7 +18,4 @@ simple_property_wrapper!(
     ///
     /// Per RFC 5545, REQUEST-STATUS supports the LANGUAGE parameter but not ALTREP.
     pub RequestStatus<S> => TextWithLanguage
-
-    ref   = pub type RequestStatusRef;
-    owned = pub type RequestStatusOwned;
 );

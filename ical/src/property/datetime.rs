@@ -973,33 +973,21 @@ fn add_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff:
 simple_property_wrapper!(
     /// Date-Time Completed property wrapper (RFC 5545 Section 3.8.2.1)
     pub Completed<S> => DateTime
-
-    ref   = pub type CompletedRef;
-    owned = pub type CompletedOwned;
 );
 
 simple_property_wrapper!(
     /// Date-Time End property wrapper (RFC 5545 Section 3.8.2.2)
     pub DtEnd<S> => DateTime
-
-    ref   = pub type DtEndRef;
-    owned = pub type DtEndOwned;
 );
 
 simple_property_wrapper!(
     /// Time Transparency property wrapper (RFC 5545 Section 3.8.2.3)
     pub Due<S> => DateTime
-
-    ref   = pub type DueRef;
-    owned = pub type DueOwned;
 );
 
 simple_property_wrapper!(
     /// Date-Time Start property wrapper (RFC 5545 Section 3.8.2.4)
     pub DtStart<S> => DateTime
-
-    ref   = pub type DtStartRef;
-    owned = pub type DtStartOwned;
 );
 
 /// Duration (RFC 5545 Section 3.8.2.5)

@@ -43,13 +43,10 @@ define_prop_value_enum! {
 pub struct CalendarScale<S: StringStorage> {
     /// Calendar scale value
     pub value: CalendarScaleValue,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -149,13 +146,10 @@ define_prop_value_enum! {
 pub struct Method<S: StringStorage> {
     /// Method value
     pub value: MethodValue,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -233,13 +227,10 @@ pub struct ProductId<S: StringStorage> {
     /// unique identifier; using some technique such as an FPI value, as
     /// defined in [ISO.9070.1991].
     pub value: ValueText<S>,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -315,13 +306,10 @@ define_prop_value_enum! {
 pub struct Version<S: StringStorage> {
     /// Version value
     pub value: VersionValue,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }

@@ -78,11 +78,6 @@ pub struct VTodo<S: StringStorage> {
     pub alarms: Vec<VAlarm<S>>,
 }
 
-/// Type alias for `VTodo` with borrowed data
-pub type VTodoRef<'src> = VTodo<SpannedSegments<'src>>;
-/// Type alias for `VTodo` with owned data
-pub type VTodoOwned = VTodo<String>;
-
 /// Parse a `TypedComponent` into a `VTodo`
 impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
     type Error = Vec<SemanticError<'src>>;
@@ -336,10 +331,10 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTodo<SpannedSegments<'src>> {
     }
 }
 
-impl VTodoRef<'_> {
+impl VTodo<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> VTodoOwned {
-        VTodoOwned {
+    pub fn to_owned(&self) -> VTodo<String> {
+        VTodo {
             uid: self.uid.to_owned(),
             dt_stamp: self.dt_stamp.to_owned(),
             dt_start: self.dt_start.as_ref().map(DtStart::to_owned),
@@ -425,11 +420,6 @@ impl From<TodoStatusValue> for StatusValue {
     }
 }
 
-/// Type alias for `TodoStatus` with borrowed data
-pub type TodoStatusRef<'src> = TodoStatus<SpannedSegments<'src>>;
-/// Type alias for `TodoStatus` with owned data
-pub type TodoStatusOwned = TodoStatus<String>;
-
 /// To-do status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
 pub struct TodoStatus<S: StringStorage> {
@@ -461,10 +451,10 @@ impl<'src> TryFrom<Status<SpannedSegments<'src>>> for TodoStatus<SpannedSegments
     }
 }
 
-impl TodoStatusRef<'_> {
+impl TodoStatus<SpannedSegments<'_>> {
     /// Convert borrowed data to owned data
-    pub fn to_owned(&self) -> TodoStatusOwned {
-        TodoStatusOwned {
+    pub fn to_owned(&self) -> TodoStatus<String> {
+        TodoStatus {
             value: self.value,
             x_parameters: self
                 .x_parameters

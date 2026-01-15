@@ -44,7 +44,7 @@ pub struct RawProperty<'src> {
     /// Property name (case-insensitive, original casing preserved)
     pub name: SpannedSegments<'src>,
     /// Property parameters (allow duplicates & multi-values)
-    pub parameters: Vec<RawParameterRef<'src>>,
+    pub parameters: Vec<RawParameter<SpannedSegments<'src>>>,
     /// Raw property value (may need further parsing by typed analysis)
     pub value: SpannedSegments<'src>,
 }
@@ -60,16 +60,11 @@ pub struct RawParameter<S: StringStorage> {
     pub span: S::Span,
 }
 
-/// Type alias for borrowed raw parameter
-pub type RawParameterRef<'src> = RawParameter<SpannedSegments<'src>>;
-/// Type alias for owned raw parameter
-pub type RawParameterOwned = RawParameter<String>;
-
-impl RawParameterRef<'_> {
+impl RawParameter<SpannedSegments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
-    pub fn to_owned(&self) -> RawParameterOwned {
-        RawParameterOwned {
+    pub fn to_owned(&self) -> RawParameter<String> {
+        RawParameter {
             name: self.name.to_owned(),
             values: self
                 .values
@@ -90,16 +85,11 @@ pub struct RawParameterValue<S: StringStorage> {
     pub quoted: bool,
 }
 
-/// Type alias for borrowed raw parameter value
-pub type RawParameterValueRef<'src> = RawParameterValue<SpannedSegments<'src>>;
-/// Type alias for owned raw parameter value
-pub type RawParameterValueOwned = RawParameterValue<String>;
-
-impl RawParameterValueRef<'_> {
+impl RawParameterValue<SpannedSegments<'_>> {
     /// Convert borrowed type to owned type
     #[must_use]
-    pub fn to_owned(&self) -> RawParameterValueOwned {
-        RawParameterValueOwned {
+    pub fn to_owned(&self) -> RawParameterValue<String> {
+        RawParameterValue {
             value: self.value.to_owned(),
             quoted: self.quoted,
         }
@@ -213,8 +203,8 @@ pub fn build_tree<'src>(lines: &[ContentLine<'src>]) -> TreeBuilderResult<'src> 
             }
         } else if let Some(current) = stack.last_mut() {
             // Regular property - add to current component
-            // Build RawParameterRef from ScannedParameter
-            let parameters: Vec<RawParameterRef<'src>> = line
+            // Build RawParameter from ScannedParameter
+            let parameters: Vec<RawParameter<SpannedSegments<'src>>> = line
                 .parameters
                 .iter()
                 .map(|scanned_param| RawParameter {

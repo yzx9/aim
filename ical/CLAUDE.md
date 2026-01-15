@@ -25,9 +25,11 @@ The parser follows a **four-phase pipeline**:
 
 Transforms raw iCalendar text into a hierarchical component tree through three sub-phases:
 
-1. **Lexer** - Tokenizes raw iCalendar text into structured tokens while preserving source position information for error reporting
+1. **Lexer** - Tokenizes raw iCalendar text into structured tokens while preserving source position
+   information for error reporting
 2. **Scanner** - Scans token streams into content lines, validating structure and collecting errors
-3. **Tree Builder** - Builds a tree of components with properties and parameters using a stack-based algorithm, validates component nesting (BEGIN/END matching)
+3. **Tree Builder** - Builds a tree of components with properties and parameters using a stack-
+   based algorithm, validates component nesting (BEGIN/END matching)
 
 ### Typed Analysis Phase
 
@@ -71,14 +73,14 @@ specification.
 
 ### Unified Parser
 
-The main `parse()` function coordinates all phases, returns `Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>>`
+The main `parse()` function coordinates all phases, returns `Result<Vec<ICalendar<SpannedSegments<'_>>>, Vec<ParseError<'_>>>`
 which provides zero-copy parsing by default, with the option to convert to owned types using the
 `to_owned()` method.
 
 ### Formatter
 
 The formatter module provides RFC 5545-compliant serialization of iCalendar data. The formatter
-supports both zero-copy writing (with `Ref` types) and owned data serialization.
+supports serialization of both borrowed and owned data representations.
 
 ## String Storage Abstraction
 
@@ -93,29 +95,8 @@ both zero-copy parsing and owned data representations with a unified API.
 This abstraction enables the entire type system to use generic bounds like `S: StringStorage`
 instead of being tied to specific string types, providing flexibility while maintaining type safety.
 
-### Convenience Aliases
-
-For each generic type using `S: StringStorage`, the crate provides convenience aliases:
-
-**For Zero-Copy Parsing (Borrowed Data):**
-
-- `ParameterRef<'src>` = `Parameter<SpannedSegments<'src>>`
-- `ValueRef<'src>` = `Value<SpannedSegments<'src>>`
-- `PropertyRef<'src>` = `Property<SpannedSegments<'src>>`
-- `ICalendarRef<'src>` = `ICalendar<SpannedSegments<'src>>`
-- `VEventRef<'src>`, `VTodoRef<'src>`, etc.
-
-**For Owned Data:**
-
-- `ParameterOwned` = `Parameter<String>`
-- `ValueOwned` = `Value<String>`
-- `PropertyOwned` = `Property<String>`
-- `ICalendarOwned` = `ICalendar<String>`
-- `VEventOwned`, `VTodoOwned`, etc.
-
-This unified API allows seamless conversion between zero-copy and owned representations through the
-`to_owned()` method, enabling efficient parsing when needed and data ownership when required (e.g.,
-for serialization or long-term storage).
+Types use `SpannedSegments<'src>` for zero-copy borrowed data and `String` for owned data.
+Conversion between the two is done through the `to_owned()` method on each type.
 
 ## Module Structure
 
@@ -225,13 +206,14 @@ ical/
   dedicated wrapper types for each property (e.g., `Created`, `DtStart`, `Summary`)
 - **Generic Storage Parameter System**: Unified type system using generic storage parameter
   `S: StringStorage` for flexibility:
-  - **Parameters**: `Parameter<S: StringStorage>` with convenience aliases.
-  - **Properties**: `Property<S: StringStorage>` with convenience aliases.
-  - **Values**: `Value<S: StringStorage>` with convenience aliases.
+  - **Parameters**: `Parameter<S: StringStorage>`
+  - **Properties**: `Property<S: StringStorage>`
+  - **Values**: `Value<S: StringStorage>`
   - **Semantic Types**: All component types (e.g., `VEvent`, `VTodo`, `ICalendar`) use the same
-    pattern with `Ref` and `Owned` variants
-  - This enables both zero-copy parsing (borrowed data) and owned data representations with a
-    unified API
+    pattern
+  - This enables both zero-copy parsing (borrowed data) and owned data representations
+  - Use `Type<SpannedSegments<'src>>` for borrowed data and `Type<String>` for owned data
+  - Convert between representations using the `to_owned()` method
 - **Performance**: Zero-copy parsing where possible, minimal allocations
 - **Optional datetime dependencies**: All types use the value module's `ValueDate`, `ValueTime`,
   and `ValueDateTime` instead of directly using datetime types from `jiff` or `chrono` (planned)
@@ -255,11 +237,11 @@ The architecture provides comprehensive error reporting with:
 - **Unknown/Custom Property Support**: Full RFC 5545 compliance for extensibility:
   - Parsing never fails due to unknown content (per RFC 5545 Section 4.1)
   - Preserves original data for round-trip serialization compatibility
-- **Timezone Validation**: Optional integration with `jiff` for timezone database validation
-  (feature-gated)
 - **Extensible Property Support**: Property types organized by RFC 5545 sections for easy
   maintenance and extension
+- **Semantic Type System**: High-level semantic representations of iCalendar components
+  using `Type<SpannedSegments<'src>>` for borrowed data and `Type<String>` for owned data
 - **RFC 5545 Compliance**: Complete support for all required value types and parameters
-- **Semantic Type System**: High-level semantic representations of iCalendar components with `Ref`
-  and `Owned` variants for all component types
-- **RFC 5545 Serialization**: Complete zero-copy (planned) formatter module for writing iCalendar data
+- **RFC 5545 Serialization**: Complete formatter module for writing iCalendar data
+- **(feature-gated) Timezone Validation**: Optional integration with `jiff` for timezone database
+  validation

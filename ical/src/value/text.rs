@@ -20,18 +20,12 @@ pub struct ValueText<S: StringStorage> {
     tokens: Vec<ValueTextToken<S>>,
 }
 
-/// Type alias for borrowed text value
-pub type ValueTextRef<'src> = ValueText<SpannedSegments<'src>>;
-
-/// Type alias for owned text value
-pub type ValueTextOwned = ValueText<String>;
-
-impl<'src> ValueTextRef<'src> {
+impl ValueText<SpannedSegments<'_>> {
     /// Resolve the text value into a single string, processing escapes.
     ///
     /// This version tries to avoid allocation when there's only a single string token.
     #[must_use]
-    pub fn resolve(&self) -> Cow<'src, str> {
+    pub fn resolve(&self) -> Cow<'_, str> {
         #[expect(clippy::indexing_slicing)]
         if self.tokens.len() == 1
             && let ValueTextToken::Str(part) = &self.tokens[0]
@@ -88,8 +82,8 @@ impl<'src> ValueTextRef<'src> {
 
     /// Convert borrowed type to owned type
     #[must_use]
-    pub fn to_owned(&self) -> ValueTextOwned {
-        ValueTextOwned {
+    pub fn to_owned(&self) -> ValueText<String> {
+        ValueText {
             tokens: self
                 .tokens
                 .iter()
@@ -149,7 +143,7 @@ impl fmt::Display for ValueTextEscape {
 pub struct RawValueText(Vec<Either<SpanCollector, ValueTextEscape>>);
 
 impl RawValueText {
-    pub fn build<'src>(self, src: &SpannedSegments<'src>) -> ValueTextRef<'src> {
+    pub fn build<'src>(self, src: &SpannedSegments<'src>) -> ValueText<SpannedSegments<'src>> {
         let size = self.0.iter().fold(0, |acc, t| match t {
             Either::Left(collector) => acc + collector.0.len(),
             Either::Right(_) => acc + 1,
@@ -306,7 +300,7 @@ mod tests {
         })
     }
 
-    fn parse(src: &str) -> ValueTextRef<'_> {
+    fn parse(src: &str) -> ValueText<SpannedSegments<'_>> {
         let comps = syntax_analysis(src).unwrap();
         assert_eq!(comps.len(), 1);
         let syntax_component = comps.first().unwrap();

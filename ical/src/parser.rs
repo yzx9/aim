@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::semantic::{ICalendarRef, SemanticError, semantic_analysis};
+use crate::semantic::{ICalendar, SemanticError, semantic_analysis};
+use crate::string_storage::SpannedSegments;
 use crate::syntax::SyntaxError;
 use crate::typed::{TypedError, typed_analysis};
 
@@ -58,7 +59,7 @@ use crate::typed::{TypedError, typed_analysis};
 ///   eprintln!("{}", error);
 /// }
 /// ```
-pub fn parse(src: &'_ str) -> Result<Vec<ICalendarRef<'_>>, Vec<ParseError<'_>>> {
+pub fn parse(src: &'_ str) -> Result<Vec<ICalendar<SpannedSegments<'_>>>, Vec<ParseError<'_>>> {
     // Syntax analysis (includes tokenization, scanning, and tree building)
     let syntax_components = crate::syntax::syntax_analysis(src)
         .map_err(|errs| errs.into_iter().map(ParseError::Syntax).collect::<Vec<_>>())?;

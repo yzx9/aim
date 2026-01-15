@@ -16,23 +16,18 @@ mod vjournal;
 mod vtimezone;
 mod vtodo;
 
-pub use custom::{CustomComponent, CustomComponentOwned, CustomComponentRef};
-pub use icalendar::{CalendarComponent, ICalendar, ICalendarOwned, ICalendarRef};
-pub use valarm::{VAlarm, VAlarmOwned, VAlarmRef};
-pub use vevent::{EventStatus, EventStatusOwned, EventStatusRef, VEvent, VEventOwned, VEventRef};
-pub use vfreebusy::{VFreeBusy, VFreeBusyOwned, VFreeBusyRef};
-pub use vjournal::{
-    JournalStatus, JournalStatusOwned, JournalStatusRef, VJournal, VJournalOwned, VJournalRef,
-};
-pub use vtimezone::{
-    TimeZoneObservance, TimeZoneObservanceOwned, TimeZoneObservanceRef, VTimeZone, VTimeZoneOwned,
-    VTimeZoneRef,
-};
-pub use vtodo::{TodoStatus, TodoStatusOwned, VTodo, VTodoOwned, VTodoRef};
+pub use custom::CustomComponent;
+pub use icalendar::{CalendarComponent, ICalendar};
+pub use valarm::VAlarm;
+pub use vevent::{EventStatus, VEvent};
+pub use vfreebusy::VFreeBusy;
+pub use vjournal::{JournalStatus, VJournal};
+pub use vtimezone::{TimeZoneObservance, VTimeZone};
+pub use vtodo::{TodoStatus, VTodo};
 
 use crate::SpannedSegments;
 use crate::keyword::KW_VCALENDAR;
-use crate::property::PropertyKindRef;
+use crate::property::PropertyKind;
 use crate::string_storage::Span;
 use crate::typed::TypedComponent;
 
@@ -45,7 +40,7 @@ use crate::typed::TypedComponent;
 /// - Any components failed to parse
 pub fn semantic_analysis(
     typed_components: Vec<TypedComponent<'_>>,
-) -> Result<Vec<ICalendarRef<'_>>, Vec<SemanticError<'_>>> {
+) -> Result<Vec<ICalendar<SpannedSegments<'_>>>, Vec<SemanticError<'_>>> {
     // Return error only if no calendars
     if typed_components.is_empty() {
         return Err(vec![SemanticError::ConstraintViolation {
@@ -99,7 +94,7 @@ pub enum SemanticError<'src> {
     #[error("Duplicate property '{property}'")]
     DuplicateProperty {
         /// The property that is duplicated
-        property: PropertyKindRef<'src>,
+        property: PropertyKind<SpannedSegments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -108,7 +103,7 @@ pub enum SemanticError<'src> {
     #[error("Missing required property '{property}'")]
     MissingProperty {
         /// The property that is missing
-        property: PropertyKindRef<'src>,
+        property: PropertyKind<SpannedSegments<'src>>,
         /// The span of the error
         span: Span,
     },
@@ -117,7 +112,7 @@ pub enum SemanticError<'src> {
     #[error("Invalid value '{value}' for property: {property}")]
     InvalidValue {
         /// The property that has the invalid value
-        property: PropertyKindRef<'src>,
+        property: PropertyKind<SpannedSegments<'src>>,
         /// The invalid value description
         value: String,
         /// The span of the error
