@@ -19,7 +19,9 @@
 
 use std::convert::TryFrom;
 
-use chumsky::{Parser, error::Rich, extra, input::Stream};
+use chumsky::input::{Input, Stream};
+use chumsky::prelude::*;
+use chumsky::{Parser, error::Rich, extra};
 
 use crate::keyword::{
     KW_CLASS_CONFIDENTIAL, KW_CLASS_PRIVATE, KW_CLASS_PUBLIC, KW_STATUS_CANCELLED,
@@ -39,19 +41,14 @@ use crate::value::{Value, ValueText, values_float_semicolon};
 pub struct Attachment<S: StringStorage> {
     /// URI or binary data
     pub value: AttachmentValue<S>,
-
     /// Format type (optional)
     pub fmt_type: Option<S>,
-
     /// Encoding (optional)
     pub encoding: Option<Encoding>,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -117,12 +114,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<Segments<'src>> {
             Ok(Value::Binary { value, .. }) => Some(AttachmentValue::Binary(value)),
             Ok(Value::Uri { value, .. }) => Some(AttachmentValue::Uri(value)),
             Ok(v) => {
-                let span = v.span();
                 errors.push(TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
                     expected: ValueType::Uri, // TODO: include Binary as well
                     found: v.kind().into(),
-                    span,
+                    span: v.span(),
                 });
                 None
             }
@@ -189,10 +185,8 @@ define_prop_value_enum! {
         /// Public classification
         #[default]
         Public => KW_CLASS_PUBLIC,
-
         /// Private classification
         Private => KW_CLASS_PRIVATE,
-
         /// Confidential classification
         Confidential => KW_CLASS_CONFIDENTIAL,
     }
@@ -203,13 +197,10 @@ define_prop_value_enum! {
 pub struct Classification<S: StringStorage> {
     /// Classification value
     pub value: ClassificationValue,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -295,16 +286,12 @@ simple_property_wrapper!(
 pub struct Geo<S: StringStorage> {
     /// Latitude
     pub lat: f64,
-
     /// Longitude
     pub lon: f64,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -336,10 +323,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Geo<Segments<'src>> {
         }
 
         let value_span = prop.value.span();
-        let text = take_single_text(&PropertyKind::Geo, prop.value)?.to_string();
+        let text = take_single_text(&PropertyKind::Geo, prop.value)?;
 
         // Use the typed phase's float parser with semicolon separator
-        let stream = Stream::from_iter(text.chars()); // TODO: fix span
+        let stream = make_input(text.clone()); // TODO: avoid clone
         let parser = values_float_semicolon::<_, extra::Err<Rich<char, _>>>();
 
         match parser.parse(stream).into_result() {
@@ -408,25 +395,18 @@ define_prop_value_enum! {
     pub enum StatusValue {
         /// Event is tentative
         Tentative => KW_STATUS_TENTATIVE,
-
         /// Event is confirmed
         Confirmed => KW_STATUS_CONFIRMED,
-
         /// To-do needs action
         NeedsAction => KW_STATUS_NEEDS_ACTION,
-
         /// To-do is completed
         Completed => KW_STATUS_COMPLETED,
-
         /// To-do is in process
         InProcess => KW_STATUS_IN_PROCESS,
-
         /// Journal entry is draft
         Draft => KW_STATUS_DRAFT,
-
         /// Journal entry is final
         Final => KW_STATUS_FINAL,
-
         /// Event/To-do/Journal is cancelled
         Cancelled => KW_STATUS_CANCELLED,
     }
@@ -437,13 +417,10 @@ define_prop_value_enum! {
 pub struct Status<S: StringStorage> {
     /// Status value
     pub value: StatusValue,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -522,13 +499,10 @@ impl Status<Segments<'_>> {
 pub struct PercentComplete<S: StringStorage> {
     /// Percent complete (0-100)
     pub value: u8,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -629,13 +603,10 @@ impl PercentComplete<Segments<'_>> {
 pub struct Priority<S: StringStorage> {
     /// Priority value (0-9, where 0 is undefined)
     pub value: u8,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -737,16 +708,12 @@ impl Priority<Segments<'_>> {
 pub struct Categories<S: StringStorage> {
     /// List of category text values
     pub values: Vec<ValueText<S>>,
-
     /// Language code (optional, applied to all values)
     pub language: Option<S>,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -837,19 +804,14 @@ impl Categories<Segments<'_>> {
 pub struct Resources<S: StringStorage> {
     /// List of resource text values
     pub values: Vec<ValueText<S>>,
-
     /// Language code (optional, applied to all values)
     pub language: Option<S>,
-
     /// Alternate text representation URI (optional)
     pub altrep: Option<S>,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     pub span: S::Span,
 }
@@ -951,3 +913,16 @@ simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.12)
     pub Summary<S> => Text
 );
+
+/// Create a parser input from `ValueText` with proper span tracking.
+///
+/// This function creates a properly-spanned input stream from a `ValueText`,
+/// enabling accurate error reporting during parsing.
+fn make_input(text: ValueText<Segments<'_>>) -> impl Input<'_, Token = char, Span = SimpleSpan> {
+    // Get EOI span directly from the ValueText without iteration
+    let eoi = text.span().into();
+
+    // Create the parser stream
+    Stream::from_iter(text.into_spanned_chars().map(|(c, s)| (c, s.into())))
+        .map(eoi, |(c, s)| (c, s))
+}

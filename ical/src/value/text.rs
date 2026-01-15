@@ -12,23 +12,23 @@ use chumsky::container::Container;
 use chumsky::extra::ParserExtra;
 use chumsky::prelude::*;
 
-use crate::string_storage::{Segments, StringStorage};
+use crate::string_storage::{SegmentedSpannedChars, Segments, Span, StringStorage};
 
 /// Text value type defined in RFC 5545 Section 3.3.11.
 #[derive(Default, Debug, Clone)]
 pub struct ValueText<S: StringStorage> {
-    tokens: Vec<ValueTextToken<S>>,
+    tokens: Vec<(ValueTextToken<S>, S::Span)>,
 }
 
-impl ValueText<Segments<'_>> {
+impl<'a> ValueText<Segments<'a>> {
     /// Resolve the text value into a single string, processing escapes.
     ///
     /// This version tries to avoid allocation when there's only a single string token.
     #[must_use]
-    pub fn resolve(&self) -> Cow<'_, str> {
+    pub fn resolve(&self) -> Cow<'a, str> {
         #[expect(clippy::indexing_slicing)]
         if self.tokens.len() == 1
-            && let ValueTextToken::Str(part) = &self.tokens[0]
+            && let (ValueTextToken::Str(part), _) = &self.tokens[0]
         {
             part.resolve()
         } else {
@@ -44,7 +44,7 @@ impl ValueText<Segments<'_>> {
     pub(crate) fn eq_str_ignore_ascii_case(&self, other: &str) -> bool {
         let mut remaining = other;
 
-        for token in &self.tokens {
+        for (token, _) in &self.tokens {
             if remaining.is_empty() {
                 return false;
             }
@@ -87,18 +87,105 @@ impl ValueText<Segments<'_>> {
             tokens: self
                 .tokens
                 .iter()
-                .map(|token| match token {
+                .map(|(token, _)| match token {
                     ValueTextToken::Str(s) => ValueTextToken::Str(s.to_owned()),
                     ValueTextToken::Escape(c) => ValueTextToken::Escape(*c),
                 })
+                .map(|token| (token, ()))
                 .collect(),
+        }
+    }
+
+    /// Get the full span from the first to the last token.
+    ///
+    /// This method provides O(1) access to the span that covers all tokens
+    /// in the `ValueText`, from the first character to the last.
+    #[must_use]
+    pub fn span(&self) -> Span {
+        if self.tokens.is_empty() {
+            Span { start: 0, end: 0 }
+        } else {
+            #[expect(clippy::indexing_slicing)]
+            let first = &self.tokens[0].1;
+            #[expect(clippy::indexing_slicing)]
+            let last = &self.tokens[self.tokens.len() - 1].1;
+            Span {
+                start: first.start,
+                end: last.end,
+            }
+        }
+    }
+
+    /// Create an iterator over characters with their spans.
+    ///
+    /// This method provides a zero-copy iterator that yields each character
+    /// along with its source position, enabling accurate error reporting.
+    #[must_use]
+    pub fn into_spanned_chars(self) -> ValueTextSpannedChars<'a> {
+        ValueTextSpannedChars {
+            tokens: self.tokens.into_iter(),
+            current_segments: None,
+            current_escape: None,
+        }
+    }
+}
+
+/// Iterator over characters in a `ValueText` with their spans.
+///
+/// This struct is created by `ValueText::into_spanned_chars()` and yields
+/// characters along with their source positions.
+///
+/// # Lifetime
+///
+/// The lifetime parameter `'a` represents the lifetime of the underlying
+/// string data in the original `ValueText`.
+#[derive(Debug)]
+pub struct ValueTextSpannedChars<'a> {
+    /// Remaining tokens to process
+    tokens: std::vec::IntoIter<(ValueTextToken<Segments<'a>>, Span)>,
+    /// Current segment spanned chars iterator (if processing a Str token)
+    current_segments: Option<SegmentedSpannedChars<'a>>,
+    /// Current escape char (if processing an Escape token)
+    current_escape: Option<(char, Span)>,
+}
+
+impl Iterator for ValueTextSpannedChars<'_> {
+    type Item = (char, Span);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // Try to get next char from current segments iterator
+            if let Some(ref mut iter) = self.current_segments {
+                if let Some(item) = iter.next() {
+                    return Some(item);
+                }
+                self.current_segments = None;
+            }
+
+            // Try to get next char from current escape
+            if let Some(item) = self.current_escape.take() {
+                return Some(item);
+            }
+
+            // Get next token
+            let (token, span) = self.tokens.next()?;
+
+            match token {
+                ValueTextToken::Str(segments) => {
+                    self.current_segments = Some(segments.into_spanned_chars());
+                }
+                ValueTextToken::Escape(escape_char) => {
+                    let c = escape_char.as_ref().chars().next().unwrap();
+                    self.current_escape = Some((c, span));
+                }
+            }
         }
     }
 }
 
 impl<S: StringStorage> fmt::Display for ValueText<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for token in &self.tokens {
+        for (token, _) in &self.tokens {
             match token {
                 ValueTextToken::Str(part) => write!(f, "{part}")?,
                 ValueTextToken::Escape(c) => write!(f, "{c}")?,
@@ -140,7 +227,7 @@ impl fmt::Display for ValueTextEscape {
 }
 
 #[derive(Debug)]
-pub struct RawValueText(Vec<Either<SpanCollector, ValueTextEscape>>);
+pub struct RawValueText(Vec<Either<SpanCollector, (ValueTextEscape, SimpleSpan)>>);
 
 impl RawValueText {
     pub fn build<'src>(self, src: &Segments<'src>) -> ValueText<Segments<'src>> {
@@ -152,10 +239,13 @@ impl RawValueText {
         let mut tokens = Vec::with_capacity(size);
         for t in self.0 {
             match t {
-                Either::Left(collector) => {
-                    tokens.extend(collector.build(src).into_iter().map(ValueTextToken::Str));
-                }
-                Either::Right(v) => tokens.push(ValueTextToken::Escape(v)),
+                Either::Left(collector) => tokens.extend(
+                    collector
+                        .build(src)
+                        .into_iter()
+                        .map(|(s, span)| (ValueTextToken::Str(s), span.into())),
+                ),
+                Either::Right((v, span)) => tokens.push((ValueTextToken::Escape(v), span.into())),
             }
         }
 
@@ -198,6 +288,7 @@ where
             'N' | 'n' => ValueTextEscape::Newline,
             '\\' => ValueTextEscape::Backslash,
         })
+        .map_with(|v, e| (v, e.span()))
         .map(Either::Right);
 
     choice((s, escape)).repeated().collect().map(RawValueText)
@@ -219,7 +310,7 @@ where
 struct SpanCollector(Vec<SimpleSpan>);
 
 impl SpanCollector {
-    fn build<'src>(self, src: &Segments<'src>) -> Vec<Segments<'src>> {
+    fn build<'src>(self, src: &Segments<'src>) -> Vec<(Segments<'src>, SimpleSpan)> {
         // assume src segments are non-overlapping and sorted
         let mut iter = src.segments.iter();
         let Some(mut item) = iter.next() else {
@@ -244,14 +335,14 @@ impl SpanCollector {
                         Some(a) => item = a,
                         None => flag = false, // no more segments
                     }
-                    vec.push(Segments::new(vec![(s, span.into())]));
+                    vec.push((Segments::new(vec![(s, span.into())]), span));
                 } else {
                     // within this segment
                     flag = false;
                     let i = span.start.saturating_sub(item.1.start);
                     let j = span.end.saturating_sub(item.1.start);
                     let s = item.0.get(i..j).unwrap(); // SAFETY: since i,j are in range
-                    vec.push(Segments::new(vec![(s, span.into())]));
+                    vec.push((Segments::new(vec![(s, span.into())]), span));
                 }
             }
         }

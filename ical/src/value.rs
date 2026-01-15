@@ -20,7 +20,7 @@ pub use duration::ValueDuration;
 pub(crate) use numeric::values_float_semicolon;
 pub use period::ValuePeriod;
 pub use rrule::{RecurrenceFrequency, ValueRecurrenceRule, WeekDay, WeekDayNum};
-pub use text::ValueText;
+pub use text::{ValueText, ValueTextSpannedChars};
 
 use chumsky::input::Stream;
 use chumsky::prelude::*;
