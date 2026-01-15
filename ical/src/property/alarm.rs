@@ -221,10 +221,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<Segments<'src>> {
                 }])
             }
             v => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::Integer];
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Integer,
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span,
                 }])

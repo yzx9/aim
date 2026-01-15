@@ -38,12 +38,13 @@ pub fn take_single_cal_address<'src>(
     kind: &PropertyKind<Segments<'src>>,
     value: Value<Segments<'src>>,
 ) -> Result<Segments<'src>, Vec<TypedError<'src>>> {
+    const EXPECTED: &[ValueType<String>] = &[ValueType::CalendarUserAddress];
     let value = take_single_value(kind, value)?;
     match value {
         Value::CalAddress { value, .. } => Ok(value),
         v => Err(vec![TypedError::PropertyUnexpectedValue {
             property: kind.clone(),
-            expected: ValueType::CalendarUserAddress,
+            expected: EXPECTED,
             found: v.kind().into(),
             span: v.span(),
         }]),
@@ -55,12 +56,13 @@ pub fn take_single_uri<'src>(
     kind: &PropertyKind<Segments<'src>>,
     value: Value<Segments<'src>>,
 ) -> Result<Segments<'src>, Vec<TypedError<'src>>> {
+    const EXPECTED: &[ValueType<String>] = &[ValueType::Uri];
     let value = take_single_value(kind, value)?;
     match value {
         Value::Uri { value, .. } => Ok(value),
         v => Err(vec![TypedError::PropertyUnexpectedValue {
             property: kind.clone(),
-            expected: ValueType::Uri,
+            expected: EXPECTED,
             found: v.kind().into(),
             span: v.span(),
         }]),
@@ -72,6 +74,7 @@ pub fn take_single_text<'src>(
     kind: &PropertyKind<Segments<'src>>,
     value: Value<Segments<'src>>,
 ) -> Result<ValueText<Segments<'src>>, Vec<TypedError<'src>>> {
+    const EXPECTED: &[ValueType<String>] = &[ValueType::Text];
     let value = take_single_value(kind, value)?;
 
     match value {
@@ -89,7 +92,7 @@ pub fn take_single_text<'src>(
             let span = v.span();
             Err(vec![TypedError::PropertyUnexpectedValue {
                 property: kind.clone(),
-                expected: ValueType::Text,
+                expected: EXPECTED,
                 found: v.kind().into(),
                 span,
             }])

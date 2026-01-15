@@ -293,12 +293,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<Segments<'src>> {
                         })
                     }
                 }
-                _ => Err(vec![TypedError::PropertyUnexpectedValue {
-                    property: PropertyKind::DtStart, // Default fallback
-                    expected: ValueType::DateTime,   // TODO: improve expected types?
-                    found: value.kind().into(),
-                    span: value.span(),
-                }]),
+                _ => {
+                    const EXPECTED: &[ValueType<String>] = &[ValueType::Date, ValueType::DateTime];
+                    Err(vec![TypedError::PropertyUnexpectedValue {
+                        property: PropertyKind::DtStart, // Default fallback
+                        expected: EXPECTED,
+                        found: value.kind().into(),
+                        span: value.span(),
+                    }])
+                }
             }
         }
     }
@@ -1053,10 +1056,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Duration<Segments<'src>> {
                 span: prop.span,
             }),
             Ok(v) => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::Duration];
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Duration,
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span,
                 }])
@@ -1144,10 +1148,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<Segments<'src>> {
             }
             Value::Period { values, span } => (values, span),
             v => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::Period];
                 let span = v.span();
                 return Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Period,
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span,
                 }]);

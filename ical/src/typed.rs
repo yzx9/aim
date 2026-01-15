@@ -256,12 +256,12 @@ pub enum TypedError<'src> {
     },
 
     /// Property value has unexpected type.
-    #[error("Expected {expected} value for property '{property}', found {found}")]
+    #[error("Expected {expected:?} value(s) for property '{property}', found {found}")]
     PropertyUnexpectedValue {
         /// The property that has the wrong type
         property: PropertyKind<Segments<'src>>,
-        /// Expected value type
-        expected: ValueType<Segments<'src>>,
+        /// Expected value types
+        expected: &'static [ValueType<String>],
         /// Actual value type found
         found: ValueType<Segments<'src>>,
         /// The span of the error

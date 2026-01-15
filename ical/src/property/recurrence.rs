@@ -138,10 +138,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<Segments<'src>> {
                 })
                 .collect::<Result<Vec<_>, _>>(),
             v => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::Date];
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Date,
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span,
                 }])
@@ -258,10 +259,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<Segments<'src>> {
                 }]);
             }
             v => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::Period];
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Period,
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span,
                 }])
@@ -344,10 +346,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RRule<Segments<'src>> {
         let value = match prop.value {
             Value::RecurrenceRule { value, .. } => value,
             v => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::RecurrenceRule];
                 let span = v.span();
                 return Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::RecurrenceRule,
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span,
                 }]);

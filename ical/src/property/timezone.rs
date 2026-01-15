@@ -73,12 +73,15 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<Segments<'src>> {
                 x_parameters,
                 retained_parameters,
             }),
-            Ok(v) => Err(vec![TypedError::PropertyUnexpectedValue {
-                property: kind,
-                expected: ValueType::UtcOffset,
-                found: v.kind().into(),
-                span: v.span(),
-            }]),
+            Ok(v) => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::UtcOffset];
+                Err(vec![TypedError::PropertyUnexpectedValue {
+                    property: kind,
+                    expected: EXPECTED,
+                    found: v.kind().into(),
+                    span: v.span(),
+                }])
+            }
             Err(e) => Err(e),
         }
     }

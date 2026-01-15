@@ -114,9 +114,10 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Attachment<Segments<'src>> {
             Ok(Value::Binary { value, .. }) => Some(AttachmentValue::Binary(value)),
             Ok(Value::Uri { value, .. }) => Some(AttachmentValue::Uri(value)),
             Ok(v) => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::Uri, ValueType::Binary];
                 errors.push(TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Uri, // TODO: include Binary as well
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span: v.span(),
                 });
@@ -561,10 +562,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<Segments<'src>> {
                 span: value_span,
             }]),
             Ok(v) => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::Integer];
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Integer,
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span,
                 }])
@@ -665,10 +667,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Priority<Segments<'src>> {
                 span: value_span,
             }]),
             Ok(v) => {
+                const EXPECTED: &[ValueType<String>] = &[ValueType::Integer];
                 let span = v.span();
                 Err(vec![TypedError::PropertyUnexpectedValue {
                     property: prop.kind,
-                    expected: ValueType::Integer,
+                    expected: EXPECTED,
                     found: v.kind().into(),
                     span,
                 }])
@@ -754,10 +757,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Categories<Segments<'src>> {
         }
 
         let Value::Text { values, .. } = prop.value else {
+            const EXPECTED: &[ValueType<String>] = &[ValueType::Text];
             let span = prop.value.span();
             return Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueType::Text,
+                expected: EXPECTED,
                 found: prop.value.kind().into(),
                 span,
             }]);
@@ -866,10 +870,11 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Resources<Segments<'src>> {
         }
 
         let Value::Text { values, .. } = prop.value else {
+            const EXPECTED: &[ValueType<String>] = &[ValueType::Text];
             let span = prop.value.span();
             return Err(vec![TypedError::PropertyUnexpectedValue {
                 property: prop.kind,
-                expected: ValueType::Text,
+                expected: EXPECTED,
                 found: prop.value.kind().into(),
                 span,
             }]);
