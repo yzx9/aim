@@ -72,8 +72,7 @@ ical/
 ├── src/
 │   └── ...
 └── tests/
-    ├── lexer.rs       # Integration tests for lexer
-    ├── syntax.rs      # Integration tests for parser
+    ├── syntax.rs      # Integration tests for syntax analysis
     ├── typed.rs       # Integration tests for typed analysis
     └── semantic.rs    # Integration tests for semantic analysis
 ```
@@ -87,16 +86,16 @@ Use descriptive names following the `{module}_{action}_{scenario}` pattern:
 ```rust
 // Good - Descriptive and follows pattern
 #[test]
-fn lexer_tokenizes_empty_input() {}
+fn syntax_empty_component() { ... }
 
 #[test]
-fn lexer_tokenizes_simple_icalendar() {}
+fn syntax_property_with_parameters() { ... }
 
 #[test]
-fn syntax_empty_component() {}
+fn typed_minimal_calendar() { ... }
 
 #[test]
-fn syntax_property_with_parameters() {}
+fn semantic_rejects_empty_calendar() { ... }
 
 // Bad - Not descriptive
 #[test]

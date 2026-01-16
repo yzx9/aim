@@ -13,27 +13,34 @@ logic, data persistence, and user interface.
 
 ```
 aim/
-├── .github/            # GitHub configurations, including CI/CD workflows and dependabot
-├── aimcal/             # Public API facade
-├── core/               # Core business logic
-├── cli/                # Command-line interface
-├── ical/               # iCalendar parser
-├── docs/               # Documentation
+├── .github/        # GitHub configurations, including CI/CD workflows and dependabot
+├── aimcal/         # Public API facade
+├── core/           # Core business logic
+├── cli/            # Command-line interface
+├── ical/           # iCalendar parser
+├── docs/           # Documentation
 │   ├── architecture.md # System architecture
-│   └── testing.md      # Testing guide
-├── Cargo.toml          # Workspace configuration
-├── CHANGELOG.md        # Version history
-├── CLAUDE.md           # Project overview
-├── CONTRIBUTING.md     # Contribution guidelines
-├── flake.nix           # Nix flake
-├── justfile            # Command runner recipes
-├── LICENSE             # Apache-2.0 license
-└── README.md           # User-facing documentation
+│   └── testing.md  # Testing guide
+├── Cargo.toml      # Workspace configuration
+├── CHANGELOG.md    # Version history
+├── CLAUDE.md       # Project overview
+├── CONTRIBUTING.md # Contribution guidelines
+├── flake.nix       # Nix flake
+├── justfile        # Command runner recipes
+├── LICENSE         # Apache-2.0 license
+└── README.md       # User-facing documentation
 ```
 
 ### Crate Responsibilities
 
 **aimcal** - Minimal facade that re-exports the CLI
+
+**cli** - User interface providing:
+
+- Command parsing with clap
+- Interactive TUI with ratatui
+- Table and JSON output formatting
+- Shell completion generation
 
 **core** - Foundation providing:
 
@@ -43,19 +50,10 @@ aim/
 - Configuration management
 - Short ID mapping
 
-**cli** - User interface providing:
-
-- Command parsing with clap
-- Interactive TUI with ratatui
-- Table and JSON output formatting
-- Shell completion generation
-
 **ical** - iCalendar (RFC 5545) parser and formatter with:
 
 - Three-phase parsing pipeline (syntax → typed → semantic)
-  - Three-pass typed analysis (parameter → value → property)
 - Type-safe representations with generic `StringStorage` trait for flexible string and span handling
-- Zero-copy parsing support with `Segments<'src>` for borrowed data
 - Comprehensive error reporting
 - RFC 5545 formatter for serializing components, properties, parameters, and values
 
@@ -78,8 +76,7 @@ aim/
 - **Async/Await**: Full async support throughout
 - **Type Safety**: Leverage Rust's type system
 - **RFC Compliance**: Adherence to iCalendar RFC 5545
-- **No mod.rs**: Module declarations in parent modules, e.g. `src/typed.rs`
-  instead of `src/typed/mod.rs`
+- **No mod.rs**: Module declarations in parent modules, e.g. `src/typed.rs` instead of `src/typed/mod.rs`
 
 ## Additional Resources
 

@@ -8,7 +8,7 @@ use aimcal_ical::formatter::{FormatOptions, format};
 use aimcal_ical::parse;
 
 #[test]
-fn test_format_simple_event() {
+fn format_simple_event() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:-//Example Corp.//Cal Client 1.0//EN\r\n\
@@ -39,7 +39,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_creates_crlf_line_endings() {
+fn format_creates_crlf_line_endings() {
     let input = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:test\r\nEND:VCALENDAR\r\n";
 
     let calendars = parse(input).unwrap();
@@ -85,7 +85,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_with_parameters() {
+fn format_with_parameters() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -108,7 +108,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_both_ref_and_owned() {
+fn format_both_ref_and_owned() {
     let input = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:test\r\nEND:VCALENDAR\r\n";
 
     // Parse as Ref (borrowed)
@@ -128,7 +128,7 @@ fn test_format_both_ref_and_owned() {
 }
 
 #[test]
-fn test_format_preserves_custom_properties() {
+fn format_preserves_custom_properties() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -152,7 +152,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_text_with_special_characters() {
+fn format_text_with_special_characters() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -175,7 +175,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_multiple_events() {
+fn format_multiple_events() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -206,7 +206,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_date_value() {
+fn format_date_value() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -229,7 +229,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_duration() {
+fn format_duration() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -252,7 +252,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_rrule() {
+fn format_rrule() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -275,7 +275,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_with_alarm() {
+fn format_with_alarm() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -305,7 +305,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_format_request_status() {
+fn format_request_status() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -329,7 +329,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_line_folding_long_description() {
+fn format_with_line_folding() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -359,7 +359,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_line_folding_disabled() {
+fn format_without_line_folding() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
@@ -385,7 +385,7 @@ END:VCALENDAR\r\n";
 }
 
 #[test]
-fn test_line_folding_round_trip() {
+fn format_with_line_folding_round_trip() {
     // Create a calendar with a long description that would require folding
     let long_description = "This is a very long description that exceeds the 75 octet limit \
     and should be folded when formatted with folding enabled according to RFC 5545.";
@@ -422,7 +422,7 @@ END:VCALENDAR\r\n"
 }
 
 #[test]
-fn test_format_with_options_function() {
+fn format_with_options_function() {
     let input = "BEGIN:VCALENDAR\r\n\
 VERSION:2.0\r\n\
 PRODID:test\r\n\
