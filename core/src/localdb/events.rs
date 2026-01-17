@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Cow;
+
 use chrono::{DateTime, Local, NaiveDate};
 use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 
@@ -147,7 +149,7 @@ impl EventRecord {
             summary: event.summary().to_string(),
             description: event
                 .description()
-                .map(ToString::to_string)
+                .map(|a| a.to_string())
                 .unwrap_or_default(),
             status: event.status().map(|s| s.to_string()).unwrap_or_default(),
             start: event.start().map(|a| a.format_stable()).unwrap_or_default(),
@@ -161,16 +163,16 @@ impl EventRecord {
 }
 
 impl Event for EventRecord {
-    fn uid(&self) -> &str {
-        &self.uid
+    fn uid(&self) -> Cow<'_, str> {
+        (&self.uid).into()
     }
 
-    fn summary(&self) -> &str {
-        &self.summary
+    fn summary(&self) -> Cow<'_, str> {
+        (&self.summary).into()
     }
 
-    fn description(&self) -> Option<&str> {
-        (!self.description.is_empty()).then_some(self.description.as_str())
+    fn description(&self) -> Option<Cow<'_, str>> {
+        (!self.description.is_empty()).then_some(self.description.as_str().into())
     }
 
     fn start(&self) -> Option<LooseDateTime> {

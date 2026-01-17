@@ -41,7 +41,7 @@ impl EventStore {
         Self::new(EventData {
             description: match patch.description {
                 Some(v) => v.unwrap_or_default(),
-                None => event.description().unwrap_or_default().to_owned(),
+                None => event.description().unwrap_or_default().into_owned(),
             },
             start: match patch.start {
                 Some(v) => v.map(format_datetime).unwrap_or_default(),

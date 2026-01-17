@@ -19,11 +19,11 @@ mod vtodo;
 pub use custom::CustomComponent;
 pub use icalendar::{CalendarComponent, ICalendar};
 pub use valarm::VAlarm;
-pub use vevent::{EventStatus, VEvent};
+pub use vevent::{EventStatus, EventStatusValue, VEvent};
 pub use vfreebusy::VFreeBusy;
 pub use vjournal::{JournalStatus, VJournal};
 pub use vtimezone::{TimeZoneObservance, VTimeZone};
-pub use vtodo::{TodoStatus, VTodo};
+pub use vtodo::{TodoStatus, TodoStatusValue, VTodo};
 
 use crate::keyword::KW_VCALENDAR;
 use crate::property::PropertyKind;

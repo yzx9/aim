@@ -10,13 +10,14 @@ use crate::keyword::{
     KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY, KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
 use crate::property::{
-    CalendarScale, Method, ProductId, Property, PropertyKind, Version, XNameProperty,
+    CalendarScale, Method, ProductId, Property, PropertyKind, Version, VersionValue, XNameProperty,
 };
 use crate::semantic::{
     CustomComponent, SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
 };
 use crate::string_storage::{Segments, StringStorage};
 use crate::typed::TypedComponent;
+use crate::value::ValueText;
 
 /// Main iCalendar object that contains components and properties
 #[derive(Debug, Clone)]
@@ -35,6 +36,38 @@ pub struct ICalendar<S: StringStorage> {
     pub x_properties: Vec<XNameProperty<S>>,
     /// Unrecognized / Non-standard properties (preserved for round-trip)
     pub retained_properties: Vec<Property<S>>,
+}
+
+impl ICalendar<String> {
+    /// Create a new empty `ICalendar` with default PRODID and VERSION
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            prod_id: ProductId {
+                value: ValueText::new("//-yzx9.xyz//aimcal//EN".to_string()),
+                x_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
+                span: (),
+            },
+            version: Version {
+                value: VersionValue::V2_0,
+                x_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
+                span: (),
+            },
+            calscale: None,
+            method: None,
+            components: Vec::new(),
+            x_properties: Vec::new(),
+            retained_properties: Vec::new(),
+        }
+    }
+}
+
+impl Default for ICalendar<String> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Parse a `TypedComponent` into typed `ICalendar`
@@ -231,24 +264,60 @@ pub(crate) fn parse_component_children(
 pub enum CalendarComponent<S: StringStorage> {
     /// Event component
     Event(VEvent<S>),
-
     /// To-do component
     Todo(VTodo<S>),
-
     /// Journal entry component
     VJournal(VJournal<S>),
-
     /// Free/busy time component
     VFreeBusy(VFreeBusy<S>),
-
     /// Timezone definition component
     VTimeZone(VTimeZone<S>),
-
     /// Alarm component
     VAlarm(VAlarm<S>),
-
     /// Custom component (x-comp or iana-comp)
     Custom(CustomComponent<S>),
+}
+
+impl<S: StringStorage> From<VEvent<S>> for CalendarComponent<S> {
+    fn from(value: VEvent<S>) -> Self {
+        CalendarComponent::Event(value)
+    }
+}
+
+impl<S: StringStorage> From<VTodo<S>> for CalendarComponent<S> {
+    fn from(value: VTodo<S>) -> Self {
+        CalendarComponent::Todo(value)
+    }
+}
+
+impl<S: StringStorage> From<VJournal<S>> for CalendarComponent<S> {
+    fn from(value: VJournal<S>) -> Self {
+        CalendarComponent::VJournal(value)
+    }
+}
+
+impl<S: StringStorage> From<VFreeBusy<S>> for CalendarComponent<S> {
+    fn from(value: VFreeBusy<S>) -> Self {
+        CalendarComponent::VFreeBusy(value)
+    }
+}
+
+impl<S: StringStorage> From<VTimeZone<S>> for CalendarComponent<S> {
+    fn from(value: VTimeZone<S>) -> Self {
+        CalendarComponent::VTimeZone(value)
+    }
+}
+
+impl<S: StringStorage> From<VAlarm<S>> for CalendarComponent<S> {
+    fn from(value: VAlarm<S>) -> Self {
+        CalendarComponent::VAlarm(value)
+    }
+}
+
+impl<S: StringStorage> From<CustomComponent<S>> for CalendarComponent<S> {
+    fn from(value: CustomComponent<S>) -> Self {
+        CalendarComponent::Custom(value)
+    }
 }
 
 /// Helper struct to collect properties during single-pass iteration

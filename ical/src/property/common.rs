@@ -428,6 +428,38 @@ impl Text<Segments<'_>> {
     }
 }
 
+impl Text<String> {
+    /// Create a new `Text<String>` from a string value.
+    ///
+    /// This constructor is provided for convenient construction of owned text properties.
+    /// The input string is treated as an unescaped text value with no parameters.
+    #[must_use]
+    pub fn new(value: String) -> Self {
+        Self {
+            content: ValueText::new(value),
+            language: None,
+            altrep: None,
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+        }
+    }
+}
+
+impl TextOnly<String> {
+    /// Create a new `TextOnly<String>` from a string value.
+    ///
+    /// This constructor is provided for convenient construction of owned text-only properties.
+    /// The input string is treated as an unescaped text value with no parameters.
+    #[must_use]
+    pub fn new(value: String) -> Self {
+        Self {
+            content: ValueText::new(value),
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+        }
+    }
+}
+
 /// Macro to define simple property wrappers with generic storage parameter.
 ///
 /// This is similar to `simple_property_wrapper!` but generates generic wrappers

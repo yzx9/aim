@@ -28,15 +28,48 @@ simple_property_wrapper!(
     pub Created<S> => DateTime
 );
 
+impl Created<String> {
+    /// Create a new `Created<String>` from a `DateTime` value.
+    #[must_use]
+    pub fn new(value: DateTime<String>) -> Self {
+        Self {
+            inner: value,
+            span: (),
+        }
+    }
+}
+
 simple_property_wrapper!(
     /// Date-Time Stamp property wrapper (RFC 5545 Section 3.8.7.2)
     pub DtStamp<S> => DateTime
 );
 
+impl DtStamp<String> {
+    /// Create a new `DtStamp<String>` from a `DateTime` value.
+    #[must_use]
+    pub fn new(value: DateTime<String>) -> Self {
+        Self {
+            inner: value,
+            span: (),
+        }
+    }
+}
+
 simple_property_wrapper!(
     /// Last Modified property wrapper (RFC 5545 Section 3.8.7.3)
     pub LastModified<S> => DateTime
 );
+
+impl LastModified<String> {
+    /// Create a new `LastModified<String>` from a `DateTime` value.
+    #[must_use]
+    pub fn new(value: DateTime<String>) -> Self {
+        Self {
+            inner: value,
+            span: (),
+        }
+    }
+}
 
 /// Sequence Number (RFC 5545 Section 3.8.7.4)
 ///

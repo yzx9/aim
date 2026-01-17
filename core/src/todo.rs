@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt::Display, num::NonZeroU32, str::FromStr};
+use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
-use chrono::{DateTime, Local, Utc};
-use icalendar::Component;
+use aimcal_ical::{
+    Completed, DateTime as IcalDateTime, Description, DtStamp, Due, PercentComplete,
+    Priority as IcalPriority, Summary, TodoStatus as IcalTodoStatus, TodoStatusValue, Uid, VTodo,
+};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 
 use crate::{Config, DateTimeAnchor, LooseDateTime, Priority, SortOrder};
 
@@ -19,13 +22,13 @@ pub trait Todo {
     }
 
     /// The unique identifier for the todo item.
-    fn uid(&self) -> &str;
+    fn uid(&self) -> Cow<'_, str>;
 
     /// The description of the todo item.
     fn completed(&self) -> Option<DateTime<Local>>;
 
     /// The description of the todo item, if available.
-    fn description(&self) -> Option<&str>;
+    fn description(&self) -> Option<Cow<'_, str>>;
 
     /// The due date and time of the todo item, if available.
     fn due(&self) -> Option<LooseDateTime>;
@@ -40,43 +43,123 @@ pub trait Todo {
     fn status(&self) -> TodoStatus;
 
     /// The summary of the todo item.
-    fn summary(&self) -> &str;
+    fn summary(&self) -> Cow<'_, str>;
 }
 
-impl Todo for icalendar::Todo {
-    fn uid(&self) -> &str {
-        self.get_uid().unwrap_or_default()
+impl Todo for VTodo<String> {
+    fn uid(&self) -> Cow<'_, str> {
+        self.uid.content.to_string().into()
     }
 
     fn completed(&self) -> Option<DateTime<Local>> {
-        self.get_completed().map(|dt| dt.with_timezone(&Local))
+        #[expect(clippy::cast_sign_loss)]
+        self.completed.as_ref().and_then(|c| match &**c {
+            IcalDateTime::Utc { date, time, .. } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                Some(
+                    DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).with_timezone(&Local),
+                )
+            }
+            IcalDateTime::Floating { date, time, .. } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                Some(
+                    Local
+                        .from_local_datetime(&naive_dt)
+                        .single()
+                        .unwrap_or_else(|| {
+                            tracing::warn!("invalid local time, using UTC");
+                            DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc)
+                                .with_timezone(&Local)
+                        }),
+                )
+            }
+            IcalDateTime::Zoned {
+                date, time, tz_id, ..
+            } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                match tz_id.as_str().parse::<chrono_tz::Tz>() {
+                    Ok(tz) => match tz.from_local_datetime(&naive_dt) {
+                        chrono::LocalResult::Single(dt) => Some(dt.with_timezone(&Local)),
+                        _ => None,
+                    },
+                    Err(_) => None,
+                }
+            }
+            IcalDateTime::Date { .. } => None,
+        })
     }
 
-    fn description(&self) -> Option<&str> {
-        self.get_description()
+    fn description(&self) -> Option<Cow<'_, str>> {
+        self.description
+            .as_ref()
+            .map(|a| a.content.to_string().into()) // PERF: avoid allocation
     }
 
     fn due(&self) -> Option<LooseDateTime> {
-        self.get_due().map(Into::into)
+        self.due.as_ref().map(|d| d.inner.clone().into())
     }
 
     fn percent_complete(&self) -> Option<u8> {
-        self.get_percent_complete()
+        self.percent_complete.as_ref().map(|p| p.value)
     }
 
     fn priority(&self) -> Priority {
-        match self.get_priority() {
-            Some(p) => Priority::from(u8::try_from(p.min(9)).unwrap_or_default()),
-            _ => Priority::default(),
+        match self.priority.as_ref() {
+            Some(p) => p.value.into(),
+            None => Priority::default(),
         }
     }
 
     fn status(&self) -> TodoStatus {
-        self.get_status().map(Into::into).unwrap_or_default()
+        self.status
+            .as_ref()
+            .map(|s| s.value.into())
+            .unwrap_or_default()
     }
 
-    fn summary(&self) -> &str {
-        self.get_summary().unwrap_or_default()
+    fn summary(&self) -> Cow<'_, str> {
+        self.summary
+            .as_ref()
+            .map_or_else(|| "".into(), |s| s.content.to_string().into()) // PERF: avoid allocation
     }
 }
 
@@ -155,33 +238,46 @@ pub struct ResolvedTodoDraft<'a> {
 }
 
 impl ResolvedTodoDraft<'_> {
-    /// Converts the draft into a icalendar Todo component.
-    pub(crate) fn into_ics(self, uid: &str) -> icalendar::Todo {
-        let mut todo = icalendar::Todo::with_uid(uid);
-
-        if let Some(description) = self.description {
-            Component::description(&mut todo, description);
+    /// Converts the draft into an aimcal-ical `VTodo` component.
+    pub(crate) fn into_ics(self, uid: &str) -> VTodo<String> {
+        VTodo {
+            uid: Uid::new(uid.to_string()),
+            dt_stamp: DtStamp::new(IcalDateTime::from(LooseDateTime::Local(*self.now))),
+            dt_start: None,
+            due: self.due.map(|d| Due::new(d.into())),
+            completed: None,
+            duration: None,
+            summary: Some(Summary::new(self.summary.to_string())),
+            description: self.description.map(|d| Description::new(d.to_string())),
+            status: Some(IcalTodoStatus::new(match self.status {
+                TodoStatus::NeedsAction => TodoStatusValue::NeedsAction,
+                TodoStatus::Completed => TodoStatusValue::Completed,
+                TodoStatus::InProcess => TodoStatusValue::InProcess,
+                TodoStatus::Cancelled => TodoStatusValue::Cancelled,
+            })),
+            percent_complete: self
+                .percent_complete
+                .map(|p| PercentComplete::new(p.min(100))),
+            priority: self
+                .priority
+                .map(|p| IcalPriority::new(Into::<u8>::into(p))),
+            location: None,
+            geo: None,
+            url: None,
+            organizer: None,
+            attendees: Vec::new(),
+            last_modified: None,
+            sequence: None,
+            classification: None,
+            resources: None,
+            categories: None,
+            rrule: None,
+            rdates: Vec::new(),
+            ex_dates: Vec::new(),
+            x_properties: Vec::new(),
+            retained_properties: Vec::new(),
+            alarms: Vec::new(),
         }
-
-        if let Some(due) = self.due {
-            icalendar::Todo::due(&mut todo, due);
-        }
-
-        if let Some(percent) = self.percent_complete {
-            icalendar::Todo::percent_complete(&mut todo, percent);
-        }
-
-        if let Some(priority) = self.priority {
-            Component::priority(&mut todo, priority.into());
-        }
-
-        icalendar::Todo::status(&mut todo, self.status.into());
-
-        Component::summary(&mut todo, self.summary);
-
-        // Set the creation time to now
-        Component::created(&mut todo, self.now.with_timezone(&Utc));
-        todo
     }
 }
 
@@ -251,47 +347,51 @@ pub struct ResolvedTodoPatch<'a> {
 
 impl ResolvedTodoPatch<'_> {
     /// Applies the patch to a mutable todo item, modifying it in place.
-    pub fn apply_to<'b>(&self, t: &'b mut icalendar::Todo) -> &'b mut icalendar::Todo {
-        match self.description {
-            Some(Some(desc)) => t.description(desc),
-            Some(None) => t.remove_description(),
-            None => t,
-        };
+    pub fn apply_to<'a>(&self, t: &'a mut VTodo<String>) -> &'a mut VTodo<String> {
+        if let Some(Some(desc)) = &self.description {
+            t.description = Some(Description::new((*desc).to_string()));
+        } else if self.description.is_some() {
+            t.description = None;
+        }
 
-        match self.due {
-            Some(Some(due)) => t.due(due),
-            Some(None) => t.remove_due(),
-            None => t,
-        };
+        if let Some(Some(due)) = self.due {
+            t.due = Some(Due::new(due.into()));
+        } else if self.due.is_some() {
+            t.due = None;
+        }
 
-        match self.percent_complete {
-            Some(Some(v)) => t.percent_complete(v),
-            Some(None) => t.remove_percent_complete(),
-            None => t,
-        };
+        if let Some(Some(v)) = self.percent_complete {
+            t.percent_complete = Some(PercentComplete::new(v.min(100)));
+        } else if self.percent_complete.is_some() {
+            t.percent_complete = None;
+        }
 
         if let Some(priority) = self.priority {
-            t.priority(priority.into());
+            t.priority = Some(IcalPriority::new(Into::<u8>::into(priority)));
         }
 
         if let Some(status) = self.status {
-            t.status(status.into());
+            t.status = Some(IcalTodoStatus::new(status.into()));
 
-            match status {
-                TodoStatus::Completed => t.completed(self.now.with_timezone(&Utc)),
-                _ if t.get_completed().is_some() => t.remove_completed(),
-                _ => t,
-            };
+            // Handle COMPLETED property
+            if status == TodoStatus::Completed && t.completed.is_none() {
+                t.completed = Some(Completed::new(IcalDateTime::from(LooseDateTime::Local(
+                    *self.now,
+                ))));
+            } else if status != TodoStatus::Completed {
+                t.completed = None;
+            }
         }
 
         if let Some(summary) = &self.summary {
-            t.summary(summary);
+            t.summary = Some(Summary::new((*summary).to_string()));
         }
 
         // Set the creation time to now if it is not already set
-        if t.get_created().is_none() {
-            Component::created(t, self.now.with_timezone(&Utc));
+        if t.dt_stamp.inner.date().year == 1970 {
+            t.dt_stamp = DtStamp::new(IcalDateTime::from(LooseDateTime::Local(*self.now)));
         }
+
         t
     }
 }
@@ -350,24 +450,24 @@ impl FromStr for TodoStatus {
     }
 }
 
-impl From<TodoStatus> for icalendar::TodoStatus {
-    fn from(item: TodoStatus) -> icalendar::TodoStatus {
-        match item {
-            TodoStatus::NeedsAction => icalendar::TodoStatus::NeedsAction,
-            TodoStatus::Completed => icalendar::TodoStatus::Completed,
-            TodoStatus::InProcess => icalendar::TodoStatus::InProcess,
-            TodoStatus::Cancelled => icalendar::TodoStatus::Cancelled,
+impl From<TodoStatusValue> for TodoStatus {
+    fn from(value: TodoStatusValue) -> Self {
+        match value {
+            TodoStatusValue::NeedsAction => TodoStatus::NeedsAction,
+            TodoStatusValue::Completed => TodoStatus::Completed,
+            TodoStatusValue::InProcess => TodoStatus::InProcess,
+            TodoStatusValue::Cancelled => TodoStatus::Cancelled,
         }
     }
 }
 
-impl From<icalendar::TodoStatus> for TodoStatus {
-    fn from(status: icalendar::TodoStatus) -> Self {
-        match status {
-            icalendar::TodoStatus::NeedsAction => TodoStatus::NeedsAction,
-            icalendar::TodoStatus::Completed => TodoStatus::Completed,
-            icalendar::TodoStatus::InProcess => TodoStatus::InProcess,
-            icalendar::TodoStatus::Cancelled => TodoStatus::Cancelled,
+impl From<TodoStatus> for TodoStatusValue {
+    fn from(value: TodoStatus) -> Self {
+        match value {
+            TodoStatus::NeedsAction => TodoStatusValue::NeedsAction,
+            TodoStatus::Completed => TodoStatusValue::Completed,
+            TodoStatus::InProcess => TodoStatusValue::InProcess,
+            TodoStatus::Cancelled => TodoStatusValue::Cancelled,
         }
     }
 }

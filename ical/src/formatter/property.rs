@@ -420,7 +420,7 @@ pub fn write_prop_tzid<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &TzId<S>,
 ) -> io::Result<()> {
-    write!(f, "{KW_TZID}:{}", prop.inner.content)?;
+    write!(f, "{KW_TZID}:{}", prop.content)?;
     f.writeln()
 }
 
@@ -429,7 +429,7 @@ pub fn write_prop_uid<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &Uid<S>,
 ) -> io::Result<()> {
-    write!(f, "{KW_UID}:{}", prop.inner.content)?;
+    write!(f, "{KW_UID}:{}", prop.content)?;
     f.writeln()
 }
 
@@ -441,11 +441,11 @@ pub fn write_prop_summary<S: StringStorage>(
     write_text_with_params(
         f,
         KW_SUMMARY,
-        &prop.inner.content,
-        prop.inner.language.as_ref(),
-        prop.inner.altrep.as_ref(),
-        &prop.inner.x_parameters,
-        &prop.inner.retained_parameters,
+        &prop.content,
+        prop.language.as_ref(),
+        prop.altrep.as_ref(),
+        &prop.x_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -458,11 +458,11 @@ pub fn write_prop_description<S: StringStorage>(
     write_text_with_params(
         f,
         KW_DESCRIPTION,
-        &prop.inner.content,
-        prop.inner.language.as_ref(),
-        prop.inner.altrep.as_ref(),
-        &prop.inner.x_parameters,
-        &prop.inner.retained_parameters,
+        &prop.content,
+        prop.language.as_ref(),
+        prop.altrep.as_ref(),
+        &prop.x_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -475,11 +475,11 @@ pub fn write_prop_location<S: StringStorage>(
     write_text_with_params(
         f,
         KW_LOCATION,
-        &prop.inner.content,
-        prop.inner.language.as_ref(),
-        prop.inner.altrep.as_ref(),
-        &prop.inner.x_parameters,
-        &prop.inner.retained_parameters,
+        &prop.content,
+        prop.language.as_ref(),
+        prop.altrep.as_ref(),
+        &prop.x_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -492,8 +492,8 @@ pub fn write_prop_comment<S: StringStorage>(
     write_text_with_language(
         f,
         KW_COMMENT,
-        &prop.inner.content,
-        prop.inner.language.as_ref(),
+        &prop.content,
+        prop.language.as_ref(),
         &prop.x_parameters,
         &prop.retained_parameters,
     )?;
@@ -508,10 +508,10 @@ pub fn write_prop_tzname<S: StringStorage>(
     write_text_with_language(
         f,
         KW_TZNAME,
-        &prop.inner.content,
-        prop.inner.language.as_ref(),
-        &prop.inner.x_parameters,
-        &prop.inner.retained_parameters,
+        &prop.content,
+        prop.language.as_ref(),
+        &prop.x_parameters,
+        &prop.retained_parameters,
     )?;
     f.writeln()
 }
@@ -713,8 +713,8 @@ pub fn write_prop_contact<S: StringStorage>(
     write_text_with_language(
         f,
         KW_CONTACT,
-        &prop.inner.content,
-        prop.inner.language.as_ref(),
+        &prop.content,
+        prop.language.as_ref(),
         &prop.x_parameters,
         &prop.retained_parameters,
     )?;
@@ -729,8 +729,8 @@ pub fn write_prop_request_status<S: StringStorage>(
     write_text_with_language(
         f,
         KW_REQUEST_STATUS,
-        &prop.inner.content,
-        prop.inner.language.as_ref(),
+        &prop.content,
+        prop.language.as_ref(),
         &prop.x_parameters,
         &prop.retained_parameters,
     )?;

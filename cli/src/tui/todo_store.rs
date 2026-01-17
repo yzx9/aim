@@ -45,7 +45,7 @@ impl TodoStore {
         Self::new(TodoData {
             description: match patch.description {
                 Some(v) => v.unwrap_or_default(),
-                None => todo.description().unwrap_or_default().to_owned(),
+                None => todo.description().unwrap_or_default().into_owned(),
             },
             due: match patch.due {
                 Some(v) => v.map(format_datetime).unwrap_or_default(),
@@ -56,7 +56,7 @@ impl TodoStore {
                 .unwrap_or_else(|| todo.percent_complete()),
             priority: patch.priority.unwrap_or_else(|| todo.priority()),
             status: patch.status.unwrap_or_else(|| todo.status()),
-            summary: patch.summary.unwrap_or_else(|| todo.summary().to_owned()),
+            summary: patch.summary.unwrap_or_else(|| todo.summary().into_owned()),
         })
     }
 

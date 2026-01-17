@@ -129,8 +129,11 @@ fn format_id(event: &impl Event) -> Cow<'_, str> {
         short_id.to_string().into()
     } else {
         let uid = event.uid(); // Fallback to the full UID if no short ID is available
-        tracing::warn!(uid, "event does not have a short ID, using UID instead.",);
-        uid.into()
+        tracing::warn!(
+            uid = uid.as_ref(),
+            "event does not have a short ID, using UID instead.",
+        );
+        uid
     }
 }
 
@@ -187,7 +190,7 @@ fn get_color_datetime_span(event: &impl Event, now: DateTime<Local>) -> Option<C
         RangePosition::InRange => COLOR_CURRENT,
         RangePosition::After => None,
         RangePosition::InvalidRange => {
-            tracing::warn!(uid = event.uid(), "invalid range for event");
+            tracing::warn!(uid = &*event.uid(), "invalid range for event");
             None
         }
     }
@@ -249,7 +252,7 @@ fn get_color_time_span(event: &impl Event, now: DateTime<Local>) -> Option<Color
 }
 
 fn format_uid(event: &impl Event) -> Cow<'_, str> {
-    event.uid().into()
+    event.uid()
 }
 
 fn format_uid_legacy(event: &impl Event) -> Cow<'_, str> {

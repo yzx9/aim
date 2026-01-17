@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt::Display, num::NonZeroU32, str::FromStr};
+use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
-use chrono::{DateTime, Duration, Local, Timelike, Utc};
-use icalendar::{Component, EventLike};
+use aimcal_ical::{
+    DateTime as IcalDateTime, Description, DtEnd, DtStamp, DtStart, EventStatus as IcalEventStatus,
+    EventStatusValue, Summary, Uid, VEvent,
+};
+use chrono::{DateTime, Duration, Local, Timelike};
 
 use crate::{DateTimeAnchor, LooseDateTime};
 
@@ -19,10 +22,10 @@ pub trait Event {
     }
 
     /// The unique identifier for the event.
-    fn uid(&self) -> &str;
+    fn uid(&self) -> Cow<'_, str>;
 
     /// The description of the event, if available.
-    fn description(&self) -> Option<&str>;
+    fn description(&self) -> Option<Cow<'_, str>>;
 
     /// The location of the event, if available.
     fn start(&self) -> Option<LooseDateTime>;
@@ -34,32 +37,36 @@ pub trait Event {
     fn status(&self) -> Option<EventStatus>;
 
     /// The summary of the event.
-    fn summary(&self) -> &str;
+    fn summary(&self) -> Cow<'_, str>;
 }
 
-impl Event for icalendar::Event {
-    fn uid(&self) -> &str {
-        self.get_uid().unwrap_or_default()
+impl Event for VEvent<String> {
+    fn uid(&self) -> Cow<'_, str> {
+        self.uid.content.to_string().into() // PERF: avoid allocation
     }
 
-    fn description(&self) -> Option<&str> {
-        self.get_description()
+    fn description(&self) -> Option<Cow<'_, str>> {
+        self.description
+            .as_ref()
+            .map(|a| a.content.to_string().into()) // PERF: avoid allocation
     }
 
     fn start(&self) -> Option<LooseDateTime> {
-        self.get_start().map(Into::into)
+        Some(self.dt_start.inner.clone().into())
     }
 
     fn end(&self) -> Option<LooseDateTime> {
-        self.get_end().map(Into::into)
+        self.dt_end.as_ref().map(|dt| dt.inner.clone().into())
     }
 
     fn status(&self) -> Option<EventStatus> {
-        self.get_status().map(EventStatus::from)
+        self.status.as_ref().map(|s| s.value.into())
     }
 
-    fn summary(&self) -> &str {
-        self.get_summary().unwrap_or_default()
+    fn summary(&self) -> Cow<'_, str> {
+        self.summary
+            .as_ref()
+            .map_or_else(|| "".into(), |s| s.content.to_string().into()) // PERF: avoid allocation
     }
 }
 
@@ -158,24 +165,36 @@ pub struct ResolvedEventDraft<'a> {
 }
 
 impl ResolvedEventDraft<'_> {
-    /// Converts the draft into a icalendar Event component.
-    pub(crate) fn into_ics(self, uid: &str) -> icalendar::Event {
-        let mut event = icalendar::Event::with_uid(uid);
-
-        if let Some(description) = self.description {
-            Component::description(&mut event, description);
+    /// Converts the draft into an aimcal-ical `VEvent` component.
+    pub(crate) fn into_ics(self, uid: &str) -> VEvent<String> {
+        VEvent {
+            uid: Uid::new(uid.to_string()),
+            dt_stamp: DtStamp::new(IcalDateTime::from(LooseDateTime::Local(*self.now))),
+            dt_start: DtStart::new(self.start.into()),
+            dt_end: Some(DtEnd::new(self.end.into())),
+            duration: None,
+            summary: Some(Summary::new(self.summary.to_string())),
+            description: self.description.map(|d| Description::new(d.to_string())),
+            status: Some(IcalEventStatus::new(self.status.into())),
+            location: None,
+            geo: None,
+            url: None,
+            organizer: None,
+            attendees: Vec::new(),
+            last_modified: None,
+            transparency: None,
+            sequence: None,
+            priority: None,
+            classification: None,
+            resources: None,
+            categories: None,
+            rrule: None,
+            rdates: Vec::new(),
+            ex_dates: Vec::new(),
+            x_properties: Vec::new(),
+            retained_properties: Vec::new(),
+            alarms: Vec::new(),
         }
-
-        EventLike::starts(&mut event, self.start);
-        EventLike::ends(&mut event, self.end);
-
-        icalendar::Event::status(&mut event, self.status.into());
-
-        Component::summary(&mut event, self.summary);
-
-        // Set the creation time to now
-        Component::created(&mut event, self.now.with_timezone(&Utc));
-        event
     }
 }
 
@@ -236,37 +255,37 @@ pub struct ResolvedEventPatch<'a> {
 
 impl ResolvedEventPatch<'_> {
     /// Applies the patch to a mutable event, modifying it in place.
-    pub fn apply_to<'b>(&self, e: &'b mut icalendar::Event) -> &'b mut icalendar::Event {
-        match self.description {
-            Some(Some(desc)) => e.description(desc),
-            Some(None) => e.remove_description(),
-            None => e,
-        };
+    pub fn apply_to<'a>(&self, e: &'a mut VEvent<String>) -> &'a mut VEvent<String> {
+        if let Some(Some(desc)) = &self.description {
+            e.description = Some(Description::new((*desc).to_string()));
+        } else if self.description.is_some() {
+            e.description = None;
+        }
 
-        match self.start {
-            Some(Some(start)) => e.starts(start),
-            Some(None) => e.remove_starts(),
-            None => e,
-        };
+        if let Some(Some(start)) = self.start {
+            e.dt_start = DtStart::new(start.into());
+        }
 
-        match self.end {
-            Some(Some(end)) => e.ends(end),
-            Some(None) => e.remove_ends(),
-            None => e,
-        };
+        if let Some(Some(end)) = self.end {
+            e.dt_end = Some(DtEnd::new(end.into()));
+        } else if self.end.is_some() {
+            e.dt_end = None;
+        }
 
         if let Some(status) = self.status {
-            e.status(status.into());
+            e.status = Some(IcalEventStatus::new(status.into()));
         }
 
         if let Some(summary) = &self.summary {
-            e.summary(summary);
+            e.summary = Some(Summary::new((*summary).to_string()));
         }
 
         // Set the creation time to now if it is not already set
-        if e.get_created().is_none() {
-            Component::created(e, self.now.with_timezone(&Utc));
+        if e.dt_stamp.inner.date().year == 1970 {
+            use aimcal_ical::DateTime as IcalDateTime;
+            e.dt_stamp = DtStamp::new(IcalDateTime::from(LooseDateTime::Local(self.now)));
         }
+
         e
     }
 }
@@ -286,6 +305,7 @@ pub enum EventStatus {
     Cancelled,
 }
 
+// TODO: should be removed
 const STATUS_TENTATIVE: &str = "TENTATIVE";
 const STATUS_CONFIRMED: &str = "CONFIRMED";
 const STATUS_CANCELLED: &str = "CANCELLED";
@@ -319,22 +339,22 @@ impl FromStr for EventStatus {
     }
 }
 
-impl From<EventStatus> for icalendar::EventStatus {
-    fn from(status: EventStatus) -> Self {
-        match status {
-            EventStatus::Tentative => icalendar::EventStatus::Tentative,
-            EventStatus::Confirmed => icalendar::EventStatus::Confirmed,
-            EventStatus::Cancelled => icalendar::EventStatus::Cancelled,
+impl From<EventStatusValue> for EventStatus {
+    fn from(value: EventStatusValue) -> Self {
+        match value {
+            EventStatusValue::Tentative => EventStatus::Tentative,
+            EventStatusValue::Confirmed => EventStatus::Confirmed,
+            EventStatusValue::Cancelled => EventStatus::Cancelled,
         }
     }
 }
 
-impl From<icalendar::EventStatus> for EventStatus {
-    fn from(status: icalendar::EventStatus) -> Self {
-        match status {
-            icalendar::EventStatus::Tentative => EventStatus::Tentative,
-            icalendar::EventStatus::Confirmed => EventStatus::Confirmed,
-            icalendar::EventStatus::Cancelled => EventStatus::Cancelled,
+impl From<EventStatus> for EventStatusValue {
+    fn from(value: EventStatus) -> Self {
+        match value {
+            EventStatus::Tentative => EventStatusValue::Tentative,
+            EventStatus::Confirmed => EventStatusValue::Confirmed,
+            EventStatus::Cancelled => EventStatusValue::Cancelled,
         }
     }
 }

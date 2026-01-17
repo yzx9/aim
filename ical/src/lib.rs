@@ -54,8 +54,8 @@ pub use crate::property::{
     XNameProperty,
 };
 pub use crate::semantic::{
-    CalendarComponent, EventStatus, ICalendar, JournalStatus, TimeZoneObservance, TodoStatus,
-    VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
+    CalendarComponent, EventStatus, EventStatusValue, ICalendar, JournalStatus, TimeZoneObservance,
+    TodoStatus, TodoStatusValue, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
 };
 pub use crate::string_storage::{Segments, StringStorage};
 pub use crate::value::{

@@ -282,6 +282,17 @@ simple_property_wrapper!(
     pub Description<S> => Text
 );
 
+impl Description<String> {
+    /// Create a new `Description<String>` from a string value.
+    #[must_use]
+    pub fn new(value: String) -> Self {
+        Self {
+            inner: Text::new(value),
+            span: (),
+        }
+    }
+}
+
 /// Geographic position (RFC 5545 Section 3.8.1.6)
 #[derive(Debug, Clone)]
 pub struct Geo<S: StringStorage> {
@@ -387,6 +398,17 @@ simple_property_wrapper!(
     pub Location<S> => Text
 );
 
+impl Location<String> {
+    /// Create a new `Location<String>` from a string value.
+    #[must_use]
+    pub fn new(value: String) -> Self {
+        Self {
+            inner: Text::new(value),
+            span: (),
+        }
+    }
+}
+
 define_prop_value_enum! {
     /// Status value (RFC 5545 Section 3.8.1.11)
     ///
@@ -487,6 +509,19 @@ impl Status<Segments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
+        }
+    }
+}
+
+impl Status<String> {
+    /// Create a new `Status<String>` from a status value.
+    #[must_use]
+    pub fn new(value: StatusValue) -> Self {
+        Self {
+            value,
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
             span: (),
         }
     }
@@ -597,6 +632,19 @@ impl PercentComplete<Segments<'_>> {
     }
 }
 
+impl PercentComplete<String> {
+    /// Create a new `PercentComplete<String>` from a percent value (0-100).
+    #[must_use]
+    pub fn new(value: u8) -> Self {
+        Self {
+            value,
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+            span: (),
+        }
+    }
+}
+
 /// Priority (RFC 5545 Section 3.8.1.9)
 ///
 /// This property defines the priority for a calendar component.
@@ -697,6 +745,19 @@ impl Priority<Segments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
+        }
+    }
+}
+
+impl Priority<String> {
+    /// Create a new `Priority<String>` from a priority value (0-9).
+    #[must_use]
+    pub fn new(value: u8) -> Self {
+        Self {
+            value,
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
             span: (),
         }
     }
@@ -918,6 +979,17 @@ simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.12)
     pub Summary<S> => Text
 );
+
+impl Summary<String> {
+    /// Create a new `Summary<String>` from a string value.
+    #[must_use]
+    pub fn new(value: String) -> Self {
+        Self {
+            inner: Text::new(value),
+            span: (),
+        }
+    }
+}
 
 /// Create a parser input from `ValueText` with proper span tracking.
 ///

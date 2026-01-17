@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- ical: New internal iCalendar (RFC 5545) parser and formatter with multi-phase pipeline
+  (syntax → typed → semantic), zero-copy parsing, and comprehensive error reporting
+
+### Changed
+
+- core: Replace external `icalendar` crate with internal `aimcal-ical` implementation
+- core: Change `Event` and `Todo` trait methods to return `Cow<'_, str>` instead of `&str`
+
 ## [0.10.0] - 2026-01-12
 
 ### Added

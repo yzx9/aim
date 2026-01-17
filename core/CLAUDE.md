@@ -100,9 +100,9 @@ Shared data structures used throughout the application:
 
 ## Dependencies
 
+- **aimcal-ical** - iCalendar (RFC 5545) format parsing and formatting
 - **chrono / chrono-tz** - Date/time handling
 - **sqlx** - Database operations with compile-time SQL validation
-- **icalendar** - iCalendar format parsing (external library)
 - **serde / serde_json** - Serialization
 - **uuid** - Unique identifiers
 - **tokio** - Async runtime

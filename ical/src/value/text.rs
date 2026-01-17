@@ -195,6 +195,19 @@ impl<S: StringStorage> fmt::Display for ValueText<S> {
     }
 }
 
+impl ValueText<String> {
+    /// Create a new `ValueText<String>` from a string.
+    ///
+    /// This constructor is provided for convenient construction of owned text values.
+    /// The input string is treated as a single unescaped text token.
+    #[must_use]
+    pub fn new(value: String) -> Self {
+        Self {
+            tokens: vec![(ValueTextToken::Str(value), ())],
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 enum ValueTextToken<S: StringStorage> {
     Str(S),

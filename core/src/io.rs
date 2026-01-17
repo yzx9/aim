@@ -5,7 +5,7 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use icalendar::{Calendar, CalendarComponent};
+use aimcal_ical::{CalendarComponent, ICalendar, formatter::format, parse};
 use tokio::fs;
 
 use crate::localdb::LocalDb;
@@ -41,12 +41,29 @@ pub async fn add_calendar(db: &LocalDb, calendar_path: &PathBuf) -> Result<(), B
     Ok(())
 }
 
-pub async fn parse_ics(path: &Path) -> Result<Calendar, Box<dyn Error>> {
-    fs::read_to_string(path)
+// TODO: support multiple calendars in one file
+pub async fn parse_ics(path: &Path) -> Result<ICalendar<String>, Box<dyn Error>> {
+    let content = fs::read_to_string(path)
         .await
-        .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?
-        .parse()
-        .map_err(|e| format!("Failed to parse calendar: {e}").into())
+        .map_err(|e| format!("Failed to read file {}: {}", path.display(), e))?;
+
+    let calendars = parse(&content)
+        .map_err(|e| -> Box<dyn Error> { format!("Failed to parse calendar: {e:?}").into() })?;
+
+    if calendars.is_empty() {
+        return Err("No calendars found in file".into());
+    }
+
+    // Hybrid: parse borrowed, convert to owned for storage
+    Ok(calendars.into_iter().next().unwrap().to_owned())
+}
+
+pub async fn write_ics(path: &Path, calendar: &ICalendar<String>) -> Result<(), String> {
+    let ics_content = format(calendar).map_err(|e| format!("Failed to format calendar: {e}"))?;
+
+    fs::write(path, ics_content)
+        .await
+        .map_err(|e| format!("Failed to write calendar file: {e}"))
 }
 
 async fn add_ics(db: LocalDb, path: &Path) -> Result<(), Box<dyn Error>> {

@@ -133,8 +133,11 @@ fn format_id(todo: &impl Todo) -> Cow<'_, str> {
         short_id.to_string().into()
     } else {
         let uid = todo.uid(); // Fallback to the full UID if no short ID is available
-        tracing::warn!(uid, "todo does not have a short ID, using UID instead.",);
-        uid.into()
+        tracing::warn!(
+            uid = uid.as_ref(),
+            "todo does not have a short ID, using UID instead."
+        );
+        uid
     }
 }
 
@@ -209,7 +212,7 @@ fn format_short_id(todo: &impl Todo) -> Cow<'_, str> {
 }
 
 fn format_uid(todo: &impl Todo) -> Cow<'_, str> {
-    todo.uid().into()
+    todo.uid()
 }
 
 fn format_uid_legacy(todo: &impl Todo) -> Cow<'_, str> {

@@ -5,12 +5,12 @@
 use std::error::Error;
 use std::path::PathBuf;
 
+use aimcal_ical::{CalendarComponent, ICalendar};
 use chrono::{DateTime, Local};
-use icalendar::{Calendar, CalendarComponent, Component};
 use tokio::fs;
 use uuid::Uuid;
 
-use crate::io::{add_calendar, parse_ics};
+use crate::io::{add_calendar, parse_ics, write_ics};
 use crate::localdb::LocalDb;
 use crate::short_id::ShortIds;
 use crate::{
@@ -97,15 +97,16 @@ impl Aim {
         let event = draft.resolve(&self.now).into_ics(&uid);
         let path = self.get_path(&uid);
 
-        let calendar = Calendar::new().push(event.clone()).done();
-        fs::write(&path, calendar.to_string())
-            .await
-            .map_err(|e| format!("Failed to write calendar file: {e}"))?;
+        // Create calendar with single event
+        // TODO: consider reusing existing calendar if possible. see also: Todo
+        let mut calendar = ICalendar::new();
+        calendar.components.push(event.clone().into());
 
+        write_ics(&path, &calendar).await?;
         self.db.upsert_event(&path, &event).await?;
 
-        let todo = self.short_ids.event(event).await?;
-        Ok(todo)
+        let event = self.short_ids.event(event).await?;
+        Ok(event)
     }
 
     /// Upsert an event into the calendar.
@@ -124,26 +125,29 @@ impl Aim {
 
         let path: PathBuf = event.path().into();
         let mut calendar = parse_ics(&path).await?;
-        let e = calendar
-            .components
-            .iter_mut()
-            .filter_map(|a| match a {
-                CalendarComponent::Event(a) => Some(a),
-                _ => None,
-            })
-            .find(|a| a.get_uid() == Some(event.uid()))
-            .ok_or("Event not found in calendar")?;
 
-        patch.resolve(self.now).apply_to(e);
-        let event = e.clone();
-        fs::write(&path, calendar.done().to_string())
-            .await
-            .map_err(|e| format!("Failed to write calendar file: {e}"))?;
+        // Find and update the event by UID
+        let mut found = false;
+        for component in &mut calendar.components {
+            if let CalendarComponent::Event(e) = component
+                && e.uid.content.to_string() == event.uid()
+            // PERF: avoid to_string() here
+            {
+                patch.resolve(self.now).apply_to(e);
+                found = true;
+                break;
+            }
+        }
 
+        if !found {
+            return Err("Event not found in calendar".into());
+        }
+
+        write_ics(&path, &calendar).await?;
         self.db.upsert_event(&path, &event).await?;
 
-        let todo = self.short_ids.event(event).await?;
-        Ok(todo)
+        let event_with_id = self.short_ids.event(event).await?;
+        Ok(event_with_id)
     }
 
     /// Get the kind of the given id, which can be either an event or a todo.
@@ -210,15 +214,15 @@ impl Aim {
         let todo = draft.resolve(&self.config, &self.now).into_ics(&uid);
         let path = self.get_path(&uid);
 
-        let calendar = Calendar::new().push(todo.clone()).done();
-        fs::write(&path, calendar.to_string())
-            .await
-            .map_err(|e| format!("Failed to write calendar file: {e}"))?;
+        // Create calendar with single todo
+        let mut calendar = ICalendar::new();
+        calendar.components.push(todo.clone().into());
 
+        write_ics(&path, &calendar).await?;
         self.db.upsert_todo(&path, &todo).await?;
 
-        let todo = self.short_ids.todo(todo).await?;
-        Ok(todo)
+        let todo_with_id = self.short_ids.todo(todo).await?;
+        Ok(todo_with_id)
     }
 
     /// Upsert an event into the calendar.
@@ -237,22 +241,24 @@ impl Aim {
 
         let path: PathBuf = todo.path().into();
         let mut calendar = parse_ics(&path).await?;
-        let t = calendar
-            .components
-            .iter_mut()
-            .filter_map(|a| match a {
-                CalendarComponent::Todo(a) => Some(a),
-                _ => None,
-            })
-            .find(|a| a.get_uid() == Some(todo.uid()))
-            .ok_or("Todo not found in calendar")?;
 
-        patch.resolve(&self.now).apply_to(t);
-        let todo = t.clone();
-        fs::write(&path, calendar.done().to_string())
-            .await
-            .map_err(|e| format!("Failed to write calendar file: {e}"))?;
+        // Find and update the todo by UID
+        let mut found = false;
+        for component in &mut calendar.components {
+            if let CalendarComponent::Todo(t) = component
+                && t.uid.content.to_string() == todo.uid()
+            {
+                patch.resolve(&self.now).apply_to(t);
+                found = true;
+                break;
+            }
+        }
 
+        if !found {
+            return Err("Todo not found in calendar".into());
+        }
+
+        write_ics(&path, &calendar).await?;
         self.db.upsert_todo(&path, &todo).await?;
 
         let todo = self.short_ids.todo(todo).await?;

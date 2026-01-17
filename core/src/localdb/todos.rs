@@ -4,6 +4,7 @@
 
 use chrono::{DateTime, Local};
 use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
+use std::borrow::Cow;
 
 use crate::datetime::STABLE_FORMAT_LOCAL;
 use crate::todo::{ResolvedTodoConditions, ResolvedTodoSort};
@@ -191,8 +192,8 @@ impl TodoRecord {
 }
 
 impl Todo for TodoRecord {
-    fn uid(&self) -> &str {
-        &self.uid
+    fn uid(&self) -> Cow<'_, str> {
+        self.uid.as_str().into()
     }
 
     fn completed(&self) -> Option<DateTime<Local>> {
@@ -202,8 +203,8 @@ impl Todo for TodoRecord {
             .map(|dt| dt.with_timezone(&Local))
     }
 
-    fn description(&self) -> Option<&str> {
-        (!self.description.is_empty()).then_some(self.description.as_str())
+    fn description(&self) -> Option<Cow<'_, str>> {
+        (!self.description.is_empty()).then_some(self.description.as_str().into())
     }
 
     fn due(&self) -> Option<LooseDateTime> {
@@ -222,8 +223,8 @@ impl Todo for TodoRecord {
         self.status.as_str().parse().unwrap_or_default()
     }
 
-    fn summary(&self) -> &str {
-        &self.summary
+    fn summary(&self) -> Cow<'_, str> {
+        self.summary.as_str().into()
     }
 }
 

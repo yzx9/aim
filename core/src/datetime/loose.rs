@@ -4,9 +4,13 @@
 
 use std::ops::Add;
 
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, offset::LocalResult};
+use aimcal_ical::Segments;
+use aimcal_ical::{DateTime as IcalDateTime, Time};
+use chrono::{
+    DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc,
+    offset::LocalResult,
+};
 use chrono_tz::Tz;
-use icalendar::{CalendarDateTime, DatePerhapsTime};
 
 use crate::RangePosition;
 use crate::datetime::util::{
@@ -138,53 +142,226 @@ impl LooseDateTime {
     }
 }
 
-impl From<DatePerhapsTime> for LooseDateTime {
+impl From<IcalDateTime<Segments<'_>>> for LooseDateTime {
     #[tracing::instrument]
-    fn from(dt: DatePerhapsTime) -> Self {
+    #[expect(clippy::cast_sign_loss)]
+    fn from(dt: IcalDateTime<Segments<'_>>) -> Self {
         match dt {
-            DatePerhapsTime::DateTime(dt) => match dt {
-                CalendarDateTime::Floating(dt) => dt.into(),
-                CalendarDateTime::Utc(dt) => dt.into(),
-                CalendarDateTime::WithTimezone { date_time, tzid } => match tzid.parse::<Tz>() {
-                    Ok(tz) => match tz.from_local_datetime(&date_time) {
-                        // Use the parsed timezone to interpret the datetime
+            IcalDateTime::Floating { date, time, .. } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                LooseDateTime::Floating(naive_dt)
+            }
+            IcalDateTime::Utc { date, time, .. } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                LooseDateTime::Local(
+                    DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).with_timezone(&Local),
+                )
+            }
+            IcalDateTime::Zoned {
+                date, time, tz_id, ..
+            } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                let tz_id_str = tz_id.to_string();
+                match tz_id_str.parse::<Tz>() {
+                    Ok(tz) => match tz.from_local_datetime(&naive_dt) {
                         LocalResult::Single(dt_in_tz) => dt_in_tz.into(),
                         LocalResult::Ambiguous(dt1, _) => {
-                            tracing::warn!(tzid, "ambiguous local time, picking earliest");
+                            tracing::warn!(tzid = %tz_id_str, "ambiguous local time, picking earliest");
                             dt1.into()
                         }
                         LocalResult::None => {
-                            tracing::warn!(tzid, "invalid local time, falling back to floating");
-                            date_time.into()
+                            tracing::warn!(tzid = %tz_id_str, "invalid local time, falling back to floating");
+                            LooseDateTime::Floating(naive_dt)
                         }
                     },
                     Err(_) => {
-                        tracing::warn!(tzid, "unknown timezone, treating as floating");
-                        date_time.into()
+                        tracing::warn!(tzid = %tz_id_str, "unknown timezone, treating as floating");
+                        LooseDateTime::Floating(naive_dt)
                     }
-                },
-            },
-            DatePerhapsTime::Date(d) => d.into(),
+                }
+            }
+            IcalDateTime::Date { date, .. } => LooseDateTime::DateOnly(
+                NaiveDate::from_ymd_opt(i32::from(date.year), date.month as u32, date.day as u32)
+                    .unwrap(),
+            ),
         }
     }
 }
 
-impl From<LooseDateTime> for DatePerhapsTime {
+impl From<IcalDateTime<String>> for LooseDateTime {
+    #[expect(clippy::cast_sign_loss)]
+    fn from(dt: IcalDateTime<String>) -> Self {
+        match dt {
+            IcalDateTime::Floating { date, time, .. } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                LooseDateTime::Floating(naive_dt)
+            }
+            IcalDateTime::Utc { date, time, .. } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                LooseDateTime::Local(
+                    DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).with_timezone(&Local),
+                )
+            }
+            IcalDateTime::Zoned {
+                date, time, tz_id, ..
+            } => {
+                let naive_dt = NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(
+                        i32::from(date.year),
+                        date.month as u32,
+                        date.day as u32,
+                    )
+                    .unwrap(),
+                    NaiveTime::from_hms_opt(
+                        u32::from(time.hour),
+                        u32::from(time.minute),
+                        u32::from(time.second),
+                    )
+                    .unwrap(),
+                );
+                match tz_id.parse::<Tz>() {
+                    Ok(tz) => match tz.from_local_datetime(&naive_dt) {
+                        LocalResult::Single(dt_in_tz) => dt_in_tz.into(),
+                        LocalResult::Ambiguous(dt1, _) => {
+                            tracing::warn!(tzid = %tz_id, "ambiguous local time, picking earliest");
+                            dt1.into()
+                        }
+                        LocalResult::None => {
+                            tracing::warn!(tzid = %tz_id, "invalid local time, falling back to floating");
+                            LooseDateTime::Floating(naive_dt)
+                        }
+                    },
+                    Err(_) => {
+                        tracing::warn!(tzid = %tz_id, "unknown timezone, treating as floating");
+                        LooseDateTime::Floating(naive_dt)
+                    }
+                }
+            }
+            IcalDateTime::Date { date, .. } => LooseDateTime::DateOnly(
+                NaiveDate::from_ymd_opt(i32::from(date.year), date.month as u32, date.day as u32)
+                    .unwrap(),
+            ),
+        }
+    }
+}
+
+impl From<LooseDateTime> for IcalDateTime<String> {
+    #[expect(clippy::cast_possible_truncation)]
     fn from(dt: LooseDateTime) -> Self {
         match dt {
-            LooseDateTime::DateOnly(d) => d.into(),
-            LooseDateTime::Floating(dt) => CalendarDateTime::Floating(dt).into(),
-            LooseDateTime::Local(dt) => match iana_time_zone::get_timezone() {
-                Ok(tzid) => CalendarDateTime::WithTimezone {
-                    date_time: dt.naive_local(),
-                    tzid,
-                }
-                .into(),
-                Err(_) => {
-                    tracing::warn!("Failed to get timezone, using UTC");
-                    CalendarDateTime::Utc(dt.into()).into()
-                }
+            LooseDateTime::DateOnly(d) => IcalDateTime::Date {
+                date: aimcal_ical::value::ValueDate {
+                    year: d.year() as i16,
+                    month: d.month() as i8,
+                    day: d.day() as i8,
+                },
+                x_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
             },
+            LooseDateTime::Floating(naive_dt) => {
+                let time = Time::new(
+                    naive_dt.hour() as u8,
+                    naive_dt.minute() as u8,
+                    naive_dt.second() as u8,
+                )
+                .expect("time values should be valid");
+                IcalDateTime::Floating {
+                    date: aimcal_ical::value::ValueDate {
+                        year: naive_dt.year() as i16,
+                        month: naive_dt.month() as i8,
+                        day: naive_dt.day() as i8,
+                    },
+                    time,
+                    x_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
+                }
+            }
+            LooseDateTime::Local(dt) => {
+                // For owned data, use UTC instead of trying to get system timezone
+                // This avoids the complexity of tz_jiff field when jiff feature is enabled
+                let utc_dt = dt.with_timezone(&Utc);
+                let time = Time::new(
+                    utc_dt.hour() as u8,
+                    utc_dt.minute() as u8,
+                    utc_dt.second() as u8,
+                )
+                .expect("time values should be valid");
+                IcalDateTime::Utc {
+                    date: aimcal_ical::value::ValueDate {
+                        year: utc_dt.year() as i16,
+                        month: utc_dt.month() as i8,
+                        day: utc_dt.day() as i8,
+                    },
+                    time,
+                    x_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
+                }
+            }
         }
     }
 }

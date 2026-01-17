@@ -470,6 +470,18 @@ impl TodoStatus<Segments<'_>> {
     }
 }
 
+impl TodoStatus<String> {
+    /// Create a new `TodoStatus<String>` from a status value.
+    #[must_use]
+    pub fn new(value: TodoStatusValue) -> Self {
+        Self {
+            value,
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+        }
+    }
+}
+
 /// Helper struct to collect properties during single-pass iteration
 #[rustfmt::skip]
 #[derive(Debug, Default)]

@@ -326,11 +326,11 @@ impl DateTime<Segments<'_>> {
                     .map(Parameter::to_owned)
                     .collect(),
             },
-            #[cfg(feature = "jiff")]
             DateTime::Zoned {
                 date,
                 time,
                 tz_id,
+                #[cfg(feature = "jiff")]
                 tz_jiff,
                 x_parameters,
                 retained_parameters,
@@ -338,24 +338,8 @@ impl DateTime<Segments<'_>> {
                 date: *date,
                 time: *time,
                 tz_id: tz_id.to_owned(),
+                #[cfg(feature = "jiff")]
                 tz_jiff: tz_jiff.clone(),
-                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
-                retained_parameters: retained_parameters
-                    .iter()
-                    .map(Parameter::to_owned)
-                    .collect(),
-            },
-            #[cfg(not(feature = "jiff"))]
-            DateTime::Zoned {
-                date,
-                time,
-                tz_id,
-                x_parameters,
-                retained_parameters,
-            } => DateTime::Zoned {
-                date: *date,
-                time: *time,
-                tz_id: tz_id.to_string(),
                 x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
                 retained_parameters: retained_parameters
                     .iter()
@@ -856,13 +840,13 @@ impl Period<Segments<'_>> {
                 end_date: *end_date,
                 end_time: *end_time,
             },
-            #[cfg(feature = "jiff")]
             Period::ExplicitZoned {
                 start_date,
                 start_time,
                 end_date,
                 end_time,
                 tz_id,
+                #[cfg(feature = "jiff")]
                 tz_jiff,
             } => Period::ExplicitZoned {
                 start_date: *start_date,
@@ -870,21 +854,8 @@ impl Period<Segments<'_>> {
                 end_date: *end_date,
                 end_time: *end_time,
                 tz_id: tz_id.to_owned(),
+                #[cfg(feature = "jiff")]
                 tz_jiff: tz_jiff.clone(),
-            },
-            #[cfg(not(feature = "jiff"))]
-            Period::ExplicitZoned {
-                start_date,
-                start_time,
-                end_date,
-                end_time,
-                tz_id,
-            } => Period::ExplicitZoned {
-                start_date: *start_date,
-                start_time: *start_time,
-                end_date: *end_date,
-                end_time: *end_time,
-                tz_id: tz_id.to_string(),
             },
             Period::DurationUtc {
                 start_date,
@@ -904,31 +875,20 @@ impl Period<Segments<'_>> {
                 start_time: *start_time,
                 duration: *duration,
             },
-            #[cfg(feature = "jiff")]
             Period::DurationZoned {
                 start_date,
                 start_time,
                 duration,
                 tz_id,
+                #[cfg(feature = "jiff")]
                 tz_jiff,
             } => Period::DurationZoned {
                 start_date: *start_date,
                 start_time: *start_time,
                 duration: *duration,
                 tz_id: tz_id.to_owned(),
+                #[cfg(feature = "jiff")]
                 tz_jiff: tz_jiff.clone(),
-            },
-            #[cfg(not(feature = "jiff"))]
-            Period::DurationZoned {
-                start_date,
-                start_time,
-                duration,
-                tz_id,
-            } => Period::DurationZoned {
-                start_date: *start_date,
-                start_time: *start_time,
-                duration: *duration,
-                tz_id: tz_id.concatnate(),
             },
         }
     }
@@ -978,20 +938,64 @@ simple_property_wrapper!(
     pub Completed<S> => DateTime
 );
 
+impl Completed<String> {
+    /// Create a new `Completed<String>` from a `DateTime` value.
+    #[must_use]
+    pub fn new(value: DateTime<String>) -> Self {
+        Self {
+            inner: value,
+            span: (),
+        }
+    }
+}
+
 simple_property_wrapper!(
     /// Date-Time End property wrapper (RFC 5545 Section 3.8.2.2)
     pub DtEnd<S> => DateTime
 );
+
+impl DtEnd<String> {
+    /// Create a new `DtEnd<String>` from a `DateTime` value.
+    #[must_use]
+    pub fn new(value: DateTime<String>) -> Self {
+        Self {
+            inner: value,
+            span: (),
+        }
+    }
+}
 
 simple_property_wrapper!(
     /// Time Transparency property wrapper (RFC 5545 Section 3.8.2.3)
     pub Due<S> => DateTime
 );
 
+impl Due<String> {
+    /// Create a new `Due<String>` from a `DateTime` value.
+    #[must_use]
+    pub fn new(value: DateTime<String>) -> Self {
+        Self {
+            inner: value,
+            span: (),
+        }
+    }
+}
+
 simple_property_wrapper!(
     /// Date-Time Start property wrapper (RFC 5545 Section 3.8.2.4)
     pub DtStart<S> => DateTime
 );
+
+impl DtStart<String> {
+    /// Create a new `DtStart<String>` from a `DateTime` value.
+    #[must_use]
+    pub fn new(value: DateTime<String>) -> Self {
+        Self {
+            inner: value,
+            span: (),
+        }
+    }
+}
 
 /// Duration (RFC 5545 Section 3.8.2.5)
 ///

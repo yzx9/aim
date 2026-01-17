@@ -373,10 +373,8 @@ impl VEvent<Segments<'_>> {
 pub enum EventStatusValue {
     /// Event is tentative
     Tentative,
-
     /// Event is confirmed
     Confirmed,
-
     /// Event is cancelled
     Cancelled,
 }
@@ -409,6 +407,7 @@ impl From<EventStatusValue> for StatusValue {
         }
     }
 }
+
 /// Event status (RFC 5545 Section 3.8.1.11)
 #[derive(Debug, Clone)]
 pub struct EventStatus<S: StringStorage> {
@@ -455,6 +454,18 @@ impl EventStatus<Segments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+        }
+    }
+}
+
+impl EventStatus<String> {
+    /// Create a new `EventStatus<String>` from a status value.
+    #[must_use]
+    pub fn new(value: EventStatusValue) -> Self {
+        Self {
+            value,
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
         }
     }
 }

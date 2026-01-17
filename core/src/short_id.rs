@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{error::Error, num::NonZeroU32};
+use std::{borrow::Cow, error::Error, num::NonZeroU32};
 
 use chrono::{DateTime, Local};
 
@@ -43,7 +43,7 @@ impl ShortIds {
             None => {
                 self.db
                     .short_ids
-                    .get_or_assign_short_id(event.uid(), Kind::Event)
+                    .get_or_assign_short_id(&event.uid(), Kind::Event)
                     .await?
             }
         };
@@ -71,7 +71,7 @@ impl ShortIds {
             None => {
                 self.db
                     .short_ids
-                    .get_or_assign_short_id(todo.uid(), Kind::Todo)
+                    .get_or_assign_short_id(&todo.uid(), Kind::Todo)
                     .await?
             }
         };
@@ -110,11 +110,11 @@ impl<E: Event> Event for EventWithShortId<E> {
         Some(self.short_id)
     }
 
-    fn uid(&self) -> &str {
+    fn uid(&self) -> Cow<'_, str> {
         self.inner.uid()
     }
 
-    fn description(&self) -> Option<&str> {
+    fn description(&self) -> Option<Cow<'_, str>> {
         self.inner.description()
     }
 
@@ -130,7 +130,7 @@ impl<E: Event> Event for EventWithShortId<E> {
         self.inner.status()
     }
 
-    fn summary(&self) -> &str {
+    fn summary(&self) -> Cow<'_, str> {
         self.inner.summary()
     }
 }
@@ -146,7 +146,7 @@ impl<T: Todo> Todo for TodoWithShortId<T> {
         Some(self.short_id)
     }
 
-    fn uid(&self) -> &str {
+    fn uid(&self) -> Cow<'_, str> {
         self.inner.uid()
     }
 
@@ -154,7 +154,7 @@ impl<T: Todo> Todo for TodoWithShortId<T> {
         self.inner.completed()
     }
 
-    fn description(&self) -> Option<&str> {
+    fn description(&self) -> Option<Cow<'_, str>> {
         self.inner.description()
     }
 
@@ -174,7 +174,7 @@ impl<T: Todo> Todo for TodoWithShortId<T> {
         self.inner.status()
     }
 
-    fn summary(&self) -> &str {
+    fn summary(&self) -> Cow<'_, str> {
         self.inner.summary()
     }
 }
