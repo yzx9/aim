@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-01-18
+
 ### Added
 
 - ical: New internal iCalendar (RFC 5545) parser and formatter with multi-phase pipeline
@@ -357,7 +359,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add events and todos command
 - Add dashboard command
 
-[Unreleased]: https://github.com/yzx9/aim/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/yzx9/aim/compare/v0.11.0...HEAD
+[v0.11.0]: https://github.com/yzx9/aim/compare/v0.10.0...v0.11.0
 [v0.10.0]: https://github.com/yzx9/aim/compare/v0.9.2...v0.10.0
 [v0.9.2]: https://github.com/yzx9/aim/compare/v0.9.1...v0.9.2
 [v0.9.1]: https://github.com/yzx9/aim/compare/v0.9.0...v0.9.1
