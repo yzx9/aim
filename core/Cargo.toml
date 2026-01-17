@@ -15,7 +15,7 @@ repository.workspace = true
 readme.workspace = true
 
 [dependencies]
-aimcal-ical = { path = "../ical" }
+aimcal-ical.workspace = true
 bimap = { version = "0.6.3", features = ["serde"] }
 jiff = { version = "0.2", features = ["serde"] }
 clap = { version = "4.5", features = ["derive"], optional = true }

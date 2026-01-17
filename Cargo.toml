@@ -23,6 +23,7 @@ aimcal-core = { path = "core", version = "0.11.0", default-features = false, fea
   "clap",
 ] }
 aimcal-cli = { version = "0.11.0", path = "cli", default-features = false }
+aimcal-ical = { version = "0.11.0", path = "ical" }
 tracing = "0.1.44"
 
 [profile.release]
