@@ -4,7 +4,7 @@
 
 use std::{borrow::Cow, error::Error, num::NonZeroU32};
 
-use chrono::{DateTime, Local};
+use jiff::Zoned;
 
 use crate::localdb::LocalDb;
 use crate::{Event, EventStatus, Id, Kind, LooseDateTime, Priority, Todo, TodoStatus};
@@ -150,7 +150,7 @@ impl<T: Todo> Todo for TodoWithShortId<T> {
         self.inner.uid()
     }
 
-    fn completed(&self) -> Option<DateTime<Local>> {
+    fn completed(&self) -> Option<Zoned> {
         self.inner.completed()
     }
 

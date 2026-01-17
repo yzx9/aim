@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - core: Replace external `icalendar` crate with internal `aimcal-ical` implementation
 - core: Change `Event` and `Todo` trait methods to return `Cow<'_, str>` instead of `&str`
+- core: Migrate from `chrono`/`chrono-tz` to `jiff` for datetime operations
+
+## Removed
+
+- core: `DateTimeAnchor.parse_xxx` has been removed, use `resolve_xxx` instead
 
 ## [0.10.0] - 2026-01-12
 

@@ -4,11 +4,11 @@
 
 use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
+use aimcal_ical as ical;
 use aimcal_ical::{
-    Completed, DateTime as IcalDateTime, Description, DtStamp, Due, PercentComplete,
-    Priority as IcalPriority, Summary, TodoStatus as IcalTodoStatus, TodoStatusValue, Uid, VTodo,
+    Completed, Description, DtStamp, Due, PercentComplete, Summary, TodoStatusValue, Uid, VTodo,
 };
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+use jiff::{Zoned, civil, tz::TimeZone};
 
 use crate::{Config, DateTimeAnchor, LooseDateTime, Priority, SortOrder};
 
@@ -25,7 +25,7 @@ pub trait Todo {
     fn uid(&self) -> Cow<'_, str>;
 
     /// The description of the todo item.
-    fn completed(&self) -> Option<DateTime<Local>>;
+    fn completed(&self) -> Option<Zoned>;
 
     /// The description of the todo item, if available.
     fn description(&self) -> Option<Cow<'_, str>>;
@@ -51,80 +51,60 @@ impl Todo for VTodo<String> {
         self.uid.content.to_string().into()
     }
 
-    fn completed(&self) -> Option<DateTime<Local>> {
-        #[expect(clippy::cast_sign_loss)]
+    fn completed(&self) -> Option<Zoned> {
+        #[allow(clippy::cast_possible_wrap)]
         self.completed.as_ref().and_then(|c| match &**c {
-            IcalDateTime::Utc { date, time, .. } => {
-                let naive_dt = NaiveDateTime::new(
-                    NaiveDate::from_ymd_opt(
-                        i32::from(date.year),
-                        date.month as u32,
-                        date.day as u32,
-                    )
-                    .unwrap(),
-                    NaiveTime::from_hms_opt(
-                        u32::from(time.hour),
-                        u32::from(time.minute),
-                        u32::from(time.second),
-                    )
-                    .unwrap(),
-                );
-                Some(
-                    DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).with_timezone(&Local),
+            ical::DateTime::Utc { date, time, .. } => {
+                let civil_dt = civil::DateTime::new(
+                    date.year,
+                    date.month,
+                    date.day,
+                    time.hour as i8,
+                    time.minute as i8,
+                    time.second as i8,
+                    0,
                 )
+                .unwrap();
+                Some(civil_dt.to_zoned(TimeZone::UTC).unwrap())
             }
-            IcalDateTime::Floating { date, time, .. } => {
-                let naive_dt = NaiveDateTime::new(
-                    NaiveDate::from_ymd_opt(
-                        i32::from(date.year),
-                        date.month as u32,
-                        date.day as u32,
-                    )
-                    .unwrap(),
-                    NaiveTime::from_hms_opt(
-                        u32::from(time.hour),
-                        u32::from(time.minute),
-                        u32::from(time.second),
-                    )
-                    .unwrap(),
-                );
-                Some(
-                    Local
-                        .from_local_datetime(&naive_dt)
-                        .single()
-                        .unwrap_or_else(|| {
-                            tracing::warn!("invalid local time, using UTC");
-                            DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc)
-                                .with_timezone(&Local)
-                        }),
+            ical::DateTime::Floating { date, time, .. } => {
+                let civil_dt = civil::DateTime::new(
+                    date.year,
+                    date.month,
+                    date.day,
+                    time.hour as i8,
+                    time.minute as i8,
+                    time.second as i8,
+                    0,
                 )
-            }
-            IcalDateTime::Zoned {
-                date, time, tz_id, ..
-            } => {
-                let naive_dt = NaiveDateTime::new(
-                    NaiveDate::from_ymd_opt(
-                        i32::from(date.year),
-                        date.month as u32,
-                        date.day as u32,
-                    )
-                    .unwrap(),
-                    NaiveTime::from_hms_opt(
-                        u32::from(time.hour),
-                        u32::from(time.minute),
-                        u32::from(time.second),
-                    )
-                    .unwrap(),
-                );
-                match tz_id.as_str().parse::<chrono_tz::Tz>() {
-                    Ok(tz) => match tz.from_local_datetime(&naive_dt) {
-                        chrono::LocalResult::Single(dt) => Some(dt.with_timezone(&Local)),
-                        _ => None,
-                    },
-                    Err(_) => None,
+                .unwrap();
+                // Try to interpret in system timezone
+                match civil_dt.to_zoned(TimeZone::system()) {
+                    Ok(zoned) => Some(zoned),
+                    Err(_) => {
+                        tracing::warn!("invalid local time, using UTC");
+                        Some(civil_dt.to_zoned(TimeZone::UTC).unwrap())
+                    }
                 }
             }
-            IcalDateTime::Date { .. } => None,
+            ical::DateTime::Zoned {
+                date, time, tz_id, ..
+            } => {
+                let civil_dt = civil::DateTime::new(
+                    date.year,
+                    date.month,
+                    date.day,
+                    time.hour as i8,
+                    time.minute as i8,
+                    time.second as i8,
+                    0,
+                )
+                .unwrap();
+                TimeZone::get(tz_id.as_str())
+                    .ok()
+                    .and_then(|tz| civil_dt.to_zoned(tz).ok())
+            }
+            ical::DateTime::Date { .. } => None,
         })
     }
 
@@ -187,10 +167,13 @@ pub struct TodoDraft {
 
 impl TodoDraft {
     /// Creates a new empty patch.
-    pub(crate) fn default(config: &Config, now: &DateTime<Local>) -> Self {
+    pub(crate) fn default(config: &Config, now: &Zoned) -> Self {
         Self {
             description: None,
-            due: config.default_due.map(|d| d.resolve_since_datetime(now)),
+            due: config
+                .default_due
+                .as_ref()
+                .map(|d| d.clone().resolve_since_zoned(now)),
             percent_complete: None,
             priority: Some(config.default_priority),
             status: TodoStatus::default(),
@@ -199,14 +182,13 @@ impl TodoDraft {
     }
 
     /// Converts the draft into a icalendar Todo component.
-    pub(crate) fn resolve<'a>(
-        &'a self,
-        config: &Config,
-        now: &'a DateTime<Local>,
-    ) -> ResolvedTodoDraft<'a> {
-        let due = self
-            .due
-            .or_else(|| config.default_due.map(|d| d.resolve_since_datetime(now)));
+    pub(crate) fn resolve<'a>(&'a self, config: &Config, now: &'a Zoned) -> ResolvedTodoDraft<'a> {
+        let due = self.due.clone().or_else(|| {
+            config
+                .default_due
+                .as_ref()
+                .map(|d| d.clone().resolve_since_zoned(now))
+        });
 
         let percent_complete = self.percent_complete.map(|a| a.max(100));
 
@@ -225,7 +207,7 @@ impl TodoDraft {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ResolvedTodoDraft<'a> {
     pub description: Option<&'a str>,
     pub due: Option<LooseDateTime>,
@@ -234,7 +216,7 @@ pub struct ResolvedTodoDraft<'a> {
     pub status: TodoStatus,
     pub summary: &'a str,
 
-    pub now: &'a DateTime<Local>,
+    pub now: &'a Zoned,
 }
 
 impl ResolvedTodoDraft<'_> {
@@ -242,25 +224,20 @@ impl ResolvedTodoDraft<'_> {
     pub(crate) fn into_ics(self, uid: &str) -> VTodo<String> {
         VTodo {
             uid: Uid::new(uid.to_string()),
-            dt_stamp: DtStamp::new(IcalDateTime::from(LooseDateTime::Local(*self.now))),
+            dt_stamp: DtStamp::new(ical::DateTime::from(LooseDateTime::Local(self.now.clone()))),
             dt_start: None,
             due: self.due.map(|d| Due::new(d.into())),
             completed: None,
             duration: None,
             summary: Some(Summary::new(self.summary.to_string())),
             description: self.description.map(|d| Description::new(d.to_string())),
-            status: Some(IcalTodoStatus::new(match self.status {
-                TodoStatus::NeedsAction => TodoStatusValue::NeedsAction,
-                TodoStatus::Completed => TodoStatusValue::Completed,
-                TodoStatus::InProcess => TodoStatusValue::InProcess,
-                TodoStatus::Cancelled => TodoStatusValue::Cancelled,
-            })),
+            status: Some(ical::TodoStatus::new(self.status.into())),
             percent_complete: self
                 .percent_complete
                 .map(|p| PercentComplete::new(p.min(100))),
             priority: self
                 .priority
-                .map(|p| IcalPriority::new(Into::<u8>::into(p))),
+                .map(|p| ical::Priority::new(Into::<u8>::into(p))),
             location: None,
             geo: None,
             url: None,
@@ -315,7 +292,7 @@ impl TodoPatch {
             && self.summary.is_none()
     }
 
-    pub(crate) fn resolve<'a>(&'a self, now: &'a DateTime<Local>) -> ResolvedTodoPatch<'a> {
+    pub(crate) fn resolve<'a>(&'a self, now: &'a Zoned) -> ResolvedTodoPatch<'a> {
         let percent_complete = match self.percent_complete {
             Some(Some(v)) => Some(Some(v.min(100))),
             _ => self.percent_complete,
@@ -323,7 +300,7 @@ impl TodoPatch {
 
         ResolvedTodoPatch {
             description: self.description.as_ref().map(|opt| opt.as_deref()),
-            due: self.due,
+            due: self.due.clone(),
             percent_complete,
             priority: self.priority,
             status: self.status,
@@ -333,7 +310,7 @@ impl TodoPatch {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ResolvedTodoPatch<'a> {
     pub description: Option<Option<&'a str>>,
     pub due: Option<Option<LooseDateTime>>,
@@ -342,7 +319,7 @@ pub struct ResolvedTodoPatch<'a> {
     pub status: Option<TodoStatus>,
     pub summary: Option<&'a str>,
 
-    pub now: &'a DateTime<Local>,
+    pub now: &'a Zoned,
 }
 
 impl ResolvedTodoPatch<'_> {
@@ -354,8 +331,8 @@ impl ResolvedTodoPatch<'_> {
             t.description = None;
         }
 
-        if let Some(Some(due)) = self.due {
-            t.due = Some(Due::new(due.into()));
+        if let Some(Some(ref due)) = self.due {
+            t.due = Some(Due::new(due.clone().into()));
         } else if self.due.is_some() {
             t.due = None;
         }
@@ -367,16 +344,16 @@ impl ResolvedTodoPatch<'_> {
         }
 
         if let Some(priority) = self.priority {
-            t.priority = Some(IcalPriority::new(Into::<u8>::into(priority)));
+            t.priority = Some(ical::Priority::new(Into::<u8>::into(priority)));
         }
 
         if let Some(status) = self.status {
-            t.status = Some(IcalTodoStatus::new(status.into()));
+            t.status = Some(ical::TodoStatus::new(status.into()));
 
             // Handle COMPLETED property
             if status == TodoStatus::Completed && t.completed.is_none() {
-                t.completed = Some(Completed::new(IcalDateTime::from(LooseDateTime::Local(
-                    *self.now,
+                t.completed = Some(Completed::new(ical::DateTime::from(LooseDateTime::Local(
+                    self.now.clone(),
                 ))));
             } else if status != TodoStatus::Completed {
                 t.completed = None;
@@ -389,7 +366,7 @@ impl ResolvedTodoPatch<'_> {
 
         // Set the creation time to now if it is not already set
         if t.dt_stamp.inner.date().year == 1970 {
-            t.dt_stamp = DtStamp::new(IcalDateTime::from(LooseDateTime::Local(*self.now)));
+            t.dt_stamp = DtStamp::new(ical::DateTime::from(LooseDateTime::Local(self.now.clone())));
         }
 
         t
@@ -473,7 +450,7 @@ impl From<TodoStatus> for TodoStatusValue {
 }
 
 /// Conditions for filtering todo items, such as current time, status, and due date.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct TodoConditions {
     /// The status of the todo item to filter by, if any.
     pub status: Option<TodoStatus>,
@@ -483,18 +460,18 @@ pub struct TodoConditions {
 }
 
 impl TodoConditions {
-    pub(crate) fn resolve(&self, now: &DateTime<Local>) -> ResolvedTodoConditions {
+    pub(crate) fn resolve(&self, now: &Zoned) -> ResolvedTodoConditions {
         ResolvedTodoConditions {
             status: self.status,
-            due: self.due.map(|a| a.resolve_at_end_of_day(now)),
+            due: self.due.as_ref().map(|a| a.resolve_at_end_of_day(now)),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ResolvedTodoConditions {
     pub status: Option<TodoStatus>,
-    pub due: Option<DateTime<Local>>,
+    pub due: Option<Zoned>,
 }
 
 /// The default sort key for todo items, which is by due date.
@@ -525,7 +502,7 @@ impl TodoSort {
     }
 
     pub(crate) fn resolve_vec(sort: &[TodoSort], config: &Config) -> Vec<ResolvedTodoSort> {
-        sort.iter().map(|s| s.resolve(config)).collect()
+        sort.iter().map(|s| (*s).resolve(config)).collect()
     }
 }
 

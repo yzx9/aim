@@ -335,8 +335,8 @@ impl CmdTodoDelay {
             // Calculate new due based on original due if exists, otherwise based on now
             let todo = aim.get_todo(id).await?;
             let new_due = Some(match todo.due() {
-                Some(due) => time.resolve_at(&due),
-                None => time.resolve_since_datetime(&aim.now()),
+                Some(due) => time.clone().resolve_at(&due),
+                None => time.clone().resolve_since_zoned(&aim.now()),
             });
 
             // Update the todo
@@ -394,7 +394,9 @@ impl CmdTodoReschedule {
         let mut todos = vec![];
         for id in &self.ids {
             // Calculate new due based on now
-            let new_due = time.map(|a| a.resolve_since_datetime(&aim.now()));
+            let new_due = time
+                .as_ref()
+                .map(|a| a.clone().resolve_since_zoned(&aim.now()));
 
             // Update the todo
             let patch = TodoPatch {
@@ -409,7 +411,7 @@ impl CmdTodoReschedule {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct CmdTodoList {
     pub conds: TodoConditions,
     pub output_format: OutputFormat,

@@ -5,7 +5,7 @@
 use std::error::Error;
 
 use aimcal_core::{DateTimeAnchor, LooseDateTime};
-use chrono::{DateTime, TimeZone};
+use jiff::Zoned;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -16,23 +16,20 @@ pub enum OutputFormat {
     Table,
 }
 
-pub fn parse_datetime<Tz: TimeZone>(
-    now: &DateTime<Tz>,
-    anchor: &str,
-) -> Result<Option<LooseDateTime>, Box<dyn Error>> {
+pub fn parse_datetime(now: &Zoned, anchor: &str) -> Result<Option<LooseDateTime>, Box<dyn Error>> {
     if anchor.is_empty() {
         Ok(None)
     } else {
         let anchor: DateTimeAnchor = anchor.parse()?;
-        Ok(Some(anchor.resolve_since_datetime(now)))
+        Ok(Some(anchor.resolve_since_zoned(now)))
     }
 }
 
 /// Parses a date range from two strings, where the first is the start date and the second is the end date.
 ///
 /// NOTE: Don't assert that the start date is before the end date, as this function does not enforce that.
-pub fn parse_datetime_range<Tz: TimeZone>(
-    now: &DateTime<Tz>,
+pub fn parse_datetime_range(
+    now: &Zoned,
     start: &str,
     end: &str,
 ) -> Result<(Option<LooseDateTime>, Option<LooseDateTime>), Box<dyn Error>> {
@@ -43,8 +40,8 @@ pub fn parse_datetime_range<Tz: TimeZone>(
     } else {
         let anchor: DateTimeAnchor = end.parse()?;
         let end = match start {
-            Some(s) => anchor.resolve_since(&s),
-            None => anchor.resolve_since_datetime(now),
+            Some(ref s) => anchor.resolve_since(s),
+            None => anchor.resolve_since_zoned(now),
         };
         Ok((start, Some(end)))
     }
@@ -52,9 +49,9 @@ pub fn parse_datetime_range<Tz: TimeZone>(
 
 pub fn format_datetime(t: LooseDateTime) -> String {
     match t {
-        LooseDateTime::DateOnly(d) => d.format("%Y-%m-%d"),
-        LooseDateTime::Floating(dt) => dt.format("%Y-%m-%d %H:%M"),
-        LooseDateTime::Local(dt) => dt.format("%Y-%m-%d %H:%M"),
+        LooseDateTime::DateOnly(d) => d.strftime("%Y-%m-%d"),
+        LooseDateTime::Floating(dt) => dt.strftime("%Y-%m-%d %H:%M"),
+        LooseDateTime::Local(dt) => dt.strftime("%Y-%m-%d %H:%M"),
     }
     .to_string()
 }
@@ -84,7 +81,9 @@ pub fn byte_range_of_grapheme_at(s: &str, g_idx: usize) -> Option<std::ops::Rang
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime};
+    use jiff::Zoned;
+    use jiff::civil::{DateTime, date, datetime, time};
+    use jiff::tz::TimeZone;
 
     use super::*;
 
@@ -131,11 +130,10 @@ mod tests {
         assert_eq!(unicode_width_of_slice(s, 2), "ＡＢ".width());
     }
 
-    fn default_datetime() -> DateTime<Local> {
-        Local.from_utc_datetime(&NaiveDateTime::new(
-            NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-            NaiveTime::from_hms_opt(12, 0, 0).unwrap(),
-        ))
+    fn default_datetime() -> Zoned {
+        datetime(2025, 1, 1, 12, 0, 0, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap()
     }
 
     #[test]
@@ -149,9 +147,7 @@ mod tests {
         let now = default_datetime();
         let result = parse_datetime(&now, "2023-12-25").unwrap().unwrap();
         match result {
-            LooseDateTime::DateOnly(date) => {
-                assert_eq!(date, NaiveDate::from_ymd_opt(2023, 12, 25).unwrap());
-            }
+            LooseDateTime::DateOnly(dt) => assert_eq!(dt, date(2023, 12, 25)),
             _ => panic!("Expected DateOnly variant"),
         }
     }
@@ -162,11 +158,8 @@ mod tests {
         let result = parse_datetime(&now, "2023-12-25 14:30").unwrap().unwrap();
         match result {
             LooseDateTime::Local(dt) => {
-                assert_eq!(
-                    dt.date_naive(),
-                    NaiveDate::from_ymd_opt(2023, 12, 25).unwrap()
-                );
-                assert_eq!(dt.time(), NaiveTime::from_hms_opt(14, 30, 0).unwrap());
+                assert_eq!(dt.date(), date(2023, 12, 25));
+                assert_eq!(dt.time(), time(14, 30, 0, 0));
             }
             _ => panic!("Expected Local variant"),
         }
@@ -178,8 +171,8 @@ mod tests {
         let result = parse_datetime(&now, "20:30").unwrap().unwrap();
         match result {
             LooseDateTime::Local(dt) => {
-                assert_eq!(dt.date_naive(), now.date_naive());
-                assert_eq!(dt.time(), NaiveTime::from_hms_opt(20, 30, 0).unwrap());
+                assert_eq!(dt.date(), now.date());
+                assert_eq!(dt.time(), time(20, 30, 0, 0));
             }
             _ => panic!("Expected Local variant"),
         }
@@ -225,19 +218,14 @@ mod tests {
         assert!(end.is_some());
 
         match start.unwrap() {
-            LooseDateTime::DateOnly(date) => {
-                assert_eq!(date, NaiveDate::from_ymd_opt(2023, 12, 25).unwrap());
-            }
+            LooseDateTime::DateOnly(d) => assert_eq!(d, date(2023, 12, 25)),
             _ => panic!("Expected DateOnly variant for start"),
         }
 
         match end.unwrap() {
             LooseDateTime::Local(dt) => {
-                assert_eq!(
-                    dt.date_naive(),
-                    NaiveDate::from_ymd_opt(2023, 12, 25).unwrap()
-                );
-                assert_eq!(dt.time(), NaiveTime::from_hms_opt(14, 30, 0).unwrap());
+                assert_eq!(dt.date(), date(2023, 12, 25));
+                assert_eq!(dt.time(), time(14, 30, 0, 0));
             }
             _ => panic!("Expected Floating variant for end"),
         }
@@ -251,23 +239,17 @@ mod tests {
         assert!(end.is_some());
 
         match start.unwrap() {
-            LooseDateTime::Local(date) => {
-                assert_eq!(
-                    date.date_naive(),
-                    NaiveDate::from_ymd_opt(2023, 12, 25).unwrap()
-                );
-                assert_eq!(date.time(), NaiveTime::from_hms_opt(14, 00, 00).unwrap());
+            LooseDateTime::Local(dt) => {
+                assert_eq!(dt.date(), date(2023, 12, 25));
+                assert_eq!(dt.time(), time(14, 0, 0, 0));
             }
             _ => panic!("Expected Local variant for start"),
         }
 
         match end.unwrap() {
             LooseDateTime::Local(dt) => {
-                assert_eq!(
-                    dt.date_naive(),
-                    NaiveDate::from_ymd_opt(2023, 12, 25).unwrap()
-                );
-                assert_eq!(dt.time(), NaiveTime::from_hms_opt(14, 30, 0).unwrap());
+                assert_eq!(dt.date(), date(2023, 12, 25));
+                assert_eq!(dt.time(), time(14, 30, 0, 0));
             }
             _ => panic!("Expected Local variant for end"),
         }
@@ -281,23 +263,17 @@ mod tests {
         assert!(end.is_some());
 
         match start.unwrap() {
-            LooseDateTime::Local(date) => {
-                assert_eq!(
-                    date.date_naive(),
-                    NaiveDate::from_ymd_opt(2023, 12, 25).unwrap()
-                );
-                assert_eq!(date.time(), NaiveTime::from_hms_opt(14, 00, 00).unwrap());
+            LooseDateTime::Local(dt) => {
+                assert_eq!(dt.date(), date(2023, 12, 25));
+                assert_eq!(dt.time(), time(14, 0, 0, 0));
             }
             _ => panic!("Expected Local variant for start"),
         }
 
         match end.unwrap() {
             LooseDateTime::Local(dt) => {
-                assert_eq!(
-                    dt.date_naive(),
-                    NaiveDate::from_ymd_opt(2023, 12, 26).unwrap()
-                );
-                assert_eq!(dt.time(), NaiveTime::from_hms_opt(13, 30, 0).unwrap());
+                assert_eq!(dt.date(), date(2023, 12, 26));
+                assert_eq!(dt.time(), time(13, 30, 0, 0));
             }
             _ => panic!("Expected Local variant for end"),
         }
@@ -305,28 +281,24 @@ mod tests {
 
     #[test]
     fn formats_datetime_date_only() {
-        let date = NaiveDate::from_ymd_opt(2023, 12, 25).unwrap();
+        let date = date(2023, 12, 25);
         let formatted = format_datetime(LooseDateTime::DateOnly(date));
         assert_eq!(formatted, "2023-12-25");
     }
 
     #[test]
     fn formats_datetime_floating() {
-        let dt = NaiveDateTime::new(
-            NaiveDate::from_ymd_opt(2023, 12, 25).unwrap(),
-            NaiveTime::from_hms_opt(14, 30, 0).unwrap(),
-        );
+        let date = date(2023, 12, 25);
+        let time = time(14, 30, 0, 0);
+        let dt = DateTime::from_parts(date, time);
         let formatted = format_datetime(LooseDateTime::Floating(dt));
         assert_eq!(formatted, "2023-12-25 14:30");
     }
 
     #[test]
     fn formats_datetime_local() {
-        let dt = Local
-            .from_local_datetime(&NaiveDateTime::new(
-                NaiveDate::from_ymd_opt(2023, 12, 25).unwrap(),
-                NaiveTime::from_hms_opt(14, 30, 0).unwrap(),
-            ))
+        let dt = datetime(2023, 12, 25, 14, 30, 0, 0)
+            .to_zoned(TimeZone::system())
             .unwrap();
         let formatted = format_datetime(LooseDateTime::Local(dt));
         assert_eq!(formatted, "2023-12-25 14:30");

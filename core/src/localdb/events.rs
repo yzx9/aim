@@ -4,14 +4,12 @@
 
 use std::borrow::Cow;
 
-use chrono::{DateTime, Local, NaiveDate};
+use jiff::{Zoned, civil::Date};
 use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 
-use crate::{
-    Event, EventStatus, LooseDateTime, Pager,
-    datetime::{STABLE_FORMAT_DATEONLY, STABLE_FORMAT_LOCAL},
-    event::ResolvedEventConditions,
-};
+use crate::datetime::{STABLE_FORMAT_DATEONLY, STABLE_FORMAT_LOCAL};
+use crate::event::ResolvedEventConditions;
+use crate::{Event, EventStatus, LooseDateTime, Pager};
 
 #[derive(Debug, Clone)]
 pub struct Events {
@@ -118,13 +116,13 @@ FROM events
         conds: &'a ResolvedEventConditions,
         mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
     ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
-        if let Some(start_before) = conds.start_before {
+        if let Some(ref start_before) = conds.start_before {
             query = query.bind(format_dt(start_before));
         }
-        if let Some(end_after) = conds.end_after {
+        if let Some(ref end_after) = conds.end_after {
             query = query
                 .bind(format_dt(end_after))
-                .bind(format_date(end_after.date_naive()));
+                .bind(format_date(end_after.date()));
         }
         query
     }
@@ -188,10 +186,10 @@ impl Event for EventRecord {
     }
 }
 
-fn format_date(date: NaiveDate) -> String {
-    date.format(STABLE_FORMAT_DATEONLY).to_string()
+fn format_date(date: Date) -> String {
+    date.strftime(STABLE_FORMAT_DATEONLY).to_string()
 }
 
-fn format_dt(dt: DateTime<Local>) -> String {
-    dt.format(STABLE_FORMAT_LOCAL).to_string()
+fn format_dt(dt: &Zoned) -> String {
+    dt.strftime(STABLE_FORMAT_LOCAL).to_string()
 }

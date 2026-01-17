@@ -6,7 +6,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use aimcal_ical::{CalendarComponent, ICalendar};
-use chrono::{DateTime, Local};
+use jiff::Zoned;
 use tokio::fs;
 use uuid::Uuid;
 
@@ -21,7 +21,7 @@ use crate::{
 /// AIM calendar application core.
 #[derive(Debug, Clone)]
 pub struct Aim {
-    now: DateTime<Local>,
+    now: Zoned,
     config: Config,
     db: LocalDb,
     short_ids: ShortIds,
@@ -34,7 +34,7 @@ impl Aim {
     /// # Errors
     /// If initialization fails.
     pub async fn new(mut config: Config) -> Result<Self, Box<dyn Error>> {
-        let now = Local::now();
+        let now = Zoned::now();
 
         config.normalize()?;
         prepare(&config).await?;
@@ -57,13 +57,13 @@ impl Aim {
 
     /// The current time in the AIM instance.
     #[must_use]
-    pub fn now(&self) -> DateTime<Local> {
-        self.now
+    pub fn now(&self) -> Zoned {
+        self.now.clone()
     }
 
     /// Refresh the current time to now.
     pub fn refresh_now(&mut self) {
-        self.now = Local::now();
+        self.now = Zoned::now();
     }
 
     /// Create a default event draft based on the AIM configuration.
@@ -133,7 +133,7 @@ impl Aim {
                 && e.uid.content.to_string() == event.uid()
             // PERF: avoid to_string() here
             {
-                patch.resolve(self.now).apply_to(e);
+                patch.resolve(self.now.clone()).apply_to(e);
                 found = true;
                 break;
             }

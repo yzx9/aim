@@ -138,7 +138,7 @@ impl EventOrTodoArgs {
     }
 
     pub fn get_time(matches: &ArgMatches) -> Option<DateTimeAnchor> {
-        matches.get_one("time").copied()
+        matches.get_one("time").cloned()
     }
 
     fn kind_name(self) -> &'static str {

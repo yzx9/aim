@@ -5,21 +5,21 @@
 use std::{borrow::Cow, fmt};
 
 use aimcal_core::{Event, LooseDateTime, RangePosition};
-use chrono::{DateTime, Datelike, Local, NaiveDate};
 use colored::Color;
+use jiff::{Zoned, civil::Date};
 
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
 use crate::util::{OutputFormat, format_datetime};
 
 #[derive(Debug, Clone)]
 pub struct EventFormatter {
-    now: DateTime<Local>,
+    now: Zoned,
     columns: Vec<EventColumn>,
     format: OutputFormat,
 }
 
 impl EventFormatter {
-    pub fn new(now: DateTime<Local>, columns: Vec<EventColumn>, format: OutputFormat) -> Self {
+    pub fn new(now: Zoned, columns: Vec<EventColumn>, format: OutputFormat) -> Self {
         Self {
             now,
             columns,
@@ -49,7 +49,7 @@ impl<E: Event> fmt::Display for Display<'_, E> {
             .iter()
             .map(|column| ColumnMeta {
                 column,
-                now: self.formatter.now,
+                now: self.formatter.now.clone(),
             })
             .collect();
 
@@ -72,15 +72,15 @@ pub enum EventColumn {
     Id,
     ShortId,
     Summary,
-    TimeSpan { date: NaiveDate },
+    TimeSpan { date: Date },
     Uid,
     UidLegacy,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct ColumnMeta<'a> {
     column: &'a EventColumn,
-    now: DateTime<Local>,
+    now: Zoned,
 }
 
 impl<E: Event> TableColumn<E> for ColumnMeta<'_> {
@@ -117,8 +117,8 @@ impl<E: Event> TableColumn<E> for ColumnMeta<'_> {
 
     fn get_color(&self, data: &E) -> Option<Color> {
         match &self.column {
-            EventColumn::DateTimeSpan => get_color_datetime_span(data, self.now),
-            EventColumn::TimeSpan { date: _ } => get_color_time_span(data, self.now),
+            EventColumn::DateTimeSpan => get_color_datetime_span(data, self.now.clone()),
+            EventColumn::TimeSpan { date: _ } => get_color_time_span(data, self.now.clone()),
             _ => None,
         }
     }
@@ -155,21 +155,21 @@ fn format_datetime_span(event: &impl Event) -> Cow<'_, str> {
             true => match (start.time(), end.time()) {
                 (Some(stime), Some(etime)) => format!(
                     "{} {}~{}",
-                    start.date().format("%Y-%m-%d"),
-                    stime.format("%H:%M"),
-                    etime.format("%H:%M")
+                    start.date().strftime("%Y-%m-%d"),
+                    stime.strftime("%H:%M"),
+                    etime.strftime("%H:%M")
                 ),
                 (Some(stime), None) => format!(
                     "{} {}~24:00",
-                    start.date().format("%Y-%m-%d"),
-                    stime.format("%H:%M")
+                    start.date().strftime("%Y-%m-%d"),
+                    stime.strftime("%H:%M")
                 ),
                 (None, Some(etime)) => format!(
                     "{} 00:00~{}",
-                    start.date().format("%Y-%m-%d"),
-                    etime.format("%H:%M")
+                    start.date().strftime("%Y-%m-%d"),
+                    etime.strftime("%H:%M")
                 ),
-                (None, None) => start.date().format("%Y-%m-%d").to_string(),
+                (None, None) => start.date().strftime("%Y-%m-%d").to_string(),
             },
             false => format!("{}~{}", format_datetime(start), format_datetime(end)),
         }
@@ -180,12 +180,12 @@ fn format_datetime_span(event: &impl Event) -> Cow<'_, str> {
     }
 }
 
-fn get_color_datetime_span(event: &impl Event, now: DateTime<Local>) -> Option<Color> {
+fn get_color_datetime_span(event: &impl Event, now: Zoned) -> Option<Color> {
     const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
     const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
 
     let start = event.start()?; // If no start time, no color
-    match LooseDateTime::position_in_range(&now.naive_local(), &Some(start), &event.end()) {
+    match LooseDateTime::position_in_range(&now.datetime(), &Some(start), &event.end()) {
         RangePosition::Before => COLOR_TODAY_LATE,
         RangePosition::InRange => COLOR_CURRENT,
         RangePosition::After => None,
@@ -196,9 +196,9 @@ fn get_color_datetime_span(event: &impl Event, now: DateTime<Local>) -> Option<C
     }
 }
 
-fn format_time_span(event: &impl Event, date: NaiveDate) -> Cow<'_, str> {
-    fn format_date(d: NaiveDate) -> String {
-        d.format("%Y-%m-%d").to_string()
+fn format_time_span(event: &impl Event, date: Date) -> Cow<'_, str> {
+    fn format_date(d: Date) -> String {
+        d.strftime("%Y-%m-%d").to_string()
     }
 
     match (event.start(), event.end()) {
@@ -215,10 +215,10 @@ fn format_time_span(event: &impl Event, date: NaiveDate) -> Cow<'_, str> {
                 // today is the only day
                 match (start.time(), end.time()) {
                     (Some(stime), Some(etime)) => {
-                        format!("{}~{}", stime.format("%H:%M"), etime.format("%H:%M"))
+                        format!("{}~{}", stime.strftime("%H:%M"), etime.strftime("%H:%M"))
                     }
-                    (Some(stime), None) => format!("{}⇥", stime.format("%H:%M")),
-                    (None, Some(etime)) => format!("     ↦{}", etime.format("%H:%M")),
+                    (Some(stime), None) => format!("{}⇥", stime.strftime("%H:%M")),
+                    (None, Some(etime)) => format!("     ↦{}", etime.strftime("%H:%M")),
                     (None, None) => format!("⇹{}", format_date(date)),
                 }
             } else if sdate == date
@@ -226,15 +226,15 @@ fn format_time_span(event: &impl Event, date: NaiveDate) -> Cow<'_, str> {
                 && let Some(stime) = start.time()
             {
                 // starts today with time, ends later
-                format!("{}↦", stime.format("%H:%M")).to_string()
+                format!("{}↦", stime.strftime("%H:%M")).to_string()
             } else if edate == date
                 && let Some(etime) = end.time()
             {
                 // ends today with time, started earlier
-                format!("⇥{}", etime.format("%H:%M"))
+                format!("⇥{}", etime.strftime("%H:%M"))
             } else if sdate.year() == date.year() && edate.year() == date.year() {
                 // sdate <= self.date <= edate, no time, same year, only show month and day
-                format!("{}~{}", sdate.format("%m-%d"), edate.format("%m-%d")).to_string()
+                format!("{}~{}", sdate.strftime("%m-%d"), edate.strftime("%m-%d")).to_string()
             } else {
                 // sdate <= self.date <= edate, no time, different year, show full date
                 format!("⇸{}", format_date(edate)).to_string()
@@ -247,7 +247,7 @@ fn format_time_span(event: &impl Event, date: NaiveDate) -> Cow<'_, str> {
     }
 }
 
-fn get_color_time_span(event: &impl Event, now: DateTime<Local>) -> Option<Color> {
+fn get_color_time_span(event: &impl Event, now: Zoned) -> Option<Color> {
     get_color_datetime_span(event, now)
 }
 

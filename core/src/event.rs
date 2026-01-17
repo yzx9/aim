@@ -4,11 +4,9 @@
 
 use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
-use aimcal_ical::{
-    DateTime as IcalDateTime, Description, DtEnd, DtStamp, DtStart, EventStatus as IcalEventStatus,
-    EventStatusValue, Summary, Uid, VEvent,
-};
-use chrono::{DateTime, Duration, Local, Timelike};
+use aimcal_ical as ical;
+use aimcal_ical::{Description, DtEnd, DtStamp, DtStart, EventStatusValue, Summary, Uid, VEvent};
+use jiff::{Span, ToSpan, Zoned};
 
 use crate::{DateTimeAnchor, LooseDateTime};
 
@@ -91,53 +89,69 @@ pub struct EventDraft {
 
 impl EventDraft {
     /// Creates a new empty patch.
-    pub(crate) fn default(now: &DateTime<Local>) -> Self {
+    pub(crate) fn default(now: &Zoned) -> Self {
         // next 00 or 30 minute
-        let start = if now.minute() < 30 {
-            now.with_minute(30).unwrap().with_second(0).unwrap()
-        } else {
-            (*now + Duration::hours(1))
-                .with_minute(0)
+        let start = if now.time().minute() < 30 {
+            now.with()
+                .minute(30)
+                .second(0)
+                .subsec_nanosecond(0)
+                .build()
                 .unwrap()
-                .with_second(0)
+        } else {
+            now.checked_add(Span::new().hours(1))
+                .unwrap()
+                .with()
+                .minute(0)
+                .second(0)
+                .subsec_nanosecond(0)
+                .build()
                 .unwrap()
         };
 
         Self {
             description: None,
-            start: Some(start.into()),
-            end: Some((start + Duration::hours(1)).into()),
+            start: Some(start.clone().into()),
+            end: Some((start.checked_add(1.hours()).unwrap()).into()),
             status: EventStatus::default(),
             summary: String::new(),
         }
     }
 
-    pub(crate) fn resolve<'a>(&'a self, now: &'a DateTime<Local>) -> ResolvedEventDraft<'a> {
-        let default_duration = Duration::hours(1);
-        let (start, end) = match (self.start, self.end) {
-            (Some(start), Some(end)) => (start, end),
+    pub(crate) fn resolve<'a>(&'a self, now: &'a Zoned) -> ResolvedEventDraft<'a> {
+        let default_duration = 1.hours();
+        let (start, end) = match (self.start.as_ref(), self.end.as_ref()) {
+            (Some(start), Some(end)) => (start.clone(), end.clone()),
             (None, Some(end)) => {
                 // If start is not specified, but end is, set start to end - duration
+                let neg_duration = Span::new().hours(-1);
                 let start = match end {
-                    LooseDateTime::DateOnly(d) => d.into(),
-                    LooseDateTime::Floating(dt) => (dt - default_duration).into(),
-                    LooseDateTime::Local(dt) => (dt - default_duration).into(),
+                    LooseDateTime::DateOnly(d) => (*d).into(),
+                    LooseDateTime::Floating(dt) => {
+                        LooseDateTime::Floating(dt.checked_add(neg_duration).unwrap())
+                    }
+                    LooseDateTime::Local(dt) => {
+                        LooseDateTime::Local(dt.checked_add(neg_duration).unwrap())
+                    }
                 };
-                (start, end)
+                (start, end.clone())
             }
             (Some(start), None) => {
                 // If end is not specified, but start is, set it to start + duration
                 let end = match start {
-                    LooseDateTime::DateOnly(d) => d.into(),
-                    LooseDateTime::Floating(dt) => (dt + default_duration).into(),
-                    LooseDateTime::Local(dt) => (dt + default_duration).into(),
+                    LooseDateTime::DateOnly(d) => (*d).into(),
+                    LooseDateTime::Floating(dt) => {
+                        LooseDateTime::Floating(dt.checked_add(default_duration).unwrap())
+                    }
+                    LooseDateTime::Local(dt) => {
+                        LooseDateTime::Local(dt.checked_add(default_duration).unwrap())
+                    }
                 };
-                (start, end)
+                (start.clone(), end)
             }
             (None, None) => {
-                let start = *now;
-                let end = (start + default_duration).into();
-                (start.into(), end)
+                let end = now.checked_add(default_duration).unwrap();
+                (LooseDateTime::Local(now.clone()), LooseDateTime::Local(end))
             }
         };
 
@@ -153,7 +167,7 @@ impl EventDraft {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ResolvedEventDraft<'a> {
     pub description: Option<&'a str>,
     pub start: LooseDateTime,
@@ -161,7 +175,7 @@ pub struct ResolvedEventDraft<'a> {
     pub status: EventStatus,
     pub summary: &'a str,
 
-    pub now: &'a DateTime<Local>,
+    pub now: &'a Zoned,
 }
 
 impl ResolvedEventDraft<'_> {
@@ -169,13 +183,13 @@ impl ResolvedEventDraft<'_> {
     pub(crate) fn into_ics(self, uid: &str) -> VEvent<String> {
         VEvent {
             uid: Uid::new(uid.to_string()),
-            dt_stamp: DtStamp::new(IcalDateTime::from(LooseDateTime::Local(*self.now))),
+            dt_stamp: DtStamp::new(ical::DateTime::from(LooseDateTime::Local(self.now.clone()))),
             dt_start: DtStart::new(self.start.into()),
             dt_end: Some(DtEnd::new(self.end.into())),
             duration: None,
             summary: Some(Summary::new(self.summary.to_string())),
             description: self.description.map(|d| Description::new(d.to_string())),
-            status: Some(IcalEventStatus::new(self.status.into())),
+            status: Some(ical::EventStatus::new(self.status.into())),
             location: None,
             geo: None,
             url: None,
@@ -228,11 +242,11 @@ impl EventPatch {
             && self.summary.is_none()
     }
 
-    pub(crate) fn resolve(&self, now: DateTime<Local>) -> ResolvedEventPatch<'_> {
+    pub(crate) fn resolve(&self, now: Zoned) -> ResolvedEventPatch<'_> {
         ResolvedEventPatch {
             description: self.description.as_ref().map(|opt| opt.as_deref()),
-            start: self.start,
-            end: self.end,
+            start: self.start.clone(),
+            end: self.end.clone(),
             status: self.status,
             summary: self.summary.as_deref(),
 
@@ -242,7 +256,7 @@ impl EventPatch {
 }
 
 /// Patch for an event, allowing partial updates.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct ResolvedEventPatch<'a> {
     pub description: Option<Option<&'a str>>,
     pub start: Option<Option<LooseDateTime>>,
@@ -250,7 +264,7 @@ pub struct ResolvedEventPatch<'a> {
     pub status: Option<EventStatus>,
     pub summary: Option<&'a str>,
 
-    pub now: DateTime<Local>,
+    pub now: Zoned,
 }
 
 impl ResolvedEventPatch<'_> {
@@ -262,18 +276,18 @@ impl ResolvedEventPatch<'_> {
             e.description = None;
         }
 
-        if let Some(Some(start)) = self.start {
-            e.dt_start = DtStart::new(start.into());
+        if let Some(Some(ref start)) = self.start {
+            e.dt_start = DtStart::new(start.clone().into());
         }
 
-        if let Some(Some(end)) = self.end {
-            e.dt_end = Some(DtEnd::new(end.into()));
+        if let Some(Some(ref end)) = self.end {
+            e.dt_end = Some(DtEnd::new(end.clone().into()));
         } else if self.end.is_some() {
             e.dt_end = None;
         }
 
         if let Some(status) = self.status {
-            e.status = Some(IcalEventStatus::new(status.into()));
+            e.status = Some(ical::EventStatus::new(status.into()));
         }
 
         if let Some(summary) = &self.summary {
@@ -282,8 +296,7 @@ impl ResolvedEventPatch<'_> {
 
         // Set the creation time to now if it is not already set
         if e.dt_stamp.inner.date().year == 1970 {
-            use aimcal_ical::DateTime as IcalDateTime;
-            e.dt_stamp = DtStamp::new(IcalDateTime::from(LooseDateTime::Local(self.now)));
+            e.dt_stamp = DtStamp::new(ical::DateTime::from(LooseDateTime::Local(self.now.clone())));
         }
 
         e
@@ -360,7 +373,7 @@ impl From<EventStatus> for EventStatusValue {
 }
 
 /// Conditions for filtering events in a calendar.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct EventConditions {
     /// Whether to include only startable events.
     pub startable: Option<DateTimeAnchor>,
@@ -370,19 +383,22 @@ pub struct EventConditions {
 }
 
 impl EventConditions {
-    pub(crate) fn resolve(&self, now: &DateTime<Local>) -> ResolvedEventConditions {
+    pub(crate) fn resolve(&self, now: &Zoned) -> ResolvedEventConditions {
         ResolvedEventConditions {
-            start_before: self.cutoff.map(|w| w.resolve_at_end_of_day(now)),
-            end_after: self.startable.map(|w| w.resolve_at_start_of_day(now)),
+            start_before: self.cutoff.as_ref().map(|w| w.resolve_at_end_of_day(now)),
+            end_after: self
+                .startable
+                .as_ref()
+                .map(|w| w.resolve_at_start_of_day(now)),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ResolvedEventConditions {
     /// The date and time after which the event must start
-    pub start_before: Option<DateTime<Local>>,
+    pub start_before: Option<Zoned>,
 
     /// The date and time after which the event must end
-    pub end_after: Option<DateTime<Local>>,
+    pub end_after: Option<Zoned>,
 }

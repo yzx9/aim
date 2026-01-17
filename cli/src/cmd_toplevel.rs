@@ -7,7 +7,6 @@ use std::error::Error;
 use aimcal_core::{
     Aim, DateTimeAnchor, EventConditions, Id, Kind, Pager, TodoConditions, TodoStatus,
 };
-use chrono::Datelike;
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 
@@ -58,8 +57,8 @@ impl CmdDashboard {
             ("Today", DateTimeAnchor::today()),
         ] {
             let conds = EventConditions {
-                startable: Some(anchor),
-                cutoff: Some(anchor),
+                startable: Some(anchor.clone()),
+                cutoff: Some(anchor.clone()),
             };
             let events = aim.list_events(&conds, &pager).await?;
             if !events.is_empty() {
@@ -76,7 +75,7 @@ impl CmdDashboard {
                     }
                 }
 
-                let date = anchor.resolve_at_start_of_day(&aim.now()).date_naive();
+                let date = anchor.resolve_at_start_of_day(&aim.now()).date();
                 let columns = vec![
                     EventColumn::Id,
                     EventColumn::TimeSpan { date },
@@ -95,7 +94,7 @@ impl CmdDashboard {
 
     async fn list_todos(aim: &Aim) -> Result<(), Box<dyn Error>> {
         let now = aim.now();
-        let days_from_monday = now.weekday().num_days_from_monday();
+        let days_from_monday = now.weekday().to_monday_zero_offset();
         let (days, label) = match days_from_monday {
             0..5 => (6 - days_from_monday, "this week"),
             _ => (3, "next 3 days"),
@@ -180,7 +179,7 @@ impl CmdDelay {
 
         CmdEventDelay {
             ids: event_ids,
-            time: Some(time),
+            time: Some(time.clone()),
             output_format: OutputFormat::Table,
             verbose: self.verbose,
         }
@@ -271,7 +270,7 @@ impl CmdReschedule {
 
         CmdEventReschedule {
             ids: event_ids,
-            time: Some(time),
+            time: Some(time.clone()),
             output_format: OutputFormat::Table,
             verbose: self.verbose,
         }

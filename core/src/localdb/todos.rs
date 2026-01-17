@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use chrono::{DateTime, Local};
+use jiff::Zoned;
 use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
 use std::borrow::Cow;
 
@@ -105,7 +105,7 @@ FROM todos
         if let Some(status) = &conds.status {
             executable = executable.bind(AsRef::<str>::as_ref(status));
         }
-        if let Some(due) = conds.due {
+        if let Some(ref due) = conds.due {
             executable = executable.bind(format_dt(due));
         }
 
@@ -151,7 +151,7 @@ FROM todos
             let status: &str = status.as_ref();
             query = query.bind(status);
         }
-        if let Some(due) = conds.due {
+        if let Some(ref due) = conds.due {
             query = query.bind(format_dt(due));
         }
         query
@@ -179,7 +179,10 @@ impl TodoRecord {
             summary: todo.summary().to_string(),
             description: todo.description().unwrap_or_default().to_string(),
             due: todo.due().map(|a| a.format_stable()).unwrap_or_default(),
-            completed: todo.completed().map(format_dt).unwrap_or_default(),
+            completed: todo
+                .completed()
+                .map(|dt| format_dt(&dt))
+                .unwrap_or_default(),
             percent: todo.percent_complete(),
             priority: todo.priority().into(),
             status: todo.status().to_string(),
@@ -196,11 +199,10 @@ impl Todo for TodoRecord {
         self.uid.as_str().into()
     }
 
-    fn completed(&self) -> Option<DateTime<Local>> {
+    fn completed(&self) -> Option<Zoned> {
         (!self.completed.is_empty())
-            .then(|| DateTime::parse_from_rfc3339(&self.completed).ok())
+            .then(|| Zoned::strptime(STABLE_FORMAT_LOCAL, &self.completed).ok())
             .flatten()
-            .map(|dt| dt.with_timezone(&Local))
     }
 
     fn description(&self) -> Option<Cow<'_, str>> {
@@ -228,6 +230,6 @@ impl Todo for TodoRecord {
     }
 }
 
-fn format_dt(dt: DateTime<Local>) -> String {
-    dt.format(STABLE_FORMAT_LOCAL).to_string()
+fn format_dt(dt: &Zoned) -> String {
+    dt.strftime(STABLE_FORMAT_LOCAL).to_string()
 }

@@ -5,21 +5,21 @@
 use std::{borrow::Cow, fmt};
 
 use aimcal_core::{LooseDateTime, Priority, RangePosition, Todo, TodoStatus};
-use chrono::{DateTime, Local};
 use colored::Color;
+use jiff::Zoned;
 
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
 use crate::util::{OutputFormat, format_datetime};
 
 #[derive(Debug, Clone)]
 pub struct TodoFormatter {
-    now: DateTime<Local>,
+    now: Zoned,
     columns: Vec<TodoColumn>,
     format: OutputFormat,
 }
 
 impl TodoFormatter {
-    pub fn new(now: DateTime<Local>, columns: Vec<TodoColumn>, format: OutputFormat) -> Self {
+    pub fn new(now: Zoned, columns: Vec<TodoColumn>, format: OutputFormat) -> Self {
         Self {
             now,
             columns,
@@ -49,7 +49,7 @@ impl<T: Todo> fmt::Display for Display<'_, T> {
             .iter()
             .map(|column| ColumnMeta {
                 column,
-                now: self.formatter.now,
+                now: self.formatter.now.clone(),
             })
             .collect();
 
@@ -78,10 +78,10 @@ pub enum TodoColumn {
     UidLegacy,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct ColumnMeta<'a> {
     column: &'a TodoColumn,
-    now: DateTime<Local>,
+    now: Zoned,
 }
 
 impl<T: Todo> TableColumn<T> for ColumnMeta<'_> {
@@ -145,25 +145,24 @@ fn format_due(todo: &impl Todo) -> Cow<'_, str> {
     todo.due().map_or("".into(), |a| format_datetime(a).into())
 }
 
-fn get_color_due(todo: &impl Todo, now: &DateTime<Local>) -> Option<Color> {
+fn get_color_due(todo: &impl Todo, now: &Zoned) -> Option<Color> {
     let due = todo.due()?; // Ensure due date is present
     get_color_due_impl(due, now)
 }
 
-fn get_color_due_impl(due: LooseDateTime, now: &DateTime<Local>) -> Option<Color> {
+fn get_color_due_impl(due: LooseDateTime, now: &Zoned) -> Option<Color> {
     const COLOR_LONG_OVERDUE: Option<Color> = Some(Color::Red);
     const COLOR_OVERDUE: Option<Color> = Some(Color::BrightRed);
     const COLOR_COMING: Option<Color> = Some(Color::Yellow);
 
-    let t = now.naive_local();
-    let same_day = due.date() == t.date();
-    match LooseDateTime::position_in_range(&t, &None, &Some(due)) {
+    let same_day = due.date() == now.date();
+    match LooseDateTime::position_in_range(&now.datetime(), &None, &Some(due.clone())) {
         RangePosition::InRange if same_day => COLOR_COMING, // not due && due in today
         RangePosition::InRange => None,                     // not due
         RangePosition::After if same_day => COLOR_OVERDUE,  // overdue && due in today
         RangePosition::After => COLOR_LONG_OVERDUE,         // overdue
         pos => {
-            tracing::error!(?due, now = ?t, ?pos, "Invalid state when computing due date color.");
+            tracing::error!(?due, now = ?now, ?pos, "Invalid state when computing due date color.");
             None
         }
     }
@@ -221,48 +220,48 @@ fn format_uid_legacy(todo: &impl Todo) -> Cow<'_, str> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Local, NaiveDate, TimeZone};
     use colored::Color;
+    use jiff::civil::{DateTime, date, time};
 
     use super::*;
 
     #[test]
     fn computes_color_based_on_due_date() {
-        let due = LooseDateTime::Floating(
-            NaiveDate::from_ymd_opt(2025, 8, 5)
-                .unwrap()
-                .and_hms_opt(12, 0, 0)
-                .unwrap(),
-        );
+        let due_date = date(2025, 8, 5);
+        let due_time = time(12, 0, 0, 0);
+        let due = LooseDateTime::Floating(DateTime::from_parts(due_date, due_time));
 
-        for (title, now, expected) in [
-            (
-                "Overdue yesterday",
-                Local.with_ymd_and_hms(2025, 8, 6, 10, 0, 0).unwrap(),
-                Some(Color::Red),
-            ),
+        for (title, year, month, day, hour, minute, second, expected) in [
+            ("Overdue yesterday", 2025, 8, 6, 10, 0, 0, Some(Color::Red)),
             (
                 "Today before due time",
-                Local.with_ymd_and_hms(2025, 8, 5, 12, 0, 0).unwrap(),
+                2025,
+                8,
+                5,
+                12,
+                0,
+                0,
                 Some(Color::Yellow),
             ),
             (
                 "Today after due time",
-                Local.with_ymd_and_hms(2025, 8, 5, 14, 0, 0).unwrap(),
+                2025,
+                8,
+                5,
+                14,
+                0,
+                0,
                 Some(Color::BrightRed),
             ),
-            (
-                "Overdue by one day",
-                Local.with_ymd_and_hms(2025, 8, 6, 12, 0, 0).unwrap(),
-                Some(Color::Red),
-            ),
-            (
-                "Future date",
-                Local.with_ymd_and_hms(2025, 8, 4, 10, 0, 0).unwrap(),
-                None,
-            ),
+            ("Overdue by one day", 2025, 8, 6, 12, 0, 0, Some(Color::Red)),
+            ("Future date", 2025, 8, 4, 10, 0, 0, None),
         ] {
-            let color = get_color_due_impl(due, &now);
+            let date = date(year, month, day);
+            let time = time(hour, minute, second, 0);
+            let now = DateTime::from_parts(date, time)
+                .to_zoned(jiff::tz::TimeZone::system())
+                .unwrap();
+            let color = get_color_due_impl(due.clone(), &now);
             assert_eq!(color, expected, "Failed for case: {title}");
         }
     }

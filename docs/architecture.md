@@ -59,16 +59,16 @@ aim/
 
 ## Technology Stack
 
-| Component         | Technology                |
-| ----------------- | ------------------------- |
-| **Language**      | Rust 2024                 |
-| **Async Runtime** | Tokio                     |
-| **Database**      | SQLite + sqlx             |
-| **CLI**           | clap                      |
-| **TUI**           | ratatui                   |
-| **Lexer**         | logos                     |
-| **Parser**        | chumsky                   |
-| **Date/Time**     | jiff / chrono + chrono-tz |
+| Component         | Technology    |
+| ----------------- | ------------- |
+| **Language**      | Rust 2024     |
+| **Async Runtime** | Tokio         |
+| **Database**      | SQLite + sqlx |
+| **CLI**           | clap          |
+| **TUI**           | ratatui       |
+| **Lexer**         | logos         |
+| **Parser**        | chumsky       |
+| **Date/Time**     | jiff          |
 
 ## Design Principles
 

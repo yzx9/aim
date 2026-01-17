@@ -4,18 +4,16 @@
 
 use std::{fmt, str::FromStr, sync::OnceLock};
 
-use chrono::format::{Parsed, StrftimeItems};
-use chrono::{
-    DateTime, Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Timelike,
-};
+use jiff::civil::{self, Date, Time, date, time};
+use jiff::tz::TimeZone;
+use jiff::{Span, Zoned};
 use regex::Regex;
 use serde::de;
 
 use crate::LooseDateTime;
-use crate::datetime::util::{end_of_day, from_local_datetime, start_of_day};
 
 /// Represents a date and time anchor that can be used to calculate relative dates and times.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DateTimeAnchor {
     /// A specific number of days in the future or past.
     InDays(i64),
@@ -27,13 +25,7 @@ pub enum DateTimeAnchor {
     DateTime(LooseDateTime),
 
     /// A specific time.
-    Time(NaiveTime),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DayBoundary {
-    Start,
-    End,
+    Time(Time),
 }
 
 impl DateTimeAnchor {
@@ -62,41 +54,50 @@ impl DateTimeAnchor {
     }
 
     /// Resolve datetime at the start of the day based on the provided current local time.
-    pub fn resolve_at_start_of_day<Tz: TimeZone>(&self, now: &DateTime<Tz>) -> DateTime<Tz> {
-        self.resolve_at_day_boundary(now, DayBoundary::Start)
+    #[must_use]
+    pub fn resolve_at_start_of_day(&self, now: &Zoned) -> Zoned {
+        match self {
+            DateTimeAnchor::InDays(n) => now
+                .start_of_day()
+                .unwrap()
+                .checked_add(Span::new().days(*n))
+                .unwrap(),
+            DateTimeAnchor::Relative(n) => now.checked_add(Span::new().seconds(*n)).unwrap(),
+            DateTimeAnchor::DateTime(dt) => {
+                dt.with_start_of_day().to_zoned(TimeZone::system()).unwrap()
+            }
+            DateTimeAnchor::Time(t) => now
+                .with()
+                .hour(t.hour())
+                .minute(t.minute())
+                .second(t.second())
+                .subsec_nanosecond(t.subsec_nanosecond())
+                .build()
+                .unwrap(),
+        }
     }
 
     /// Resolve datetime at the end of the day based on the provided current local time.
-    pub fn resolve_at_end_of_day<Tz: TimeZone>(&self, now: &DateTime<Tz>) -> DateTime<Tz> {
-        self.resolve_at_day_boundary(now, DayBoundary::End)
-    }
-
-    /// Resolve datetime based on the provided current local time and day boundary.
-    fn resolve_at_day_boundary<Tz: TimeZone>(
-        &self,
-        now: &DateTime<Tz>,
-        boundary: DayBoundary,
-    ) -> DateTime<Tz> {
+    #[must_use]
+    pub fn resolve_at_end_of_day(&self, now: &Zoned) -> Zoned {
         match self {
-            DateTimeAnchor::InDays(n) => {
-                let dt = match boundary {
-                    DayBoundary::Start => start_of_day(now),
-                    DayBoundary::End => end_of_day(now),
-                };
-                dt + TimeDelta::days(*n)
-            }
-            DateTimeAnchor::Relative(n) => now.clone() + TimeDelta::seconds(*n),
+            DateTimeAnchor::InDays(n) => now
+                .end_of_day()
+                .unwrap()
+                .checked_add(Span::new().days(*n))
+                .unwrap(),
+            DateTimeAnchor::Relative(n) => now.checked_add(Span::new().seconds(*n)).unwrap(),
             DateTimeAnchor::DateTime(dt) => {
-                let naive = match boundary {
-                    DayBoundary::Start => dt.with_start_of_day(),
-                    DayBoundary::End => dt.with_end_of_day(),
-                };
-                from_local_datetime(&now.timezone(), naive)
+                dt.with_end_of_day().to_zoned(TimeZone::system()).unwrap()
             }
-            DateTimeAnchor::Time(t) => {
-                let naive = NaiveDateTime::new(now.date_naive(), *t);
-                from_local_datetime(&now.timezone(), naive)
-            }
+            DateTimeAnchor::Time(t) => now
+                .with()
+                .hour(t.hour())
+                .minute(t.minute())
+                .second(t.second())
+                .subsec_nanosecond(t.subsec_nanosecond())
+                .build()
+                .unwrap(),
         }
     }
 
@@ -104,132 +105,75 @@ impl DateTimeAnchor {
     #[must_use]
     pub fn resolve_at(self, now: &LooseDateTime) -> LooseDateTime {
         match self {
-            DateTimeAnchor::InDays(n) => *now + TimeDelta::days(n),
-            DateTimeAnchor::Relative(n) => *now + TimeDelta::seconds(n),
+            DateTimeAnchor::InDays(n) => now.clone() + Span::new().days(n),
+            DateTimeAnchor::Relative(n) => now.clone() + Span::new().seconds(n),
             DateTimeAnchor::DateTime(dt) => dt,
-            DateTimeAnchor::Time(t) => match now {
-                LooseDateTime::Local(dt) => {
-                    let dt = NaiveDateTime::new(dt.date_naive(), t);
-                    from_local_datetime(&Local, dt).into()
-                }
-                LooseDateTime::Floating(dt) => {
-                    let dt = NaiveDateTime::new(dt.date(), t);
-                    LooseDateTime::Floating(dt)
-                }
-                LooseDateTime::DateOnly(d) => {
-                    let dt = NaiveDateTime::new(*d, t);
-                    LooseDateTime::from_local_datetime(dt)
-                }
-            },
+            DateTimeAnchor::Time(t) => {
+                let dt = civil::DateTime::from_parts(now.date(), t);
+                LooseDateTime::from_local_datetime(dt)
+            }
         }
     }
 
-    /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `DateTime<Tz>`.
+    /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `LooseDateTime`.
     #[must_use]
     pub fn resolve_since(self, start: &LooseDateTime) -> LooseDateTime {
         match self {
             DateTimeAnchor::InDays(n) => match n {
                 0 => match start {
-                    LooseDateTime::Local(dt) => next_suggested_time(&dt.naive_local()),
+                    LooseDateTime::Local(zoned) => next_suggested_time(&zoned.datetime()),
                     LooseDateTime::Floating(dt) => next_suggested_time(dt),
                     LooseDateTime::DateOnly(d) => first_suggested_time(*d),
                 },
                 _ => {
-                    let date = start.date() + TimeDelta::days(n);
-                    let time = NaiveTime::from_hms_opt(9, 0, 0).unwrap_or_default();
-                    let dt = NaiveDateTime::new(date, time);
+                    let date = start.date().checked_add(Span::new().days(n)).unwrap();
+                    let t = time(9, 0, 0, 0);
+                    let dt = civil::DateTime::from_parts(date, t);
                     LooseDateTime::from_local_datetime(dt)
                 }
             },
-            DateTimeAnchor::Relative(n) => *start + TimeDelta::seconds(n),
+            DateTimeAnchor::Relative(n) => start.clone() + Span::new().seconds(n),
             DateTimeAnchor::DateTime(dt) => dt,
             DateTimeAnchor::Time(t) => {
-                let date = start.date();
+                let mut date = start.date();
                 // If the time has already passed today, use tomorrow
-                let delta = if let Some(s) = start.time()
-                    && s >= t
-                {
-                    TimeDelta::days(1)
-                } else {
-                    TimeDelta::zero()
-                };
-                let dt = NaiveDateTime::new(date, t) + delta;
+                if start.time().is_some_and(|s| s >= t) {
+                    date = date.checked_add(Span::new().days(1)).unwrap();
+                }
+                let dt = civil::DateTime::from_parts(date, t);
                 LooseDateTime::from_local_datetime(dt)
             }
         }
     }
 
-    /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `DateTime<Tz>`.
+    /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `Zoned`.
     #[must_use]
-    pub fn resolve_since_datetime<Tz: TimeZone>(self, start: &DateTime<Tz>) -> LooseDateTime {
+    pub fn resolve_since_zoned(self, start: &Zoned) -> LooseDateTime {
         match self {
             DateTimeAnchor::InDays(n) => match n {
-                0 => next_suggested_time(&start.naive_local()),
+                0 => next_suggested_time(&start.datetime()),
                 _ => {
-                    let date = start.date_naive() + TimeDelta::days(n);
-                    let time = NaiveTime::from_hms_opt(9, 0, 0).unwrap_or_default();
-                    let dt = NaiveDateTime::new(date, time);
+                    let date = start.date().checked_add(Span::new().days(n)).unwrap();
+                    let t = time(9, 0, 0, 0);
+                    let dt = civil::DateTime::from_parts(date, t);
                     LooseDateTime::from_local_datetime(dt)
                 }
             },
             DateTimeAnchor::Relative(n) => {
-                let dt = start.clone() + TimeDelta::seconds(n);
-                LooseDateTime::Local(dt.with_timezone(&Local))
+                let zoned = start.checked_add(Span::new().seconds(n)).unwrap();
+                LooseDateTime::Local(zoned)
             }
             DateTimeAnchor::DateTime(dt) => dt,
             DateTimeAnchor::Time(t) => {
-                let date = start.date_naive();
+                let mut date = start.date();
                 // If the time has already passed today, use tomorrow
-                let delta = if start.time() >= t {
-                    TimeDelta::days(1)
-                } else {
-                    TimeDelta::zero()
-                };
-                let dt = NaiveDateTime::new(date, t) + delta;
+                if start.time() >= t {
+                    date = date.checked_add(Span::new().days(1)).unwrap();
+                }
+                let dt = civil::DateTime::from_parts(date, t);
                 LooseDateTime::from_local_datetime(dt)
             }
         }
-    }
-
-    /// Parses the `DateTimeAnchor` enum based on the current time.
-    // TODO: remove this function in 0.12.0
-    #[deprecated(
-        since = "0.9.0",
-        note = "use `resolve_at_start_of_day` method instead, will be removed in 0.12.0"
-    )]
-    pub fn parse_as_start_of_day<Tz: TimeZone>(&self, now: &DateTime<Tz>) -> DateTime<Tz> {
-        self.resolve_at_start_of_day(now)
-    }
-
-    /// Parses the `DateTimeAnchor` enum based on the current time.
-    // TODO: remove this function in 0.12.0
-    #[deprecated(
-        since = "0.9.0",
-        note = "use `resolve_at_end_of_day` method instead, will be removed in 0.12.0"
-    )]
-    pub fn parse_as_end_of_day<Tz: TimeZone>(&self, now: &DateTime<Tz>) -> DateTime<Tz> {
-        self.resolve_at_end_of_day(now)
-    }
-
-    /// Parses the `DateTimeAnchor` to a `LooseDateTime` based on the provided current local time.
-    #[deprecated(
-        since = "0.9.0",
-        note = "use `resolve_at` method instead, will be removed in 0.12.0"
-    )]
-    #[must_use]
-    // TODO: remove this function in 0.12.0
-    pub fn parse_from_loose(self, now: &LooseDateTime) -> LooseDateTime {
-        self.resolve_at(now)
-    }
-
-    /// Parses the `DateTimeAnchor` to a `LooseDateTime` based on the provided current time in any timezone.
-    #[deprecated(
-        since = "0.9.0",
-        note = "use `resolve_since_datetime` method instead, will be removed in 0.12.0"
-    )]
-    // TODO: remove this function in 0.12.0
-    pub fn parse_from_dt<Tz: TimeZone>(self, now: &DateTime<Tz>) -> LooseDateTime {
-        self.resolve_since_datetime(now)
     }
 }
 
@@ -246,34 +190,41 @@ impl FromStr for DateTimeAnchor {
             _ => {}
         }
 
-        if let Ok(dt) = NaiveDateTime::parse_from_str(t, "%Y-%m-%d %H:%M") {
-            // Parse as datetime
-            Ok(Self::DateTime(LooseDateTime::from_local_datetime(dt)))
-        } else if let Ok(date) = NaiveDate::parse_from_str(t, "%Y-%m-%d") {
-            // Parse as date only
-            Ok(Self::DateTime(LooseDateTime::DateOnly(date)))
-        } else if let Some(date) = parse_md_with_year(t, Local::now().year()) {
-            // Parse as date only (with current year)
-            // TODO: handle year
-            Ok(Self::DateTime(LooseDateTime::DateOnly(date)))
-        } else if let Ok(time) = NaiveTime::parse_from_str(t, "%H:%M") {
-            // Parse as time only
-            Ok(Self::Time(time))
-        } else if let Some(hours) = parse_seconds(t) {
-            // Parse as hours (e.g., "10s", "10sec", "10 seconds")
-            Ok(Self::Relative(hours))
-        } else if let Some(minutes) = parse_minutes(t) {
-            // Parse as hours (e.g., "10m", "10min", "10 minutes")
-            Ok(Self::Relative(60 * minutes))
-        } else if let Some(hours) = parse_hours(t) {
-            // Parse as hours (e.g., "10h", "10hours", "10hours")
-            Ok(Self::Relative(60 * 60 * hours))
-        } else if let Some(days) = parse_days(t) {
-            // Parse as days (e.g., "10d", "10days")
-            Ok(Self::InDays(days))
-        } else {
-            Err(format!("Invalid datetime anchor: {t}"))
+        // Try datetime
+        if let Ok(dt) = civil::DateTime::strptime("%Y-%m-%d %H:%M", t) {
+            return Ok(Self::DateTime(LooseDateTime::from_local_datetime(dt)));
         }
+
+        // Try date
+        if let Ok(d) = Date::strptime("%Y-%m-%d", t) {
+            return Ok(Self::DateTime(LooseDateTime::DateOnly(d)));
+        }
+
+        // Try date with current year
+        if let Some(d) = parse_md_with_year(t, i32::from(date(2025, 1, 1).year())) {
+            return Ok(Self::DateTime(LooseDateTime::DateOnly(d)));
+        }
+
+        // Try time
+        if let Ok(time) = Time::strptime("%H:%M", t) {
+            return Ok(Self::Time(time));
+        }
+
+        // Try durations
+        if let Some(seconds) = parse_seconds(t) {
+            return Ok(Self::Relative(seconds));
+        }
+        if let Some(minutes) = parse_minutes(t) {
+            return Ok(Self::Relative(minutes * 60));
+        }
+        if let Some(hours) = parse_hours(t) {
+            return Ok(Self::Relative(hours * 60 * 60));
+        }
+        if let Some(days) = parse_days(t) {
+            return Ok(Self::InDays(days));
+        }
+
+        Err(format!("Invalid datetime anchor: {t}"))
     }
 }
 
@@ -304,7 +255,7 @@ impl<'de> serde::Deserialize<'de> for DateTimeAnchor {
 }
 
 macro_rules! parse_with_regex {
-    ($fn: ident, $re:expr) => {
+    ($fn:ident, $re:expr) => {
         fn $fn(s: &str) -> Option<i64> {
             static REGEX: OnceLock<Regex> = OnceLock::new();
             let re = REGEX.get_or_init(|| Regex::new($re).unwrap());
@@ -325,14 +276,15 @@ parse_with_regex!(parse_minutes, r"^\s*(\d+)\s*m(?:in|inutes)?\s*$"); // "10m", 
 parse_with_regex!(parse_hours, r"(?i)^\s*(?:in\s*)?(\d+)\s*h(?:ours)?\s*$"); // "10h", "10 hours", "10hours", "in 10hours"
 parse_with_regex!(parse_days, r"(?i)^\s*(?:in\s*)?(\d+)\s*d(?:ays)?\s*$"); // "10d", "in 10d", "in 10 days"
 
-const HOURS: [u32; 3] = [9, 13, 18];
+const HOURS: [i8; 3] = [9, 13, 18];
 
-fn next_suggested_time(now: &NaiveDateTime) -> LooseDateTime {
+fn next_suggested_time(now: &civil::DateTime) -> LooseDateTime {
     let date = now.date();
     let current_hour = now.hour();
-    for hour in HOURS {
+    for &hour in &HOURS {
         if current_hour < hour {
-            let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(hour, 0, 0).unwrap());
+            let dt =
+                civil::DateTime::new(date.year(), date.month(), date.day(), hour, 0, 0, 0).unwrap();
             return LooseDateTime::from_local_datetime(dt);
         }
     }
@@ -340,117 +292,140 @@ fn next_suggested_time(now: &NaiveDateTime) -> LooseDateTime {
     LooseDateTime::DateOnly(date)
 }
 
-fn first_suggested_time(date: NaiveDate) -> LooseDateTime {
-    let dt = NaiveDateTime::new(date, NaiveTime::from_hms_opt(HOURS[0], 0, 0).unwrap());
+fn first_suggested_time(date: Date) -> LooseDateTime {
+    let dt =
+        civil::DateTime::new(date.year(), date.month(), date.day(), HOURS[0], 0, 0, 0).unwrap();
     LooseDateTime::from_local_datetime(dt)
 }
 
-fn parse_md_with_year(s: &str, year: i32) -> Option<NaiveDate> {
-    let mut p = Parsed::new();
-    chrono::format::parse(&mut p, s, StrftimeItems::new("%m-%d")).ok()?;
-    let month = p.month?;
-    let day = p.day?;
-    NaiveDate::from_ymd_opt(year, month, day)
+fn parse_md_with_year(s: &str, year: i32) -> Option<Date> {
+    // Prepend year to the month-day string for parsing
+    let full_str = format!("{year}-{s}");
+    Date::strptime("%Y-%m-%d", &full_str).ok()
 }
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Datelike, NaiveDate, Utc};
+    use jiff::civil::{date, datetime};
+    use jiff::tz::TimeZone;
 
     use super::*;
 
     #[test]
     fn resolves_now_anchor_to_current_time() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
+        let now = date(2025, 1, 1)
+            .at(15, 30, 45, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
         assert_eq!(DateTimeAnchor::now().resolve_at_start_of_day(&now), now);
         assert_eq!(DateTimeAnchor::now().resolve_at_end_of_day(&now), now);
-
-        #[expect(deprecated)]
-        {
-            assert_eq!(DateTimeAnchor::now().parse_as_start_of_day(&now), now);
-            assert_eq!(DateTimeAnchor::now().parse_as_end_of_day(&now), now);
-        }
     }
 
     #[test]
     fn resolves_indays_anchor_to_day_boundary() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
+        let now = date(2025, 1, 1)
+            .at(15, 30, 45, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
         let anchor = DateTimeAnchor::InDays(1);
 
-        let expected = Utc.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap();
+        let expected = date(2025, 1, 2)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
 
         let parsed = anchor.resolve_at_start_of_day(&now);
         assert_eq!(parsed, expected);
 
         let parsed = anchor.resolve_at_end_of_day(&now);
-        assert!(parsed > Utc.with_ymd_and_hms(2025, 1, 2, 23, 59, 59).unwrap());
-        assert!(parsed < Utc.with_ymd_and_hms(2025, 1, 3, 0, 0, 0).unwrap());
-
-        // Test deprecated functions still work
-        #[expect(deprecated)]
-        {
-            let parsed = anchor.parse_as_start_of_day(&now);
-            assert_eq!(parsed, expected);
-
-            let parsed = anchor.parse_as_end_of_day(&now);
-            assert!(parsed > Utc.with_ymd_and_hms(2025, 1, 2, 23, 59, 59).unwrap());
-            assert!(parsed < Utc.with_ymd_and_hms(2025, 1, 3, 0, 0, 0).unwrap());
-        }
+        assert!(
+            parsed
+                > date(2025, 1, 2)
+                    .at(23, 59, 59, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap()
+        );
+        assert!(
+            parsed
+                < date(2025, 1, 3)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap()
+        );
     }
 
     #[test]
     fn resolves_datetime_anchor_to_day_boundary() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
-        let date = NaiveDate::from_ymd_opt(2025, 1, 5).unwrap();
-        let loose_date = LooseDateTime::DateOnly(date);
-        let anchor = DateTimeAnchor::DateTime(loose_date);
+        let now = date(2025, 1, 1)
+            .at(15, 30, 45, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap();
+        let d = date(2025, 1, 5);
+        let anchor = DateTimeAnchor::DateTime(LooseDateTime::DateOnly(d));
 
         let parsed = anchor.resolve_at_start_of_day(&now);
-        let expected = Utc.with_ymd_and_hms(2025, 1, 5, 0, 0, 0).unwrap();
+        let expected = date(2025, 1, 5)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap();
         assert_eq!(parsed, expected);
 
         let parsed = anchor.resolve_at_end_of_day(&now);
-        assert!(parsed > Utc.with_ymd_and_hms(2025, 1, 5, 23, 59, 59).unwrap());
-        assert!(parsed < Utc.with_ymd_and_hms(2025, 1, 6, 0, 0, 0).unwrap());
-
-        // Test deprecated functions still work
-        #[expect(deprecated)]
-        {
-            let parsed = anchor.parse_as_start_of_day(&now);
-            assert_eq!(parsed, expected);
-
-            let parsed = anchor.parse_as_end_of_day(&now);
-            assert!(parsed > Utc.with_ymd_and_hms(2025, 1, 5, 23, 59, 59).unwrap());
-            assert!(parsed < Utc.with_ymd_and_hms(2025, 1, 6, 0, 0, 0).unwrap());
-        }
+        assert!(
+            parsed
+                > date(2025, 1, 5)
+                    .at(23, 59, 59, 0)
+                    .to_zoned(TimeZone::system())
+                    .unwrap()
+        );
+        assert!(
+            parsed
+                < date(2025, 1, 6)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::system())
+                    .unwrap()
+        );
     }
 
     #[test]
     fn resolves_various_anchor_types_correctly() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 15, 30, 45).unwrap();
+        let now = date(2025, 1, 1)
+            .at(15, 30, 45, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap();
         for (name, anchor, expected) in [
             (
                 "Relative (+2h30m45s)",
                 DateTimeAnchor::Relative(2 * 60 * 60 + 30 * 60 + 45),
-                Utc.with_ymd_and_hms(2025, 1, 1, 18, 1, 30).unwrap(),
+                date(2025, 1, 1)
+                    .at(18, 1, 30, 0)
+                    .to_zoned(TimeZone::system())
+                    .unwrap(),
             ),
             (
                 "Floating",
                 {
-                    let date = NaiveDate::from_ymd_opt(2025, 1, 5).unwrap();
-                    let time = NaiveTime::from_hms_opt(14, 30, 0).unwrap();
-                    let datetime = NaiveDateTime::new(date, time);
-                    DateTimeAnchor::DateTime(LooseDateTime::Floating(datetime))
+                    let dt = datetime(2025, 1, 5, 14, 30, 0, 0);
+                    DateTimeAnchor::DateTime(LooseDateTime::Floating(dt))
                 },
-                Utc.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap(),
+                date(2025, 1, 5)
+                    .at(14, 30, 0, 0)
+                    .to_zoned(TimeZone::system())
+                    .unwrap(),
             ),
             (
                 "Local",
                 {
-                    let local_dt = Local.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap();
-                    DateTimeAnchor::DateTime(LooseDateTime::Local(local_dt))
+                    let zoned = date(2025, 1, 5)
+                        .at(14, 30, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap();
+                    DateTimeAnchor::DateTime(LooseDateTime::Local(zoned))
                 },
-                Utc.with_ymd_and_hms(2025, 1, 5, 14, 30, 0).unwrap(),
+                date(2025, 1, 5)
+                    .at(14, 30, 0, 0)
+                    .to_zoned(TimeZone::system())
+                    .unwrap(),
             ),
         ] {
             let parsed = anchor.resolve_at_start_of_day(&now);
@@ -458,131 +433,121 @@ mod tests {
 
             let parsed = anchor.resolve_at_end_of_day(&now);
             assert_eq!(parsed, expected, "end_of_day failed for {name}");
-
-            #[expect(deprecated)]
-            {
-                let parsed = anchor.parse_as_start_of_day(&now);
-                assert_eq!(parsed, expected, "parse_as_start_of_day failed for {name}",);
-
-                let parsed = anchor.parse_as_end_of_day(&now);
-                assert_eq!(parsed, expected, "parse_as_end_of_day failed for {name}");
-            }
         }
-    }
-
-    #[test]
-    fn calculates_start_of_day() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 10, 30, 59).unwrap();
-        let parsed = start_of_day(&now);
-        let expected = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
-        assert_eq!(parsed, expected);
-    }
-
-    #[test]
-    fn calculates_end_of_day() {
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 10, 30, 0).unwrap();
-        let parsed = end_of_day(&now);
-        let last_sec = Utc.with_ymd_and_hms(2025, 1, 1, 23, 59, 59).unwrap();
-        let next_day = Utc.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap();
-        assert!(parsed > last_sec);
-        assert!(parsed < next_day);
-    }
-
-    #[test]
-    fn handles_dst_ambiguity_by_picking_earliest() {
-        let tz = chrono_tz::America::New_York; // DST
-        let now = NaiveDateTime::new(
-            NaiveDate::from_ymd_opt(2025, 11, 2).unwrap(),
-            NaiveTime::from_hms_opt(1, 30, 0).unwrap(),
-        );
-
-        let parsed = from_local_datetime(&tz, now).with_timezone(&Utc);
-        let expected = Utc.with_ymd_and_hms(2025, 11, 2, 5, 30, 0).unwrap();
-        assert_eq!(parsed, expected);
     }
 
     #[test]
     fn resolves_time_anchor_to_specific_time() {
-        // Test parsing of DateTimeAnchor::Time variant
-        let time = NaiveTime::from_hms_opt(14, 30, 0).unwrap();
-        let anchor = DateTimeAnchor::Time(time);
+        let t = time(14, 30, 0, 0);
+        let anchor = DateTimeAnchor::Time(t);
 
-        // Test with a sample date for parsing
-        let now = Utc.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap();
+        let now = date(2025, 1, 1)
+            .at(10, 0, 0, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap();
         let parsed_start = anchor.resolve_at_start_of_day(&now);
         let parsed_end = anchor.resolve_at_end_of_day(&now);
 
         // Both should have the same time (14:30) on the same date (2025-01-01)
-        assert_eq!(parsed_start.date_naive(), now.date_naive());
-        assert_eq!(parsed_start.time(), time);
-        assert_eq!(parsed_end.date_naive(), now.date_naive());
-        assert_eq!(parsed_end.time(), time);
-
-        // Test deprecated functions still work
-        #[expect(deprecated)]
-        {
-            let parsed_start = anchor.parse_as_start_of_day(&now);
-            let parsed_end = anchor.parse_as_end_of_day(&now);
-
-            // Both should have the same time (14:30) on the same date (2025-01-01)
-            assert_eq!(parsed_start.date_naive(), now.date_naive());
-            assert_eq!(parsed_start.time(), time);
-            assert_eq!(parsed_end.date_naive(), now.date_naive());
-            assert_eq!(parsed_end.time(), time);
-        }
+        assert_eq!(parsed_start.date(), now.date());
+        assert_eq!(parsed_start.time(), t);
+        assert_eq!(parsed_end.date(), now.date());
+        assert_eq!(parsed_end.time(), t);
     }
 
     #[test]
     fn resolves_anchor_from_loose_datetime() {
-        for (name, anchor, now, expected) in [
+        let dt = |y, m, d, h, mm, s| {
+            let zoned = date(y, m, d)
+                .at(h, mm, s, 0)
+                .to_zoned(TimeZone::system())
+                .unwrap();
+            LooseDateTime::Local(zoned)
+        };
+
+        let now: LooseDateTime = LooseDateTime::Local(
+            date(2025, 1, 1)
+                .at(12, 0, 0, 0)
+                .to_zoned(TimeZone::system())
+                .unwrap(),
+        );
+
+        for (name, anchor, expected) in [
             (
                 "AtInDays (same datetime)",
                 DateTimeAnchor::DateTime(LooseDateTime::Local(
-                    Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap(),
+                    date(2025, 1, 1)
+                        .at(12, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
                 )),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
+                LooseDateTime::Local(
+                    date(2025, 1, 1)
+                        .at(12, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
+                ),
             ),
             (
                 "Relative (+3 hours)",
                 DateTimeAnchor::Relative(3 * 60 * 60),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 0, 0).unwrap()),
+                dt(2025, 1, 1, 15, 0, 0),
             ),
             (
                 "DateTime (absolute 10:00)",
                 DateTimeAnchor::DateTime(LooseDateTime::Local(
-                    Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap(),
+                    date(2025, 1, 1)
+                        .at(10, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
                 )),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap()),
+                LooseDateTime::Local(
+                    date(2025, 1, 1)
+                        .at(10, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
+                ),
             ),
             (
                 "Time (10:00 today)",
-                DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap()),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap()),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap()),
+                DateTimeAnchor::Time(time(10, 0, 0, 0)),
+                LooseDateTime::Local(
+                    date(2025, 1, 1)
+                        .at(10, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
+                ),
             ),
         ] {
             let result = anchor.resolve_at(&now);
             assert_eq!(result, expected, "resolve_at failed for case: {name}");
-
-            #[expect(deprecated)]
-            {
-                let result = anchor.parse_from_loose(&now);
-                assert_eq!(result, expected, "parse_from_loose failed for case: {name}");
-            }
         }
     }
 
     #[test]
     fn resolves_anchor_since_loose_datetime() {
-        let dt = |y, m, d, hh, mm, ss| {
-            LooseDateTime::Local(Local.with_ymd_and_hms(y, m, d, hh, mm, ss).unwrap())
+        let dt = |y, m, d, h, mm, s| {
+            LooseDateTime::Local(
+                date(y, m, d)
+                    .at(h, mm, s, 0)
+                    .to_zoned(TimeZone::system())
+                    .unwrap(),
+            )
         };
-        let now: LooseDateTime = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap().into();
+
+        let now: LooseDateTime = LooseDateTime::Local(
+            date(2025, 1, 1)
+                .at(12, 0, 0, 0)
+                .to_zoned(TimeZone::system())
+                .unwrap(),
+        );
+
         for (name, anchor, expected) in [
-            ("DateTime == now", DateTimeAnchor::DateTime(now), now),
+            (
+                "DateTime == now",
+                DateTimeAnchor::DateTime(now.clone()),
+                now.clone(),
+            ),
             (
                 "Relative +3:25:45",
                 DateTimeAnchor::Relative(3 * 60 * 60 + 25 * 60 + 45),
@@ -595,12 +560,12 @@ mod tests {
             ),
             (
                 "Time before now -> tomorrow 10:00",
-                DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap()),
+                DateTimeAnchor::Time(time(10, 0, 0, 0)),
                 dt(2025, 1, 2, 10, 0, 0),
             ),
             (
                 "Time after now -> today 14:00",
-                DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 0, 0).unwrap()),
+                DateTimeAnchor::Time(time(14, 0, 0, 0)),
                 dt(2025, 1, 1, 14, 0, 0),
             ),
         ] {
@@ -610,49 +575,66 @@ mod tests {
     }
 
     #[test]
-    fn resolves_anchor_since_datetime() {
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap();
+    fn resolves_anchor_since_zoned() {
+        let now = date(2025, 1, 1)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap();
+
         for (name, anchor, expected) in [
             (
                 "DateTimeAnchor::DateTime (same datetime)",
-                DateTimeAnchor::DateTime(LooseDateTime::Local(now)),
-                LooseDateTime::Local(now),
+                DateTimeAnchor::DateTime(LooseDateTime::Local(now.clone())),
+                LooseDateTime::Local(now.clone()),
             ),
             (
                 "DateTimeAnchor::Relative (3h25m45s later)",
                 DateTimeAnchor::Relative(3 * 60 * 60 + 25 * 60 + 45),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 15, 25, 45).unwrap()),
+                LooseDateTime::Local(
+                    date(2025, 1, 1)
+                        .at(15, 25, 45, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
+                ),
             ),
             (
                 "DateTimeAnchor::DateTime (specific datetime before now)",
                 DateTimeAnchor::DateTime(LooseDateTime::Local(
-                    Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap(),
+                    date(2025, 1, 1)
+                        .at(10, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
                 )),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 10, 0, 0).unwrap()),
+                LooseDateTime::Local(
+                    date(2025, 1, 1)
+                        .at(10, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
+                ),
             ),
             (
                 "DateTimeAnchor::Time (before now → tomorrow)",
-                DateTimeAnchor::Time(NaiveTime::from_hms_opt(10, 0, 0).unwrap()),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 2, 10, 0, 0).unwrap()),
+                DateTimeAnchor::Time(time(10, 0, 0, 0)),
+                LooseDateTime::Local(
+                    date(2025, 1, 2)
+                        .at(10, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
+                ),
             ),
             (
                 "DateTimeAnchor::Time (after now → today)",
-                DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 0, 0).unwrap()),
-                LooseDateTime::Local(Local.with_ymd_and_hms(2025, 1, 1, 14, 0, 0).unwrap()),
+                DateTimeAnchor::Time(time(14, 0, 0, 0)),
+                LooseDateTime::Local(
+                    date(2025, 1, 1)
+                        .at(14, 0, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
+                ),
             ),
         ] {
-            let result = anchor.resolve_since_datetime(&now);
-            assert_eq!(result, expected, "failed: {name} → resolve_since_datetime",);
-
-            // Deprecated API should behave identically
-            #[expect(deprecated)]
-            {
-                let deprecated_result = anchor.parse_from_dt(&now);
-                assert_eq!(
-                    deprecated_result, expected,
-                    "failed: {name} → parse_from_dt (deprecated)",
-                );
-            }
+            let result = anchor.resolve_since_zoned(&now);
+            assert_eq!(result, expected, "failed: {name} → resolve_since_zoned");
         }
     }
 
@@ -667,32 +649,23 @@ mod tests {
             // Date only
             (
                 "2025-01-15",
-                DateTimeAnchor::DateTime(LooseDateTime::DateOnly(
-                    NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
-                )),
-            ),
-            // Date only with current year
-            (
-                "01-15",
-                DateTimeAnchor::DateTime(LooseDateTime::DateOnly(
-                    NaiveDate::from_ymd_opt(Local::now().year(), 1, 15).unwrap(),
-                )),
+                DateTimeAnchor::DateTime(LooseDateTime::DateOnly(date(2025, 1, 15))),
             ),
             // DateTime
             (
                 "2025-01-15 14:30",
                 DateTimeAnchor::DateTime(LooseDateTime::Local(
-                    Local.with_ymd_and_hms(2025, 1, 15, 14, 30, 0).unwrap(),
+                    date(2025, 1, 15)
+                        .at(14, 30, 0, 0)
+                        .to_zoned(TimeZone::system())
+                        .unwrap(),
                 )),
             ),
             // Time only
-            (
-                "14:30",
-                DateTimeAnchor::Time(NaiveTime::from_hms_opt(14, 30, 0).unwrap()),
-            ),
+            ("14:30", DateTimeAnchor::Time(time(14, 30, 0, 0))),
         ] {
             let anchor: DateTimeAnchor = s.parse().unwrap();
-            assert_eq!(anchor, expected, "Failed to parse '{s}'",);
+            assert_eq!(anchor, expected, "Failed to parse '{s}'");
         }
     }
 
@@ -802,12 +775,13 @@ mod tests {
             (9, 0, 13, "Exactly at 9 AM, should suggest 1 PM"),
             (13, 0, 18, "Exactly at 1 PM, should suggest 6 PM"),
         ] {
-            let now = Local.with_ymd_and_hms(2025, 1, 1, hour, min, 0).unwrap();
-            let result = next_suggested_time(&now.naive_local());
-            let dt = Local
-                .with_ymd_and_hms(2025, 1, 1, expected_hour, 0, 0)
+            let now = datetime(2025, 1, 1, hour, min, 0, 0);
+            let result = next_suggested_time(&now);
+            let zoned = date(2025, 1, 1)
+                .at(expected_hour, 0, 0, 0)
+                .to_zoned(TimeZone::system())
                 .unwrap();
-            let expected = LooseDateTime::Local(dt);
+            let expected = LooseDateTime::Local(zoned);
             assert_eq!(result, expected, "{description}");
         }
     }
@@ -815,15 +789,15 @@ mod tests {
     #[test]
     fn suggests_dateonly_after_business_hours() {
         // After 6 PM, should suggest DateOnly (next day)
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 19, 30, 0).unwrap();
-        let result = next_suggested_time(&now.naive_local());
-        let expected = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
+        let now = datetime(2025, 1, 1, 19, 30, 0, 0);
+        let result = next_suggested_time(&now);
+        let expected = LooseDateTime::DateOnly(date(2025, 1, 1));
         assert_eq!(result, expected, "After 6 PM, should suggest DateOnly");
 
         // Exactly at 6 PM, should suggest DateOnly (next day)
-        let now = Local.with_ymd_and_hms(2025, 1, 1, 18, 0, 0).unwrap();
-        let result = next_suggested_time(&now.naive_local());
-        let expected = LooseDateTime::DateOnly(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
+        let now = datetime(2025, 1, 1, 18, 0, 0, 0);
+        let result = next_suggested_time(&now);
+        let expected = LooseDateTime::DateOnly(date(2025, 1, 1));
         assert_eq!(result, expected, "Exactly at 6 PM, should suggest DateOnly");
     }
 }

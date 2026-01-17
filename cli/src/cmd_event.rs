@@ -284,17 +284,17 @@ impl CmdEventDelay {
             let event = aim.get_event(id).await?;
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), end) => {
-                    let s = time.resolve_at(&start);
-                    let e = end.map(|a| time.resolve_at(&a));
+                    let s = time.clone().resolve_at(&start);
+                    let e = end.map(|a| time.clone().resolve_at(&a));
                     (Some(s), e)
                 }
                 (None, Some(end)) => {
                     // TODO: should we set a start time with default duration? same for reschedule command
-                    let e = time.resolve_at(&end);
+                    let e = time.clone().resolve_at(&end);
                     (None, Some(e))
                 }
                 (None, None) => {
-                    let s = time.resolve_since_datetime(&aim.now());
+                    let s = time.clone().resolve_since_zoned(&aim.now());
                     // TODO: should we set a end time with default duration? same for reschedule command
                     (Some(s), None)
                 }
@@ -361,27 +361,27 @@ impl CmdEventReschedule {
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), Some(end)) => {
                     use LooseDateTime::{DateOnly, Floating, Local};
-                    let s = time.resolve_since_datetime(&aim.now());
+                    let s = time.clone().resolve_since_zoned(&aim.now());
                     #[rustfmt::skip]
                     let e = match (start, end) {
                         (DateOnly(ds),  DateOnly(de))  => (s.date() + (de - ds)).into(),
                         (DateOnly(ds),  Floating(dte)) => (s.date() + (dte.date() - ds)).into(),
-                        (DateOnly(ds),  Local(dte))    => (s.date() + (dte.date_naive() - ds)).into(),
-                        (Floating(dts), DateOnly(dte)) => s + (dte - dts.date()),
-                        (Floating(dts), Floating(dte)) => s + (dte - dts),
-                        (Floating(dts), Local(dte))    => s + (dte.naive_local() - dts), // Treat floating as local
-                        (Local(dts),    DateOnly(de))  => s + (de - dts.date_naive()),
-                        (Local(dts),    Floating(dte)) => s + (dte - dts.naive_local()), // Treat floating as local
-                        (Local(dts),    Local(dte))    => s + (dte - dts),
+                        (DateOnly(ds),  Local(dte))    => (s.date() + (dte.date() - ds)).into(),
+                        (Floating(dts), DateOnly(dte)) => s.clone() + (dte - dts.date()),
+                        (Floating(dts), Floating(dte)) => s.clone() + (dte - dts),
+                        (Floating(dts), Local(dte))    => s.clone() + (dte.datetime() - dts), // Treat zoned as civil datetime
+                        (Local(dts),    DateOnly(de))  => s.clone() + (de - dts.date()),
+                        (Local(dts),    Floating(dte)) => s.clone() + (dte - dts.datetime()), // Treat zoned as civil datetime
+                        (Local(dts),    Local(dte))    => s.clone() + (dte - dts),
                     };
                     (Some(s), Some(e))
                 }
                 (_, None) => {
-                    let s = time.resolve_since_datetime(&aim.now());
+                    let s = time.clone().resolve_since_zoned(&aim.now());
                     (Some(s), None)
                 }
                 (None, Some(_)) => {
-                    let e = time.resolve_since_datetime(&aim.now());
+                    let e = time.clone().resolve_since_zoned(&aim.now());
                     (None, Some(e))
                 }
             };
@@ -400,7 +400,7 @@ impl CmdEventReschedule {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct CmdEventList {
     pub conds: EventConditions,
     pub output_format: OutputFormat,
