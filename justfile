@@ -23,7 +23,7 @@ release version:
 
   # Update version in Cargo.toml
   sed -i -E 's/version = "[0-9]*.[0-9]*.[0-9]*"/version = "{{version}}"/' ./Cargo.toml
-  cargo update -p aimcal -p aimcal-cli -p aimcal-core
+  cargo update -p aimcal -p aimcal-cli -p aimcal-core -p aimcal-ical
 
   # Commit changes and create git tag
   git add CHANGELOG.md ./Cargo.toml ./Cargo.lock
