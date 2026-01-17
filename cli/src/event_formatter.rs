@@ -117,8 +117,8 @@ impl<E: Event> TableColumn<E> for ColumnMeta<'_> {
 
     fn get_color(&self, data: &E) -> Option<Color> {
         match &self.column {
-            EventColumn::DateTimeSpan => get_color_datetime_span(data, self.now.clone()),
-            EventColumn::TimeSpan { date: _ } => get_color_time_span(data, self.now.clone()),
+            EventColumn::DateTimeSpan => get_color_datetime_span(data, &self.now),
+            EventColumn::TimeSpan { date: _ } => get_color_time_span(data, &self.now),
             _ => None,
         }
     }
@@ -180,7 +180,7 @@ fn format_datetime_span(event: &impl Event) -> Cow<'_, str> {
     }
 }
 
-fn get_color_datetime_span(event: &impl Event, now: Zoned) -> Option<Color> {
+fn get_color_datetime_span(event: &impl Event, now: &Zoned) -> Option<Color> {
     const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
     const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
 
@@ -247,7 +247,7 @@ fn format_time_span(event: &impl Event, date: Date) -> Cow<'_, str> {
     }
 }
 
-fn get_color_time_span(event: &impl Event, now: Zoned) -> Option<Color> {
+fn get_color_time_span(event: &impl Event, now: &Zoned) -> Option<Color> {
     get_color_datetime_span(event, now)
 }
 

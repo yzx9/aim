@@ -70,7 +70,9 @@ impl CmdTodoNew {
         let now = aim.now();
 
         // Prepare a draft with the provided arguments
-        let mut draft = aim.default_todo_draft();
+        let mut draft = aim
+            .default_todo_draft()
+            .map_err(|e| format!("Failed to create default todo draft: {e}"))?;
 
         if let Some(desc) = self.description {
             draft.description = Some(desc);
@@ -336,7 +338,10 @@ impl CmdTodoDelay {
             let todo = aim.get_todo(id).await?;
             let new_due = Some(match todo.due() {
                 Some(due) => time.clone().resolve_at(&due),
-                None => time.clone().resolve_since_zoned(&aim.now()),
+                None => time
+                    .clone()
+                    .resolve_since_zoned(&aim.now())
+                    .map_err(|e| format!("Failed to resolve since zoned: {e}"))?,
             });
 
             // Update the todo
@@ -394,9 +399,14 @@ impl CmdTodoReschedule {
         let mut todos = vec![];
         for id in &self.ids {
             // Calculate new due based on now
-            let new_due = time
-                .as_ref()
-                .map(|a| a.clone().resolve_since_zoned(&aim.now()));
+            let new_due = match time.as_ref() {
+                Some(a) => Some(
+                    a.clone()
+                        .resolve_since_zoned(&aim.now())
+                        .map_err(|e| format!("Failed to resolve since zoned: {e}"))?,
+                ),
+                None => None,
+            };
 
             // Update the todo
             let patch = TodoPatch {

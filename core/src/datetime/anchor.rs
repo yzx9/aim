@@ -54,18 +54,27 @@ impl DateTimeAnchor {
     }
 
     /// Resolve datetime at the start of the day based on the provided current local time.
-    #[must_use]
-    pub fn resolve_at_start_of_day(&self, now: &Zoned) -> Zoned {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if date/time operations fail.
+    pub fn resolve_at_start_of_day(&self, now: &Zoned) -> Result<Zoned, String> {
         match self {
-            DateTimeAnchor::InDays(n) => now
-                .start_of_day()
-                .unwrap()
-                .checked_add(Span::new().days(*n))
-                .unwrap(),
-            DateTimeAnchor::Relative(n) => now.checked_add(Span::new().seconds(*n)).unwrap(),
-            DateTimeAnchor::DateTime(dt) => {
-                dt.with_start_of_day().to_zoned(TimeZone::system()).unwrap()
+            DateTimeAnchor::InDays(n) => {
+                let start = now
+                    .start_of_day()
+                    .map_err(|e| format!("Failed to get start of day: {e}"))?;
+                start
+                    .checked_add(Span::new().days(*n))
+                    .map_err(|e| format!("Failed to add days to start of day: {e}"))
             }
+            DateTimeAnchor::Relative(n) => now
+                .checked_add(Span::new().seconds(*n))
+                .map_err(|e| format!("Failed to add relative seconds: {e}")),
+            DateTimeAnchor::DateTime(dt) => dt
+                .with_start_of_day()
+                .to_zoned(TimeZone::system())
+                .map_err(|e| format!("Failed to convert to zoned: {e}")),
             DateTimeAnchor::Time(t) => now
                 .with()
                 .hour(t.hour())
@@ -73,23 +82,31 @@ impl DateTimeAnchor {
                 .second(t.second())
                 .subsec_nanosecond(t.subsec_nanosecond())
                 .build()
-                .unwrap(),
+                .map_err(|e| format!("Failed to build zoned: {e}")),
         }
     }
 
     /// Resolve datetime at the end of the day based on the provided current local time.
-    #[must_use]
-    pub fn resolve_at_end_of_day(&self, now: &Zoned) -> Zoned {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if date/time operations fail.
+    pub fn resolve_at_end_of_day(&self, now: &Zoned) -> Result<Zoned, String> {
         match self {
-            DateTimeAnchor::InDays(n) => now
-                .end_of_day()
-                .unwrap()
-                .checked_add(Span::new().days(*n))
-                .unwrap(),
-            DateTimeAnchor::Relative(n) => now.checked_add(Span::new().seconds(*n)).unwrap(),
-            DateTimeAnchor::DateTime(dt) => {
-                dt.with_end_of_day().to_zoned(TimeZone::system()).unwrap()
+            DateTimeAnchor::InDays(n) => {
+                let end = now
+                    .end_of_day()
+                    .map_err(|e| format!("Failed to get end of day: {e}"))?;
+                end.checked_add(Span::new().days(*n))
+                    .map_err(|e| format!("Failed to add days to end of day: {e}"))
             }
+            DateTimeAnchor::Relative(n) => now
+                .checked_add(Span::new().seconds(*n))
+                .map_err(|e| format!("Failed to add relative seconds: {e}")),
+            DateTimeAnchor::DateTime(dt) => dt
+                .with_end_of_day()
+                .to_zoned(TimeZone::system())
+                .map_err(|e| format!("Failed to convert to zoned: {e}")),
             DateTimeAnchor::Time(t) => now
                 .with()
                 .hour(t.hour())
@@ -97,7 +114,7 @@ impl DateTimeAnchor {
                 .second(t.second())
                 .subsec_nanosecond(t.subsec_nanosecond())
                 .build()
-                .unwrap(),
+                .map_err(|e| format!("Failed to build zoned: {e}")),
         }
     }
 
@@ -116,62 +133,81 @@ impl DateTimeAnchor {
     }
 
     /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `LooseDateTime`.
-    #[must_use]
-    pub fn resolve_since(self, start: &LooseDateTime) -> LooseDateTime {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if date/time operations fail.
+    pub fn resolve_since(self, start: &LooseDateTime) -> Result<LooseDateTime, String> {
         match self {
             DateTimeAnchor::InDays(n) => match n {
-                0 => match start {
+                0 => Ok(match start {
                     LooseDateTime::Local(zoned) => next_suggested_time(&zoned.datetime()),
                     LooseDateTime::Floating(dt) => next_suggested_time(dt),
                     LooseDateTime::DateOnly(d) => first_suggested_time(*d),
-                },
+                }),
                 _ => {
-                    let date = start.date().checked_add(Span::new().days(n)).unwrap();
+                    let date = start
+                        .date()
+                        .checked_add(Span::new().days(n))
+                        .map_err(|e| format!("Failed to add days to start date: {e}"))?;
                     let t = time(9, 0, 0, 0);
                     let dt = civil::DateTime::from_parts(date, t);
-                    LooseDateTime::from_local_datetime(dt)
+                    Ok(LooseDateTime::from_local_datetime(dt))
                 }
             },
-            DateTimeAnchor::Relative(n) => start.clone() + Span::new().seconds(n),
-            DateTimeAnchor::DateTime(dt) => dt,
+            DateTimeAnchor::Relative(n) => Ok(start.clone() + Span::new().seconds(n)),
+            DateTimeAnchor::DateTime(dt) => Ok(dt),
             DateTimeAnchor::Time(t) => {
                 let mut date = start.date();
                 // If the time has already passed today, use tomorrow
                 if start.time().is_some_and(|s| s >= t) {
-                    date = date.checked_add(Span::new().days(1)).unwrap();
+                    date = date
+                        .checked_add(Span::new().days(1))
+                        .map_err(|e| format!("Failed to add day to date: {e}"))?;
                 }
                 let dt = civil::DateTime::from_parts(date, t);
-                LooseDateTime::from_local_datetime(dt)
+                Ok(LooseDateTime::from_local_datetime(dt))
             }
         }
     }
 
     /// Resolve the `DateTimeAnchor` to a `LooseDateTime` starting from the provided `Zoned`.
-    #[must_use]
-    pub fn resolve_since_zoned(self, start: &Zoned) -> LooseDateTime {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if date/time operations fail.
+    pub fn resolve_since_zoned(self, start: &Zoned) -> Result<LooseDateTime, String> {
         match self {
             DateTimeAnchor::InDays(n) => match n {
-                0 => next_suggested_time(&start.datetime()),
+                0 => Ok(next_suggested_time(&start.datetime())),
                 _ => {
-                    let date = start.date().checked_add(Span::new().days(n)).unwrap();
+                    let date = start
+                        .datetime()
+                        .date()
+                        .checked_add(Span::new().days(n))
+                        .map_err(|e| format!("Failed to add days to start date: {e}"))?;
                     let t = time(9, 0, 0, 0);
                     let dt = civil::DateTime::from_parts(date, t);
-                    LooseDateTime::from_local_datetime(dt)
+                    Ok(LooseDateTime::from_local_datetime(dt))
                 }
             },
             DateTimeAnchor::Relative(n) => {
-                let zoned = start.checked_add(Span::new().seconds(n)).unwrap();
-                LooseDateTime::Local(zoned)
+                let zoned = start
+                    .checked_add(Span::new().seconds(n))
+                    .map_err(|e| format!("Failed to add relative seconds: {e}"))?;
+                Ok(LooseDateTime::Local(zoned))
             }
-            DateTimeAnchor::DateTime(dt) => dt,
+            DateTimeAnchor::DateTime(dt) => Ok(dt),
             DateTimeAnchor::Time(t) => {
                 let mut date = start.date();
                 // If the time has already passed today, use tomorrow
                 if start.time() >= t {
-                    date = date.checked_add(Span::new().days(1)).unwrap();
+                    date = date
+                        .checked_add(Span::new().days(1))
+                        .map_err(|e| format!("Failed to add day to date: {e}"))?;
                 }
                 let dt = civil::DateTime::from_parts(date, t);
-                LooseDateTime::from_local_datetime(dt)
+                Ok(LooseDateTime::from_local_datetime(dt))
             }
         }
     }
@@ -317,8 +353,14 @@ mod tests {
             .at(15, 30, 45, 0)
             .to_zoned(TimeZone::UTC)
             .unwrap();
-        assert_eq!(DateTimeAnchor::now().resolve_at_start_of_day(&now), now);
-        assert_eq!(DateTimeAnchor::now().resolve_at_end_of_day(&now), now);
+        assert_eq!(
+            DateTimeAnchor::now().resolve_at_start_of_day(&now).unwrap(),
+            now
+        );
+        assert_eq!(
+            DateTimeAnchor::now().resolve_at_end_of_day(&now).unwrap(),
+            now
+        );
     }
 
     #[test]
@@ -334,10 +376,10 @@ mod tests {
             .to_zoned(TimeZone::UTC)
             .unwrap();
 
-        let parsed = anchor.resolve_at_start_of_day(&now);
+        let parsed = anchor.resolve_at_start_of_day(&now).unwrap();
         assert_eq!(parsed, expected);
 
-        let parsed = anchor.resolve_at_end_of_day(&now);
+        let parsed = anchor.resolve_at_end_of_day(&now).unwrap();
         assert!(
             parsed
                 > date(2025, 1, 2)
@@ -363,14 +405,14 @@ mod tests {
         let d = date(2025, 1, 5);
         let anchor = DateTimeAnchor::DateTime(LooseDateTime::DateOnly(d));
 
-        let parsed = anchor.resolve_at_start_of_day(&now);
+        let parsed = anchor.resolve_at_start_of_day(&now).unwrap();
         let expected = date(2025, 1, 5)
             .at(0, 0, 0, 0)
             .to_zoned(TimeZone::system())
             .unwrap();
         assert_eq!(parsed, expected);
 
-        let parsed = anchor.resolve_at_end_of_day(&now);
+        let parsed = anchor.resolve_at_end_of_day(&now).unwrap();
         assert!(
             parsed
                 > date(2025, 1, 5)
@@ -428,10 +470,10 @@ mod tests {
                     .unwrap(),
             ),
         ] {
-            let parsed = anchor.resolve_at_start_of_day(&now);
+            let parsed = anchor.resolve_at_start_of_day(&now).unwrap();
             assert_eq!(parsed, expected, "start_of_day failed for {name}");
 
-            let parsed = anchor.resolve_at_end_of_day(&now);
+            let parsed = anchor.resolve_at_end_of_day(&now).unwrap();
             assert_eq!(parsed, expected, "end_of_day failed for {name}");
         }
     }
@@ -445,8 +487,8 @@ mod tests {
             .at(10, 0, 0, 0)
             .to_zoned(TimeZone::system())
             .unwrap();
-        let parsed_start = anchor.resolve_at_start_of_day(&now);
-        let parsed_end = anchor.resolve_at_end_of_day(&now);
+        let parsed_start = anchor.resolve_at_start_of_day(&now).unwrap();
+        let parsed_end = anchor.resolve_at_end_of_day(&now).unwrap();
 
         // Both should have the same time (14:30) on the same date (2025-01-01)
         assert_eq!(parsed_start.date(), now.date());
@@ -569,7 +611,7 @@ mod tests {
                 dt(2025, 1, 1, 14, 0, 0),
             ),
         ] {
-            let result = anchor.resolve_since(&now);
+            let result = anchor.resolve_since(&now).unwrap();
             assert_eq!(result, expected, "case failed: {name}");
         }
     }
@@ -633,7 +675,7 @@ mod tests {
                 ),
             ),
         ] {
-            let result = anchor.resolve_since_zoned(&now);
+            let result = anchor.resolve_since_zoned(&now).unwrap();
             assert_eq!(result, expected, "failed: {name} → resolve_since_zoned");
         }
     }

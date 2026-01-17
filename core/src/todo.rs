@@ -167,18 +167,19 @@ pub struct TodoDraft {
 
 impl TodoDraft {
     /// Creates a new empty patch.
-    pub(crate) fn default(config: &Config, now: &Zoned) -> Self {
-        Self {
+    pub(crate) fn default(config: &Config, now: &Zoned) -> Result<Self, String> {
+        Ok(Self {
             description: None,
             due: config
                 .default_due
                 .as_ref()
-                .map(|d| d.clone().resolve_since_zoned(now)),
+                .map(|d| d.clone().resolve_since_zoned(now))
+                .transpose()?,
             percent_complete: None,
             priority: Some(config.default_priority),
             status: TodoStatus::default(),
             summary: String::default(),
-        }
+        })
     }
 
     /// Converts the draft into a icalendar Todo component.
@@ -188,6 +189,7 @@ impl TodoDraft {
                 .default_due
                 .as_ref()
                 .map(|d| d.clone().resolve_since_zoned(now))
+                .and_then(Result::ok)
         });
 
         let percent_complete = self.percent_complete.map(|a| a.max(100));
@@ -460,11 +462,15 @@ pub struct TodoConditions {
 }
 
 impl TodoConditions {
-    pub(crate) fn resolve(&self, now: &Zoned) -> ResolvedTodoConditions {
-        ResolvedTodoConditions {
+    pub(crate) fn resolve(&self, now: &Zoned) -> Result<ResolvedTodoConditions, String> {
+        Ok(ResolvedTodoConditions {
             status: self.status,
-            due: self.due.as_ref().map(|a| a.resolve_at_end_of_day(now)),
-        }
+            due: self
+                .due
+                .as_ref()
+                .map(|a| a.resolve_at_end_of_day(now))
+                .transpose()?,
+        })
     }
 }
 

@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - core: Replace external `icalendar` crate with internal `aimcal-ical` implementation
 - core: Change `Event` and `Todo` trait methods to return `Cow<'_, str>` instead of `&str`
 - core: Migrate from `chrono`/`chrono-tz` to `jiff` for datetime operations
+- core: `DateTimeAnchor` resolution methods now return `Result<T, String>` for proper error handling
+- core: `Aim::default_todo_draft()` now returns `Result<TodoDraft, String>`
+- core: `EventConditions::resolve()` and `TodoConditions::resolve()` now return `Result`
 
 ## Removed
 

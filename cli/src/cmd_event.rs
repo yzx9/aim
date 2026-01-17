@@ -294,7 +294,10 @@ impl CmdEventDelay {
                     (None, Some(e))
                 }
                 (None, None) => {
-                    let s = time.clone().resolve_since_zoned(&aim.now());
+                    let s = time
+                        .clone()
+                        .resolve_since_zoned(&aim.now())
+                        .map_err(|e| format!("Failed to resolve since zoned: {e}"))?;
                     // TODO: should we set a end time with default duration? same for reschedule command
                     (Some(s), None)
                 }
@@ -361,7 +364,10 @@ impl CmdEventReschedule {
             let (start, end) = match (event.start(), event.end()) {
                 (Some(start), Some(end)) => {
                     use LooseDateTime::{DateOnly, Floating, Local};
-                    let s = time.clone().resolve_since_zoned(&aim.now());
+                    let s = time
+                        .clone()
+                        .resolve_since_zoned(&aim.now())
+                        .map_err(|e| format!("Failed to resolve since zoned: {e}"))?;
                     #[rustfmt::skip]
                     let e = match (start, end) {
                         (DateOnly(ds),  DateOnly(de))  => (s.date() + (de - ds)).into(),
@@ -377,11 +383,17 @@ impl CmdEventReschedule {
                     (Some(s), Some(e))
                 }
                 (_, None) => {
-                    let s = time.clone().resolve_since_zoned(&aim.now());
+                    let s = time
+                        .clone()
+                        .resolve_since_zoned(&aim.now())
+                        .map_err(|e| format!("Failed to resolve since zoned: {e}"))?;
                     (Some(s), None)
                 }
                 (None, Some(_)) => {
-                    let e = time.clone().resolve_since_zoned(&aim.now());
+                    let e = time
+                        .clone()
+                        .resolve_since_zoned(&aim.now())
+                        .map_err(|e| format!("Failed to resolve since zoned: {e}"))?;
                     (None, Some(e))
                 }
             };

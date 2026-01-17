@@ -75,7 +75,10 @@ impl CmdDashboard {
                     }
                 }
 
-                let date = anchor.resolve_at_start_of_day(&aim.now()).date();
+                let date = anchor
+                    .resolve_at_start_of_day(&aim.now())
+                    .map_err(|e| format!("Failed to resolve start of day: {e}"))?
+                    .date();
                 let columns = vec![
                     EventColumn::Id,
                     EventColumn::TimeSpan { date },

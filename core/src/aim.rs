@@ -184,7 +184,7 @@ impl Aim {
         conds: &EventConditions,
         pager: &Pager,
     ) -> Result<Vec<impl Event + 'static>, Box<dyn Error>> {
-        let conds = conds.resolve(&self.now);
+        let conds = conds.resolve(&self.now)?;
         let events = self.db.events.list(&conds, pager).await?;
         let events = self.short_ids.events(events).await?;
         Ok(events)
@@ -194,14 +194,16 @@ impl Aim {
     ///
     /// # Errors
     /// If database access fails.
-    pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, sqlx::Error> {
-        let conds = conds.resolve(&self.now);
-        self.db.events.count(&conds).await
+    pub async fn count_events(&self, conds: &EventConditions) -> Result<i64, Box<dyn Error>> {
+        let conds = conds.resolve(&self.now)?;
+        Ok(self.db.events.count(&conds).await?)
     }
 
     /// Create a default todo draft based on the AIM configuration.
-    #[must_use]
-    pub fn default_todo_draft(&self) -> TodoDraft {
+    ///
+    /// # Errors
+    /// If date/time resolution fails.
+    pub fn default_todo_draft(&self) -> Result<TodoDraft, String> {
         TodoDraft::default(&self.config, &self.now)
     }
 
@@ -288,7 +290,7 @@ impl Aim {
         sort: &[TodoSort],
         pager: &Pager,
     ) -> Result<Vec<impl Todo + 'static>, Box<dyn Error>> {
-        let conds = conds.resolve(&self.now);
+        let conds = conds.resolve(&self.now)?;
         let sort = TodoSort::resolve_vec(sort, &self.config);
         let todos = self.db.todos.list(&conds, &sort, pager).await?;
         let todos = self.short_ids.todos(todos).await?;
@@ -299,9 +301,9 @@ impl Aim {
     ///
     /// # Errors
     /// If database access fails.
-    pub async fn count_todos(&self, conds: &TodoConditions) -> Result<i64, sqlx::Error> {
-        let conds = conds.resolve(&self.now);
-        self.db.todos.count(&conds).await
+    pub async fn count_todos(&self, conds: &TodoConditions) -> Result<i64, Box<dyn Error>> {
+        let conds = conds.resolve(&self.now)?;
+        Ok(self.db.todos.count(&conds).await?)
     }
 
     /// Flush the short IDs to remove all entries.

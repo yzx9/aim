@@ -99,8 +99,7 @@ impl EventDraft {
                 .build()
                 .unwrap()
         } else {
-            now.checked_add(Span::new().hours(1))
-                .unwrap()
+            (now + Span::new().hours(1))
                 .with()
                 .minute(0)
                 .second(0)
@@ -383,14 +382,19 @@ pub struct EventConditions {
 }
 
 impl EventConditions {
-    pub(crate) fn resolve(&self, now: &Zoned) -> ResolvedEventConditions {
-        ResolvedEventConditions {
-            start_before: self.cutoff.as_ref().map(|w| w.resolve_at_end_of_day(now)),
+    pub(crate) fn resolve(&self, now: &Zoned) -> Result<ResolvedEventConditions, String> {
+        Ok(ResolvedEventConditions {
+            start_before: self
+                .cutoff
+                .as_ref()
+                .map(|w| w.resolve_at_end_of_day(now))
+                .transpose()?,
             end_after: self
                 .startable
                 .as_ref()
-                .map(|w| w.resolve_at_start_of_day(now)),
-        }
+                .map(|w| w.resolve_at_start_of_day(now))
+                .transpose()?,
+        })
     }
 }
 

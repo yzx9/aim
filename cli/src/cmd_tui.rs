@@ -133,7 +133,9 @@ impl CmdNew {
     ) -> Result<(), Box<dyn Error>> {
         tracing::info!("adding new item using TUI");
         let mut event_draft = aim.default_event_draft();
-        let mut todo_draft = aim.default_todo_draft();
+        let mut todo_draft = aim
+            .default_todo_draft()
+            .map_err(|e| format!("Failed to create default todo draft: {e}"))?;
         let now = aim.now();
 
         // fields
@@ -264,7 +266,9 @@ impl CmdNew {
     }
 
     fn draft_todo(&self, aim: &mut Aim) -> Result<TodoDraft, Box<dyn Error>> {
-        let mut draft = aim.default_todo_draft();
+        let mut draft = aim
+            .default_todo_draft()
+            .map_err(|e| format!("Failed to create default todo draft: {e}"))?;
         let now = aim.now();
 
         // fields

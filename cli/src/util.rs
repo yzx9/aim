@@ -21,7 +21,9 @@ pub fn parse_datetime(now: &Zoned, anchor: &str) -> Result<Option<LooseDateTime>
         Ok(None)
     } else {
         let anchor: DateTimeAnchor = anchor.parse()?;
-        Ok(Some(anchor.resolve_since_zoned(now)))
+        Ok(Some(anchor.resolve_since_zoned(now).map_err(|e| {
+            format!("Failed to resolve since zoned: {e}")
+        })?))
     }
 }
 
@@ -40,8 +42,12 @@ pub fn parse_datetime_range(
     } else {
         let anchor: DateTimeAnchor = end.parse()?;
         let end = match start {
-            Some(ref s) => anchor.resolve_since(s),
-            None => anchor.resolve_since_zoned(now),
+            Some(ref s) => anchor
+                .resolve_since(s)
+                .map_err(|e| format!("Failed to resolve since: {e}"))?,
+            None => anchor
+                .resolve_since_zoned(now)
+                .map_err(|e| format!("Failed to resolve since zoned: {e}"))?,
         };
         Ok((start, Some(end)))
     }

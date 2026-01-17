@@ -147,10 +147,10 @@ fn format_due(todo: &impl Todo) -> Cow<'_, str> {
 
 fn get_color_due(todo: &impl Todo, now: &Zoned) -> Option<Color> {
     let due = todo.due()?; // Ensure due date is present
-    get_color_due_impl(due, now)
+    get_color_due_impl(&due, now)
 }
 
-fn get_color_due_impl(due: LooseDateTime, now: &Zoned) -> Option<Color> {
+fn get_color_due_impl(due: &LooseDateTime, now: &Zoned) -> Option<Color> {
     const COLOR_LONG_OVERDUE: Option<Color> = Some(Color::Red);
     const COLOR_OVERDUE: Option<Color> = Some(Color::BrightRed);
     const COLOR_COMING: Option<Color> = Some(Color::Yellow);
@@ -261,7 +261,7 @@ mod tests {
             let now = DateTime::from_parts(date, time)
                 .to_zoned(jiff::tz::TimeZone::system())
                 .unwrap();
-            let color = get_color_due_impl(due.clone(), &now);
+            let color = get_color_due_impl(&due, &now);
             assert_eq!(color, expected, "Failed for case: {title}");
         }
     }
