@@ -571,12 +571,12 @@ impl<'src> TryFrom<ParsedProperty<'src>> for PercentComplete<Segments<'src>> {
 
         let value_span = prop.value.span();
         match take_single_value(&PropertyKind::PercentComplete, prop.value) {
-            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             Ok(Value::Integer {
                 values: mut ints, ..
             }) if ints.len() == 1 => {
                 let i = ints.pop().unwrap();
                 if (0..=100).contains(&i) {
+                    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     Ok(Self {
                         value: i as u8,
                         x_parameters,

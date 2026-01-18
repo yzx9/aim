@@ -127,14 +127,14 @@ mod tests {
             let test_cases = [
                 ("19970101T180000Z/19970102T070000Z",
                  (ValueDate { year: 1997, month: 1, day: 1 },
-                  ValueTime::new(18, 0, 0, true),
+                  ValueTime::new(18, 0, 0, true).unwrap(),
                   ValueDate { year: 1997, month: 1, day: 2 },
-                  ValueTime::new(7, 0, 0, true))),
+                  ValueTime::new(7, 0, 0, true).unwrap())),
                 ("20240101T000000Z/20240101T235959Z",
                  (ValueDate { year: 2024, month: 1, day: 1 },
-                  ValueTime::new(0, 0, 0, true),
+                  ValueTime::new(0, 0, 0, true).unwrap(),
                   ValueDate { year: 2024, month: 1, day: 1 },
-                  ValueTime::new(23, 59, 59, true))),
+                  ValueTime::new(23, 59, 59, true).unwrap())),
             ];
 
             for (src, (start_date, start_time, end_date, end_time)) in test_cases {
@@ -157,19 +157,19 @@ mod tests {
             let test_cases: [(&str, (ValueDate, ValueTime, ValueDuration)); 4] = [
                 ("19970101T180000Z/PT5H30M",
                  (ValueDate { year: 1997, month: 1, day: 1 },
-                  ValueTime::new(18, 0, 0, true),
+                  ValueTime::new(18, 0, 0, true).unwrap(),
                   DateTime { positive: true, day: 0, hour: 5, minute: 30, second: 0 })),
                 ("19970101T180000Z/P1D",
                  (ValueDate { year: 1997, month: 1, day: 1 },
-                  ValueTime::new(18, 0, 0, true),
+                  ValueTime::new(18, 0, 0, true).unwrap(),
                   DateTime { positive: true, day: 1, hour: 0, minute: 0, second: 0 })),
                 ("20240101T120000/PT2H30M",
                  (ValueDate { year: 2024, month: 1, day: 1 },
-                  ValueTime::new(12, 0, 0, false),
+                  ValueTime::new(12, 0, 0, false).unwrap(),
                   DateTime { positive: true, day: 0, hour: 2, minute: 30, second: 0 })),
                 ("20240101T000000Z/P2W",
                  (ValueDate { year: 2024, month: 1, day: 1 },
-                  ValueTime::new(0, 0, 0, true),
+                  ValueTime::new(0, 0, 0, true).unwrap(),
                   Week { positive: true, week: 2 })),
             ];
 

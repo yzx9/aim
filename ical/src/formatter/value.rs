@@ -417,12 +417,12 @@ mod tests {
 
     #[test]
     fn test_format_time() {
-        let time = ValueTime::new(13, 30, 0, false);
+        let time = ValueTime::new(13, 30, 0, false).unwrap();
         let mut buffer = Vec::new();
         write_time(&mut buffer, &time).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "133000");
 
-        let time_utc = ValueTime::new(7, 0, 0, true);
+        let time_utc = ValueTime::new(7, 0, 0, true).unwrap();
         let mut buffer = Vec::new();
         write_time(&mut buffer, &time_utc).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "070000Z");

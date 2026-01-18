@@ -77,10 +77,7 @@ impl DateTimeAnchor {
                 .map_err(|e| format!("Failed to convert to zoned: {e}")),
             DateTimeAnchor::Time(t) => now
                 .with()
-                .hour(t.hour())
-                .minute(t.minute())
-                .second(t.second())
-                .subsec_nanosecond(t.subsec_nanosecond())
+                .time(*t)
                 .build()
                 .map_err(|e| format!("Failed to build zoned: {e}")),
         }
@@ -109,10 +106,7 @@ impl DateTimeAnchor {
                 .map_err(|e| format!("Failed to convert to zoned: {e}")),
             DateTimeAnchor::Time(t) => now
                 .with()
-                .hour(t.hour())
-                .minute(t.minute())
-                .second(t.second())
-                .subsec_nanosecond(t.subsec_nanosecond())
+                .time(*t)
                 .build()
                 .map_err(|e| format!("Failed to build zoned: {e}")),
         }
@@ -319,8 +313,8 @@ fn next_suggested_time(now: &civil::DateTime) -> LooseDateTime {
     let current_hour = now.hour();
     for &hour in &HOURS {
         if current_hour < hour {
-            let dt =
-                civil::DateTime::new(date.year(), date.month(), date.day(), hour, 0, 0, 0).unwrap();
+            let time = time(hour, 0, 0, 0);
+            let dt = civil::DateTime::from_parts(date, time);
             return LooseDateTime::from_local_datetime(dt);
         }
     }
@@ -329,8 +323,8 @@ fn next_suggested_time(now: &civil::DateTime) -> LooseDateTime {
 }
 
 fn first_suggested_time(date: Date) -> LooseDateTime {
-    let dt =
-        civil::DateTime::new(date.year(), date.month(), date.day(), HOURS[0], 0, 0, 0).unwrap();
+    let time = time(HOURS[0], 0, 0, 0);
+    let dt = civil::DateTime::from_parts(date, time);
     LooseDateTime::from_local_datetime(dt)
 }
 

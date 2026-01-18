@@ -112,6 +112,8 @@ pub(crate) enum ValueExpected {
     MismatchedTimezone,
     /// FREQ rule part is required in recurrence rule
     RRuleRequiredFreq,
+    /// A time value was expected
+    Time,
     /// UNTIL and COUNT are mutually exclusive in recurrence rule
     RRuleCountUntilExclusion,
     /// RRULE part must not occur more than once
@@ -138,6 +140,7 @@ impl From<ValueExpected> for RichPattern<'_, char> {
             ValueExpected::RRuleDuplicatePart => {
                 Self::Label(Cow::Borrowed("RRULE part must not occur more than once"))
             }
+            ValueExpected::Time => Self::Label(Cow::Borrowed("invalid time")),
         }
     }
 }
@@ -168,6 +171,7 @@ define_digit_select!(u8_1_9 : u8 => { '1', '2', '3', '4', '5', '6', '7', '8', '9
 define_digit_select!(i8_0_1 : i8 => { '0', '1' });
 define_digit_select!(i8_0_2 : i8 => { '0', '1', '2' });
 define_digit_select!(i8_0_3 : i8 => { '0', '1', '2', '3' });
+define_digit_select!(i8_0_5 : i8 => { '0', '1', '2', '3', '4', '5' });
 define_digit_select!(i8_0_9 : i8 => { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
 define_digit_select!(i8_1_2 : i8 => { '1', '2' });
 define_digit_select!(i8_1_4 : i8 => { '1', '2', '3', '4' });

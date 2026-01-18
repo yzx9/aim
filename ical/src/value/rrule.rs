@@ -511,7 +511,12 @@ where
     // PERF: Could be optimized to avoid backtracking
     choice((
         value_date_time(),
-        value_date().map(|date| ValueDateTime::new(date, ValueTime::new(0, 0, 0, false))),
+        value_date().try_map(|date, span| {
+            // Should always succeed as date is already validated
+            let time = ValueTime::new(0, 0, 0, false)
+                .map_err(|_| E::Error::expected_found([ValueExpected::Time], None, span))?;
+            Ok(ValueDateTime::new(date, time))
+        }),
     ))
 }
 

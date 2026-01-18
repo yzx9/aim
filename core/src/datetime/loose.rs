@@ -5,7 +5,7 @@
 use std::ops::Add;
 
 use aimcal_ical as ical;
-use aimcal_ical::{Segments, Time, ValueDate};
+use aimcal_ical::Segments;
 use jiff::civil::{self, Date, DateTime};
 use jiff::tz::TimeZone;
 use jiff::{Span, Zoned};
@@ -20,10 +20,8 @@ use crate::datetime::util::{
 pub enum LooseDateTime {
     /// Date only without time.
     DateOnly(Date),
-
     /// Floating date and time without timezone.
     Floating(DateTime),
-
     /// Local date and time with timezone.
     /// NOTE: This is always in the local timezone of the system running the code.
     Local(Zoned),
@@ -173,9 +171,7 @@ impl From<ical::DateTime<Segments<'_>>> for LooseDateTime {
                     }
                 }
             }
-            ical::DateTime::Date { date, .. } => {
-                LooseDateTime::DateOnly(Date::new(date.year, date.month, date.day).unwrap())
-            }
+            ical::DateTime::Date { date, .. } => LooseDateTime::DateOnly(date.into()),
         }
     }
 }
@@ -209,9 +205,7 @@ impl From<ical::DateTime<String>> for LooseDateTime {
                     }
                 }
             }
-            ical::DateTime::Date { date, .. } => {
-                LooseDateTime::DateOnly(Date::new(date.year, date.month, date.day).unwrap())
-            }
+            ical::DateTime::Date { date, .. } => LooseDateTime::DateOnly(date.into()),
         }
     }
 }
@@ -221,52 +215,38 @@ impl From<LooseDateTime> for ical::DateTime<String> {
     fn from(dt: LooseDateTime) -> Self {
         match dt {
             LooseDateTime::DateOnly(d) => ical::DateTime::Date {
-                date: ValueDate {
-                    year: d.year(),
-                    month: d.month(),
-                    day: d.day(),
-                },
+                date: d.into(),
                 x_parameters: Vec::new(),
                 retained_parameters: Vec::new(),
             },
-            LooseDateTime::Floating(civil_dt) => {
-                let time = Time::new(
-                    civil_dt.hour() as u8,
-                    civil_dt.minute() as u8,
-                    civil_dt.second() as u8,
-                )
-                .expect("time values should be valid");
-                ical::DateTime::Floating {
-                    date: ValueDate {
-                        year: civil_dt.year(),
-                        month: civil_dt.month(),
-                        day: civil_dt.day(),
-                    },
-                    time,
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
-                }
-            }
+            LooseDateTime::Floating(dt) => ical::DateTime::Floating {
+                date: dt.date().into(),
+                time: dt.time().into(),
+                x_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
+            },
             LooseDateTime::Local(zoned) => {
-                // Convert to UTC for iCalendar output
-                let utc_dt = zoned.with_time_zone(TimeZone::UTC);
-                let time = Time::new(
-                    utc_dt.hour() as u8,
-                    utc_dt.minute() as u8,
-                    utc_dt.second() as u8,
-                )
-                .expect("time values should be valid");
-
-                // TODO: Use Zoned if timezone info is needed
-                ical::DateTime::Utc {
-                    date: ValueDate {
-                        year: utc_dt.year(),
-                        month: utc_dt.month(),
-                        day: utc_dt.day(),
-                    },
-                    time,
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
+                let tz = zoned.time_zone();
+                if *tz != TimeZone::UTC
+                    && let Some(tz_name) = tz.iana_name()
+                {
+                    ical::DateTime::Zoned {
+                        date: zoned.date().into(),
+                        time: zoned.time().into(),
+                        tz_id: tz_name.to_string(),
+                        tz_jiff: zoned.time_zone().clone(),
+                        x_parameters: Vec::new(),
+                        retained_parameters: Vec::new(),
+                    }
+                } else {
+                    // Conveto UTC for iCalendar output
+                    let utc_dt = zoned.with_time_zone(TimeZone::UTC);
+                    ical::DateTime::Utc {
+                        date: utc_dt.date().into(),
+                        time: utc_dt.time().into(),
+                        x_parameters: Vec::new(),
+                        retained_parameters: Vec::new(),
+                    }
                 }
             }
         }

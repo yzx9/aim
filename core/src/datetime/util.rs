@@ -14,13 +14,10 @@ pub const STABLE_FORMAT_LOCAL: &str = "%Y-%m-%dT%H:%M:%S%z";
 pub enum RangePosition {
     /// The date is before the start of the range.
     Before,
-
     /// The date is within the range.
     InRange,
-
     /// The date is after the start of the range.
     After,
-
     /// The range is invalid, e.g., start date is after end date.
     InvalidRange,
 }

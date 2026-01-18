@@ -220,6 +220,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<Segments<'src>> {
                         tz_jiff = Some(tz);
                     }
                 }
+
                 Parameter::XName(raw) => x_parameters.push(raw),
                 p @ Parameter::Unrecognized { .. } => retained_parameters.push(p),
                 p => {
@@ -380,14 +381,11 @@ impl DateTime<Segments<'_>> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Time {
     /// Hour component (0-23)
-    pub hour: u8,
-
+    pub hour: i8,
     /// Minute component (0-59)
-    pub minute: u8,
-
+    pub minute: i8,
     /// Second component (0-60)
-    pub second: u8,
-
+    pub second: i8,
     /// Cached `jiff::civil::Time` representation
     #[cfg(feature = "jiff")]
     pub(crate) jiff: jiff::civil::Time,
@@ -398,17 +396,16 @@ impl Time {
     ///
     /// # Errors
     /// If hour, minute, or second are out of valid ranges.
-    #[expect(clippy::cast_possible_wrap)]
-    pub fn new(hour: u8, minute: u8, second: u8) -> Result<Self, String> {
+    pub fn new(hour: i8, minute: i8, second: i8) -> Result<Self, String> {
         Ok(Time {
             hour,
             minute,
             second,
             #[cfg(feature = "jiff")]
             jiff: jiff::civil::Time::new(
-                hour as i8,
-                minute as i8,
-                second.min(59) as i8, // NOTE: we clamp second to 59 here because jiff does not support leap seconds
+                hour,
+                minute,
+                second.min(59), // NOTE: we clamp second to 59 here because jiff does not support leap seconds
                 0,
             )
             .map_err(|e| e.to_string())?,
@@ -431,6 +428,18 @@ impl From<ValueTime> for Time {
             second: value.second,
             #[cfg(feature = "jiff")]
             jiff: value.jiff,
+        }
+    }
+}
+
+#[cfg(feature = "jiff")]
+impl From<jiff::civil::Time> for Time {
+    fn from(value: jiff::civil::Time) -> Self {
+        Time {
+            hour: value.hour(),
+            minute: value.minute(),
+            second: value.second(),
+            jiff: value,
         }
     }
 }
@@ -610,7 +619,6 @@ impl<S: StringStorage> Period<S> {
     ///
     /// For duration-based periods, calculates the end by adding the duration to the start.
     #[cfg(feature = "jiff")]
-    #[expect(clippy::missing_panics_doc, clippy::too_many_lines)]
     #[must_use]
     pub fn end(&self) -> DateTime<S> {
         match self {
@@ -656,15 +664,8 @@ impl<S: StringStorage> Period<S> {
                 );
                 let end = add_duration(start, duration);
                 DateTime::Utc {
-                    date: ValueDate {
-                        year: end.year(),
-                        month: end.month(),
-                        day: end.day(),
-                    },
-                    #[expect(clippy::cast_sign_loss)]
-                    time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
-                        .map_err(|e| format!("invalid time: {e}"))
-                        .unwrap(), // SAFETY: hour, minute, second are within valid ranges
+                    date: end.date().into(),
+                    time: end.time().into(),
                     x_parameters: Vec::new(),
                     retained_parameters: Vec::new(),
                 }
@@ -681,15 +682,8 @@ impl<S: StringStorage> Period<S> {
                 );
                 let end = add_duration(start, duration);
                 DateTime::Floating {
-                    date: ValueDate {
-                        year: end.year(),
-                        month: end.month(),
-                        day: end.day(),
-                    },
-                    #[expect(clippy::cast_sign_loss)]
-                    time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
-                        .map_err(|e| format!("invalid time: {e}"))
-                        .unwrap(), // SAFETY: hour, minute, second are within valid ranges
+                    date: end.date().into(),
+                    time: end.time().into(),
                     x_parameters: Vec::new(),
                     retained_parameters: Vec::new(),
                 }
@@ -707,14 +701,8 @@ impl<S: StringStorage> Period<S> {
                 );
                 let end = add_duration(start, duration);
                 DateTime::Zoned {
-                    date: ValueDate {
-                        year: end.year(),
-                        month: end.month(),
-                        day: end.day(),
-                    },
-                    #[expect(clippy::cast_sign_loss)]
-                    time: Time::new(end.hour() as u8, end.minute() as u8, end.second() as u8)
-                        .expect("invalid time"),
+                    date: end.date().into(),
+                    time: end.time().into(),
                     tz_id: tz_id.clone(),
                     tz_jiff: tz_jiff.clone(),
                     x_parameters: Vec::new(),

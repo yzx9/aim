@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- ical: `ValueTime::new()` now returns `Result<Self, String>` instead of `Self` for proper validation
+- ical: `ValueTime`, `ValueUtcOffset` and `property::Time` fields changed from `u8` to `i8`
+
 ## [0.11.0] - 2026-01-18
 
 ### Added

@@ -55,29 +55,11 @@ impl Todo for VTodo<String> {
         #[allow(clippy::cast_possible_wrap)]
         self.completed.as_ref().and_then(|c| match &**c {
             ical::DateTime::Utc { date, time, .. } => {
-                let civil_dt = civil::DateTime::new(
-                    date.year,
-                    date.month,
-                    date.day,
-                    time.hour as i8,
-                    time.minute as i8,
-                    time.second as i8,
-                    0,
-                )
-                .unwrap();
+                let civil_dt = civil::DateTime::from_parts(date.civil_date(), time.civil_time());
                 Some(civil_dt.to_zoned(TimeZone::UTC).unwrap())
             }
             ical::DateTime::Floating { date, time, .. } => {
-                let civil_dt = civil::DateTime::new(
-                    date.year,
-                    date.month,
-                    date.day,
-                    time.hour as i8,
-                    time.minute as i8,
-                    time.second as i8,
-                    0,
-                )
-                .unwrap();
+                let civil_dt = civil::DateTime::from_parts(date.civil_date(), time.civil_time());
                 // Try to interpret in system timezone
                 match civil_dt.to_zoned(TimeZone::system()) {
                     Ok(zoned) => Some(zoned),
@@ -88,23 +70,14 @@ impl Todo for VTodo<String> {
                 }
             }
             ical::DateTime::Zoned {
-                date, time, tz_id, ..
-            } => {
-                let civil_dt = civil::DateTime::new(
-                    date.year,
-                    date.month,
-                    date.day,
-                    time.hour as i8,
-                    time.minute as i8,
-                    time.second as i8,
-                    0,
-                )
-                .unwrap();
-                TimeZone::get(tz_id.as_str())
-                    .ok()
-                    .and_then(|tz| civil_dt.to_zoned(tz).ok())
-            }
-            ical::DateTime::Date { .. } => None,
+                date,
+                time,
+                tz_jiff,
+                ..
+            } => civil::DateTime::from_parts(date.civil_date(), time.civil_time())
+                .to_zoned(tz_jiff.clone())
+                .ok(),
+            ical::DateTime::Date { .. } => None, // TODO: how to handle date-only?
         })
     }
 
