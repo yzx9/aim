@@ -180,9 +180,18 @@ pub struct ResolvedEventDraft<'a> {
 impl ResolvedEventDraft<'_> {
     /// Converts the draft into an aimcal-ical `VEvent` component.
     pub(crate) fn into_ics(self, uid: &str) -> VEvent<String> {
+        // Convert to UTC for DTSTAMP (required by RFC 5545)
+        let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
+        let dt_stamp = ical::DtStamp::new(ical::DateTimeUtc {
+            date: utc_now.date().into(),
+            time: utc_now.time().into(),
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+        });
+
         VEvent {
-            uid: Uid::new(uid.to_string()),
-            dt_stamp: DtStamp::new(ical::DateTime::from(LooseDateTime::Local(self.now.clone()))),
+            uid: ical::Uid::new(uid.to_string()),
+            dt_stamp,
             dt_start: DtStart::new(self.start.into()),
             dt_end: Some(DtEnd::new(self.end.into())),
             duration: None,
@@ -295,7 +304,13 @@ impl ResolvedEventPatch<'_> {
 
         // Set the creation time to now if it is not already set
         if e.dt_stamp.inner.date().year == 1970 {
-            e.dt_stamp = DtStamp::new(ical::DateTime::from(LooseDateTime::Local(self.now.clone())));
+            let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
+            e.dt_stamp = DtStamp::new(ical::DateTimeUtc {
+                date: utc_now.date().into(),
+                time: utc_now.time().into(),
+                x_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
+            });
         }
 
         e

@@ -810,3 +810,129 @@ END:VEVENT\r
     let result = parse_typed(src);
     assert!(result.is_ok());
 }
+
+// UTC-Required Properties Tests (RFC 5545 Compliance)
+// These properties MUST be specified in UTC time format
+
+#[test]
+fn typed_dtstamp_requires_utc() {
+    // UTC time should be accepted
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+DTSTAMP:20250101T120000Z\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_ok());
+
+    // Floating time should be rejected
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+DTSTAMP:20250101T120000\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(errors.iter().any(|e| matches!(
+        e,
+        TypedError::PropertyInvalidValue { value, .. }
+        if value.contains("Floating time not allowed")
+    )));
+
+    // Zoned time should be rejected
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+DTSTAMP;TZID=America/New_York:20250101T120000\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(errors.iter().any(|e| matches!(
+        e,
+        TypedError::PropertyInvalidValue { value, .. }
+        if value.contains("Timezone reference not allowed")
+    )));
+
+    // Date-only should be rejected
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+DTSTAMP;VALUE=DATE:20250101\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_err());
+}
+
+#[test]
+fn typed_created_requires_utc() {
+    // UTC time should be accepted
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+CREATED:20250101T120000Z\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_ok());
+
+    // Floating time should be rejected
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+CREATED:20250101T120000\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_err());
+}
+
+#[test]
+fn typed_last_modified_requires_utc() {
+    // UTC time should be accepted
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+LAST-MODIFIED:20250101T120000Z\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_ok());
+
+    // Floating time should be rejected
+    let src = "BEGIN:VEVENT\r
+DTSTART:20250101T120000Z\r
+LAST-MODIFIED:20250101T120000\r
+END:VEVENT\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_err());
+}
+
+#[test]
+fn typed_completed_requires_utc() {
+    // UTC time should be accepted
+    let src = "BEGIN:VTODO\r
+DTSTART:20250101T120000Z\r
+COMPLETED:20250101T120000Z\r
+END:VTODO\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_ok());
+
+    // Floating time should be rejected
+    let src = "BEGIN:VTODO\r
+DTSTART:20250101T120000Z\r
+COMPLETED:20250101T120000\r
+END:VTODO\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_err());
+
+    // Zoned time should be rejected
+    let src = "BEGIN:VTODO\r
+DTSTART:20250101T120000Z\r
+COMPLETED;TZID=America/New_York:20250101T120000\r
+END:VTODO\r
+";
+    let result = parse_typed(src);
+    assert!(result.is_err());
+}

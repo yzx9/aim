@@ -148,8 +148,9 @@ impl From<ical::DateTime<Segments<'_>>> for LooseDateTime {
                 let civil_dt = DateTime::from_parts(date.civil_date(), time.civil_time());
                 LooseDateTime::Floating(civil_dt)
             }
-            ical::DateTime::Utc { date, time, .. } => {
-                let civil_dt = DateTime::from_parts(date.civil_date(), time.civil_time());
+            ical::DateTime::Utc(inner) => {
+                let civil_dt =
+                    DateTime::from_parts(inner.date.civil_date(), inner.time.civil_time());
                 LooseDateTime::Local(civil_dt.to_zoned(TimeZone::UTC).unwrap())
             }
             ical::DateTime::Zoned {
@@ -183,8 +184,9 @@ impl From<ical::DateTime<String>> for LooseDateTime {
                 let civil_dt = DateTime::from_parts(date.civil_date(), time.civil_time());
                 LooseDateTime::Floating(civil_dt)
             }
-            ical::DateTime::Utc { date, time, .. } => {
-                let civil_dt = DateTime::from_parts(date.civil_date(), time.civil_time());
+            ical::DateTime::Utc(inner) => {
+                let civil_dt =
+                    DateTime::from_parts(inner.date.civil_date(), inner.time.civil_time());
                 LooseDateTime::Local(civil_dt.to_zoned(TimeZone::UTC).unwrap())
             }
             ical::DateTime::Zoned {
@@ -241,12 +243,12 @@ impl From<LooseDateTime> for ical::DateTime<String> {
                 } else {
                     // Conveto UTC for iCalendar output
                     let utc_dt = zoned.with_time_zone(TimeZone::UTC);
-                    ical::DateTime::Utc {
+                    ical::DateTime::Utc(ical::DateTimeUtc {
                         date: utc_dt.date().into(),
                         time: utc_dt.time().into(),
                         x_parameters: Vec::new(),
                         retained_parameters: Vec::new(),
-                    }
+                    })
                 }
             }
         }

@@ -52,33 +52,7 @@ impl Todo for VTodo<String> {
     }
 
     fn completed(&self) -> Option<Zoned> {
-        #[allow(clippy::cast_possible_wrap)]
-        self.completed.as_ref().and_then(|c| match &**c {
-            ical::DateTime::Utc { date, time, .. } => {
-                let civil_dt = civil::DateTime::from_parts(date.civil_date(), time.civil_time());
-                Some(civil_dt.to_zoned(TimeZone::UTC).unwrap())
-            }
-            ical::DateTime::Floating { date, time, .. } => {
-                let civil_dt = civil::DateTime::from_parts(date.civil_date(), time.civil_time());
-                // Try to interpret in system timezone
-                match civil_dt.to_zoned(TimeZone::system()) {
-                    Ok(zoned) => Some(zoned),
-                    Err(_) => {
-                        tracing::warn!("invalid local time, using UTC");
-                        Some(civil_dt.to_zoned(TimeZone::UTC).unwrap())
-                    }
-                }
-            }
-            ical::DateTime::Zoned {
-                date,
-                time,
-                tz_jiff,
-                ..
-            } => civil::DateTime::from_parts(date.civil_date(), time.civil_time())
-                .to_zoned(tz_jiff.clone())
-                .ok(),
-            ical::DateTime::Date { .. } => None, // TODO: how to handle date-only?
-        })
+        self.completed.as_ref().and_then(|c| Some(c.inner.zoned()))
     }
 
     fn description(&self) -> Option<Cow<'_, str>> {
@@ -197,9 +171,18 @@ pub struct ResolvedTodoDraft<'a> {
 impl ResolvedTodoDraft<'_> {
     /// Converts the draft into an aimcal-ical `VTodo` component.
     pub(crate) fn into_ics(self, uid: &str) -> VTodo<String> {
+        // Convert to UTC for DTSTAMP (required by RFC 5545)
+        let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
+        let dt_stamp = ical::DtStamp::new(ical::DateTimeUtc {
+            date: utc_now.date().into(),
+            time: utc_now.time().into(),
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+        });
+
         VTodo {
             uid: Uid::new(uid.to_string()),
-            dt_stamp: DtStamp::new(ical::DateTime::from(LooseDateTime::Local(self.now.clone()))),
+            dt_stamp,
             dt_start: None,
             due: self.due.map(|d| Due::new(d.into())),
             completed: None,
@@ -327,9 +310,13 @@ impl ResolvedTodoPatch<'_> {
 
             // Handle COMPLETED property
             if status == TodoStatus::Completed && t.completed.is_none() {
-                t.completed = Some(Completed::new(ical::DateTime::from(LooseDateTime::Local(
-                    self.now.clone(),
-                ))));
+                let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
+                t.completed = Some(Completed::new(ical::DateTimeUtc {
+                    date: utc_now.date().into(),
+                    time: utc_now.time().into(),
+                    x_parameters: Vec::new(),
+                    retained_parameters: Vec::new(),
+                }));
             } else if status != TodoStatus::Completed {
                 t.completed = None;
             }
@@ -341,7 +328,13 @@ impl ResolvedTodoPatch<'_> {
 
         // Set the creation time to now if it is not already set
         if t.dt_stamp.inner.date().year == 1970 {
-            t.dt_stamp = DtStamp::new(ical::DateTime::from(LooseDateTime::Local(self.now.clone())));
+            let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
+            t.dt_stamp = DtStamp::new(ical::DateTimeUtc {
+                date: utc_now.date().into(),
+                time: utc_now.time().into(),
+                x_parameters: Vec::new(),
+                retained_parameters: Vec::new(),
+            });
         }
 
         t

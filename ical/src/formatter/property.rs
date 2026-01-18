@@ -35,11 +35,11 @@ use crate::keyword::{
 use crate::parameter::Parameter;
 use crate::property::{
     Action, Attachment, AttachmentValue, Attendee, CalendarScale, Categories, Classification,
-    Comment, Completed, Contact, Created, DateTime, Description, DtEnd, DtStamp, DtStart, Due,
-    Duration, ExDate, ExDateValue, FreeBusy, Geo, LastModified, Location, Method, Organizer,
-    PercentComplete, Period, Priority, ProductId, Property, RDate, RDateValue, RRule, RecurrenceId,
-    RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status, Summary, Time, TimeTransparency,
-    Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid,
+    Comment, Completed, Contact, Created, DateTime, DateTimeUtc, Description, DtEnd, DtStamp,
+    DtStart, Due, Duration, ExDate, ExDateValue, FreeBusy, Geo, LastModified, Location, Method,
+    Organizer, PercentComplete, Period, Priority, ProductId, Property, RDate, RDateValue, RRule,
+    RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status, Summary, Time,
+    TimeTransparency, Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid,
     UnrecognizedProperty, UriProperty, Url, Version, XNameProperty,
 };
 use crate::string_storage::StringStorage;
@@ -539,7 +539,7 @@ pub fn write_prop_dtstamp<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &DtStamp<S>,
 ) -> io::Result<()> {
-    write_datetime(f, KW_DTSTAMP, &prop.inner)?;
+    write_datetime_utc(f, KW_DTSTAMP, &prop.inner)?;
     f.writeln()
 }
 
@@ -548,7 +548,7 @@ pub fn write_prop_created<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &Created<S>,
 ) -> io::Result<()> {
-    write_datetime(f, KW_CREATED, &prop.inner)?;
+    write_datetime_utc(f, KW_CREATED, &prop.inner)?;
     f.writeln()
 }
 
@@ -557,7 +557,7 @@ pub fn write_prop_last_modified<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &LastModified<S>,
 ) -> io::Result<()> {
-    write_datetime(f, KW_LAST_MODIFIED, &prop.inner)?;
+    write_datetime_utc(f, KW_LAST_MODIFIED, &prop.inner)?;
     f.writeln()
 }
 
@@ -566,7 +566,7 @@ pub fn write_prop_completed<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &Completed<S>,
 ) -> io::Result<()> {
-    write_datetime(f, KW_COMPLETED, &prop.inner)?;
+    write_datetime_utc(f, KW_COMPLETED, &prop.inner)?;
     f.writeln()
 }
 
@@ -1026,17 +1026,13 @@ fn write_datetime<S: StringStorage>(
 ) -> io::Result<()> {
     // Collect all parameters using a helper
     let (x_params, retained_params) = match datetime {
+        DateTime::Utc(inner) => (&inner.x_parameters, &inner.retained_parameters),
         DateTime::Floating {
             x_parameters,
             retained_parameters,
             ..
         }
         | DateTime::Zoned {
-            x_parameters,
-            retained_parameters,
-            ..
-        }
-        | DateTime::Utc {
             x_parameters,
             retained_parameters,
             ..
@@ -1071,13 +1067,44 @@ fn write_datetime_value<S: StringStorage>(
             write!(f, "T")?;
             write_time(f, time, false)
         }
-        DateTime::Utc { date, time, .. } => {
-            write_date(f, *date)?;
+        DateTime::Utc(inner) => {
+            write_date(f, inner.date)?;
             write!(f, "T")?;
-            write_time(f, time, true)
+            write_time(f, &inner.time, true)
         }
         DateTime::Date { date, .. } => write_date(f, *date),
     }
+}
+
+/// Write a `DateTimeUtc` property.
+fn write_datetime_utc<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
+    name: &str,
+    datetime: &DateTimeUtc<S>,
+) -> io::Result<()> {
+    // Collect all parameters
+    let (x_params, retained_params) = (&datetime.x_parameters, &datetime.retained_parameters);
+
+    // Write: NAME;params:value
+    write!(f, "{name}")?;
+    write_syntax_parameters(f, x_params)?;
+    write_parameters(f, retained_params)?;
+
+    // Write the value
+    write!(f, ":")?;
+    write_datetime_utc_value(f, datetime)
+}
+
+/// Write a `DateTimeUtc` value (without property name or params).
+///
+/// DateTimeUtc always formats as UTC time with 'Z' suffix.
+fn write_datetime_utc_value<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
+    datetime: &DateTimeUtc<S>,
+) -> io::Result<()> {
+    write_date(f, datetime.date)?;
+    write!(f, "T")?;
+    write_time(f, &datetime.time, true)
 }
 
 /// Format a `property::datetime::Time` value as `HHMMSS[Z]`.

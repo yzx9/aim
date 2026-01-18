@@ -17,7 +17,7 @@ use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
 use crate::property::common::take_single_value;
-use crate::property::{DateTime, PropertyKind};
+use crate::property::{DateTimeUtc, PropertyKind};
 use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
@@ -25,13 +25,15 @@ use crate::value::Value;
 
 simple_property_wrapper!(
     /// Created property wrapper (RFC 5545 Section 3.8.7.1)
-    pub Created<S> => DateTime
+    ///
+    /// This property MUST be specified in UTC time format.
+    pub Created<S> => DateTimeUtc
 );
 
 impl Created<String> {
-    /// Create a new `Created<String>` from a `DateTime` value.
+    /// Create a new `Created<String>` from a `DateTimeUtc` value.
     #[must_use]
-    pub fn new(value: DateTime<String>) -> Self {
+    pub fn new(value: DateTimeUtc<String>) -> Self {
         Self {
             inner: value,
             span: (),
@@ -41,13 +43,15 @@ impl Created<String> {
 
 simple_property_wrapper!(
     /// Date-Time Stamp property wrapper (RFC 5545 Section 3.8.7.2)
-    pub DtStamp<S> => DateTime
+    ///
+    /// This property MUST be specified in UTC time format.
+    pub DtStamp<S> => DateTimeUtc
 );
 
 impl DtStamp<String> {
-    /// Create a new `DtStamp<String>` from a `DateTime` value.
+    /// Create a new `DtStamp<String>` from a `DateTimeUtc` value.
     #[must_use]
-    pub fn new(value: DateTime<String>) -> Self {
+    pub fn new(value: DateTimeUtc<String>) -> Self {
         Self {
             inner: value,
             span: (),
@@ -57,13 +61,15 @@ impl DtStamp<String> {
 
 simple_property_wrapper!(
     /// Last Modified property wrapper (RFC 5545 Section 3.8.7.3)
-    pub LastModified<S> => DateTime
+    ///
+    /// This property MUST be specified in UTC time format.
+    pub LastModified<S> => DateTimeUtc
 );
 
 impl LastModified<String> {
-    /// Create a new `LastModified<String>` from a `DateTime` value.
+    /// Create a new `LastModified<String>` from a `DateTimeUtc` value.
     #[must_use]
-    pub fn new(value: DateTime<String>) -> Self {
+    pub fn new(value: DateTimeUtc<String>) -> Self {
         Self {
             inner: value,
             span: (),

@@ -45,13 +45,13 @@ pub use crate::parser::{ParseError, parse};
 pub use crate::property::{
     Action, ActionValue, Attachment, AttachmentValue, Attendee, CalendarScale, CalendarScaleValue,
     Categories, Classification, ClassificationValue, Comment, Completed, Contact, Created,
-    DateTime, Description, DtEnd, DtStamp, DtStart, Due, Duration, ExDate, ExDateValue, FreeBusy,
-    Geo, LastModified, Location, Method, MethodValue, Organizer, PercentComplete, Period, Priority,
-    ProductId, Property, PropertyKind, RDateValue, RecurrenceId, RelatedTo, Repeat, RequestStatus,
-    Resources, Sequence, Status, StatusValue, Summary, Text, TextOnly, TextWithLanguage, Time,
-    TimeTransparency, TimeTransparencyValue, Trigger, TriggerValue, TzId, TzName, TzOffsetFrom,
-    TzOffsetTo, TzUrl, Uid, UnrecognizedProperty, UriProperty, Url, Version, VersionValue,
-    XNameProperty,
+    DateTime, DateTimeUtc, Description, DtEnd, DtStamp, DtStart, Due, Duration, ExDate,
+    ExDateValue, FreeBusy, Geo, LastModified, Location, Method, MethodValue, Organizer,
+    PercentComplete, Period, Priority, ProductId, Property, PropertyKind, RDateValue, RecurrenceId,
+    RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status, StatusValue, Summary, Text,
+    TextOnly, TextWithLanguage, Time, TimeTransparency, TimeTransparencyValue, Trigger,
+    TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid, UnrecognizedProperty,
+    UriProperty, Url, Version, VersionValue, XNameProperty,
 };
 pub use crate::semantic::{
     CalendarComponent, EventStatus, EventStatusValue, ICalendar, JournalStatus, TimeZoneObservance,
