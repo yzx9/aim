@@ -7,6 +7,10 @@ default:
 test:
   cargo test --workspace --all-features
 
+# Run ignored tests for the project
+test-ignored:
+  cargo test --workspace --all-features -- --ignored
+
 # Run clippy to check for linting issues
 lint:
   cargo clippy --workspace --all-targets --all-features -- -D warnings

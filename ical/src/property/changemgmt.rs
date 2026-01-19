@@ -107,7 +107,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Sequence<Segments<'src>> {
                     }]);
                 }
 
-                #[allow(clippy::cast_sign_loss)]
+                #[expect(clippy::cast_sign_loss)]
                 Ok(Self {
                     value: value as u32, // SAFETY: i < i32::MAX < u32::MAX
                     x_parameters,

@@ -15,8 +15,9 @@ logic, data persistence, and user interface.
 aim/
 ├── .github/        # GitHub configurations, including CI/CD workflows and dependabot
 ├── aimcal/         # Public API facade
-├── core/           # Core business logic
 ├── cli/            # Command-line interface
+├── core/           # Core business logic
+├── caldav/         # CalDAV client
 ├── ical/           # iCalendar parser
 ├── docs/           # Documentation
 ├── Cargo.toml      # Workspace configuration
@@ -48,6 +49,8 @@ aim/
 - Configuration management
 - Short ID mapping
 
+**caldav** - CalDAV (RFC 4791) client with WebDAV (RFC 4918) support
+
 **ical** - iCalendar (RFC 5545) parser and formatter with:
 
 - Three-phase parsing pipeline (syntax → typed → semantic)
@@ -73,7 +76,7 @@ aim/
 - **Modularity**: Clear separation between layers
 - **Async/Await**: Full async support throughout
 - **Type Safety**: Leverage Rust's type system
-- **RFC Compliance**: Adherence to iCalendar RFC 5545
+- **RFC Compliance**: Adherence to iCalendar RFC 5545, CalDAV RFC 4791, and WebDAV RFC 4918
 
 ## Additional Resources
 

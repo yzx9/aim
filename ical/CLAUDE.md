@@ -48,7 +48,7 @@ Conversion between the two is done through the `to_owned()` method on each type.
 ical/
 ├── Cargo.toml
 ├── CLAUDE.md
-├── RFC5545.txt     # If you have questions, check the RFC first and use search—it's very long
+├── RFC5545.txt # Internet Calendaring and Scheduling Core Object Specification (iCalendar)
 ├── src/
 │   ├── lib.rs              # Public API exports
 │   ├── keyword.rs          # RFC 5545 keyword constants

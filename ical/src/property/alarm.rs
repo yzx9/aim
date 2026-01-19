@@ -169,7 +169,6 @@ pub struct Repeat<S: StringStorage> {
 impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
-    #[allow(clippy::cast_sign_loss)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         if !matches!(prop.kind, PropertyKind::Repeat) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
@@ -206,6 +205,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Repeat<Segments<'src>> {
             } if ints.len() == 1 => {
                 let i = ints.pop().unwrap();
                 if i >= 0 {
+                    #[expect(clippy::cast_sign_loss)]
                     Ok(Repeat {
                         value: i as u32, // SAFETY: i < i32::MAX < u32::MAX
                         x_parameters,

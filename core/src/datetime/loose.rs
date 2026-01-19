@@ -224,7 +224,6 @@ impl From<ical::DateTimeProperty<String>> for LooseDateTime {
 }
 
 impl From<LooseDateTime> for ical::DateTimeProperty<String> {
-    #[allow(clippy::cast_sign_loss)]
     fn from(dt: LooseDateTime) -> Self {
         match dt {
             LooseDateTime::DateOnly(d) => {
