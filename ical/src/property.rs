@@ -53,8 +53,8 @@ pub use calendar::{
 pub use changemgmt::{Created, DtStamp, LastModified, Sequence};
 pub use common::{Text, TextOnly, TextWithLanguage, UriProperty};
 pub use datetime::{
-    Completed, DateTime, DateTimeProperty, DateTimeUtc, DtEnd, DtStart, Due, Duration, FreeBusy,
-    Period, Time, TimeTransparency, TimeTransparencyValue,
+    Completed, Date, DateTime, DateTimeProperty, DateTimeUtc, DtEnd, DtStart, Due, Duration,
+    FreeBusy, Period, Time, TimeTransparency, TimeTransparencyValue,
 };
 pub use descriptive::{
     Attachment, AttachmentValue, Categories, Classification, ClassificationValue, Comment,

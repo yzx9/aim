@@ -19,16 +19,12 @@ pub enum ValueDuration {
     DateTime {
         /// Whether the duration is positive
         positive: bool,
-
         /// Day Duration
         day: u32,
-
         /// Hour Duration
         hour: u32,
-
         /// Minute Duration
         minute: u32,
-
         /// Second Duration
         second: u32,
     },
@@ -37,7 +33,6 @@ pub enum ValueDuration {
     Week {
         /// Whether the duration is positive
         positive: bool,
-
         /// Week Duration
         week: u32,
     },

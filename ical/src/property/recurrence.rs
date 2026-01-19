@@ -20,17 +20,17 @@
 use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
-use crate::property::{DateTime, Period, PropertyKind};
+use crate::property::{Date, DateTime, Period, PropertyKind};
 use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, ValueDate, ValueRecurrenceRule};
+use crate::value::{Value, ValueRecurrenceRule};
 
 /// Exception date-time value (can be DATE or DATE-TIME).
 #[derive(Debug, Clone)]
 pub enum ExDateValue {
     /// Date-only value
-    Date(ValueDate),
+    Date(Date),
     /// Date-time value
     DateTime(DateTime),
 }
@@ -50,7 +50,7 @@ impl ExDateValue {
 #[derive(Debug, Clone)]
 pub enum RDateValue<S: StringStorage> {
     /// Date-only value
-    Date(ValueDate),
+    Date(Date),
     /// Date-time value
     DateTime(DateTime),
     /// Period value

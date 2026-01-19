@@ -39,15 +39,19 @@ use crate::property::common::{take_single_text, take_single_value};
 use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
-use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
+use crate::value::{Value, ValueDuration, ValuePeriod, ValueTime};
 
-/// Core date-time value variants without parameters or span
+// Re-export ValueDate as Date for convenience
+/// Date representation
+pub use crate::value::ValueDate as Date;
+
+/// Core date-time value variants
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DateTime {
     /// Date and time without timezone (floating time)
     Floating {
         /// Date part
-        date: ValueDate,
+        date: Date,
         /// Time part
         time: Time,
     },
@@ -55,7 +59,7 @@ pub enum DateTime {
     /// Date and time with specific timezone
     Zoned {
         /// Date part
-        date: ValueDate,
+        date: Date,
         /// Time part
         time: Time,
         /// Cached parsed timezone (available with jiff feature)
@@ -66,19 +70,19 @@ pub enum DateTime {
     /// Date and time in UTC
     Utc {
         /// Date part
-        date: ValueDate,
+        date: Date,
         /// Time part
         time: Time,
     },
 
     /// Date-only value
-    Date(ValueDate),
+    Date(Date),
 }
 
 impl DateTime {
     /// Get the date part of this `DateTime`
     #[must_use]
-    pub const fn date(&self) -> ValueDate {
+    pub const fn date(&self) -> Date {
         match self {
             DateTime::Floating { date, .. }
             | DateTime::Zoned { date, .. }
@@ -159,7 +163,7 @@ impl<S: StringStorage> DateTimeProperty<S> {
     /// Create a new floating `DateTimeProperty` (no timezone)
     #[must_use]
     pub fn floating(
-        date: ValueDate,
+        date: Date,
         time: Time,
         x_parameters: Vec<RawParameter<S>>,
         retained_parameters: Vec<Parameter<S>>,
@@ -177,7 +181,7 @@ impl<S: StringStorage> DateTimeProperty<S> {
     /// Create a new zoned `DateTimeProperty` (with timezone)
     #[must_use]
     pub fn zoned(
-        date: ValueDate,
+        date: Date,
         time: Time,
         tz_id: S,
         #[cfg(feature = "jiff")] tz_jiff: jiff::tz::TimeZone,
@@ -202,7 +206,7 @@ impl<S: StringStorage> DateTimeProperty<S> {
     /// Create a new UTC `DateTimeProperty`
     #[must_use]
     pub fn utc(
-        date: ValueDate,
+        date: Date,
         time: Time,
         x_parameters: Vec<RawParameter<S>>,
         retained_parameters: Vec<Parameter<S>>,
@@ -220,7 +224,7 @@ impl<S: StringStorage> DateTimeProperty<S> {
     /// Create a new date-only `DateTimeProperty`
     #[must_use]
     pub fn date_only(
-        date: ValueDate,
+        date: Date,
         x_parameters: Vec<RawParameter<S>>,
         retained_parameters: Vec<Parameter<S>>,
         span: S::Span,
@@ -236,7 +240,7 @@ impl<S: StringStorage> DateTimeProperty<S> {
 
     /// Get the date part of this `DateTimeProperty`
     #[must_use]
-    pub fn date(&self) -> ValueDate {
+    pub fn date(&self) -> Date {
         self.value.date()
     }
 
@@ -868,7 +872,7 @@ fn add_duration(start: jiff::civil::DateTime, duration: &ValueDuration) -> jiff:
 #[derive(Debug, Clone)]
 pub struct DateTimeUtc<S: StringStorage> {
     /// Date part
-    pub date: ValueDate,
+    pub date: Date,
     /// Time part
     pub time: Time,
     /// X-name parameters (custom experimental parameters)
@@ -882,7 +886,7 @@ pub struct DateTimeUtc<S: StringStorage> {
 impl<S: StringStorage> DateTimeUtc<S> {
     /// Get the date part of this `DateTimeUtc`
     #[must_use]
-    pub const fn date(&self) -> ValueDate {
+    pub const fn date(&self) -> Date {
         self.date
     }
 

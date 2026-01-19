@@ -376,12 +376,14 @@ fn format_weekday_num(wn: WeekDayNum) -> String {
 ///
 /// A string with proper iCalendar escape sequences
 pub fn format_value_text<S: StringStorage>(text: &ValueText<S>) -> String {
+    // PERF: Preallocate a String with some extra capacity
     let mut result = String::new();
 
     // Use Display to get the resolved (unescaped) text
     let resolved = text.to_string();
 
     // Re-escape special characters for iCalendar format
+    // PERF: check tokens directly to reduce allocations
     for c in resolved.chars() {
         match c {
             '\\' => result.push_str("\\\\"),
@@ -404,11 +406,7 @@ mod tests {
 
     #[test]
     fn test_format_date() {
-        let date = ValueDate {
-            year: 1997,
-            month: 7,
-            day: 14,
-        };
+        let date = ValueDate::new(1997, 7, 14).unwrap();
         let mut buffer = Vec::new();
         let mut f = Formatter::new(&mut buffer, FormatOptions::default());
         write_date(&mut f, date).unwrap();

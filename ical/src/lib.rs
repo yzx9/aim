@@ -44,7 +44,7 @@ pub use crate::parameter::{
 pub use crate::parser::{ParseError, parse};
 pub use crate::property::{
     Action, ActionValue, Attachment, AttachmentValue, Attendee, CalendarScale, CalendarScaleValue,
-    Categories, Classification, ClassificationValue, Comment, Completed, Contact, Created,
+    Categories, Classification, ClassificationValue, Comment, Completed, Contact, Created, Date,
     DateTime, DateTimeProperty, DateTimeUtc, Description, DtEnd, DtStamp, DtStart, Due, Duration,
     ExDate, ExDateValue, FreeBusy, Geo, LastModified, Location, Method, MethodValue, Organizer,
     PercentComplete, Period, Priority, ProductId, Property, PropertyKind, RDateValue, RecurrenceId,

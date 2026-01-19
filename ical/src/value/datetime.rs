@@ -18,31 +18,73 @@ use crate::value::miscellaneous::{
 pub struct ValueDate {
     /// Year component.
     pub year: i16,
-
     /// Month component, 1-12.
     pub month: i8,
-
     /// Day component, 1-31.
     pub day: i8,
+    /// Cached parsed civil date (available with jiff feature)
+    #[cfg(feature = "jiff")]
+    pub(crate) jiff: jiff::civil::Date,
 }
 
 impl ValueDate {
-    /// Convert to `jiff::civil::Date`.
+    /// Create a new `ValueDate` from year, month, and day components.
+    ///
+    /// # Errors
+    /// If the date components are invalid (e.g., February 30).
+    pub fn new(year: i16, month: i8, day: i8) -> Result<Self, String> {
+        // Manual validation when jiff is not enabled
+        #[cfg(not(feature = "jiff"))]
+        {
+            if !(1..=12).contains(&month) {
+                return Err(format!("invalid month: {month} (expected 1-12)"));
+            }
+            if !(1..=31).contains(&day) {
+                return Err(format!("invalid day: {day} (expected 1-31)"));
+            }
+        }
+
+        // When jiff is enabled, validate by attempting to create the Date
+        #[cfg(feature = "jiff")]
+        let jiff =
+            jiff::civil::Date::new(year, month, day).map_err(|e| format!("invalid date: {e}"))?;
+
+        Ok(Self {
+            year,
+            month,
+            day,
+            #[cfg(feature = "jiff")]
+            jiff,
+        })
+    }
+
+    /// Create a new `ValueDate` from year, month, and day components.
+    ///
+    /// This is a const constructor that assumes the inputs are valid.
+    /// Use `new()` for validation.
+    #[must_use]
+    pub(crate) const fn new_unchecked(year: i16, month: i8, day: i8) -> Self {
+        Self {
+            year,
+            month,
+            day,
+            #[cfg(feature = "jiff")]
+            jiff: jiff::civil::date(year, month, day),
+        }
+    }
+
+    /// Get cached `jiff::civil::Date`.
     #[cfg(feature = "jiff")]
     #[must_use]
-    pub fn civil_date(self) -> jiff::civil::Date {
-        self.into()
+    pub const fn civil_date(&self) -> jiff::civil::Date {
+        self.jiff
     }
 }
 
 #[cfg(feature = "jiff")]
 impl From<jiff::civil::Date> for ValueDate {
     fn from(value: jiff::civil::Date) -> Self {
-        Self {
-            year: value.year(),
-            month: value.month(),
-            day: value.day(),
-        }
+        Self::new_unchecked(value.year(), value.month(), value.day())
     }
 }
 
@@ -94,7 +136,7 @@ where
             if jiff::civil::Date::new(year, month, day).is_err() {
                 return Err(E::Error::expected_found([ValueExpected::Date], None, span));
             }
-            Ok(ValueDate { year, month, day })
+            Ok(ValueDate::new_unchecked(year, month, day))
         })
 }
 
@@ -116,10 +158,8 @@ where
 pub struct ValueDateTime {
     /// Date component.
     pub date: ValueDate,
-
     /// Time component.
     pub time: ValueTime,
-
     /// Cached parsed civil datetime (available with jiff feature)
     #[cfg(feature = "jiff")]
     jiff: jiff::civil::DateTime,
@@ -363,11 +403,11 @@ mod tests {
         #[rustfmt::skip]
         let mut success_cases = vec![
             // examples from RFC 5545 Section 3.3.4
-            ("19970714", ValueDate { year: 1997, month: 7, day: 14 }),
+            ("19970714", ValueDate::new(1997, 7, 14).unwrap()),
             // extra tests
-            ("20240101", ValueDate { year: 2024, month: 1, day: 1 }),
-            ("20000229", ValueDate { year: 2000, month: 2, day: 29 }), // leap year
-            ("19000101", ValueDate { year: 1900, month: 1, day: 1 }),
+            ("20240101", ValueDate::new(2024, 1, 1).unwrap()),
+            ("20000229", ValueDate::new(2000, 2, 29).unwrap()), // leap year
+            ("19000101", ValueDate::new(1900, 1, 1).unwrap()),
         ];
 
         let mut fail_cases = vec![
@@ -378,14 +418,17 @@ mod tests {
             "202401011", // invalid length
         ];
 
-        #[rustfmt::skip]
-        let need_validate = [
-            ("19970230", ValueDate { year: 1997, month: 2, day: 30 }), // invalid date
-            ("20240230", ValueDate { year: 2024, month: 2, day: 30 }), // invalid date
-        ];
+        // Add invalid date test cases
+        // When jiff is enabled, these should fail parsing
+        // When jiff is disabled, we accept them without validation
         if cfg!(feature = "jiff") {
-            fail_cases.extend(need_validate.into_iter().map(|(src, _)| src));
+            fail_cases.extend(["19970230", "20240230"]); // invalid dates
         } else {
+            #[rustfmt::skip]
+            let need_validate = [
+                ("19970230", ValueDate::new_unchecked(1997, 2, 30)), // invalid date
+                ("20240230", ValueDate::new_unchecked(2024, 2, 30)), // invalid date
+            ];
             success_cases.extend(need_validate);
         }
 
@@ -410,17 +453,17 @@ mod tests {
         #[rustfmt::skip]
         let success_cases = [
             // examples from RFC 5545 Section 3.3.5
-            ("19980118T230000",  (ValueDate { year: 1998, month: 1, day: 18 }, ValueTime::new(23, 0, 0, false).unwrap())),
-            ("19980119T070000Z", (ValueDate { year: 1998, month: 1, day: 19 }, ValueTime::new(7, 0, 0, true).unwrap())),
-            ("19980119T020000",  (ValueDate { year: 1998, month: 1, day: 19 }, ValueTime::new(2, 0, 0, false).unwrap())), // ignore: TZID=America/New_York:19980119T020000
-            ("19970630T235960Z", (ValueDate { year: 1997, month: 6, day: 30 }, ValueTime::new(23, 59, 60, true).unwrap())),
-            ("19970714T133000",  (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(13, 30, 0, false).unwrap())), // Local time
-            ("19970714T173000Z", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(17, 30, 0, true).unwrap())), // UTC time
+            ("19980118T230000",  (ValueDate::new(1998, 1, 18).unwrap(), ValueTime::new(23, 0, 0, false).unwrap())),
+            ("19980119T070000Z", (ValueDate::new(1998, 1, 19).unwrap(), ValueTime::new(7, 0, 0, true).unwrap())),
+            ("19980119T020000",  (ValueDate::new(1998, 1, 19).unwrap(), ValueTime::new(2, 0, 0, false).unwrap())), // ignore: TZID=America/New_York:19980119T020000
+            ("19970630T235960Z", (ValueDate::new(1997, 6, 30).unwrap(), ValueTime::new(23, 59, 60, true).unwrap())),
+            ("19970714T133000",  (ValueDate::new(1997, 7, 14).unwrap(), ValueTime::new(13, 30, 0, false).unwrap())), // Local time
+            ("19970714T173000Z", (ValueDate::new(1997, 7, 14).unwrap(), ValueTime::new(17, 30, 0, true).unwrap())), // UTC time
             // ignore: TZID=America/New_York:19970714T133000
             //
             // extra tests
-            ("19970714T133000", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(13, 30, 0, false).unwrap())),
-            ("19970714T133000Z", (ValueDate { year: 1997, month: 7, day: 14 }, ValueTime::new(13, 30, 0, true).unwrap())),
+            ("19970714T133000", (ValueDate::new(1997, 7, 14).unwrap(), ValueTime::new(13, 30, 0, false).unwrap())),
+            ("19970714T133000Z", (ValueDate::new(1997, 7, 14).unwrap(), ValueTime::new(13, 30, 0, true).unwrap())),
         ];
         for (src, (expected_date, expected_time)) in success_cases {
             let result = parse(src).unwrap();
