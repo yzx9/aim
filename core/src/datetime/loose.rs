@@ -4,8 +4,7 @@
 
 use std::ops::Add;
 
-use aimcal_ical as ical;
-use aimcal_ical::Segments;
+use aimcal_ical::{self as ical, Segments};
 use jiff::civil::{self, Date, DateTime};
 use jiff::tz::TimeZone;
 use jiff::{Span, Zoned};

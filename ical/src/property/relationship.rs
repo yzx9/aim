@@ -558,11 +558,3 @@ simple_property_wrapper!(
     /// Per RFC 5545, UID does not support any standard parameters.
     pub Uid<S> => TextOnly
 );
-
-impl Uid<String> {
-    /// Create a new `Uid<String>` from a string value.
-    #[must_use]
-    pub fn new(value: String) -> Self {
-        Self(TextOnly::new(value))
-    }
-}

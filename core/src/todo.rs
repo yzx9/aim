@@ -4,9 +4,8 @@
 
 use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
-use aimcal_ical as ical;
 use aimcal_ical::{
-    Completed, DateTimeUtc, Description, DtStamp, Due, PercentComplete, Summary, TodoStatusValue,
+    self as ical, Completed, Description, DtStamp, Due, PercentComplete, Summary, TodoStatusValue,
     Uid, VTodo,
 };
 use jiff::Zoned;
@@ -96,19 +95,14 @@ impl Todo for VTodo<String> {
 pub struct TodoDraft {
     /// The description of the todo item, if available.
     pub description: Option<String>,
-
     /// The due date and time of the todo item, if available.
     pub due: Option<LooseDateTime>,
-
     /// The percent complete, from 0 to 100, if available.
     pub percent_complete: Option<u8>,
-
     /// The priority of the todo item, if available.
     pub priority: Option<Priority>,
-
     /// The status of the todo item.
     pub status: TodoStatus,
-
     /// The summary of the todo item.
     pub summary: String,
 }
@@ -174,19 +168,12 @@ impl ResolvedTodoDraft<'_> {
     pub(crate) fn into_ics(self, uid: &str) -> VTodo<String> {
         // Convert to UTC for DTSTAMP (required by RFC 5545)
         let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-        let dt_stamp = DtStamp::new(DateTimeUtc {
-            date: utc_now.date().into(),
-            time: utc_now.time().into(),
-            x_parameters: Vec::new(),
-            retained_parameters: Vec::new(),
-            span: (),
-        });
-
+        let dt_stamp = DtStamp::new(utc_now.datetime());
         VTodo {
             uid: Uid::new(uid.to_string()),
             dt_stamp,
             dt_start: None,
-            due: self.due.map(|d| Due::new(d.into())),
+            due: self.due.map(Due::new),
             completed: None,
             duration: None,
             summary: Some(Summary::new(self.summary.to_string())),
@@ -223,19 +210,14 @@ impl ResolvedTodoDraft<'_> {
 pub struct TodoPatch {
     /// The description of the todo item, if available.
     pub description: Option<Option<String>>,
-
     /// The due date and time of the todo item, if available.
     pub due: Option<Option<LooseDateTime>>,
-
     /// The percent complete, from 0 to 100.
     pub percent_complete: Option<Option<u8>>,
-
     /// The priority of the todo item, from 1 to 9, where 1 is the highest priority.
     pub priority: Option<Priority>,
-
     /// The status of the todo item, if available.
     pub status: Option<TodoStatus>,
-
     /// The summary of the todo item, if available.
     pub summary: Option<String>,
 }
@@ -285,14 +267,14 @@ pub struct ResolvedTodoPatch<'a> {
 impl ResolvedTodoPatch<'_> {
     /// Applies the patch to a mutable todo item, modifying it in place.
     pub fn apply_to<'a>(&self, t: &'a mut VTodo<String>) -> &'a mut VTodo<String> {
-        if let Some(Some(desc)) = &self.description {
-            t.description = Some(Description::new((*desc).to_string()));
+        if let Some(Some(desc)) = self.description {
+            t.description = Some(Description::new(desc.to_string()));
         } else if self.description.is_some() {
             t.description = None;
         }
 
         if let Some(Some(ref due)) = self.due {
-            t.due = Some(Due::new(due.clone().into()));
+            t.due = Some(Due::new(due.clone()));
         } else if self.due.is_some() {
             t.due = None;
         }
@@ -313,33 +295,21 @@ impl ResolvedTodoPatch<'_> {
             // Handle COMPLETED property
             if status == TodoStatus::Completed && t.completed.is_none() {
                 let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-                t.completed = Some(Completed::new(DateTimeUtc {
-                    date: utc_now.date().into(),
-                    time: utc_now.time().into(),
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
-                    span: (),
-                }));
+                t.completed = Some(Completed::new(utc_now.datetime()));
             } else if status != TodoStatus::Completed {
                 t.completed = None;
             }
         }
 
-        if let Some(summary) = &self.summary {
-            t.summary = Some(Summary::new((*summary).to_string()));
+        if let Some(summary) = self.summary {
+            t.summary = Some(Summary::new(summary.to_string()));
         }
 
         // Set the creation time to now if it is not already set
         if t.dt_stamp.date().year == 1970 {
             // TODO: better check for unset
             let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-            t.dt_stamp = DtStamp::new(DateTimeUtc {
-                date: utc_now.date().into(),
-                time: utc_now.time().into(),
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-                span: (),
-            });
+            t.dt_stamp = DtStamp::new(utc_now.datetime());
         }
 
         t
@@ -353,13 +323,10 @@ pub enum TodoStatus {
     /// The todo item needs action.
     #[default]
     NeedsAction,
-
     /// The todo item has been completed.
     Completed,
-
     /// The todo item is currently in process.
     InProcess,
-
     /// The todo item has been cancelled.
     Cancelled,
 }
@@ -461,7 +428,6 @@ pub enum TodoSort {
     Priority {
         /// Sort order, either ascending or descending.
         order: SortOrder,
-
         /// Put items with no priority first or last. If none, use the default
         none_first: Option<bool>,
     },

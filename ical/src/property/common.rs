@@ -225,13 +225,18 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TextOnly<Segments<'src>> {
     }
 }
 
+impl From<String> for TextOnly<String> {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
 impl TextOnly<Segments<'_>> {
     /// Convert borrowed `TextOnly` to owned `TextOnly`
     #[must_use]
     pub fn to_owned(&self) -> TextOnly<String> {
         TextOnly {
             content: self.content.to_owned(),
-            span: (),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -242,6 +247,23 @@ impl TextOnly<Segments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
+        }
+    }
+}
+
+impl TextOnly<String> {
+    /// Create a new `TextOnly<String>` from a string value.
+    ///
+    /// This constructor is provided for convenient construction of owned text-only properties.
+    /// The input string is treated as an unescaped text value with no parameters.
+    #[must_use]
+    pub fn new(value: String) -> Self {
+        Self {
+            content: ValueText::new(value),
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+            span: (),
         }
     }
 }
@@ -267,16 +289,12 @@ impl<S: StringStorage> TextOnly<S> {
 pub struct TextWithLanguage<S: StringStorage> {
     /// The actual text content
     pub content: ValueText<S>,
-
     /// Language code (optional)
     pub language: Option<S>,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     span: S::Span,
 }
@@ -357,6 +375,22 @@ impl<S: StringStorage> TextWithLanguage<S> {
     }
 }
 
+impl TextWithLanguage<String> {
+    /// Create a new `TextWithLanguage<String>` from a string value.
+    ///
+    /// This constructor is provided for convenient construction of owned properties.
+    #[must_use]
+    pub fn new(value: String) -> Self {
+        Self {
+            content: ValueText::new(value),
+            span: (),
+            language: None,
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+        }
+    }
+}
+
 /// Text with language and alternate representation information
 ///
 /// This is a helper type used by text properties that support both LANGUAGE
@@ -371,22 +405,17 @@ impl<S: StringStorage> TextWithLanguage<S> {
 pub struct Text<S: StringStorage> {
     /// The actual text content
     pub content: ValueText<S>,
-
     /// Language code (optional)
     pub language: Option<S>,
-
     /// Alternate text representation URI (optional)
     ///
     /// Per RFC 5545 Section 3.2.1, this parameter specifies a URI that points
     /// to an alternate representation for the textual property value.
     pub altrep: Option<S>,
-
     /// X-name parameters (custom experimental parameters)
     pub x_parameters: Vec<RawParameter<S>>,
-
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
-
     /// Span of the property in the source
     span: S::Span,
 }
@@ -498,19 +527,9 @@ impl Text<String> {
     }
 }
 
-impl TextOnly<String> {
-    /// Create a new `TextOnly<String>` from a string value.
-    ///
-    /// This constructor is provided for convenient construction of owned text-only properties.
-    /// The input string is treated as an unescaped text value with no parameters.
-    #[must_use]
-    pub fn new(value: String) -> Self {
-        Self {
-            content: ValueText::new(value),
-            span: (),
-            x_parameters: Vec::new(),
-            retained_parameters: Vec::new(),
-        }
+impl From<String> for Text<String> {
+    fn from(value: String) -> Self {
+        Self::new(value)
     }
 }
 
@@ -524,7 +543,8 @@ impl TextOnly<String> {
 ///
 /// ```ignore
 /// simple_property_wrapper!(
-///     Comment<S>: Text => Comment
+///     /// Comment property
+///     pub Comment<S> => Text
 /// );
 /// ```
 ///
@@ -533,6 +553,10 @@ impl TextOnly<String> {
 /// ```ignore
 /// pub struct Comment<S: StringStorage>(pub Text<S>);
 /// ```
+///
+/// The macro automatically generates a `new()` constructor based on the inner type:
+/// - For `Text` and `TextOnly`: generates `new(value: String)`
+/// - For other types: generates `new(inner: Inner<String>)`
 macro_rules! simple_property_wrapper {
     (
         $(#[$meta:meta])*
@@ -540,12 +564,9 @@ macro_rules! simple_property_wrapper {
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone)]
-        $vis struct $name<S: StringStorage>(pub $inner<S>);
+        $vis struct $name<S: crate::string_storage::StringStorage>(pub $inner<S>);
 
-        impl<S> ::core::ops::Deref for $name<S>
-        where
-            S: StringStorage,
-        {
+        impl<S: crate::string_storage::StringStorage> ::core::ops::Deref for $name<S> {
             type Target = $inner<S>;
 
             fn deref(&self) -> &Self::Target {
@@ -553,10 +574,7 @@ macro_rules! simple_property_wrapper {
             }
         }
 
-        impl<S> ::core::ops::DerefMut for $name<S>
-        where
-            S: StringStorage,
-        {
+        impl<S: crate::string_storage::StringStorage> ::core::ops::DerefMut for $name<S> {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 &mut self.0
             }
@@ -581,22 +599,25 @@ macro_rules! simple_property_wrapper {
             }
         }
 
+        impl<S: crate::string_storage::StringStorage> $name<S> {
+            /// Create a new `$name<S>` from an inner value.
+            #[must_use]
+            pub fn new(value: impl ::core::convert::Into<$inner<S>>) -> Self {
+                Self(value.into())
+            }
+
+            /// Get the span of this property
+            #[must_use]
+            pub const fn span(&self) -> S::Span {
+                self.0.span()
+            }
+        }
+
         impl $name<crate::string_storage::Segments<'_>> {
             /// Convert borrowed type to owned type
             #[must_use]
             pub fn to_owned(&self) -> $name<String> {
                 $name(self.0.to_owned())
-            }
-        }
-
-        impl<S> $name<S>
-        where
-            S: StringStorage,
-        {
-            /// Get the span of this property
-            #[must_use]
-            pub const fn span(&self) -> S::Span {
-                self.0.span()
             }
         }
     };

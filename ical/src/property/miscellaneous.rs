@@ -10,7 +10,6 @@
 //! - 3.8.8.3: `RequestStatus` - Status code for request processing
 
 use crate::property::common::TextWithLanguage;
-use crate::string_storage::StringStorage;
 
 // TODO: Check REQUEST-STATUS value grammar compliance
 simple_property_wrapper!(

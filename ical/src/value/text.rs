@@ -130,59 +130,6 @@ impl<'a> ValueText<Segments<'a>> {
     }
 }
 
-/// Iterator over characters in a `ValueText` with their spans.
-///
-/// This struct is created by `ValueText::into_spanned_chars()` and yields
-/// characters along with their source positions.
-///
-/// # Lifetime
-///
-/// The lifetime parameter `'a` represents the lifetime of the underlying
-/// string data in the original `ValueText`.
-#[derive(Debug)]
-pub struct ValueTextSpannedChars<'a> {
-    /// Remaining tokens to process
-    tokens: std::vec::IntoIter<(ValueTextToken<Segments<'a>>, Span)>,
-    /// Current segment spanned chars iterator (if processing a Str token)
-    current_segments: Option<SegmentedSpannedChars<'a>>,
-    /// Current escape char (if processing an Escape token)
-    current_escape: Option<(char, Span)>,
-}
-
-impl Iterator for ValueTextSpannedChars<'_> {
-    type Item = (char, Span);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            // Try to get next char from current segments iterator
-            if let Some(ref mut iter) = self.current_segments {
-                if let Some(item) = iter.next() {
-                    return Some(item);
-                }
-                self.current_segments = None;
-            }
-
-            // Try to get next char from current escape
-            if let Some(item) = self.current_escape.take() {
-                return Some(item);
-            }
-
-            // Get next token
-            let (token, span) = self.tokens.next()?;
-
-            match token {
-                ValueTextToken::Str(segments) => {
-                    self.current_segments = Some(segments.into_spanned_chars());
-                }
-                ValueTextToken::Escape(escape_char) => {
-                    let c = escape_char.as_ref().chars().next().unwrap();
-                    self.current_escape = Some((c, span));
-                }
-            }
-        }
-    }
-}
-
 impl<S: StringStorage> fmt::Display for ValueText<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (token, _) in &self.tokens {
@@ -263,6 +210,59 @@ impl RawValueText {
         }
 
         ValueText { tokens }
+    }
+}
+
+/// Iterator over characters in a `ValueText` with their spans.
+///
+/// This struct is created by `ValueText::into_spanned_chars()` and yields
+/// characters along with their source positions.
+///
+/// # Lifetime
+///
+/// The lifetime parameter `'a` represents the lifetime of the underlying
+/// string data in the original `ValueText`.
+#[derive(Debug)]
+pub struct ValueTextSpannedChars<'a> {
+    /// Remaining tokens to process
+    tokens: std::vec::IntoIter<(ValueTextToken<Segments<'a>>, Span)>,
+    /// Current segment spanned chars iterator (if processing a Str token)
+    current_segments: Option<SegmentedSpannedChars<'a>>,
+    /// Current escape char (if processing an Escape token)
+    current_escape: Option<(char, Span)>,
+}
+
+impl Iterator for ValueTextSpannedChars<'_> {
+    type Item = (char, Span);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // Try to get next char from current segments iterator
+            if let Some(ref mut iter) = self.current_segments {
+                if let Some(item) = iter.next() {
+                    return Some(item);
+                }
+                self.current_segments = None;
+            }
+
+            // Try to get next char from current escape
+            if let Some(item) = self.current_escape.take() {
+                return Some(item);
+            }
+
+            // Get next token
+            let (token, span) = self.tokens.next()?;
+
+            match token {
+                ValueTextToken::Str(segments) => {
+                    self.current_segments = Some(segments.into_spanned_chars());
+                }
+                ValueTextToken::Escape(escape_char) => {
+                    let c = escape_char.as_ref().chars().next().unwrap();
+                    self.current_escape = Some((c, span));
+                }
+            }
+        }
     }
 }
 

@@ -30,14 +30,6 @@ simple_property_wrapper!(
     pub Created<S> => DateTimeUtc
 );
 
-impl Created<String> {
-    /// Create a new `Created<String>` from a `DateTimeUtc` value.
-    #[must_use]
-    pub fn new(value: DateTimeUtc<String>) -> Self {
-        Self(value)
-    }
-}
-
 simple_property_wrapper!(
     /// Date-Time Stamp property wrapper (RFC 5545 Section 3.8.7.2)
     ///
@@ -45,28 +37,12 @@ simple_property_wrapper!(
     pub DtStamp<S> => DateTimeUtc
 );
 
-impl DtStamp<String> {
-    /// Create a new `DtStamp<String>` from a `DateTimeUtc` value.
-    #[must_use]
-    pub fn new(value: DateTimeUtc<String>) -> Self {
-        Self(value)
-    }
-}
-
 simple_property_wrapper!(
     /// Last Modified property wrapper (RFC 5545 Section 3.8.7.3)
     ///
     /// This property MUST be specified in UTC time format.
     pub LastModified<S> => DateTimeUtc
 );
-
-impl LastModified<String> {
-    /// Create a new `LastModified<String>` from a `DateTimeUtc` value.
-    #[must_use]
-    pub fn new(value: DateTimeUtc<String>) -> Self {
-        Self(value)
-    }
-}
 
 /// Sequence Number (RFC 5545 Section 3.8.7.4)
 ///

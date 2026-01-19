@@ -298,14 +298,6 @@ simple_property_wrapper!(
     pub Description<S> => Text
 );
 
-impl Description<String> {
-    /// Create a new `Description<String>` from a string value.
-    #[must_use]
-    pub fn new(value: String) -> Self {
-        Self(Text::new(value))
-    }
-}
-
 /// Geographic position (RFC 5545 Section 3.8.1.6)
 #[derive(Debug, Clone)]
 pub struct Geo<S: StringStorage> {
@@ -418,14 +410,6 @@ simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.7)
     pub Location<S> => Text
 );
-
-impl Location<String> {
-    /// Create a new `Location<String>` from a string value.
-    #[must_use]
-    pub fn new(value: String) -> Self {
-        Self(Text::new(value))
-    }
-}
 
 define_prop_value_enum! {
     /// Status value (RFC 5545 Section 3.8.1.11)
@@ -1037,14 +1021,6 @@ simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.12)
     pub Summary<S> => Text
 );
-
-impl Summary<String> {
-    /// Create a new `Summary<String>` from a string value.
-    #[must_use]
-    pub fn new(value: String) -> Self {
-        Self(Text::new(value))
-    }
-}
 
 /// Create a parser input from `ValueText` with proper span tracking.
 ///

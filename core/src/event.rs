@@ -4,9 +4,8 @@
 
 use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
-use aimcal_ical as ical;
 use aimcal_ical::{
-    DateTimeUtc, Description, DtEnd, DtStamp, DtStart, EventStatusValue, Summary, VEvent,
+    self as ical, Description, DtEnd, DtStamp, DtStart, EventStatusValue, Summary, Uid, VEvent,
 };
 use jiff::{Span, ToSpan, Zoned};
 
@@ -75,16 +74,12 @@ impl Event for VEvent<String> {
 pub struct EventDraft {
     /// The description of the event, if available.
     pub description: Option<String>,
-
     /// The start date and time of the event, if available.
     pub start: Option<LooseDateTime>,
-
     /// The end date and time of the event, if available.
     pub end: Option<LooseDateTime>,
-
     /// The status of the event.
     pub status: EventStatus,
-
     /// The summary of the event.
     pub summary: String,
 }
@@ -184,19 +179,12 @@ impl ResolvedEventDraft<'_> {
     pub(crate) fn into_ics(self, uid: &str) -> VEvent<String> {
         // Convert to UTC for DTSTAMP (required by RFC 5545)
         let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-        let dt_stamp = DtStamp::new(DateTimeUtc {
-            date: utc_now.date().into(),
-            time: utc_now.time().into(),
-            x_parameters: Vec::new(),
-            retained_parameters: Vec::new(),
-            span: (),
-        });
-
+        let dt_stamp = DtStamp::new(utc_now.datetime());
         VEvent {
-            uid: ical::Uid::new(uid.to_string()),
+            uid: Uid::new(uid.to_string()),
             dt_stamp,
-            dt_start: DtStart::new(self.start.into()),
-            dt_end: Some(DtEnd::new(self.end.into())),
+            dt_start: DtStart::new(self.start),
+            dt_end: Some(DtEnd::new(self.end)),
             duration: None,
             summary: Some(Summary::new(self.summary.to_string())),
             description: self.description.map(|d| Description::new(d.to_string())),
@@ -228,16 +216,12 @@ impl ResolvedEventDraft<'_> {
 pub struct EventPatch {
     /// The description of the event, if available.
     pub description: Option<Option<String>>,
-
     /// The start date and time of the event, if available.
     pub start: Option<Option<LooseDateTime>>,
-
     /// The end date and time of the event, if available.
     pub end: Option<Option<LooseDateTime>>,
-
     /// The status of the event, if available.
     pub status: Option<EventStatus>,
-
     /// The summary of the event, if available.
     pub summary: Option<String>,
 }
@@ -281,18 +265,18 @@ pub struct ResolvedEventPatch<'a> {
 impl ResolvedEventPatch<'_> {
     /// Applies the patch to a mutable event, modifying it in place.
     pub fn apply_to<'a>(&self, e: &'a mut VEvent<String>) -> &'a mut VEvent<String> {
-        if let Some(Some(desc)) = &self.description {
-            e.description = Some(Description::new((*desc).to_string()));
+        if let Some(Some(desc)) = self.description {
+            e.description = Some(Description::new(desc.to_string()));
         } else if self.description.is_some() {
             e.description = None;
         }
 
         if let Some(Some(ref start)) = self.start {
-            e.dt_start = DtStart::new(start.clone().into());
+            e.dt_start = DtStart::new(start.clone());
         }
 
         if let Some(Some(ref end)) = self.end {
-            e.dt_end = Some(DtEnd::new(end.clone().into()));
+            e.dt_end = Some(DtEnd::new(end.clone()));
         } else if self.end.is_some() {
             e.dt_end = None;
         }
@@ -301,21 +285,15 @@ impl ResolvedEventPatch<'_> {
             e.status = Some(ical::EventStatus::new(status.into()));
         }
 
-        if let Some(summary) = &self.summary {
-            e.summary = Some(Summary::new((*summary).to_string()));
+        if let Some(summary) = self.summary {
+            e.summary = Some(Summary::new(summary.to_string()));
         }
 
         // Set the creation time to now if it is not already set
         if e.dt_stamp.date().year == 1970 {
             // TODO: better check for unset
             let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-            e.dt_stamp = DtStamp::new(DateTimeUtc {
-                date: utc_now.date().into(),
-                time: utc_now.time().into(),
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-                span: (),
-            });
+            e.dt_stamp = DtStamp::new(utc_now.datetime());
         }
 
         e
@@ -328,11 +306,9 @@ impl ResolvedEventPatch<'_> {
 pub enum EventStatus {
     /// The event is tentative.
     Tentative,
-
     /// The event is confirmed.
     #[default]
     Confirmed,
-
     /// The event is cancelled.
     Cancelled,
 }
@@ -396,7 +372,6 @@ impl From<EventStatus> for EventStatusValue {
 pub struct EventConditions {
     /// Whether to include only startable events.
     pub startable: Option<DateTimeAnchor>,
-
     /// The cutoff date and time, events ending after this will be excluded.
     pub cutoff: Option<DateTimeAnchor>,
 }
@@ -422,7 +397,6 @@ impl EventConditions {
 pub struct ResolvedEventConditions {
     /// The date and time after which the event must start
     pub start_before: Option<Zoned>,
-
     /// The date and time after which the event must end
     pub end_after: Option<Zoned>,
 }

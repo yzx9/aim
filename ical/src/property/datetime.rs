@@ -908,6 +908,12 @@ impl<S: StringStorage> DateTimeUtc<S> {
             .to_zoned(jiff::tz::TimeZone::UTC)
             .expect("UTC timezone should always be valid")
     }
+
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
 }
 
 impl DateTimeUtc<Segments<'_>> {
@@ -929,14 +935,6 @@ impl DateTimeUtc<Segments<'_>> {
                 .collect(),
             span: (),
         }
-    }
-}
-
-impl<S: StringStorage> DateTimeUtc<S> {
-    /// Get the span of this property
-    #[must_use]
-    pub const fn span(&self) -> S::Span {
-        self.span
     }
 }
 
@@ -975,6 +973,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTimeUtc<Segments<'src>> {
     }
 }
 
+#[cfg(feature = "jiff")]
+impl From<jiff::civil::DateTime> for DateTimeUtc<String> {
+    fn from(value: jiff::civil::DateTime) -> Self {
+        DateTimeUtc {
+            date: Date::from(value.date()),
+            time: Time::from(value.time()),
+            x_parameters: Vec::new(),
+            retained_parameters: Vec::new(),
+            span: (),
+        }
+    }
+}
+
 // DateTime wrapper types for specific properties
 
 simple_property_wrapper!(
@@ -984,52 +995,20 @@ simple_property_wrapper!(
     pub Completed<S> => DateTimeUtc
 );
 
-impl Completed<String> {
-    /// Create a new `Completed<String>` from a `DateTimeUtc` value.
-    #[must_use]
-    pub fn new(value: DateTimeUtc<String>) -> Self {
-        Self(value)
-    }
-}
-
 simple_property_wrapper!(
     /// Date-Time End property wrapper (RFC 5545 Section 3.8.2.2)
     pub DtEnd<S> => DateTimeProperty
 );
-
-impl DtEnd<String> {
-    /// Create a new `DtEnd<String>` from a `DateTimeProperty` value.
-    #[must_use]
-    pub fn new(value: DateTimeProperty<String>) -> Self {
-        Self(value)
-    }
-}
 
 simple_property_wrapper!(
     /// Time Transparency property wrapper (RFC 5545 Section 3.8.2.3)
     pub Due<S> => DateTimeProperty
 );
 
-impl Due<String> {
-    /// Create a new `Due<String>` from a `DateTimeProperty` value.
-    #[must_use]
-    pub fn new(value: DateTimeProperty<String>) -> Self {
-        Self(value)
-    }
-}
-
 simple_property_wrapper!(
     /// Date-Time Start property wrapper (RFC 5545 Section 3.8.2.4)
     pub DtStart<S> => DateTimeProperty
 );
-
-impl DtStart<String> {
-    /// Create a new `DtStart<String>` from a `DateTimeProperty` value.
-    #[must_use]
-    pub fn new(value: DateTimeProperty<String>) -> Self {
-        Self(value)
-    }
-}
 
 /// Duration (RFC 5545 Section 3.8.2.5)
 ///
