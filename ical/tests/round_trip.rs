@@ -604,6 +604,12 @@ fn components_equal(
             freebusies_equal(fb1, fb2)
         }
         (CalendarComponent::VAlarm(a1), CalendarComponent::VAlarm(a2)) => alarms_equal(a1, a2),
+        (CalendarComponent::XComponent(x1), CalendarComponent::XComponent(x2)) => {
+            x1.name == x2.name && x1.properties.len() == x2.properties.len()
+        }
+        (CalendarComponent::Unrecognized(u1), CalendarComponent::Unrecognized(u2)) => {
+            u1.name == u2.name && u1.properties.len() == u2.properties.len()
+        }
         _ => false,
     }
 }

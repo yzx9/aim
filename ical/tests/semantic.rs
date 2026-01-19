@@ -1110,11 +1110,11 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
-        CalendarComponent::Custom(custom) => {
-            assert_eq!(custom.name, "X-CUSTOM-VENDOR");
-            assert_eq!(custom.properties.len(), 2);
+        CalendarComponent::XComponent(xcomp) => {
+            assert_eq!(xcomp.name, "X-CUSTOM-VENDOR");
+            assert_eq!(xcomp.properties.len(), 2);
         }
-        _ => panic!("Expected Custom component"),
+        _ => panic!("Expected XComponent"),
     }
 }
 
@@ -1136,18 +1136,18 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
-        CalendarComponent::Custom(parent) => {
+        CalendarComponent::XComponent(parent) => {
             assert_eq!(parent.name, "X-CUSTOM-PARENT");
             assert_eq!(parent.children.len(), 1);
-            // Child is also a CustomComponent
+            // Child is also an XComponent
             match &parent.children[0] {
-                CalendarComponent::Custom(child) => {
+                CalendarComponent::XComponent(child) => {
                     assert_eq!(child.name, "X-CUSTOM-CHILD");
                 }
-                _ => panic!("Expected Custom child component"),
+                _ => panic!("Expected XComponent child"),
             }
         }
-        _ => panic!("Expected Custom component"),
+        _ => panic!("Expected XComponent"),
     }
 }
 
@@ -1168,10 +1168,10 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
-        CalendarComponent::Custom(custom) => {
-            assert_eq!(custom.name, "V-SOME-IANA-COMP");
+        CalendarComponent::Unrecognized(unrec) => {
+            assert_eq!(unrec.name, "V-SOME-IANA-COMP");
         }
-        _ => panic!("Expected Custom component"),
+        _ => panic!("Expected UnrecognizedComponent"),
     }
 }
 
@@ -1192,10 +1192,10 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
-        CalendarComponent::Custom(custom) => {
-            assert_eq!(custom.properties.len(), 3);
+        CalendarComponent::XComponent(xcomp) => {
+            assert_eq!(xcomp.properties.len(), 3);
         }
-        _ => panic!("Expected Custom component"),
+        _ => panic!("Expected XComponent"),
     }
 }
 
@@ -1214,13 +1214,13 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
-        CalendarComponent::Custom(custom_ref) => {
+        CalendarComponent::XComponent(xcomp_ref) => {
             // Test to_owned conversion
-            let custom_owned = custom_ref.to_owned();
-            assert_eq!(&custom_owned.name, "X-CUSTOM");
-            assert_eq!(custom_owned.properties.len(), 1);
+            let xcomp_owned = xcomp_ref.to_owned();
+            assert_eq!(&xcomp_owned.name, "X-CUSTOM");
+            assert_eq!(xcomp_owned.properties.len(), 1);
         }
-        _ => panic!("Expected Custom component"),
+        _ => panic!("Expected XComponent"),
     }
 }
 
@@ -1245,7 +1245,7 @@ END:VCALENDAR\r
     assert_eq!(calendar.components.len(), 1);
 
     match &calendar.components[0] {
-        CalendarComponent::Custom(container) => {
+        CalendarComponent::XComponent(container) => {
             assert_eq!(container.name, "X-CUSTOM-CONTAINER");
             assert_eq!(container.properties.len(), 1);
             assert_eq!(container.children.len(), 1);
@@ -1257,6 +1257,6 @@ END:VCALENDAR\r
                 _ => panic!("Expected Event child component"),
             }
         }
-        _ => panic!("Expected Custom component"),
+        _ => panic!("Expected XComponent"),
     }
 }

@@ -13,7 +13,8 @@ use crate::property::{
     CalendarScale, Method, ProductId, Property, PropertyKind, Version, VersionValue, XNameProperty,
 };
 use crate::semantic::{
-    CustomComponent, SemanticError, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
+    SemanticError, UnrecognizedComponent, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
+    XComponent,
 };
 use crate::string_storage::{Segments, StringStorage};
 use crate::typed::TypedComponent;
@@ -192,64 +193,73 @@ pub(crate) fn parse_component_children(
         // Use if-else chain since `Segments` doesn't match directly against &str
         let component = if child.name.eq_str_ignore_ascii_case(KW_VEVENT) {
             match child.try_into() {
-                Ok(v) => CalendarComponent::Event(v),
+                Ok(v) => Some(CalendarComponent::Event(v)),
                 Err(e) => {
                     errors.extend(e);
-                    return Ok(components);
+                    None
                 }
             }
         } else if child.name.eq_str_ignore_ascii_case(KW_VTODO) {
             match child.try_into() {
-                Ok(v) => CalendarComponent::Todo(v),
+                Ok(v) => Some(CalendarComponent::Todo(v)),
                 Err(e) => {
                     errors.extend(e);
-                    return Ok(components);
+                    None
                 }
             }
         } else if child.name.eq_str_ignore_ascii_case(KW_VJOURNAL) {
             match child.try_into() {
-                Ok(v) => CalendarComponent::VJournal(v),
+                Ok(v) => Some(CalendarComponent::VJournal(v)),
                 Err(e) => {
                     errors.extend(e);
-                    return Ok(components);
+                    None
                 }
             }
         } else if child.name.eq_str_ignore_ascii_case(KW_VFREEBUSY) {
             match child.try_into() {
-                Ok(v) => CalendarComponent::VFreeBusy(v),
+                Ok(v) => Some(CalendarComponent::VFreeBusy(v)),
                 Err(e) => {
                     errors.extend(e);
-                    return Ok(components);
+                    None
                 }
             }
         } else if child.name.eq_str_ignore_ascii_case(KW_VTIMEZONE) {
             match child.try_into() {
-                Ok(v) => CalendarComponent::VTimeZone(v),
+                Ok(v) => Some(CalendarComponent::VTimeZone(v)),
                 Err(e) => {
                     errors.extend(e);
-                    return Ok(components);
+                    None
                 }
             }
         } else if child.name.eq_str_ignore_ascii_case(KW_VALARM) {
             match child.try_into() {
-                Ok(v) => CalendarComponent::VAlarm(v),
+                Ok(v) => Some(CalendarComponent::VAlarm(v)),
                 Err(e) => {
                     errors.extend(e);
-                    return Ok(components);
+                    None
+                }
+            }
+        } else if child.name.starts_with_str_ignore_ascii_case("X-") {
+            match XComponent::try_from(child) {
+                Ok(xcomp) => Some(CalendarComponent::XComponent(xcomp)),
+                Err(e) => {
+                    errors.extend(e);
+                    None
                 }
             }
         } else {
-            // Parse custom component with all its children (recursively)
-            match CustomComponent::try_from(child) {
-                Ok(custom) => CalendarComponent::Custom(custom),
+            match UnrecognizedComponent::try_from(child) {
+                Ok(ucomp) => Some(CalendarComponent::Unrecognized(ucomp)),
                 Err(e) => {
                     errors.extend(e);
-                    return Ok(components);
+                    None
                 }
             }
         };
 
-        components.push(component);
+        if let Some(component) = component {
+            components.push(component);
+        }
     }
 
     // Return error only if no components were parsed successfully
@@ -275,8 +285,10 @@ pub enum CalendarComponent<S: StringStorage> {
     VTimeZone(VTimeZone<S>),
     /// Alarm component
     VAlarm(VAlarm<S>),
-    /// Custom component (x-comp or iana-comp)
-    Custom(CustomComponent<S>),
+    /// X-component (custom experimental component starting with "X-")
+    XComponent(XComponent<S>),
+    /// Unrecognized component (IANA-registered or other non-X- component)
+    Unrecognized(UnrecognizedComponent<S>),
 }
 
 impl<S: StringStorage> From<VEvent<S>> for CalendarComponent<S> {
@@ -315,9 +327,15 @@ impl<S: StringStorage> From<VAlarm<S>> for CalendarComponent<S> {
     }
 }
 
-impl<S: StringStorage> From<CustomComponent<S>> for CalendarComponent<S> {
-    fn from(value: CustomComponent<S>) -> Self {
-        CalendarComponent::Custom(value)
+impl<S: StringStorage> From<XComponent<S>> for CalendarComponent<S> {
+    fn from(value: XComponent<S>) -> Self {
+        CalendarComponent::XComponent(value)
+    }
+}
+
+impl<S: StringStorage> From<UnrecognizedComponent<S>> for CalendarComponent<S> {
+    fn from(value: UnrecognizedComponent<S>) -> Self {
+        CalendarComponent::Unrecognized(value)
     }
 }
 
@@ -372,7 +390,8 @@ impl CalendarComponent<Segments<'_>> {
             Self::VFreeBusy(v) => CalendarComponent::VFreeBusy(v.to_owned()),
             Self::VTimeZone(v) => CalendarComponent::VTimeZone(v.to_owned()),
             Self::VAlarm(v) => CalendarComponent::VAlarm(v.to_owned()),
-            Self::Custom(v) => CalendarComponent::Custom(v.to_owned()),
+            Self::XComponent(v) => CalendarComponent::XComponent(v.to_owned()),
+            Self::Unrecognized(v) => CalendarComponent::Unrecognized(v.to_owned()),
         }
     }
 }

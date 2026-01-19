@@ -29,8 +29,8 @@ use crate::keyword::{
 };
 use crate::parameter::FreeBusyType;
 use crate::semantic::{
-    CalendarComponent, CustomComponent, ICalendar, TimeZoneObservance, VAlarm, VEvent, VFreeBusy,
-    VJournal, VTimeZone, VTodo,
+    CalendarComponent, ICalendar, TimeZoneObservance, UnrecognizedComponent, VAlarm, VEvent,
+    VFreeBusy, VJournal, VTimeZone, VTodo, XComponent,
 };
 use crate::string_storage::StringStorage;
 
@@ -85,7 +85,8 @@ fn write_calendar_component<S: StringStorage>(
         CalendarComponent::VFreeBusy(v) => write_vfreebusy(f, v),
         CalendarComponent::VTimeZone(v) => write_vtimezone(f, v),
         CalendarComponent::VAlarm(v) => write_valarm(f, v),
-        CalendarComponent::Custom(v) => write_custom_component(f, v),
+        CalendarComponent::XComponent(v) => write_x_component(f, v),
+        CalendarComponent::Unrecognized(v) => write_unrecognized_component(f, v),
     }
 }
 
@@ -560,10 +561,30 @@ fn write_valarm<S: StringStorage>(
     })
 }
 
-/// Format a custom component (x-comp).
-fn write_custom_component<S: StringStorage>(
+/// Format an X-component (x-comp).
+fn write_x_component<S: StringStorage>(
     f: &mut Formatter<impl Write>,
-    component: &CustomComponent<S>,
+    component: &XComponent<S>,
+) -> io::Result<()> {
+    with_block(f, &component.name, |f| {
+        // Properties
+        for prop in &component.properties {
+            write_property(f, prop)?;
+        }
+
+        // Children
+        for child in &component.children {
+            write_calendar_component(f, child)?;
+        }
+
+        Ok(())
+    })
+}
+
+/// Format an unrecognized component (iana-comp).
+fn write_unrecognized_component<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
+    component: &UnrecognizedComponent<S>,
 ) -> io::Result<()> {
     with_block(f, &component.name, |f| {
         // Properties
