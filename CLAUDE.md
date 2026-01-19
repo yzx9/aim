@@ -9,6 +9,7 @@ functionality and the CLI presentation layer.
 
 @docs/architecture.md
 @docs/testing.md
+@docs/styling.md
 
 ## Development Commands
 

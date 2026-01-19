@@ -19,8 +19,6 @@ aim/
 ├── cli/            # Command-line interface
 ├── ical/           # iCalendar parser
 ├── docs/           # Documentation
-│   ├── architecture.md # System architecture
-│   └── testing.md  # Testing guide
 ├── Cargo.toml      # Workspace configuration
 ├── CHANGELOG.md    # Version history
 ├── CLAUDE.md       # Project overview
@@ -76,11 +74,8 @@ aim/
 - **Async/Await**: Full async support throughout
 - **Type Safety**: Leverage Rust's type system
 - **RFC Compliance**: Adherence to iCalendar RFC 5545
-- **No mod.rs**: Module declarations in parent modules, e.g. `src/typed.rs` instead of `src/typed/mod.rs`
 
 ## Additional Resources
 
-- **RFC 5545**: [iCalendar specification](https://tools.ietf.org/html/rfc5545)
-- **Gitmoji**: [Gitmoji commit standard](https://gitmoji.dev/)
 - **just**: [Just command runner](https://github.com/casey/just)
 - **Nix**: [Nix package manager](https://nixos.org/)

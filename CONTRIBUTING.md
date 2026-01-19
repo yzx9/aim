@@ -151,6 +151,10 @@ We maintain high code quality standards:
 
 For detailed testing guidelines, see [docs/testing.md](docs/testing.md).
 
+## Styling
+
+For detailed style guidelines, see [docs/styling.md](docs/styling.md).
+
 ## Pull Requests
 
 ### Before Submitting

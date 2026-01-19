@@ -6,9 +6,7 @@ The `localdb` module provides a SQLite database wrapper using SQLx for the AIM p
 
 ```
 localdb/
-├── db.rs           # Main database interface and connection handling
 ├── events.rs       # Event storage and retrieval operations
-├── mod.rs          # Module declaration and exports
 ├── short_ids.rs    # Short ID generation and mapping
 ├── todos.rs        # Todo storage and retrieval operations
 └── migrations/     # Database schema migrations
@@ -16,7 +14,7 @@ localdb/
 
 ## Main Components
 
-### LocalDb (db.rs)
+### LocalDb (localdb.rs)
 
 The main database interface that:
 
