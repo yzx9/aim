@@ -27,7 +27,7 @@ use crate::parameter::{
 use crate::property::common::{
     Text, TextOnly, UriProperty, take_single_cal_address, take_single_text,
 };
-use crate::property::{DateTime, PropertyKind};
+use crate::property::{DateTimeProperty, PropertyKind};
 use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
@@ -277,6 +277,14 @@ impl Attendee<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Attendee<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.4.2)
     pub Contact<S> => Text
@@ -420,9 +428,17 @@ impl Organizer<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Organizer<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 simple_property_wrapper!(
     /// Recurrence ID property wrapper (RFC 5545 Section 3.8.4.4)
-    pub RecurrenceId<S> => DateTime
+    pub RecurrenceId<S> => DateTimeProperty
 );
 
 /// Related To property (RFC 5545 Section 3.8.4.5)
@@ -523,6 +539,14 @@ impl RelatedTo<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> RelatedTo<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 simple_property_wrapper!(
     /// URI property wrapper (RFC 5545 Section 3.8.4.6)
     pub Url<S> => UriProperty
@@ -539,9 +563,6 @@ impl Uid<String> {
     /// Create a new `Uid<String>` from a string value.
     #[must_use]
     pub fn new(value: String) -> Self {
-        Self {
-            inner: TextOnly::new(value),
-            span: (),
-        }
+        Self(TextOnly::new(value))
     }
 }

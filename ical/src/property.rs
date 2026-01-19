@@ -53,8 +53,8 @@ pub use calendar::{
 pub use changemgmt::{Created, DtStamp, LastModified, Sequence};
 pub use common::{Text, TextOnly, TextWithLanguage, UriProperty};
 pub use datetime::{
-    Completed, DateTime, DateTimeUtc, DtEnd, DtStart, Due, Duration, FreeBusy, Period, Time,
-    TimeTransparency, TimeTransparencyValue,
+    Completed, DateTime, DateTimeProperty, DateTimeUtc, DtEnd, DtStart, Due, Duration, FreeBusy,
+    Period, Time, TimeTransparency, TimeTransparencyValue,
 };
 pub use descriptive::{
     Attachment, AttachmentValue, Categories, Classification, ClassificationValue, Comment,
@@ -410,72 +410,72 @@ impl<S: StringStorage> Property<S> {
     pub fn span(&self) -> S::Span {
         match self {
             // Section 3.7 - Calendar Properties
-            Self::CalScale(v) => v.span,
-            Self::Method(v) => v.span,
-            Self::ProdId(v) => v.span,
-            Self::Version(v) => v.span,
+            Self::CalScale(v) => v.span(),
+            Self::Method(v) => v.span(),
+            Self::ProdId(v) => v.span(),
+            Self::Version(v) => v.span(),
 
             // Section 3.8.1 - Descriptive Component Properties
-            Self::Attach(v) => v.span,
-            Self::Categories(v) => v.span,
-            Self::Class(v) => v.span,
-            Self::Comment(v) => v.span,
-            Self::Description(v) => v.span,
-            Self::Geo(v) => v.span,
-            Self::Location(v) => v.span,
-            Self::PercentComplete(v) => v.span,
-            Self::Priority(v) => v.span,
-            Self::Resources(v) => v.span,
-            Self::Status(v) => v.span,
-            Self::Summary(v) => v.span,
+            Self::Attach(v) => v.span(),
+            Self::Categories(v) => v.span(),
+            Self::Class(v) => v.span(),
+            Self::Comment(v) => v.span(),
+            Self::Description(v) => v.span(),
+            Self::Geo(v) => v.span(),
+            Self::Location(v) => v.span(),
+            Self::PercentComplete(v) => v.span(),
+            Self::Priority(v) => v.span(),
+            Self::Resources(v) => v.span(),
+            Self::Status(v) => v.span(),
+            Self::Summary(v) => v.span(),
 
             // Section 3.8.2 - Date and Time Properties
-            Self::Completed(v) => v.span,
-            Self::DtEnd(v) => v.span,
-            Self::Due(v) => v.span,
-            Self::DtStart(v) => v.span,
-            Self::Duration(v) => v.span,
-            Self::FreeBusy(v) => v.span,
-            Self::Transp(v) => v.span,
+            Self::Completed(v) => v.span(),
+            Self::DtEnd(v) => v.span(),
+            Self::Due(v) => v.span(),
+            Self::DtStart(v) => v.span(),
+            Self::Duration(v) => v.span(),
+            Self::FreeBusy(v) => v.span(),
+            Self::Transp(v) => v.span(),
 
             // Section 3.8.3 - Time Zone Component Properties
-            Self::TzId(v) => v.span,
-            Self::TzName(v) => v.span,
-            Self::TzOffsetFrom(v) => v.span,
-            Self::TzOffsetTo(v) => v.span,
-            Self::TzUrl(v) => v.span,
+            Self::TzId(v) => v.span(),
+            Self::TzName(v) => v.span(),
+            Self::TzOffsetFrom(v) => v.span(),
+            Self::TzOffsetTo(v) => v.span(),
+            Self::TzUrl(v) => v.span(),
 
             // Section 3.8.4 - Component Relationship Properties
-            Self::Attendee(v) => v.span,
-            Self::Contact(v) => v.span,
-            Self::Organizer(v) => v.span,
-            Self::RecurrenceId(v) => v.span,
-            Self::RelatedTo(v) => v.span,
-            Self::Url(v) => v.span,
-            Self::Uid(v) => v.span,
+            Self::Attendee(v) => v.span(),
+            Self::Contact(v) => v.span(),
+            Self::Organizer(v) => v.span(),
+            Self::RecurrenceId(v) => v.span(),
+            Self::RelatedTo(v) => v.span(),
+            Self::Url(v) => v.span(),
+            Self::Uid(v) => v.span(),
 
             // Section 3.8.5 - Recurrence Properties
-            Self::ExDate(v) => v.span,
-            Self::RDate(v) => v.span,
-            Self::RRule(v) => v.span,
+            Self::ExDate(v) => v.span(),
+            Self::RDate(v) => v.span(),
+            Self::RRule(v) => v.span(),
 
             // Section 3.8.6 - Alarm Component Properties
-            Self::Action(v) => v.span,
-            Self::Repeat(v) => v.span,
-            Self::Trigger(v) => v.span,
+            Self::Action(v) => v.span(),
+            Self::Repeat(v) => v.span(),
+            Self::Trigger(v) => v.span(),
 
             // Section 3.8.7 - Change Management Properties
-            Self::Created(v) => v.span,
-            Self::DtStamp(v) => v.span,
-            Self::LastModified(v) => v.span,
-            Self::Sequence(v) => v.span,
+            Self::Created(v) => v.span(),
+            Self::DtStamp(v) => v.span(),
+            Self::LastModified(v) => v.span(),
+            Self::Sequence(v) => v.span(),
 
             // Section 3.8.8 - Miscellaneous Properties
-            Self::RequestStatus(v) => v.span,
+            Self::RequestStatus(v) => v.span(),
 
             // XName and unknown properties
-            Self::XName(v) => v.span,
-            Self::Unrecognized(v) => v.span,
+            Self::XName(v) => v.span(),
+            Self::Unrecognized(v) => v.span(),
         }
     }
 }
@@ -582,6 +582,14 @@ macro_rules! define_nonstandard_property {
                     value: self.value.to_owned(),
                     span: (),
                 }
+            }
+        }
+
+        impl<S: StringStorage> $ty<S> {
+            /// Get the span of this property
+            #[must_use]
+            pub const fn span(&self) -> S::Span {
+                self.span
             }
         }
 

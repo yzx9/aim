@@ -113,6 +113,8 @@ pub struct UriProperty<S: StringStorage> {
     pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
+    /// Span of the property in the source
+    span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for UriProperty<Segments<'src>> {
@@ -121,7 +123,6 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UriProperty<Segments<'src>> {
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         let mut x_parameters = Vec::new();
         let mut retained_parameters = Vec::new();
-
         for param in prop.parameters {
             match param {
                 Parameter::XName(raw) => x_parameters.push(raw),
@@ -137,6 +138,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UriProperty<Segments<'src>> {
 
         Ok(UriProperty {
             uri,
+            span: prop.span,
             x_parameters,
             retained_parameters,
         })
@@ -159,7 +161,16 @@ impl UriProperty<Segments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
+    }
+}
+
+impl<S: StringStorage> UriProperty<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -180,12 +191,15 @@ pub struct TextOnly<S: StringStorage> {
     pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
+    /// Span of the property in the source
+    span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for TextOnly<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let span = prop.span;
         let content = take_single_text(&prop.kind, prop.value)?;
 
         let mut x_parameters = Vec::new();
@@ -206,6 +220,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TextOnly<Segments<'src>> {
             content,
             x_parameters,
             retained_parameters,
+            span,
         })
     }
 }
@@ -216,6 +231,7 @@ impl TextOnly<Segments<'_>> {
     pub fn to_owned(&self) -> TextOnly<String> {
         TextOnly {
             content: self.content.to_owned(),
+            span: (),
             x_parameters: self
                 .x_parameters
                 .iter()
@@ -227,6 +243,14 @@ impl TextOnly<Segments<'_>> {
                 .map(Parameter::to_owned)
                 .collect(),
         }
+    }
+}
+
+impl<S: StringStorage> TextOnly<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -252,12 +276,16 @@ pub struct TextWithLanguage<S: StringStorage> {
 
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for TextWithLanguage<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let span = prop.span;
         let content = take_single_text(&prop.kind, prop.value)?;
 
         let mut errors = Vec::new();
@@ -294,6 +322,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for TextWithLanguage<Segments<'src>> {
             language,
             x_parameters,
             retained_parameters,
+            span,
         })
     }
 }
@@ -304,6 +333,7 @@ impl TextWithLanguage<Segments<'_>> {
     pub fn to_owned(&self) -> TextWithLanguage<String> {
         TextWithLanguage {
             content: self.content.to_owned(),
+            span: (),
             language: self.language.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
@@ -316,6 +346,14 @@ impl TextWithLanguage<Segments<'_>> {
                 .map(Parameter::to_owned)
                 .collect(),
         }
+    }
+}
+
+impl<S: StringStorage> TextWithLanguage<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -348,12 +386,16 @@ pub struct Text<S: StringStorage> {
 
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
+
+    /// Span of the property in the source
+    span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Text<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let span = prop.span;
         let content = take_single_text(&prop.kind, prop.value)?;
 
         let mut errors = Vec::new();
@@ -402,6 +444,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Text<Segments<'src>> {
             altrep,
             x_parameters,
             retained_parameters,
+            span,
         })
     }
 }
@@ -412,6 +455,7 @@ impl Text<Segments<'_>> {
     pub fn to_owned(&self) -> Text<String> {
         Text {
             content: self.content.to_owned(),
+            span: (),
             language: self.language.as_ref().map(Segments::to_owned),
             altrep: self.altrep.as_ref().map(Segments::to_owned),
             x_parameters: self
@@ -428,6 +472,14 @@ impl Text<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Text<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 impl Text<String> {
     /// Create a new `Text<String>` from a string value.
     ///
@@ -437,6 +489,7 @@ impl Text<String> {
     pub fn new(value: String) -> Self {
         Self {
             content: ValueText::new(value),
+            span: (),
             language: None,
             altrep: None,
             x_parameters: Vec::new(),
@@ -454,6 +507,7 @@ impl TextOnly<String> {
     pub fn new(value: String) -> Self {
         Self {
             content: ValueText::new(value),
+            span: (),
             x_parameters: Vec::new(),
             retained_parameters: Vec::new(),
         }
@@ -486,12 +540,7 @@ macro_rules! simple_property_wrapper {
     ) => {
         $(#[$meta])*
         #[derive(Debug, Clone)]
-        $vis struct $name<S: StringStorage> {
-            /// Inner property value
-            pub inner: $inner<S>,
-            /// Span of the property in the source
-            pub span: S::Span,
-        }
+        $vis struct $name<S: StringStorage>(pub $inner<S>);
 
         impl<S> ::core::ops::Deref for $name<S>
         where
@@ -500,7 +549,7 @@ macro_rules! simple_property_wrapper {
             type Target = $inner<S>;
 
             fn deref(&self) -> &Self::Target {
-                &self.inner
+                &self.0
             }
         }
 
@@ -509,7 +558,7 @@ macro_rules! simple_property_wrapper {
             S: StringStorage,
         {
             fn deref_mut(&mut self) -> &mut Self::Target {
-                &mut self.inner
+                &mut self.0
             }
         }
 
@@ -528,8 +577,7 @@ macro_rules! simple_property_wrapper {
                     }]);
                 }
 
-                let span = prop.span;
-                <$inner<crate::string_storage::Segments<'src>>>::try_from(prop).map(|inner| $name { inner, span })
+                <$inner<crate::string_storage::Segments<'src>>>::try_from(prop).map($name)
             }
         }
 
@@ -537,10 +585,18 @@ macro_rules! simple_property_wrapper {
             /// Convert borrowed type to owned type
             #[must_use]
             pub fn to_owned(&self) -> $name<String> {
-                $name {
-                    inner: self.inner.to_owned(),
-                    span: (),
-                }
+                $name(self.0.to_owned())
+            }
+        }
+
+        impl<S> $name<S>
+        where
+            S: StringStorage,
+        {
+            /// Get the span of this property
+            #[must_use]
+            pub const fn span(&self) -> S::Span {
+                self.0.span()
             }
         }
     };

@@ -39,11 +39,12 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<Segments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
+        let span = comp.span();
         if !comp.name.eq_str_ignore_ascii_case(KW_VTIMEZONE) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VTIMEZONE,
                 got: comp.name,
-                span: comp.span,
+                span,
             });
         }
 
@@ -54,21 +55,21 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<Segments<'src>> {
                 Property::TzId(tz_id) => match props.tz_id {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::TzId,
-                        span: tz_id.span,
+                        span: tz_id.span(),
                     }),
                     None => props.tz_id = Some(tz_id),
                 },
                 Property::LastModified(dt) => match props.last_modified {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::LastModified,
-                        span: dt.span,
+                        span: dt.span(),
                     }),
                     None => props.last_modified = Some(dt),
                 },
                 Property::TzUrl(tz_url) => match props.tz_url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::TzUrl,
-                        span: tz_url.span,
+                        span: tz_url.span(),
                     }),
                     None => props.tz_url = Some(tz_url),
                 },
@@ -85,8 +86,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<Segments<'src>> {
         // Check required fields
         if props.tz_id.is_none() {
             errors.push(SemanticError::MissingProperty {
-                span: comp.span,
                 property: PropertyKind::TzId,
+                span,
             });
         }
 
@@ -106,7 +107,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VTimeZone<Segments<'src>> {
                 }
             } else {
                 errors.push(SemanticError::UnknownComponent {
-                    span: child.span,
+                    span: child.span(),
                     component: child.name.to_owned(),
                 });
 
@@ -190,6 +191,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<Segments<'src>> 
     /// Parse a timezone observance (STANDARD or DAYLIGHT) component
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Vec<SemanticError<'src>>> {
         let mut errors = Vec::new();
+        let span = comp.span();
 
         // Collect all properties in a single pass
         let mut props = ObservanceCollector::default();
@@ -197,21 +199,21 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<Segments<'src>> 
             match prop {
                 Property::DtStart(dt) => match props.dt_start {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        span: dt.span,
+                        span: dt.span(),
                         property: PropertyKind::DtStart,
                     }),
                     None => props.dt_start = Some(dt),
                 },
                 Property::TzOffsetFrom(offset) => match props.tz_offset_from {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        span: offset.span,
+                        span: offset.span(),
                         property: PropertyKind::TzOffsetFrom,
                     }),
                     None => props.tz_offset_from = Some(offset),
                 },
                 Property::TzOffsetTo(offset) => match props.tz_offset_to {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        span: offset.span,
+                        span: offset.span(),
                         property: PropertyKind::TzOffsetTo,
                     }),
                     None => props.tz_offset_to = Some(offset),
@@ -220,7 +222,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<Segments<'src>> 
                 Property::TzName(tz_name) => props.tz_name.push(tz_name),
                 Property::RRule(rrule) => match props.rrule {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
-                        span: rrule.span,
+                        span: rrule.span(),
                         property: PropertyKind::RRule,
                     }),
                     None => props.rrule = Some(rrule),
@@ -238,20 +240,20 @@ impl<'src> TryFrom<TypedComponent<'src>> for TimeZoneObservance<Segments<'src>> 
         // Check required fields
         if props.dt_start.is_none() {
             errors.push(SemanticError::MissingProperty {
-                span: comp.span,
                 property: PropertyKind::DtStart,
+                span,
             });
         }
         if props.tz_offset_from.is_none() {
             errors.push(SemanticError::MissingProperty {
-                span: comp.span,
                 property: PropertyKind::TzOffsetFrom,
+                span,
             });
         }
         if props.tz_offset_to.is_none() {
             errors.push(SemanticError::MissingProperty {
-                span: comp.span,
                 property: PropertyKind::TzOffsetTo,
+                span,
             });
         }
 

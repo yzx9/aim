@@ -41,19 +41,15 @@ use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueDate, ValueDuration, ValuePeriod, ValueTime};
 
-/// Date and time representation
-#[derive(Debug, Clone)]
-pub enum DateTime<S: StringStorage> {
+/// Core date-time value variants without parameters or span
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DateTime {
     /// Date and time without timezone (floating time)
     Floating {
         /// Date part
         date: ValueDate,
         /// Time part
         time: Time,
-        /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<RawParameter<S>>,
-        /// Unrecognized / Non-standard parameters (preserved for round-trip)
-        retained_parameters: Vec<Parameter<S>>,
     },
 
     /// Date and time with specific timezone
@@ -62,88 +58,68 @@ pub enum DateTime<S: StringStorage> {
         date: ValueDate,
         /// Time part
         time: Time,
-        /// Timezone identifier
-        tz_id: S,
         /// Cached parsed timezone (available with jiff feature)
         #[cfg(feature = "jiff")]
         tz_jiff: jiff::tz::TimeZone,
-        /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<RawParameter<S>>,
-        /// Unrecognized / Non-standard parameters (preserved for round-trip)
-        retained_parameters: Vec<Parameter<S>>,
     },
 
     /// Date and time in UTC
-    Utc(DateTimeUtc<S>),
-
-    /// Date-only value
-    Date {
+    Utc {
         /// Date part
         date: ValueDate,
-        /// X-name parameters (custom experimental parameters)
-        x_parameters: Vec<RawParameter<S>>,
-        /// Unrecognized / Non-standard parameters (preserved for round-trip)
-        retained_parameters: Vec<Parameter<S>>,
+        /// Time part
+        time: Time,
     },
+
+    /// Date-only value
+    Date(ValueDate),
 }
 
-impl<S: StringStorage> DateTime<S> {
+impl DateTime {
     /// Get the date part of this `DateTime`
     #[must_use]
-    pub fn date(&self) -> ValueDate {
+    pub const fn date(&self) -> ValueDate {
         match self {
-            DateTime::Utc(inner) => inner.date,
             DateTime::Floating { date, .. }
             | DateTime::Zoned { date, .. }
-            | DateTime::Date { date, .. } => *date,
+            | DateTime::Utc { date, .. }
+            | DateTime::Date(date) => *date,
         }
     }
 
     /// Get the time part if this is not a date-only value
     #[must_use]
-    pub fn time(&self) -> Option<Time> {
+    pub const fn time(&self) -> Option<Time> {
         match self {
-            DateTime::Utc(inner) => Some(inner.time),
-            DateTime::Floating { time, .. } | DateTime::Zoned { time, .. } => Some(*time),
-            DateTime::Date { .. } => None,
-        }
-    }
-
-    /// Get the timezone ID if this is a zoned value
-    #[must_use]
-    pub fn tz_id(&self) -> Option<&S> {
-        match self {
-            DateTime::Zoned { tz_id, .. } => Some(tz_id),
-            _ => None,
-        }
-    }
-
-    /// Get the timezone if this is a zoned value (when jiff feature is enabled)
-    #[cfg(feature = "jiff")]
-    #[must_use]
-    pub fn timezone(&self) -> Option<&jiff::tz::TimeZone> {
-        match self {
-            DateTime::Zoned { tz_jiff, .. } => Some(tz_jiff),
-            _ => None,
+            DateTime::Floating { time, .. }
+            | DateTime::Zoned { time, .. }
+            | DateTime::Utc { time, .. } => Some(*time),
+            DateTime::Date(_) => None,
         }
     }
 
     /// Check if this is a date-only value
     #[must_use]
-    pub fn is_date_only(&self) -> bool {
-        matches!(self, DateTime::Date { .. })
+    pub const fn is_date_only(&self) -> bool {
+        matches!(self, DateTime::Date(_))
     }
 
     /// Check if this is a UTC value
     #[must_use]
-    pub fn is_utc(&self) -> bool {
-        matches!(self, DateTime::Utc(_))
+    pub const fn is_utc(&self) -> bool {
+        matches!(self, DateTime::Utc { .. })
     }
 
     /// Check if this is a floating (no timezone) value
     #[must_use]
-    pub fn is_floating(&self) -> bool {
+    pub const fn is_floating(&self) -> bool {
         matches!(self, DateTime::Floating { .. })
+    }
+
+    /// Check if this is a zoned value
+    #[must_use]
+    pub const fn is_zoned(&self) -> bool {
+        matches!(self, DateTime::Zoned { .. })
     }
 
     /// Get the combined date and time as `jiff::civil::DateTime` (when jiff feature is enabled).
@@ -153,20 +129,185 @@ impl<S: StringStorage> DateTime<S> {
     #[must_use]
     pub fn civil_date_time(&self) -> Option<jiff::civil::DateTime> {
         match self {
-            DateTime::Utc(inner) => Some(inner.civil_date_time()),
-            DateTime::Floating { date, time, .. } | DateTime::Zoned { date, time, .. } => Some(
-                jiff::civil::DateTime::from_parts(date.civil_date(), time.civil_time()),
-            ),
-            DateTime::Date { .. } => None,
+            DateTime::Floating { date, time }
+            | DateTime::Zoned { date, time, .. }
+            | DateTime::Utc { date, time } => Some(jiff::civil::DateTime::from_parts(
+                date.civil_date(),
+                time.civil_time(),
+            )),
+            DateTime::Date(_) => None,
         }
     }
 }
 
-impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<Segments<'src>> {
+/// Date and time representation
+#[derive(Debug, Clone)]
+pub struct DateTimeProperty<S: StringStorage> {
+    /// Core date-time value
+    pub value: DateTime,
+    /// Timezone ID (only for Zoned variant)
+    pub tz_id: Option<S>,
+    /// X-name parameters (custom experimental parameters)
+    pub x_parameters: Vec<RawParameter<S>>,
+    /// Unrecognized / Non-standard parameters (preserved for round-trip)
+    pub retained_parameters: Vec<Parameter<S>>,
+    /// Span of the property in the source
+    pub span: S::Span,
+}
+
+impl<S: StringStorage> DateTimeProperty<S> {
+    /// Create a new floating `DateTimeProperty` (no timezone)
+    #[must_use]
+    pub fn floating(
+        date: ValueDate,
+        time: Time,
+        x_parameters: Vec<RawParameter<S>>,
+        retained_parameters: Vec<Parameter<S>>,
+        span: S::Span,
+    ) -> Self {
+        Self {
+            value: DateTime::Floating { date, time },
+            tz_id: None,
+            x_parameters,
+            retained_parameters,
+            span,
+        }
+    }
+
+    /// Create a new zoned `DateTimeProperty` (with timezone)
+    #[must_use]
+    pub fn zoned(
+        date: ValueDate,
+        time: Time,
+        tz_id: S,
+        #[cfg(feature = "jiff")] tz_jiff: jiff::tz::TimeZone,
+        x_parameters: Vec<RawParameter<S>>,
+        retained_parameters: Vec<Parameter<S>>,
+        span: S::Span,
+    ) -> Self {
+        Self {
+            value: DateTime::Zoned {
+                date,
+                time,
+                #[cfg(feature = "jiff")]
+                tz_jiff,
+            },
+            tz_id: Some(tz_id),
+            x_parameters,
+            retained_parameters,
+            span,
+        }
+    }
+
+    /// Create a new UTC `DateTimeProperty`
+    #[must_use]
+    pub fn utc(
+        date: ValueDate,
+        time: Time,
+        x_parameters: Vec<RawParameter<S>>,
+        retained_parameters: Vec<Parameter<S>>,
+        span: S::Span,
+    ) -> Self {
+        Self {
+            value: DateTime::Utc { date, time },
+            tz_id: None,
+            x_parameters,
+            retained_parameters,
+            span,
+        }
+    }
+
+    /// Create a new date-only `DateTimeProperty`
+    #[must_use]
+    pub fn date_only(
+        date: ValueDate,
+        x_parameters: Vec<RawParameter<S>>,
+        retained_parameters: Vec<Parameter<S>>,
+        span: S::Span,
+    ) -> Self {
+        Self {
+            value: DateTime::Date(date),
+            tz_id: None,
+            x_parameters,
+            retained_parameters,
+            span,
+        }
+    }
+
+    /// Get the date part of this `DateTimeProperty`
+    #[must_use]
+    pub fn date(&self) -> ValueDate {
+        self.value.date()
+    }
+
+    /// Get the time part if this is not a date-only value
+    #[must_use]
+    pub fn time(&self) -> Option<Time> {
+        self.value.time()
+    }
+
+    /// Get the timezone ID if this is a zoned value
+    #[must_use]
+    pub fn tz_id(&self) -> Option<&S> {
+        self.tz_id.as_ref()
+    }
+
+    /// Get the timezone if this is a zoned value (when jiff feature is enabled)
+    #[cfg(feature = "jiff")]
+    #[must_use]
+    pub fn timezone(&self) -> Option<&jiff::tz::TimeZone> {
+        match self.value {
+            DateTime::Zoned { ref tz_jiff, .. } => Some(tz_jiff),
+            _ => None,
+        }
+    }
+
+    /// Check if this is a date-only value
+    #[must_use]
+    pub fn is_date_only(&self) -> bool {
+        self.value.is_date_only()
+    }
+
+    /// Check if this is a UTC value
+    #[must_use]
+    pub fn is_utc(&self) -> bool {
+        self.value.is_utc()
+    }
+
+    /// Check if this is a floating (no timezone) value
+    #[must_use]
+    pub fn is_floating(&self) -> bool {
+        self.value.is_floating()
+    }
+
+    /// Check if this is a zoned value
+    #[must_use]
+    pub fn is_zoned(&self) -> bool {
+        self.value.is_zoned()
+    }
+
+    /// Get the combined date and time as `jiff::civil::DateTime` (when jiff feature is enabled).
+    ///
+    /// Returns `None` for date-only values.
+    #[cfg(feature = "jiff")]
+    #[must_use]
+    pub fn civil_date_time(&self) -> Option<jiff::civil::DateTime> {
+        self.value.civil_date_time()
+    }
+
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
+impl<'src> TryFrom<ParsedProperty<'src>> for DateTimeProperty<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     #[expect(clippy::too_many_lines)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let span = prop.span;
         let mut errors: Vec<TypedError<'src>> = Vec::new();
 
         let value = match take_single_value(&prop.kind, prop.value) {
@@ -225,22 +366,24 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<Segments<'src>> {
                 Value::DateTime { mut values, .. } if values.len() == 1 => {
                     let dt = values.pop().unwrap();
                     if dt.time.utc {
-                        Ok(DateTime::Utc(DateTimeUtc {
-                            date: dt.date,
-                            time: dt.time.into(),
+                        Ok(DateTimeProperty::utc(
+                            dt.date,
+                            dt.time.into(),
                             x_parameters,
                             retained_parameters,
-                        }))
+                            span,
+                        ))
                     } else {
-                        Ok(DateTime::Zoned {
-                            date: dt.date,
-                            time: dt.time.into(),
-                            tz_id: tz_id_value,
+                        Ok(DateTimeProperty::zoned(
+                            dt.date,
+                            dt.time.into(),
+                            tz_id_value,
                             #[cfg(feature = "jiff")]
-                            tz_jiff: tz_jiff.unwrap(), // SAFETY: set above
+                            tz_jiff.unwrap(), // SAFETY: set above
                             x_parameters,
                             retained_parameters,
-                        })
+                            span,
+                        ))
                     }
                 }
 
@@ -254,28 +397,31 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<Segments<'src>> {
             match value {
                 Value::Date { mut values, .. } if values.len() == 1 => {
                     let date = values.pop().unwrap();
-                    Ok(DateTime::Date {
+                    Ok(DateTimeProperty::date_only(
                         date,
                         x_parameters,
                         retained_parameters,
-                    })
+                        span,
+                    ))
                 }
                 Value::DateTime { mut values, .. } if values.len() == 1 => {
                     let dt = values.pop().unwrap();
                     if dt.time.utc {
-                        Ok(DateTime::Utc(DateTimeUtc {
-                            date: dt.date,
-                            time: dt.time.into(),
+                        Ok(DateTimeProperty::utc(
+                            dt.date,
+                            dt.time.into(),
                             x_parameters,
                             retained_parameters,
-                        }))
+                            span,
+                        ))
                     } else {
-                        Ok(DateTime::Floating {
-                            date: dt.date,
-                            time: dt.time.into(),
+                        Ok(DateTimeProperty::floating(
+                            dt.date,
+                            dt.time.into(),
                             x_parameters,
                             retained_parameters,
-                        })
+                            span,
+                        ))
                     }
                 }
                 _ => {
@@ -292,58 +438,24 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTime<Segments<'src>> {
     }
 }
 
-impl DateTime<Segments<'_>> {
-    /// Convert borrowed `DateTime` to owned `DateTime`
+impl DateTimeProperty<Segments<'_>> {
+    /// Convert borrowed `DateTimeProperty` to owned `DateTimeProperty`
     #[must_use]
-    pub fn to_owned(&self) -> DateTime<String> {
-        match self {
-            DateTime::Floating {
-                date,
-                time,
-                x_parameters,
-                retained_parameters,
-            } => DateTime::Floating {
-                date: *date,
-                time: *time,
-                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
-                retained_parameters: retained_parameters
-                    .iter()
-                    .map(Parameter::to_owned)
-                    .collect(),
-            },
-            DateTime::Zoned {
-                date,
-                time,
-                tz_id,
-                #[cfg(feature = "jiff")]
-                tz_jiff,
-                x_parameters,
-                retained_parameters,
-            } => DateTime::Zoned {
-                date: *date,
-                time: *time,
-                tz_id: tz_id.to_owned(),
-                #[cfg(feature = "jiff")]
-                tz_jiff: tz_jiff.clone(),
-                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
-                retained_parameters: retained_parameters
-                    .iter()
-                    .map(Parameter::to_owned)
-                    .collect(),
-            },
-            DateTime::Utc(inner) => DateTime::Utc(inner.to_owned()),
-            DateTime::Date {
-                date,
-                x_parameters,
-                retained_parameters,
-            } => DateTime::Date {
-                date: *date,
-                x_parameters: x_parameters.iter().map(RawParameter::to_owned).collect(),
-                retained_parameters: retained_parameters
-                    .iter()
-                    .map(Parameter::to_owned)
-                    .collect(),
-            },
+    pub fn to_owned(&self) -> DateTimeProperty<String> {
+        DateTimeProperty {
+            value: self.value.clone(),
+            tz_id: self.tz_id.as_ref().map(ToString::to_string),
+            x_parameters: self
+                .x_parameters
+                .iter()
+                .map(RawParameter::to_owned)
+                .collect(),
+            retained_parameters: self
+                .retained_parameters
+                .iter()
+                .map(Parameter::to_owned)
+                .collect(),
+            span: (),
         }
     }
 }
@@ -427,38 +539,26 @@ impl From<jiff::civil::Time> for Time {
 pub enum Period<S: StringStorage> {
     /// Start and end date/time in UTC
     ExplicitUtc {
-        /// Start date
-        start_date: ValueDate,
-        /// Start time
-        start_time: Time,
-        /// End date
-        end_date: ValueDate,
-        /// End time
-        end_time: Time,
+        /// Start date/time
+        start: DateTime,
+        /// End date/time
+        end: DateTime,
     },
 
     /// Start and end date/time in floating time (no timezone)
     ExplicitFloating {
-        /// Start date
-        start_date: ValueDate,
-        /// Start time
-        start_time: Time,
-        /// End date
-        end_date: ValueDate,
-        /// End time
-        end_time: Time,
+        /// Start date/time
+        start: DateTime,
+        /// End date/time
+        end: DateTime,
     },
 
     /// Start and end date/time with timezone reference
     ExplicitZoned {
-        /// Start date
-        start_date: ValueDate,
-        /// Start time
-        start_time: Time,
-        /// End date
-        end_date: ValueDate,
-        /// End time
-        end_time: Time,
+        /// Start date/time
+        start: DateTime,
+        /// End date/time
+        end: DateTime,
         /// Timezone ID (same for both start and end)
         tz_id: S,
         /// Cached parsed timezone (available with jiff feature)
@@ -468,30 +568,24 @@ pub enum Period<S: StringStorage> {
 
     /// Start date/time in UTC with a duration
     DurationUtc {
-        /// Start date
-        start_date: ValueDate,
-        /// Start time
-        start_time: Time,
+        /// Start date/time
+        start: DateTime,
         /// Duration from the start
         duration: ValueDuration,
     },
 
     /// Start date/time in floating time with a duration
     DurationFloating {
-        /// Start date
-        start_date: ValueDate,
-        /// Start time
-        start_time: Time,
+        /// Start date/time
+        start: DateTime,
         /// Duration from the start
         duration: ValueDuration,
     },
 
     /// Start date/time with timezone reference and a duration
     DurationZoned {
-        /// Start date
-        start_date: ValueDate,
-        /// Start time
-        start_time: Time,
+        /// Start date/time
+        start: DateTime,
         /// Duration from the start
         duration: ValueDuration,
         /// Start timezone ID
@@ -527,62 +621,14 @@ impl<S: StringStorage> Period<S> {
 
     /// Get the start as a `DateTime`.
     #[must_use]
-    pub fn start(&self) -> DateTime<S> {
+    pub fn start(&self) -> DateTime {
         match self {
-            Period::ExplicitUtc {
-                start_date,
-                start_time,
-                ..
-            }
-            | Period::DurationUtc {
-                start_date,
-                start_time,
-                ..
-            } => DateTime::Utc(DateTimeUtc {
-                date: *start_date,
-                time: *start_time,
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-            }),
-            Period::ExplicitFloating {
-                start_date,
-                start_time,
-                ..
-            }
-            | Period::DurationFloating {
-                start_date,
-                start_time,
-                ..
-            } => DateTime::Floating {
-                date: *start_date,
-                time: *start_time,
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-            },
-            Period::ExplicitZoned {
-                start_date,
-                start_time,
-                tz_id,
-                #[cfg(feature = "jiff")]
-                tz_jiff,
-                ..
-            }
-            | Period::DurationZoned {
-                start_date,
-                start_time,
-                tz_id,
-                #[cfg(feature = "jiff")]
-                tz_jiff,
-                ..
-            } => DateTime::Zoned {
-                date: *start_date,
-                time: *start_time,
-                tz_id: tz_id.clone(),
-                #[cfg(feature = "jiff")]
-                tz_jiff: tz_jiff.clone(),
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-            },
+            Period::ExplicitUtc { start, .. }
+            | Period::ExplicitFloating { start, .. }
+            | Period::ExplicitZoned { start, .. }
+            | Period::DurationUtc { start, .. }
+            | Period::DurationFloating { start, .. }
+            | Period::DurationZoned { start, .. } => start.clone(),
         }
     }
 
@@ -591,93 +637,45 @@ impl<S: StringStorage> Period<S> {
     /// For duration-based periods, calculates the end by adding the duration to the start.
     #[cfg(feature = "jiff")]
     #[must_use]
-    pub fn end(&self) -> DateTime<S> {
+    pub fn end(&self) -> DateTime {
         match self {
-            Period::ExplicitUtc {
-                end_date, end_time, ..
-            } => DateTime::Utc(DateTimeUtc {
-                date: *end_date,
-                time: *end_time,
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-            }),
-            Period::ExplicitFloating {
-                end_date, end_time, ..
-            } => DateTime::Floating {
-                date: *end_date,
-                time: *end_time,
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-            },
-            Period::ExplicitZoned {
-                end_date,
-                end_time,
-                tz_id,
-                tz_jiff,
-                ..
-            } => DateTime::Zoned {
-                date: *end_date,
-                time: *end_time,
-                tz_id: tz_id.clone(),
-                tz_jiff: tz_jiff.clone(),
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-            },
+            Period::ExplicitUtc { end, .. }
+            | Period::ExplicitFloating { end, .. }
+            | Period::ExplicitZoned { end, .. } => end.clone(),
             Period::DurationUtc {
-                start_date,
-                start_time,
-                duration,
-                ..
+                start, duration, ..
             } => {
-                let start = jiff::civil::DateTime::from_parts(
-                    start_date.civil_date(),
-                    start_time.civil_time(),
-                );
-                let end = add_duration(start, duration);
-                DateTime::Utc(DateTimeUtc {
-                    date: end.date().into(),
-                    time: end.time().into(),
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
-                })
+                let start_dt = start.civil_date_time().unwrap_or_default();
+                let end_dt = add_duration(start_dt, duration);
+                DateTime::Utc {
+                    date: end_dt.date().into(),
+                    time: end_dt.time().into(),
+                }
             }
             Period::DurationFloating {
-                start_date,
-                start_time,
-                duration,
-                ..
+                start, duration, ..
             } => {
-                let start = jiff::civil::DateTime::from_parts(
-                    start_date.civil_date(),
-                    start_time.civil_time(),
-                );
-                let end = add_duration(start, duration);
+                let start_dt = start.civil_date_time().unwrap_or_default();
+                let end_dt = add_duration(start_dt, duration);
                 DateTime::Floating {
-                    date: end.date().into(),
-                    time: end.time().into(),
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
+                    date: end_dt.date().into(),
+                    time: end_dt.time().into(),
                 }
             }
             Period::DurationZoned {
-                start_date,
-                start_time,
-                tz_id,
-                tz_jiff,
+                start,
                 duration,
+                #[cfg(feature = "jiff")]
+                tz_jiff,
+                ..
             } => {
-                let start = jiff::civil::DateTime::from_parts(
-                    start_date.civil_date(),
-                    start_time.civil_time(),
-                );
-                let end = add_duration(start, duration);
+                let start_dt = start.civil_date_time().unwrap_or_default();
+                let end_dt = add_duration(start_dt, duration);
                 DateTime::Zoned {
-                    date: end.date().into(),
-                    time: end.time().into(),
-                    tz_id: tz_id.clone(),
+                    date: end_dt.date().into(),
+                    time: end_dt.time().into(),
+                    #[cfg(feature = "jiff")]
                     tz_jiff: tz_jiff.clone(),
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
                 }
             }
         }
@@ -686,18 +684,9 @@ impl<S: StringStorage> Period<S> {
     /// Get the start date and time as `jiff::civil::DateTime` (when jiff feature is enabled).
     #[cfg(feature = "jiff")]
     #[must_use]
-    #[rustfmt::skip]
     pub fn start_civil(&self) -> jiff::civil::DateTime {
-        match self {
-            Period::ExplicitUtc { start_date, start_time, .. }
-            | Period::ExplicitFloating { start_date, start_time, .. }
-            | Period::ExplicitZoned { start_date, start_time, .. }
-            | Period::DurationUtc { start_date, start_time, .. }
-            | Period::DurationFloating { start_date, start_time, .. }
-            | Period::DurationZoned { start_date, start_time, .. } => {
-                jiff::civil::DateTime::from_parts(start_date.civil_date(), start_time.civil_time())
-            }
-        }
+        // SAFETY: Period never contains Date-only DateTimeValue
+        self.start().civil_date_time().unwrap_or_default()
     }
 
     /// Get the end date and time as `jiff::civil::DateTime` (when jiff feature is enabled).
@@ -722,17 +711,25 @@ impl<'src> TryFrom<Value<Segments<'src>>> for Period<Segments<'src>> {
                     // Both start and end have the same UTC flag (guaranteed by parser)
                     ValuePeriod::Explicit { start, end } if start.time.utc => {
                         Ok(Period::ExplicitUtc {
-                            start_date: start.date,
-                            start_time: start.time.into(),
-                            end_date: end.date,
-                            end_time: end.time.into(),
+                            start: DateTime::Utc {
+                                date: start.date,
+                                time: start.time.into(),
+                            },
+                            end: DateTime::Utc {
+                                date: end.date,
+                                time: end.time.into(),
+                            },
                         })
                     }
                     ValuePeriod::Explicit { start, end } => Ok(Period::ExplicitFloating {
-                        start_date: start.date,
-                        start_time: start.time.into(),
-                        end_date: end.date,
-                        end_time: end.time.into(),
+                        start: DateTime::Floating {
+                            date: start.date,
+                            time: start.time.into(),
+                        },
+                        end: DateTime::Floating {
+                            date: end.date,
+                            time: end.time.into(),
+                        },
                     }),
                     ValuePeriod::Duration { start, duration } => {
                         // Only positive durations are valid for periods
@@ -748,14 +745,18 @@ impl<'src> TryFrom<Value<Segments<'src>>> for Period<Segments<'src>> {
 
                         if start.time.utc {
                             Ok(Period::DurationUtc {
-                                start_date: start.date,
-                                start_time: start.time.into(),
+                                start: DateTime::Utc {
+                                    date: start.date,
+                                    time: start.time.into(),
+                                },
                                 duration,
                             })
                         } else {
                             Ok(Period::DurationFloating {
-                                start_date: start.date,
-                                start_time: start.time.into(),
+                                start: DateTime::Floating {
+                                    date: start.date,
+                                    time: start.time.into(),
+                                },
                                 duration,
                             })
                         }
@@ -777,73 +778,43 @@ impl Period<Segments<'_>> {
     #[must_use]
     pub fn to_owned(&self) -> Period<String> {
         match self {
-            Period::ExplicitUtc {
-                start_date,
-                start_time,
-                end_date,
-                end_time,
-            } => Period::ExplicitUtc {
-                start_date: *start_date,
-                start_time: *start_time,
-                end_date: *end_date,
-                end_time: *end_time,
+            Period::ExplicitUtc { start, end } => Period::ExplicitUtc {
+                start: start.clone(),
+                end: end.clone(),
             },
-            Period::ExplicitFloating {
-                start_date,
-                start_time,
-                end_date,
-                end_time,
-            } => Period::ExplicitFloating {
-                start_date: *start_date,
-                start_time: *start_time,
-                end_date: *end_date,
-                end_time: *end_time,
+            Period::ExplicitFloating { start, end } => Period::ExplicitFloating {
+                start: start.clone(),
+                end: end.clone(),
             },
             Period::ExplicitZoned {
-                start_date,
-                start_time,
-                end_date,
-                end_time,
+                start,
+                end,
                 tz_id,
                 #[cfg(feature = "jiff")]
                 tz_jiff,
             } => Period::ExplicitZoned {
-                start_date: *start_date,
-                start_time: *start_time,
-                end_date: *end_date,
-                end_time: *end_time,
+                start: start.clone(),
+                end: end.clone(),
                 tz_id: tz_id.to_owned(),
                 #[cfg(feature = "jiff")]
                 tz_jiff: tz_jiff.clone(),
             },
-            Period::DurationUtc {
-                start_date,
-                start_time,
-                duration,
-            } => Period::DurationUtc {
-                start_date: *start_date,
-                start_time: *start_time,
+            Period::DurationUtc { start, duration } => Period::DurationUtc {
+                start: start.clone(),
                 duration: *duration,
             },
-            Period::DurationFloating {
-                start_date,
-                start_time,
-                duration,
-            } => Period::DurationFloating {
-                start_date: *start_date,
-                start_time: *start_time,
+            Period::DurationFloating { start, duration } => Period::DurationFloating {
+                start: start.clone(),
                 duration: *duration,
             },
             Period::DurationZoned {
-                start_date,
-                start_time,
+                start,
                 duration,
                 tz_id,
                 #[cfg(feature = "jiff")]
                 tz_jiff,
             } => Period::DurationZoned {
-                start_date: *start_date,
-                start_time: *start_time,
+                start: start.clone(),
                 duration: *duration,
                 tz_id: tz_id.to_owned(),
                 #[cfg(feature = "jiff")]
@@ -904,6 +875,8 @@ pub struct DateTimeUtc<S: StringStorage> {
     pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
+    /// Span of the property in the source
+    pub span: S::Span,
 }
 
 impl<S: StringStorage> DateTimeUtc<S> {
@@ -929,6 +902,7 @@ impl<S: StringStorage> DateTimeUtc<S> {
     /// Get the combined date and time as `jiff::Zoned` in UTC (when jiff feature is enabled).
     #[cfg(feature = "jiff")]
     #[must_use]
+    #[expect(clippy::missing_panics_doc)]
     pub fn zoned(&self) -> jiff::Zoned {
         self.civil_date_time()
             .to_zoned(jiff::tz::TimeZone::UTC)
@@ -953,7 +927,16 @@ impl DateTimeUtc<Segments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
+    }
+}
+
+impl<S: StringStorage> DateTimeUtc<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -964,42 +947,30 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTimeUtc<Segments<'src>> {
         // Save the span before moving prop
         let span = prop.span;
 
-        // First convert to DateTime
-        let dt = DateTime::try_from(prop)?;
+        // First convert to DateTimeProperty
+        let dt = DateTimeProperty::try_from(prop)?;
 
         // Validate that it's UTC only and extract components
-        let inner = match dt {
-            DateTime::Utc(inner) => inner,
-            DateTime::Date { .. } => {
-                return Err(vec![TypedError::PropertyInvalidValue {
-                    property: PropertyKind::DtStamp, // fallback kind
-                    value: "DATE value not allowed, must be DATE-TIME with UTC time".to_string(),
-                    span,
-                }]);
-            }
-            DateTime::Floating { .. } => {
-                return Err(vec![TypedError::PropertyInvalidValue {
-                    property: PropertyKind::DtStamp, // fallback kind
-                    value: "Floating time not allowed, must be UTC time (ends with 'Z')"
-                        .to_string(),
-                    span,
-                }]);
-            }
-            DateTime::Zoned { .. } => {
-                return Err(vec![TypedError::PropertyInvalidValue {
-                    property: PropertyKind::DtStamp, // fallback kind
-                    value: "Timezone reference not allowed, must be UTC time (ends with 'Z')"
-                        .to_string(),
-                    span,
-                }]);
-            }
-        };
+        if !dt.is_utc() {
+            return Err(vec![TypedError::PropertyInvalidValue {
+                property: PropertyKind::DtStamp, // fallback kind
+                value: if dt.is_date_only() {
+                    "DATE value not allowed, must be DATE-TIME with UTC time".to_string()
+                } else if dt.is_floating() {
+                    "Floating time not allowed, must be UTC time (ends with 'Z')".to_string()
+                } else {
+                    "Timezone reference not allowed, must be UTC time (ends with 'Z')".to_string()
+                },
+                span,
+            }]);
+        }
 
         Ok(Self {
-            date: inner.date,
-            time: inner.time,
-            x_parameters: inner.x_parameters,
-            retained_parameters: inner.retained_parameters,
+            date: dt.date(),
+            time: dt.time().unwrap(), // SAFETY: is_utc() guarantees Some(time)
+            x_parameters: dt.x_parameters,
+            retained_parameters: dt.retained_parameters,
+            span,
         })
     }
 }
@@ -1017,58 +988,46 @@ impl Completed<String> {
     /// Create a new `Completed<String>` from a `DateTimeUtc` value.
     #[must_use]
     pub fn new(value: DateTimeUtc<String>) -> Self {
-        Self {
-            inner: value,
-            span: (),
-        }
+        Self(value)
     }
 }
 
 simple_property_wrapper!(
     /// Date-Time End property wrapper (RFC 5545 Section 3.8.2.2)
-    pub DtEnd<S> => DateTime
+    pub DtEnd<S> => DateTimeProperty
 );
 
 impl DtEnd<String> {
-    /// Create a new `DtEnd<String>` from a `DateTime` value.
+    /// Create a new `DtEnd<String>` from a `DateTimeProperty` value.
     #[must_use]
-    pub fn new(value: DateTime<String>) -> Self {
-        Self {
-            inner: value,
-            span: (),
-        }
+    pub fn new(value: DateTimeProperty<String>) -> Self {
+        Self(value)
     }
 }
 
 simple_property_wrapper!(
     /// Time Transparency property wrapper (RFC 5545 Section 3.8.2.3)
-    pub Due<S> => DateTime
+    pub Due<S> => DateTimeProperty
 );
 
 impl Due<String> {
-    /// Create a new `Due<String>` from a `DateTime` value.
+    /// Create a new `Due<String>` from a `DateTimeProperty` value.
     #[must_use]
-    pub fn new(value: DateTime<String>) -> Self {
-        Self {
-            inner: value,
-            span: (),
-        }
+    pub fn new(value: DateTimeProperty<String>) -> Self {
+        Self(value)
     }
 }
 
 simple_property_wrapper!(
     /// Date-Time Start property wrapper (RFC 5545 Section 3.8.2.4)
-    pub DtStart<S> => DateTime
+    pub DtStart<S> => DateTimeProperty
 );
 
 impl DtStart<String> {
-    /// Create a new `DtStart<String>` from a `DateTime` value.
+    /// Create a new `DtStart<String>` from a `DateTimeProperty` value.
     #[must_use]
-    pub fn new(value: DateTime<String>) -> Self {
-        Self {
-            inner: value,
-            span: (),
-        }
+    pub fn new(value: DateTimeProperty<String>) -> Self {
+        Self(value)
     }
 }
 
@@ -1170,6 +1129,14 @@ impl Duration<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Duration<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 /// Free/Busy Time (RFC 5545 Section 3.8.2.6)
 ///
 /// This property defines one or more free or busy time intervals.
@@ -1190,6 +1157,7 @@ pub struct FreeBusy<S: StringStorage> {
 impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
+    #[expect(clippy::too_many_lines)]
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
         if !matches!(prop.kind, PropertyKind::FreeBusy) {
             return Err(vec![TypedError::PropertyUnexpectedKind {
@@ -1244,16 +1212,24 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<Segments<'src>> {
             let period = match value_period {
                 // Both start and end have the same UTC flag (guaranteed by parser)
                 ValuePeriod::Explicit { start, end } if start.time.utc => Period::ExplicitUtc {
-                    start_date: start.date,
-                    start_time: start.time.into(),
-                    end_date: end.date,
-                    end_time: end.time.into(),
+                    start: DateTime::Utc {
+                        date: start.date,
+                        time: start.time.into(),
+                    },
+                    end: DateTime::Utc {
+                        date: end.date,
+                        time: end.time.into(),
+                    },
                 },
                 ValuePeriod::Explicit { start, end } => Period::ExplicitFloating {
-                    start_date: start.date,
-                    start_time: start.time.into(),
-                    end_date: end.date,
-                    end_time: end.time.into(),
+                    start: DateTime::Floating {
+                        date: start.date,
+                        time: start.time.into(),
+                    },
+                    end: DateTime::Floating {
+                        date: end.date,
+                        time: end.time.into(),
+                    },
                 },
                 ValuePeriod::Duration { start, duration } => {
                     // Only positive durations are valid for periods
@@ -1271,14 +1247,18 @@ impl<'src> TryFrom<ParsedProperty<'src>> for FreeBusy<Segments<'src>> {
 
                     if start.time.utc {
                         Period::DurationUtc {
-                            start_date: start.date,
-                            start_time: start.time.into(),
+                            start: DateTime::Utc {
+                                date: start.date,
+                                time: start.time.into(),
+                            },
                             duration,
                         }
                     } else {
                         Period::DurationFloating {
-                            start_date: start.date,
-                            start_time: start.time.into(),
+                            start: DateTime::Floating {
+                                date: start.date,
+                                time: start.time.into(),
+                            },
                             duration,
                         }
                     }
@@ -1321,6 +1301,14 @@ impl FreeBusy<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> FreeBusy<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -1412,5 +1400,13 @@ impl TimeTransparency<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> TimeTransparency<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }

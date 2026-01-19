@@ -5,7 +5,9 @@
 use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
 use aimcal_ical as ical;
-use aimcal_ical::{Description, DtEnd, DtStamp, DtStart, EventStatusValue, Summary, Uid, VEvent};
+use aimcal_ical::{
+    DateTimeUtc, Description, DtEnd, DtStamp, DtStart, EventStatusValue, Summary, VEvent,
+};
 use jiff::{Span, ToSpan, Zoned};
 
 use crate::{DateTimeAnchor, LooseDateTime};
@@ -50,11 +52,11 @@ impl Event for VEvent<String> {
     }
 
     fn start(&self) -> Option<LooseDateTime> {
-        Some(self.dt_start.inner.clone().into())
+        Some(self.dt_start.0.clone().into())
     }
 
     fn end(&self) -> Option<LooseDateTime> {
-        self.dt_end.as_ref().map(|dt| dt.inner.clone().into())
+        self.dt_end.as_ref().map(|dt| dt.0.clone().into())
     }
 
     fn status(&self) -> Option<EventStatus> {
@@ -182,11 +184,12 @@ impl ResolvedEventDraft<'_> {
     pub(crate) fn into_ics(self, uid: &str) -> VEvent<String> {
         // Convert to UTC for DTSTAMP (required by RFC 5545)
         let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-        let dt_stamp = ical::DtStamp::new(ical::DateTimeUtc {
+        let dt_stamp = DtStamp::new(DateTimeUtc {
             date: utc_now.date().into(),
             time: utc_now.time().into(),
             x_parameters: Vec::new(),
             retained_parameters: Vec::new(),
+            span: (),
         });
 
         VEvent {
@@ -303,13 +306,15 @@ impl ResolvedEventPatch<'_> {
         }
 
         // Set the creation time to now if it is not already set
-        if e.dt_stamp.inner.date().year == 1970 {
+        if e.dt_stamp.date().year == 1970 {
+            // TODO: better check for unset
             let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-            e.dt_stamp = DtStamp::new(ical::DateTimeUtc {
+            e.dt_stamp = DtStamp::new(DateTimeUtc {
                 date: utc_now.date().into(),
                 time: utc_now.time().into(),
                 x_parameters: Vec::new(),
                 retained_parameters: Vec::new(),
+                span: (),
             });
         }
 

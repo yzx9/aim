@@ -168,6 +168,14 @@ impl Attachment<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Attachment<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 impl AttachmentValue<Segments<'_>> {
     /// Convert borrowed `AttachmentValue` to owned `AttachmentValue`
     #[must_use]
@@ -272,6 +280,14 @@ impl Classification<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Classification<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.4)
     pub Comment<S> => Text
@@ -286,10 +302,7 @@ impl Description<String> {
     /// Create a new `Description<String>` from a string value.
     #[must_use]
     pub fn new(value: String) -> Self {
-        Self {
-            inner: Text::new(value),
-            span: (),
-        }
+        Self(Text::new(value))
     }
 }
 
@@ -393,6 +406,14 @@ impl Geo<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Geo<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.7)
     pub Location<S> => Text
@@ -402,10 +423,7 @@ impl Location<String> {
     /// Create a new `Location<String>` from a string value.
     #[must_use]
     pub fn new(value: String) -> Self {
-        Self {
-            inner: Text::new(value),
-            span: (),
-        }
+        Self(Text::new(value))
     }
 }
 
@@ -511,6 +529,14 @@ impl Status<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> Status<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -632,6 +658,14 @@ impl PercentComplete<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> PercentComplete<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 impl PercentComplete<String> {
     /// Create a new `PercentComplete<String>` from a percent value (0-100).
     #[must_use]
@@ -750,6 +784,14 @@ impl Priority<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Priority<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 impl Priority<String> {
     /// Create a new `Priority<String>` from a priority value (0-9).
     #[must_use]
@@ -857,6 +899,14 @@ impl Categories<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> Categories<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -975,6 +1025,14 @@ impl Resources<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Resources<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 simple_property_wrapper!(
     /// Simple text property wrapper (RFC 5545 Section 3.8.1.12)
     pub Summary<S> => Text
@@ -984,10 +1042,7 @@ impl Summary<String> {
     /// Create a new `Summary<String>` from a string value.
     #[must_use]
     pub fn new(value: String) -> Self {
-        Self {
-            inner: Text::new(value),
-            span: (),
-        }
+        Self(Text::new(value))
     }
 }
 

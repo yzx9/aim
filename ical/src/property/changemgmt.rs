@@ -34,10 +34,7 @@ impl Created<String> {
     /// Create a new `Created<String>` from a `DateTimeUtc` value.
     #[must_use]
     pub fn new(value: DateTimeUtc<String>) -> Self {
-        Self {
-            inner: value,
-            span: (),
-        }
+        Self(value)
     }
 }
 
@@ -52,10 +49,7 @@ impl DtStamp<String> {
     /// Create a new `DtStamp<String>` from a `DateTimeUtc` value.
     #[must_use]
     pub fn new(value: DateTimeUtc<String>) -> Self {
-        Self {
-            inner: value,
-            span: (),
-        }
+        Self(value)
     }
 }
 
@@ -70,10 +64,7 @@ impl LastModified<String> {
     /// Create a new `LastModified<String>` from a `DateTimeUtc` value.
     #[must_use]
     pub fn new(value: DateTimeUtc<String>) -> Self {
-        Self {
-            inner: value,
-            span: (),
-        }
+        Self(value)
     }
 }
 
@@ -180,5 +171,13 @@ impl Sequence<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> Sequence<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }

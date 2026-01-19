@@ -32,15 +32,15 @@ use crate::keyword::{
     KW_SUMMARY, KW_TRANSP, KW_TRIGGER, KW_TZID, KW_TZNAME, KW_TZOFFSETFROM, KW_TZOFFSETTO,
     KW_TZURL, KW_UID, KW_URL, KW_VERSION,
 };
-use crate::parameter::Parameter;
+use crate::parameter::{FreeBusyType, Parameter};
 use crate::property::{
     Action, Attachment, AttachmentValue, Attendee, CalendarScale, Categories, Classification,
-    Comment, Completed, Contact, Created, DateTime, DateTimeUtc, Description, DtEnd, DtStamp,
-    DtStart, Due, Duration, ExDate, ExDateValue, FreeBusy, Geo, LastModified, Location, Method,
-    Organizer, PercentComplete, Period, Priority, ProductId, Property, RDate, RDateValue, RRule,
-    RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status, Summary, Time,
-    TimeTransparency, Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid,
-    UnrecognizedProperty, UriProperty, Url, Version, XNameProperty,
+    Comment, Completed, Contact, Created, DateTime, DateTimeProperty, DateTimeUtc, Description,
+    DtEnd, DtStamp, DtStart, Due, Duration, ExDate, ExDateValue, FreeBusy, Geo, LastModified,
+    Location, Method, Organizer, PercentComplete, Period, Priority, ProductId, Property, RDate,
+    RDateValue, RRule, RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status,
+    Summary, Time, TimeTransparency, Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo,
+    TzUrl, Uid, UnrecognizedProperty, UriProperty, Url, Version, XNameProperty,
 };
 use crate::string_storage::StringStorage;
 use crate::syntax::RawParameter;
@@ -349,19 +349,36 @@ pub fn write_prop_freebusy<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     freebusy: &FreeBusy<S>,
 ) -> io::Result<()> {
+    write_prop_freebusy_inner(
+        f,
+        &freebusy.fb_type,
+        &freebusy.x_parameters,
+        &freebusy.retained_parameters,
+        &freebusy.values,
+    )
+}
+
+/// Internal helper to write FREEBUSY property without requiring a full `FreeBusy` instance.
+pub(crate) fn write_prop_freebusy_inner<S: StringStorage>(
+    f: &mut Formatter<impl Write>,
+    fb_type: &FreeBusyType<S>,
+    x_parameters: &[RawParameter<S>],
+    retained_parameters: &[Parameter<S>],
+    values: &[Period<S>],
+) -> io::Result<()> {
     // Write property name
     write!(f, "{KW_FREEBUSY}")?;
 
     // Write FBTYPE parameter using centralized formatter
-    write_param_fbtype(f, &freebusy.fb_type)?;
+    write_param_fbtype(f, fb_type)?;
 
     // Write generic parameter lists
-    write_syntax_parameters(f, &freebusy.x_parameters)?;
-    write_parameters(f, &freebusy.retained_parameters)?;
+    write_syntax_parameters(f, x_parameters)?;
+    write_parameters(f, retained_parameters)?;
 
     // Write property value
     write!(f, ":")?;
-    for (i, period) in freebusy.values.iter().enumerate() {
+    for (i, period) in values.iter().enumerate() {
         if i > 0 {
             write!(f, ",")?;
         }
@@ -521,7 +538,7 @@ pub fn write_prop_dtstart<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &DtStart<S>,
 ) -> io::Result<()> {
-    write_datetime(f, KW_DTSTART, &prop.inner)?;
+    write_datetime(f, KW_DTSTART, prop)?;
     f.writeln()
 }
 
@@ -530,7 +547,7 @@ pub fn write_prop_dtend<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &DtEnd<S>,
 ) -> io::Result<()> {
-    write_datetime(f, KW_DTEND, &prop.inner)?;
+    write_datetime(f, KW_DTEND, prop)?;
     f.writeln()
 }
 
@@ -539,7 +556,7 @@ pub fn write_prop_dtstamp<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &DtStamp<S>,
 ) -> io::Result<()> {
-    write_datetime_utc(f, KW_DTSTAMP, &prop.inner)?;
+    write_datetime_utc(f, KW_DTSTAMP, prop)?;
     f.writeln()
 }
 
@@ -548,7 +565,7 @@ pub fn write_prop_created<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &Created<S>,
 ) -> io::Result<()> {
-    write_datetime_utc(f, KW_CREATED, &prop.inner)?;
+    write_datetime_utc(f, KW_CREATED, prop)?;
     f.writeln()
 }
 
@@ -557,7 +574,7 @@ pub fn write_prop_last_modified<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &LastModified<S>,
 ) -> io::Result<()> {
-    write_datetime_utc(f, KW_LAST_MODIFIED, &prop.inner)?;
+    write_datetime_utc(f, KW_LAST_MODIFIED, prop)?;
     f.writeln()
 }
 
@@ -566,7 +583,7 @@ pub fn write_prop_completed<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &Completed<S>,
 ) -> io::Result<()> {
-    write_datetime_utc(f, KW_COMPLETED, &prop.inner)?;
+    write_datetime_utc(f, KW_COMPLETED, prop)?;
     f.writeln()
 }
 
@@ -575,7 +592,7 @@ pub fn write_prop_due<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &Due<S>,
 ) -> io::Result<()> {
-    write_datetime(f, KW_DUE, &prop.inner)?;
+    write_datetime(f, KW_DUE, prop)?;
     f.writeln()
 }
 
@@ -584,7 +601,7 @@ pub fn write_prop_recurrence_id<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     prop: &RecurrenceId<S>,
 ) -> io::Result<()> {
-    write_datetime(f, KW_RECURRENCE_ID, &prop.inner)?;
+    write_datetime(f, KW_RECURRENCE_ID, prop)?;
     f.writeln()
 }
 
@@ -1018,31 +1035,15 @@ fn write_integer<D: Display, S: StringStorage>(
     write!(f, ":{value}")
 }
 
-/// Write a `DateTime` property.
+/// Write a `DateTimeProperty` property.
 fn write_datetime<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     name: &str,
-    datetime: &DateTime<S>,
+    datetime: &DateTimeProperty<S>,
 ) -> io::Result<()> {
-    // Collect all parameters using a helper
-    let (x_params, retained_params) = match datetime {
-        DateTime::Utc(inner) => (&inner.x_parameters, &inner.retained_parameters),
-        DateTime::Floating {
-            x_parameters,
-            retained_parameters,
-            ..
-        }
-        | DateTime::Zoned {
-            x_parameters,
-            retained_parameters,
-            ..
-        }
-        | DateTime::Date {
-            x_parameters,
-            retained_parameters,
-            ..
-        } => (x_parameters, retained_parameters),
-    };
+    // Collect all parameters
+    let x_params = &datetime.x_parameters;
+    let retained_params = &datetime.retained_parameters;
 
     // Write: NAME;params:value
     write!(f, "{name}")?;
@@ -1051,28 +1052,23 @@ fn write_datetime<S: StringStorage>(
 
     // Write the value
     write!(f, ":")?;
-    write_datetime_value(f, datetime)
+    write_datetime_value(f, &datetime.value)
 }
 
-/// Write a `DateTime` value (without property name or params).
-fn write_datetime_value<S: StringStorage>(
-    f: &mut Formatter<impl Write>,
-    datetime: &DateTime<S>,
-) -> io::Result<()> {
+/// Write a `DateTimeProperty` value (without property name or params).
+fn write_datetime_value(f: &mut Formatter<impl Write>, datetime: &DateTime) -> io::Result<()> {
     match datetime {
-        DateTime::Floating { date, time, .. }
-            // NOTE: TZID parameter should already be in the params list
-           | DateTime::Zoned { date, time, .. } => {
+        DateTime::Floating { date, time } | DateTime::Zoned { date, time, .. } => {
             write_date(f, *date)?;
             write!(f, "T")?;
             write_time(f, time, false)
         }
-        DateTime::Utc(inner) => {
-            write_date(f, inner.date)?;
+        DateTime::Utc { date, time } => {
+            write_date(f, *date)?;
             write!(f, "T")?;
-            write_time(f, &inner.time, true)
+            write_time(f, time, true)
         }
-        DateTime::Date { date, .. } => write_date(f, *date),
+        DateTime::Date(date) => write_date(f, *date),
     }
 }
 
@@ -1097,7 +1093,7 @@ fn write_datetime_utc<S: StringStorage>(
 
 /// Write a `DateTimeUtc` value (without property name or params).
 ///
-/// DateTimeUtc always formats as UTC time with 'Z' suffix.
+/// `DateTimeUtc` always formats as UTC time with 'Z' suffix.
 fn write_datetime_utc_value<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     datetime: &DateTimeUtc<S>,
@@ -1123,66 +1119,38 @@ fn write_period<S: StringStorage>(
     period: &Period<S>,
 ) -> io::Result<()> {
     match period {
-        Period::ExplicitUtc {
-            start_date,
-            start_time,
-            end_date,
-            end_time,
-        } => {
-            write_date(f, *start_date)?;
+        Period::ExplicitUtc { start, end } => {
+            write_date(f, start.date())?;
             write!(f, "T")?;
-            write_time(f, start_time, true)?;
+            write_time(f, &start.time().unwrap(), true)?;
             write!(f, "/")?;
-            write_date(f, *end_date)?;
+            write_date(f, end.date())?;
             write!(f, "T")?;
-            write_time(f, end_time, true)?;
+            write_time(f, &end.time().unwrap(), true)?;
         }
-        Period::ExplicitFloating {
-            start_date,
-            start_time,
-            end_date,
-            end_time,
-        }
-        | Period::ExplicitZoned {
-            start_date,
-            start_time,
-            end_date,
-            end_time,
-            ..
-        } => {
-            write_date(f, *start_date)?;
+        Period::ExplicitFloating { start, end } | Period::ExplicitZoned { start, end, .. } => {
+            write_date(f, start.date())?;
             write!(f, "T")?;
-            write_time(f, start_time, false)?;
+            write_time(f, &start.time().unwrap(), false)?;
             write!(f, "/")?;
-            write_date(f, *end_date)?;
+            write_date(f, end.date())?;
             write!(f, "T")?;
-            write_time(f, end_time, false)?;
+            write_time(f, &end.time().unwrap(), false)?;
         }
-        Period::DurationUtc {
-            start_date,
-            start_time,
-            duration,
-        } => {
-            write_date(f, *start_date)?;
+        Period::DurationUtc { start, duration } => {
+            write_date(f, start.date())?;
             write!(f, "T")?;
-            write_time(f, start_time, true)?;
+            write_time(f, &start.time().unwrap(), true)?;
             write!(f, "/")?;
             write_duration(f, duration)?;
         }
-        Period::DurationFloating {
-            start_date,
-            start_time,
-            duration,
-        }
+        Period::DurationFloating { start, duration }
         | Period::DurationZoned {
-            start_date,
-            start_time,
-            duration,
-            ..
+            start, duration, ..
         } => {
-            write_date(f, *start_date)?;
+            write_date(f, start.date())?;
             write!(f, "T")?;
-            write_time(f, start_time, false)?;
+            write_time(f, &start.time().unwrap(), false)?;
             write!(f, "/")?;
             write_duration(f, duration)?;
         }

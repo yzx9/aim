@@ -117,6 +117,14 @@ impl CalendarScale<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> CalendarScale<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 define_prop_value_enum! {
     /// Method value for iCalendar objects (RFC 5545 Section 3.7.2)
     #[derive(Default)]
@@ -220,6 +228,14 @@ impl Method<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Method<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 /// Product identifier that identifies the software that created the iCalendar data (RFC 5545 Section 3.7.3)
 #[derive(Debug, Clone, Default)]
 pub struct ProductId<S: StringStorage> {
@@ -288,6 +304,14 @@ impl ProductId<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> ProductId<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -377,5 +401,13 @@ impl Version<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> Version<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }

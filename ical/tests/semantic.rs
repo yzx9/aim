@@ -883,33 +883,24 @@ END:VCALENDAR\r
 
             // First period: explicit UTC period
             match &fb.busy[0] {
-                Period::ExplicitUtc {
-                    start_date,
-                    start_time,
-                    end_date: _,
-                    end_time,
-                } => {
-                    assert_eq!(start_date.year, 2025);
-                    assert_eq!(start_date.month, 6);
-                    assert_eq!(start_date.day, 15);
-                    assert_eq!(start_time.hour, 9);
-                    assert_eq!(end_time.hour, 12);
+                Period::ExplicitUtc { start, end } => {
+                    assert_eq!(start.date().year, 2025);
+                    assert_eq!(start.date().month, 6);
+                    assert_eq!(start.date().day, 15);
+                    assert_eq!(start.time().unwrap().hour, 9);
+                    assert_eq!(end.time().unwrap().hour, 12);
                 }
                 _ => panic!("Expected ExplicitUtc period"),
             }
 
             // Second period: duration period
             match &fb.busy[1] {
-                Period::DurationUtc {
-                    start_date,
-                    start_time,
-                    duration,
-                } => {
-                    assert_eq!(start_date.year, 2025);
-                    assert_eq!(start_date.month, 6);
-                    assert_eq!(start_date.day, 15);
-                    assert_eq!(start_time.hour, 13);
-                    assert_eq!(start_time.minute, 0);
+                Period::DurationUtc { start, duration } => {
+                    assert_eq!(start.date().year, 2025);
+                    assert_eq!(start.date().month, 6);
+                    assert_eq!(start.date().day, 15);
+                    assert_eq!(start.time().unwrap().hour, 13);
+                    assert_eq!(start.time().unwrap().minute, 0);
                     // Duration: PT2H (2 hours)
                     match duration {
                         ValueDuration::DateTime {
@@ -961,18 +952,13 @@ END:VCALENDAR\r
 
             // Floating time period (no Z suffix)
             match &fb.busy[0] {
-                Period::ExplicitFloating {
-                    start_date,
-                    start_time,
-                    end_date: _,
-                    end_time,
-                } => {
-                    assert_eq!(start_date.year, 2025);
-                    assert_eq!(start_date.month, 6);
-                    assert_eq!(start_date.day, 15);
-                    assert_eq!(start_time.hour, 9);
-                    assert_eq!(start_time.minute, 0);
-                    assert_eq!(end_time.hour, 12);
+                Period::ExplicitFloating { start, end } => {
+                    assert_eq!(start.date().year, 2025);
+                    assert_eq!(start.date().month, 6);
+                    assert_eq!(start.date().day, 15);
+                    assert_eq!(start.time().unwrap().hour, 9);
+                    assert_eq!(start.time().unwrap().minute, 0);
+                    assert_eq!(end.time().unwrap().hour, 12);
                 }
                 _ => panic!("Expected ExplicitFloating period"),
             }

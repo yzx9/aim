@@ -28,20 +28,20 @@ use crate::value::{Value, ValueDate, ValueRecurrenceRule};
 
 /// Exception date-time value (can be DATE or DATE-TIME).
 #[derive(Debug, Clone)]
-pub enum ExDateValue<S: StringStorage> {
+pub enum ExDateValue {
     /// Date-only value
     Date(ValueDate),
     /// Date-time value
-    DateTime(DateTime<S>),
+    DateTime(DateTime),
 }
 
-impl ExDateValue<Segments<'_>> {
-    /// Convert borrowed `ExDateValue` to owned `ExDateValue`
+impl ExDateValue {
+    /// Clone this `ExDateValue`
     #[must_use]
-    pub fn to_owned(&self) -> ExDateValue<String> {
+    pub fn to_owned(&self) -> ExDateValue {
         match self {
             ExDateValue::Date(date) => ExDateValue::Date(*date),
-            ExDateValue::DateTime(dt) => ExDateValue::DateTime(dt.to_owned()),
+            ExDateValue::DateTime(dt) => ExDateValue::DateTime(dt.clone()),
         }
     }
 }
@@ -52,7 +52,7 @@ pub enum RDateValue<S: StringStorage> {
     /// Date-only value
     Date(ValueDate),
     /// Date-time value
-    DateTime(DateTime<S>),
+    DateTime(DateTime),
     /// Period value
     Period(Period<S>),
 }
@@ -63,7 +63,7 @@ impl RDateValue<Segments<'_>> {
     pub fn to_owned(&self) -> RDateValue<String> {
         match self {
             RDateValue::Date(date) => RDateValue::Date(*date),
-            RDateValue::DateTime(dt) => RDateValue::DateTime(dt.to_owned()),
+            RDateValue::DateTime(dt) => RDateValue::DateTime(dt.clone()),
             RDateValue::Period(period) => RDateValue::Period(period.to_owned()),
         }
     }
@@ -76,7 +76,7 @@ impl RDateValue<Segments<'_>> {
 #[derive(Debug, Clone)]
 pub struct ExDate<S: StringStorage> {
     /// List of exception dates/times
-    pub dates: Vec<ExDateValue<S>>,
+    pub dates: Vec<ExDateValue>,
     /// Timezone identifier (optional)
     pub tz_id: Option<S>,
     /// X-name parameters (custom experimental parameters)
@@ -126,17 +126,43 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<Segments<'src>> {
                 .into_iter()
                 .map(|d| Ok(ExDateValue::Date(d)))
                 .collect::<Result<Vec<_>, _>>(),
-            Value::DateTime { values: dts, .. } => dts
-                .into_iter()
-                .map(|dt| {
-                    Ok(ExDateValue::DateTime(DateTime::Floating {
-                        date: dt.date,
-                        time: dt.time.into(),
-                        x_parameters: Vec::new(),
-                        retained_parameters: Vec::new(),
-                    }))
-                })
-                .collect::<Result<Vec<_>, _>>(),
+            Value::DateTime { values: dts, .. } => {
+                // Determine the DateTime variant based on tz_id and UTC flag
+                dts.into_iter()
+                    .map(|dt| {
+                        let datetime = if tz_id.is_some() {
+                            // Zoned time (tz_id is set at property level)
+                            #[cfg(feature = "jiff")]
+                            {
+                                // For now, we'll create a Floating variant
+                                // TODO: In semantic analysis, this should be converted to Zoned with proper timezone
+                                DateTime::Floating {
+                                    date: dt.date,
+                                    time: dt.time.into(),
+                                }
+                            }
+                            #[cfg(not(feature = "jiff"))]
+                            {
+                                DateTime::Floating {
+                                    date: dt.date,
+                                    time: dt.time.into(),
+                                }
+                            }
+                        } else if dt.time.utc {
+                            DateTime::Utc {
+                                date: dt.date,
+                                time: dt.time.into(),
+                            }
+                        } else {
+                            DateTime::Floating {
+                                date: dt.date,
+                                time: dt.time.into(),
+                            }
+                        };
+                        Ok(ExDateValue::DateTime(datetime))
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            }
             v => {
                 const EXPECTED: &[ValueType<String>] = &[ValueType::Date];
                 let span = v.span();
@@ -178,6 +204,14 @@ impl ExDate<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> ExDate<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -238,17 +272,43 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<Segments<'src>> {
                 .into_iter()
                 .map(|d| Ok(RDateValue::Date(d)))
                 .collect::<Result<Vec<_>, _>>(),
-            Value::DateTime { values: dts, .. } => dts
-                .into_iter()
-                .map(|dt| {
-                    Ok(RDateValue::DateTime(DateTime::Floating {
-                        date: dt.date,
-                        time: dt.time.into(),
-                        x_parameters: Vec::new(),
-                        retained_parameters: Vec::new(),
-                    }))
-                })
-                .collect::<Result<Vec<_>, _>>(),
+            Value::DateTime { values: dts, .. } => {
+                // Determine the DateTime variant based on tz_id and UTC flag
+                dts.into_iter()
+                    .map(|dt| {
+                        let datetime = if tz_id.is_some() {
+                            // Zoned time (tz_id is set at property level)
+                            #[cfg(feature = "jiff")]
+                            {
+                                // For now, we'll create a Floating variant
+                                // TODO: In semantic analysis, this should be converted to Zoned with proper timezone
+                                DateTime::Floating {
+                                    date: dt.date,
+                                    time: dt.time.into(),
+                                }
+                            }
+                            #[cfg(not(feature = "jiff"))]
+                            {
+                                DateTime::Floating {
+                                    date: dt.date,
+                                    time: dt.time.into(),
+                                }
+                            }
+                        } else if dt.time.utc {
+                            DateTime::Utc {
+                                date: dt.date,
+                                time: dt.time.into(),
+                            }
+                        } else {
+                            DateTime::Floating {
+                                date: dt.date,
+                                time: dt.time.into(),
+                            }
+                        };
+                        Ok(RDateValue::DateTime(datetime))
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            }
             Value::Period { .. } => {
                 // Period values need to be handled at semantic level
                 // For now, just return an error
@@ -299,6 +359,14 @@ impl RDate<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> RDate<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 
@@ -384,5 +452,13 @@ impl RRule<Segments<'_>> {
                 .collect(),
             span: (),
         }
+    }
+}
+
+impl<S: StringStorage> RRule<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }

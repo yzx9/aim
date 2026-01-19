@@ -66,6 +66,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for CustomComponent<Segments<'src>> {
         let mut errors = Vec::new();
 
         // Parse child components recursively
+        let span = comp.span();
         let children = match parse_component_children(comp.children) {
             Ok(v) => v,
             Err(e) => {
@@ -73,13 +74,12 @@ impl<'src> TryFrom<TypedComponent<'src>> for CustomComponent<Segments<'src>> {
                 Vec::new()
             }
         };
-
         if errors.is_empty() {
             Ok(CustomComponent {
                 name: comp.name.to_owned(),
                 properties: comp.properties,
                 children,
-                span: comp.span,
+                span,
             })
         } else {
             Err(errors)

@@ -45,12 +45,15 @@ pub struct UtcOffsetProperty<S: StringStorage> {
     pub x_parameters: Vec<RawParameter<S>>,
     /// Unrecognized / Non-standard parameters (preserved for round-trip)
     pub retained_parameters: Vec<Parameter<S>>,
+    /// Span of the property in the source
+    span: S::Span,
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<Segments<'src>> {
     type Error = Vec<TypedError<'src>>;
 
     fn try_from(prop: ParsedProperty<'src>) -> Result<Self, Self::Error> {
+        let span = prop.span;
         let mut x_parameters = Vec::new();
         let mut retained_parameters = Vec::new();
 
@@ -72,6 +75,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for UtcOffsetProperty<Segments<'src>> {
                 value,
                 x_parameters,
                 retained_parameters,
+                span,
             }),
             Ok(v) => {
                 const EXPECTED: &[ValueType<String>] = &[ValueType::UtcOffset];
@@ -103,7 +107,16 @@ impl UtcOffsetProperty<Segments<'_>> {
                 .iter()
                 .map(Parameter::to_owned)
                 .collect(),
+            span: (),
         }
+    }
+}
+
+impl<S: StringStorage> UtcOffsetProperty<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
     }
 }
 

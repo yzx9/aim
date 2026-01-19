@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- ical: `DateTime` refactored from enum to struct wrapping new `DateTimeValue` enum
+  - Core `DateTimeValue` enum contains value variants only (Floating, Zoned, Utc, Date)
+  - `DateTime<S>` struct separates value from metadata (parameters, span, tz_id)
+  - Property wrappers changed from `{ inner, span }` pattern to newtype `(inner)`
+  - `ExDateValue`, `RDateValue`, `TriggerValue` now use `DateTime` directly
+  - Improves API ergonomics with helper methods and consistent architecture
 - ical: `ValueTime::new()` now returns `Result<Self, String>` instead of `Self` for proper validation
 - ical: `ValueTime`, `ValueUtcOffset` and `property::Time` fields changed from `u8` to `i8`
 

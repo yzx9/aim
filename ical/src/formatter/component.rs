@@ -14,21 +14,20 @@ use crate::formatter::property::{
     write_prop_action, write_prop_attach, write_prop_attendee, write_prop_calscale,
     write_prop_categories, write_prop_class, write_prop_completed, write_prop_contact,
     write_prop_description, write_prop_dtend, write_prop_dtstamp, write_prop_dtstart,
-    write_prop_due, write_prop_duration, write_prop_ex_date, write_prop_freebusy, write_prop_geo,
-    write_prop_last_modified, write_prop_location, write_prop_method, write_prop_organizer,
-    write_prop_percent_complete, write_prop_priority, write_prop_prodid, write_prop_rdate,
-    write_prop_repeat, write_prop_resources, write_prop_rrule, write_prop_sequence,
-    write_prop_status_value, write_prop_summary, write_prop_transp, write_prop_trigger,
-    write_prop_tz_offset_from, write_prop_tz_offset_to, write_prop_tz_url, write_prop_tzid,
-    write_prop_tzname, write_prop_uid, write_prop_url, write_prop_version, write_prop_xname,
-    write_property,
+    write_prop_due, write_prop_duration, write_prop_ex_date, write_prop_freebusy_inner,
+    write_prop_geo, write_prop_last_modified, write_prop_location, write_prop_method,
+    write_prop_organizer, write_prop_percent_complete, write_prop_priority, write_prop_prodid,
+    write_prop_rdate, write_prop_repeat, write_prop_resources, write_prop_rrule,
+    write_prop_sequence, write_prop_status_value, write_prop_summary, write_prop_transp,
+    write_prop_trigger, write_prop_tz_offset_from, write_prop_tz_offset_to, write_prop_tz_url,
+    write_prop_tzid, write_prop_tzname, write_prop_uid, write_prop_url, write_prop_version,
+    write_prop_xname, write_property,
 };
 use crate::keyword::{
     KW_BEGIN, KW_DAYLIGHT, KW_END, KW_STANDARD, KW_VALARM, KW_VCALENDAR, KW_VEVENT, KW_VFREEBUSY,
     KW_VJOURNAL, KW_VTIMEZONE, KW_VTODO,
 };
 use crate::parameter::FreeBusyType;
-use crate::property::FreeBusy;
 use crate::semantic::{
     CalendarComponent, CustomComponent, ICalendar, TimeZoneObservance, VAlarm, VEvent, VFreeBusy,
     VJournal, VTimeZone, VTodo,
@@ -382,51 +381,39 @@ fn write_vfreebusy<S: StringStorage>(
 
         // FreeBusy period collections (each with their own FBTYPE)
         for period in &freebusy.busy {
-            write_prop_freebusy(
+            write_prop_freebusy_inner(
                 f,
-                &FreeBusy {
-                    values: vec![period.clone()], // TODO: avoid clone
-                    fb_type: FreeBusyType::Busy,
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
-                    span: freebusy.uid.span, // placeholder span
-                },
+                &FreeBusyType::Busy,
+                &[],
+                &[],
+                std::slice::from_ref(period),
             )?;
         }
         for period in &freebusy.free {
-            write_prop_freebusy(
+            write_prop_freebusy_inner(
                 f,
-                &FreeBusy {
-                    values: vec![period.clone()],
-                    fb_type: FreeBusyType::Free,
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
-                    span: freebusy.uid.span, // placeholder span
-                },
+                &FreeBusyType::Free,
+                &[],
+                &[],
+                std::slice::from_ref(period),
             )?;
         }
         for period in &freebusy.busy_tentative {
-            write_prop_freebusy(
+            write_prop_freebusy_inner(
                 f,
-                &FreeBusy {
-                    values: vec![period.clone()],
-                    fb_type: FreeBusyType::BusyTentative,
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
-                    span: freebusy.uid.span, // placeholder span
-                },
+                &FreeBusyType::BusyTentative,
+                &[],
+                &[],
+                std::slice::from_ref(period),
             )?;
         }
         for period in &freebusy.busy_unavailable {
-            write_prop_freebusy(
+            write_prop_freebusy_inner(
                 f,
-                &FreeBusy {
-                    values: vec![period.clone()],
-                    fb_type: FreeBusyType::BusyUnavailable,
-                    x_parameters: Vec::new(),
-                    retained_parameters: Vec::new(),
-                    span: freebusy.uid.span, // placeholder span
-                },
+                &FreeBusyType::BusyUnavailable,
+                &[],
+                &[],
+                std::slice::from_ref(period),
             )?;
         }
 

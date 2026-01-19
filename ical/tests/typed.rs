@@ -7,7 +7,7 @@
 //! These tests validate the typed analyzer's behavior on realistic iCalendar content
 //! and edge cases.
 
-use aimcal_ical::property::{DateTime as PropertyDateTime, Property};
+use aimcal_ical::property::Property;
 use aimcal_ical::syntax::syntax_analysis;
 use aimcal_ical::typed::{TypedComponent, TypedError, typed_analysis};
 
@@ -636,7 +636,7 @@ END:VEVENT\r
     // TZID parameter should be parsed - check that we get a Zoned DateTime
     assert!(matches!(
         &components[0].properties[0],
-        Property::DtStart(dt_start) if matches!(dt_start.inner, PropertyDateTime::Zoned { .. })
+        Property::DtStart(dt_start) if dt_start.is_zoned()
     ));
 }
 

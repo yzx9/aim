@@ -103,9 +103,9 @@ impl FormatOptions {
     ///
     /// # Errors
     /// Returns an error if writing fails.
-    pub fn write(
+    pub fn write<S: StringStorage>(
         &self,
-        calendar: &ICalendar<impl StringStorage>,
+        calendar: &ICalendar<S>,
         w: &mut impl Write,
     ) -> io::Result<()> {
         let mut formatter = Formatter::new(w, *self);
@@ -117,7 +117,7 @@ impl FormatOptions {
     ///
     /// # Errors
     /// Returns an error if writing fails or if the output contains invalid UTF-8 data.
-    pub fn write_to_string(&self, calendar: &ICalendar<impl StringStorage>) -> io::Result<String> {
+    pub fn write_to_string<S: StringStorage>(&self, calendar: &ICalendar<S>) -> io::Result<String> {
         let mut buffer = Vec::new();
         self.write(calendar, &mut buffer)?;
         String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
@@ -210,7 +210,7 @@ impl<W: Write> Formatter<W> {
     ///
     /// # Errors
     /// Returns an error if writing fails.
-    pub fn write(&mut self, calendar: &ICalendar<impl StringStorage>) -> io::Result<()> {
+    pub fn write<S: StringStorage>(&mut self, calendar: &ICalendar<S>) -> io::Result<()> {
         write_icalendar(self, calendar)
     }
 

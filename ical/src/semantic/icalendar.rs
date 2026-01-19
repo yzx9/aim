@@ -85,11 +85,12 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<Segments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
+        let span = comp.span();
         if !comp.name.eq_str_ignore_ascii_case(KW_VCALENDAR) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VCALENDAR,
                 got: comp.name,
-                span: comp.span,
+                span,
             });
         }
 
@@ -100,28 +101,28 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<Segments<'src>> {
                 Property::ProdId(prod_id) => match props.prod_id {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::ProdId,
-                        span: prod_id.span,
+                        span: prod_id.span(),
                     }),
                     None => props.prod_id = Some(prod_id),
                 },
                 Property::Version(version) => match props.version {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Version,
-                        span: version.span,
+                        span: version.span(),
                     }),
                     None => props.version = Some(version),
                 },
                 Property::CalScale(calscale) => match props.calscale {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::CalScale,
-                        span: calscale.span,
+                        span: calscale.span(),
                     }),
                     None => props.calscale = Some(calscale),
                 },
                 Property::Method(method) => match props.method {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Method,
-                        span: method.span,
+                        span: method.span(),
                     }),
                     None => props.method = Some(method),
                 },
@@ -139,14 +140,14 @@ impl<'src> TryFrom<TypedComponent<'src>> for ICalendar<Segments<'src>> {
         if props.prod_id.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::ProdId,
-                span: comp.span,
+                span,
             });
         }
 
         if props.version.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Version,
-                span: comp.span,
+                span,
             });
         }
 

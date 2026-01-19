@@ -143,6 +143,14 @@ impl Action<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Action<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 /// Repeat Count (RFC 5545 Section 3.8.6.2)
 ///
 /// This property defines the number of times the alarm should repeat.
@@ -255,11 +263,19 @@ impl Repeat<Segments<'_>> {
     }
 }
 
+impl<S: StringStorage> Repeat<S> {
+    /// Get the span of this property
+    #[must_use]
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
 /// Trigger for alarms (RFC 5545 Section 3.8.6.3)
 #[derive(Debug, Clone)]
 pub struct Trigger<S: StringStorage> {
     /// When to trigger (relative or absolute)
-    pub value: TriggerValue<S>,
+    pub value: TriggerValue,
     /// Related parameter for relative triggers
     pub related: Option<AlarmTriggerRelationship>,
     /// X-name parameters (custom experimental parameters)
@@ -272,11 +288,11 @@ pub struct Trigger<S: StringStorage> {
 
 /// Trigger value (relative duration or absolute date/time)
 #[derive(Debug, Clone)]
-pub enum TriggerValue<S: StringStorage> {
+pub enum TriggerValue {
     /// Relative duration before/after the event
     Duration(ValueDuration),
     /// Absolute date/time
-    DateTime(DateTime<S>),
+    DateTime(DateTime),
 }
 
 impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<Segments<'src>> {
@@ -334,13 +350,19 @@ impl<'src> TryFrom<ParsedProperty<'src>> for Trigger<Segments<'src>> {
             }),
             Value::DateTime { values: dts, .. } if dts.len() == 1 => {
                 let dt = dts.into_iter().next().unwrap();
-                Ok(Trigger {
-                    value: TriggerValue::DateTime(DateTime::Floating {
+                let datetime = if dt.time.utc {
+                    DateTime::Utc {
                         date: dt.date,
                         time: dt.time.into(),
-                        x_parameters: Vec::new(),
-                        retained_parameters: Vec::new(),
-                    }),
+                    }
+                } else {
+                    DateTime::Floating {
+                        date: dt.date,
+                        time: dt.time.into(),
+                    }
+                };
+                Ok(Trigger {
+                    value: TriggerValue::DateTime(datetime),
                     related: None,
                     x_parameters,
                     retained_parameters,
@@ -378,13 +400,21 @@ impl Trigger<Segments<'_>> {
     }
 }
 
-impl TriggerValue<Segments<'_>> {
-    /// Convert borrowed `TriggerValue` to owned `TriggerValue`
+impl<S: StringStorage> Trigger<S> {
+    /// Get the span of this property
     #[must_use]
-    pub fn to_owned(&self) -> TriggerValue<String> {
+    pub const fn span(&self) -> S::Span {
+        self.span
+    }
+}
+
+impl TriggerValue {
+    /// Clone this `TriggerValue`
+    #[must_use]
+    pub fn to_owned(&self) -> TriggerValue {
         match self {
             TriggerValue::Duration(duration) => TriggerValue::Duration(*duration),
-            TriggerValue::DateTime(dt) => TriggerValue::DateTime(dt.to_owned()),
+            TriggerValue::DateTime(dt) => TriggerValue::DateTime(dt.clone()),
         }
     }
 }

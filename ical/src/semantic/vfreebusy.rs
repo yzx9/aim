@@ -55,11 +55,12 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<Segments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
+        let span = comp.span();
         if !comp.name.eq_str_ignore_ascii_case(KW_VFREEBUSY) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VFREEBUSY,
                 got: comp.name,
-                span: comp.span,
+                span,
             });
         }
 
@@ -87,56 +88,56 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<Segments<'src>> {
                 Property::Uid(uid) => match props.uid {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Uid,
-                        span: uid.span,
+                        span: uid.span(),
                     }),
                     None => props.uid = Some(uid),
                 },
                 Property::DtStamp(dt) => match props.dt_stamp {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStamp,
-                        span: dt.span,
+                        span: dt.span(),
                     }),
                     None => props.dt_stamp = Some(dt),
                 },
                 Property::DtStart(dt) => match props.dt_start {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtStart,
-                        span: dt.span,
+                        span: dt.span(),
                     }),
                     None => props.dt_start = Some(dt),
                 },
                 Property::DtEnd(dt) => match props.dt_end {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::DtEnd,
-                        span: dt.span,
+                        span: dt.span(),
                     }),
                     None => props.dt_end = Some(dt),
                 },
                 Property::Duration(dur) => match props.duration {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Duration,
-                        span: dur.span,
+                        span: dur.span(),
                     }),
                     None => props.duration = Some(dur),
                 },
                 Property::Organizer(org) => match props.organizer {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Organizer,
-                        span: org.span,
+                        span: org.span(),
                     }),
                     None => props.organizer = Some(org),
                 },
                 Property::Contact(contact) => match props.contact {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Contact,
-                        span: contact.span,
+                        span: contact.span(),
                     }),
                     None => props.contact = Some(contact),
                 },
                 Property::Url(url) => match props.url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Url,
-                        span: url.span,
+                        span: url.span(),
                     }),
                     None => props.url = Some(url),
                 },
@@ -154,25 +155,25 @@ impl<'src> TryFrom<TypedComponent<'src>> for VFreeBusy<Segments<'src>> {
         if props.uid.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Uid,
-                span: comp.span,
+                span,
             });
         }
         if props.dt_stamp.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::DtStamp,
-                span: comp.span,
+                span,
             });
         }
         if props.dt_start.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::DtStart,
-                span: comp.span,
+                span,
             });
         }
         if props.organizer.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Organizer,
-                span: comp.span,
+                span,
             });
         }
 

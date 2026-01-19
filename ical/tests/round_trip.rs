@@ -616,19 +616,19 @@ fn events_equal(e1: &VEvent<Segments<'_>>, e2: &VEvent<Segments<'_>>) -> bool {
     }
 
     // Compare DTSTAMP
-    if format!("{:?}", e1.dt_stamp.inner) != format!("{:?}", e2.dt_stamp.inner) {
+    if format!("{:?}", e1.dt_stamp) != format!("{:?}", e2.dt_stamp) {
         return false;
     }
 
     // Compare DTSTART
-    if format!("{:?}", e1.dt_start.inner) != format!("{:?}", e2.dt_start.inner) {
+    if format!("{:?}", e1.dt_start) != format!("{:?}", e2.dt_start) {
         return false;
     }
 
     // Compare DTEND
     match (&e1.dt_end, &e2.dt_end) {
         (None, None) => {}
-        (Some(de1), Some(de2)) if format!("{:?}", de1.inner) == format!("{:?}", de2.inner) => {}
+        (Some(de1), Some(de2)) if format!("{:?}", de1) == format!("{:?}", de2) => {}
         _ => return false,
     }
 
@@ -676,7 +676,7 @@ fn todos_equal(t1: &VTodo<Segments<'_>>, t2: &VTodo<Segments<'_>>) -> bool {
     }
 
     // Compare DTSTAMP
-    if format!("{:?}", t1.dt_stamp.inner) != format!("{:?}", t2.dt_stamp.inner) {
+    if format!("{:?}", t1.dt_stamp) != format!("{:?}", t2.dt_stamp) {
         return false;
     }
 
@@ -688,7 +688,7 @@ fn todos_equal(t1: &VTodo<Segments<'_>>, t2: &VTodo<Segments<'_>>) -> bool {
     // Compare DUE
     match (&t1.due, &t2.due) {
         (None, None) => {}
-        (Some(d1), Some(d2)) if format!("{:?}", d1.inner) == format!("{:?}", d2.inner) => {}
+        (Some(d1), Some(d2)) if format!("{:?}", d1) == format!("{:?}", d2) => {}
         _ => return false,
     }
 
@@ -717,12 +717,12 @@ fn journals_equal(j1: &VJournal<Segments<'_>>, j2: &VJournal<Segments<'_>>) -> b
     }
 
     // Compare DTSTAMP
-    if format!("{:?}", j1.dt_stamp.inner) != format!("{:?}", j2.dt_stamp.inner) {
+    if format!("{:?}", j1.dt_stamp) != format!("{:?}", j2.dt_stamp) {
         return false;
     }
 
     // Compare DTSTART
-    if format!("{:?}", j1.dt_start.inner) != format!("{:?}", j2.dt_start.inner) {
+    if format!("{:?}", j1.dt_start) != format!("{:?}", j2.dt_start) {
         return false;
     }
 
@@ -757,7 +757,7 @@ fn freebusies_equal(fb1: &VFreeBusy<Segments<'_>>, fb2: &VFreeBusy<Segments<'_>>
     }
 
     // Compare DTSTAMP
-    if format!("{:?}", fb1.dt_stamp.inner) != format!("{:?}", fb2.dt_stamp.inner) {
+    if format!("{:?}", fb1.dt_stamp) != format!("{:?}", fb2.dt_stamp) {
         return false;
     }
 

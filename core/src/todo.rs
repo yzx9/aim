@@ -6,9 +6,10 @@ use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
 use aimcal_ical as ical;
 use aimcal_ical::{
-    Completed, Description, DtStamp, Due, PercentComplete, Summary, TodoStatusValue, Uid, VTodo,
+    Completed, DateTimeUtc, Description, DtStamp, Due, PercentComplete, Summary, TodoStatusValue,
+    Uid, VTodo,
 };
-use jiff::{Zoned, civil, tz::TimeZone};
+use jiff::Zoned;
 
 use crate::{Config, DateTimeAnchor, LooseDateTime, Priority, SortOrder};
 
@@ -52,7 +53,7 @@ impl Todo for VTodo<String> {
     }
 
     fn completed(&self) -> Option<Zoned> {
-        self.completed.as_ref().and_then(|c| Some(c.inner.zoned()))
+        self.completed.as_ref().map(|c| c.zoned())
     }
 
     fn description(&self) -> Option<Cow<'_, str>> {
@@ -62,7 +63,7 @@ impl Todo for VTodo<String> {
     }
 
     fn due(&self) -> Option<LooseDateTime> {
-        self.due.as_ref().map(|d| d.inner.clone().into())
+        self.due.as_ref().map(|d| d.0.clone().into())
     }
 
     fn percent_complete(&self) -> Option<u8> {
@@ -173,11 +174,12 @@ impl ResolvedTodoDraft<'_> {
     pub(crate) fn into_ics(self, uid: &str) -> VTodo<String> {
         // Convert to UTC for DTSTAMP (required by RFC 5545)
         let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-        let dt_stamp = ical::DtStamp::new(ical::DateTimeUtc {
+        let dt_stamp = DtStamp::new(DateTimeUtc {
             date: utc_now.date().into(),
             time: utc_now.time().into(),
             x_parameters: Vec::new(),
             retained_parameters: Vec::new(),
+            span: (),
         });
 
         VTodo {
@@ -311,11 +313,12 @@ impl ResolvedTodoPatch<'_> {
             // Handle COMPLETED property
             if status == TodoStatus::Completed && t.completed.is_none() {
                 let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-                t.completed = Some(Completed::new(ical::DateTimeUtc {
+                t.completed = Some(Completed::new(DateTimeUtc {
                     date: utc_now.date().into(),
                     time: utc_now.time().into(),
                     x_parameters: Vec::new(),
                     retained_parameters: Vec::new(),
+                    span: (),
                 }));
             } else if status != TodoStatus::Completed {
                 t.completed = None;
@@ -327,13 +330,15 @@ impl ResolvedTodoPatch<'_> {
         }
 
         // Set the creation time to now if it is not already set
-        if t.dt_stamp.inner.date().year == 1970 {
+        if t.dt_stamp.date().year == 1970 {
+            // TODO: better check for unset
             let utc_now = self.now.with_time_zone(jiff::tz::TimeZone::UTC);
-            t.dt_stamp = DtStamp::new(ical::DateTimeUtc {
+            t.dt_stamp = DtStamp::new(DateTimeUtc {
                 date: utc_now.date().into(),
                 time: utc_now.time().into(),
                 x_parameters: Vec::new(),
                 retained_parameters: Vec::new(),
+                span: (),
             });
         }
 

@@ -140,23 +140,23 @@ impl LooseDateTime {
     }
 }
 
-impl From<ical::DateTime<Segments<'_>>> for LooseDateTime {
+impl From<ical::DateTimeProperty<Segments<'_>>> for LooseDateTime {
     #[tracing::instrument]
-    fn from(dt: ical::DateTime<Segments<'_>>) -> Self {
-        match dt {
-            ical::DateTime::Floating { date, time, .. } => {
-                let civil_dt = DateTime::from_parts(date.civil_date(), time.civil_time());
-                LooseDateTime::Floating(civil_dt)
-            }
-            ical::DateTime::Utc(inner) => {
-                let civil_dt =
-                    DateTime::from_parts(inner.date.civil_date(), inner.time.civil_time());
-                LooseDateTime::Local(civil_dt.to_zoned(TimeZone::UTC).unwrap())
-            }
-            ical::DateTime::Zoned {
-                date, time, tz_id, ..
-            } => {
-                let civil_dt = DateTime::from_parts(date.civil_date(), time.civil_time());
+    fn from(dt: ical::DateTimeProperty<Segments<'_>>) -> Self {
+        let date = dt.date();
+        let time = dt.time();
+
+        if dt.is_date_only() {
+            LooseDateTime::DateOnly(date.into())
+        } else if dt.is_utc() {
+            let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
+            LooseDateTime::Local(civil_dt.to_zoned(TimeZone::UTC).unwrap())
+        } else if dt.is_floating() {
+            let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
+            LooseDateTime::Floating(civil_dt)
+        } else if dt.is_zoned() {
+            let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
+            if let Some(tz_id) = &dt.tz_id {
                 let tz_id_str = tz_id.to_string();
                 match TimeZone::get(tz_id_str.as_str()) {
                     Ok(tz) => match civil_dt.to_zoned(tz) {
@@ -171,28 +171,34 @@ impl From<ical::DateTime<Segments<'_>>> for LooseDateTime {
                         LooseDateTime::Floating(civil_dt)
                     }
                 }
+            } else {
+                tracing::warn!("zoned datetime without tz_id, treating as floating");
+                LooseDateTime::Floating(civil_dt)
             }
-            ical::DateTime::Date { date, .. } => LooseDateTime::DateOnly(date.into()),
+        } else {
+            // This should not happen, but fallback to floating
+            let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
+            LooseDateTime::Floating(civil_dt)
         }
     }
 }
 
-impl From<ical::DateTime<String>> for LooseDateTime {
-    fn from(dt: ical::DateTime<String>) -> Self {
-        match dt {
-            ical::DateTime::Floating { date, time, .. } => {
-                let civil_dt = DateTime::from_parts(date.civil_date(), time.civil_time());
-                LooseDateTime::Floating(civil_dt)
-            }
-            ical::DateTime::Utc(inner) => {
-                let civil_dt =
-                    DateTime::from_parts(inner.date.civil_date(), inner.time.civil_time());
-                LooseDateTime::Local(civil_dt.to_zoned(TimeZone::UTC).unwrap())
-            }
-            ical::DateTime::Zoned {
-                date, time, tz_id, ..
-            } => {
-                let civil_dt = DateTime::from_parts(date.civil_date(), time.civil_time());
+impl From<ical::DateTimeProperty<String>> for LooseDateTime {
+    fn from(dt: ical::DateTimeProperty<String>) -> Self {
+        let date = dt.date();
+        let time = dt.time();
+
+        if dt.is_date_only() {
+            LooseDateTime::DateOnly(date.into())
+        } else if dt.is_utc() {
+            let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
+            LooseDateTime::Local(civil_dt.to_zoned(TimeZone::UTC).unwrap())
+        } else if dt.is_floating() {
+            let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
+            LooseDateTime::Floating(civil_dt)
+        } else if dt.is_zoned() {
+            let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
+            if let Some(tz_id) = &dt.tz_id {
                 match TimeZone::get(tz_id.as_str()) {
                     Ok(tz) => match civil_dt.to_zoned(tz) {
                         Ok(zoned) => LooseDateTime::Local(zoned),
@@ -206,49 +212,52 @@ impl From<ical::DateTime<String>> for LooseDateTime {
                         LooseDateTime::Floating(civil_dt)
                     }
                 }
+            } else {
+                tracing::warn!("zoned datetime without tz_id, treating as floating");
+                LooseDateTime::Floating(civil_dt)
             }
-            ical::DateTime::Date { date, .. } => LooseDateTime::DateOnly(date.into()),
+        } else {
+            // This should not happen, but fallback to floating
+            let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
+            LooseDateTime::Floating(civil_dt)
         }
     }
 }
 
-impl From<LooseDateTime> for ical::DateTime<String> {
+impl From<LooseDateTime> for ical::DateTimeProperty<String> {
     #[allow(clippy::cast_sign_loss)]
     fn from(dt: LooseDateTime) -> Self {
         match dt {
-            LooseDateTime::DateOnly(d) => ical::DateTime::Date {
-                date: d.into(),
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-            },
-            LooseDateTime::Floating(dt) => ical::DateTime::Floating {
-                date: dt.date().into(),
-                time: dt.time().into(),
-                x_parameters: Vec::new(),
-                retained_parameters: Vec::new(),
-            },
+            LooseDateTime::DateOnly(d) => {
+                ical::DateTimeProperty::date_only(d.into(), Vec::new(), Vec::new(), ())
+            }
+            LooseDateTime::Floating(dt) => {
+                let date = dt.date().into();
+                let time = dt.time().into();
+                ical::DateTimeProperty::floating(date, time, Vec::new(), Vec::new(), ())
+            }
             LooseDateTime::Local(zoned) => {
                 let tz = zoned.time_zone();
                 if *tz != TimeZone::UTC
                     && let Some(tz_name) = tz.iana_name()
                 {
-                    ical::DateTime::Zoned {
-                        date: zoned.date().into(),
-                        time: zoned.time().into(),
-                        tz_id: tz_name.to_string(),
-                        tz_jiff: zoned.time_zone().clone(),
-                        x_parameters: Vec::new(),
-                        retained_parameters: Vec::new(),
-                    }
+                    let date = zoned.date().into();
+                    let time = zoned.time().into();
+                    ical::DateTimeProperty::zoned(
+                        date,
+                        time,
+                        tz_name.to_string(),
+                        tz.clone(),
+                        Vec::new(),
+                        Vec::new(),
+                        (),
+                    )
                 } else {
-                    // Conveto UTC for iCalendar output
+                    // Convert to UTC for iCalendar output
                     let utc_dt = zoned.with_time_zone(TimeZone::UTC);
-                    ical::DateTime::Utc(ical::DateTimeUtc {
-                        date: utc_dt.date().into(),
-                        time: utc_dt.time().into(),
-                        x_parameters: Vec::new(),
-                        retained_parameters: Vec::new(),
-                    })
+                    let date = utc_dt.date().into();
+                    let time = utc_dt.time().into();
+                    ical::DateTimeProperty::utc(date, time, Vec::new(), Vec::new(), ())
                 }
             }
         }

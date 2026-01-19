@@ -119,6 +119,14 @@ pub struct TypedComponent<'src> {
     pub span: Span,
 }
 
+impl TypedComponent<'_> {
+    /// Get the span of this component
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span
+    }
+}
+
 /// A typed iCalendar property with validated parameters and values.
 #[derive(Debug, Clone)]
 pub struct ParsedProperty<'src> {

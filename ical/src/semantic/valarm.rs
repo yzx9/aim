@@ -46,11 +46,12 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
     fn try_from(comp: TypedComponent<'src>) -> Result<Self, Self::Error> {
         let mut errors = Vec::new();
 
+        let span = comp.span();
         if !comp.name.eq_str_ignore_ascii_case(KW_VALARM) {
             errors.push(SemanticError::ExpectedComponent {
                 expected: KW_VALARM,
                 got: comp.name,
-                span: comp.span,
+                span,
             });
         }
 
@@ -61,42 +62,42 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
                 Property::Action(action) => match props.action {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Action,
-                        span: action.span,
+                        span: action.span(),
                     }),
                     None => props.action = Some(action),
                 },
                 Property::Trigger(trigger) => match props.trigger {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Trigger,
-                        span: trigger.span,
+                        span: trigger.span(),
                     }),
                     None => props.trigger = Some(trigger),
                 },
                 Property::Duration(duration) => match props.duration {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Duration,
-                        span: duration.span,
+                        span: duration.span(),
                     }),
                     None => props.duration = Some(duration),
                 },
                 Property::Repeat(repeat) => match props.repeat {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Repeat,
-                        span: repeat.span,
+                        span: repeat.span(),
                     }),
                     None => props.repeat = Some(repeat),
                 },
                 Property::Description(desc) => match props.description {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Description,
-                        span: desc.span,
+                        span: desc.span(),
                     }),
                     None => props.description = Some(desc),
                 },
                 Property::Summary(s) => match props.summary {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Summary,
-                        span: s.span,
+                        span: s.span(),
                     }),
                     None => props.summary = Some(s),
                 },
@@ -104,7 +105,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
                 Property::Attach(attach) => match props.attach {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
                         property: PropertyKind::Attach,
-                        span: attach.span,
+                        span: attach.span(),
                     }),
                     None => props.attach = Some(attach),
                 },
@@ -122,13 +123,13 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
         if props.action.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Action,
-                span: comp.span,
+                span,
             });
         }
         if props.trigger.is_none() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Trigger,
-                span: comp.span,
+                span,
             });
         }
 
@@ -138,7 +139,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
         if has_duration != has_repeat {
             errors.push(SemanticError::ConstraintViolation {
                 message: "DURATION and REPEAT must appear together or not at all".to_string(),
-                span: comp.span,
+                span,
             });
         }
 
@@ -147,7 +148,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
             value: ActionValue::Audio,
             x_parameters: Vec::new(),
             retained_parameters: Vec::new(),
-            span: comp.span,
+            span,
         };
         let action = props.action.as_ref().unwrap_or(&default_action);
 
@@ -157,7 +158,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
         {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Description,
-                span: comp.span,
+                span,
             });
         }
 
@@ -165,7 +166,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
         if props.summary.is_none() && matches!(action.value, ActionValue::Email) {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Summary,
-                span: comp.span,
+                span,
             });
         }
 
@@ -173,7 +174,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VAlarm<Segments<'src>> {
         if matches!(action.value, ActionValue::Email) && props.attendees.is_empty() {
             errors.push(SemanticError::MissingProperty {
                 property: PropertyKind::Attendee,
-                span: comp.span,
+                span,
             });
         }
 
