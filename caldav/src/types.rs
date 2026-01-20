@@ -166,3 +166,83 @@ impl CalendarCollection {
         }
     }
 }
+
+/// Server capabilities discovered from the CalDAV server.
+///
+/// Represents the features and operations supported by the server,
+/// as discovered via the DAV header and PROPFIND operations.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ServerCapabilities {
+    /// Whether the server supports CalDAV (calendar-access).
+    pub supports_calendars: bool,
+    /// Whether the server supports the MKCALENDAR method.
+    pub supports_mkcalendar: bool,
+    /// Whether the server supports calendar-query REPORT.
+    pub supports_calendar_query: bool,
+    /// Whether the server supports calendar-multiget REPORT.
+    pub supports_calendar_multiget: bool,
+    /// Whether the server supports free-busy-query REPORT.
+    pub supports_free_busy: bool,
+}
+
+impl ServerCapabilities {
+    /// Creates a new `ServerCapabilities` with all features unsupported.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            supports_calendars: false,
+            supports_mkcalendar: false,
+            supports_calendar_query: false,
+            supports_calendar_multiget: false,
+            supports_free_busy: false,
+        }
+    }
+
+    /// Creates capabilities from a DAV header value.
+    ///
+    /// Parses the DAV header (e.g., "1, 2, calendar-access, extended-mkcol")
+    /// and sets the appropriate capability flags.
+    #[must_use]
+    pub fn from_dav_header(dav_header: &str) -> Self {
+        let mut caps = Self::new();
+        let header = dav_header.to_lowercase();
+
+        // RFC 4791: calendar-access indicates CalDAV support
+        caps.supports_calendars = header.contains("calendar-access");
+
+        // RFC 4791: extended-mkcol indicates MKCALENDAR support
+        // (also implied by calendar-access on most servers)
+        caps.supports_mkcalendar = header.contains("extended-mkcol") || caps.supports_calendars;
+
+        // RFC 4791: calendar-access implies support for these REPORTs
+        caps.supports_calendar_query = caps.supports_calendars;
+        caps.supports_calendar_multiget = caps.supports_calendars;
+        caps.supports_free_busy = caps.supports_calendars;
+
+        caps
+    }
+
+    /// Checks if the server supports calendar-query REPORT.
+    #[must_use]
+    pub const fn can_query(&self) -> bool {
+        self.supports_calendars && self.supports_calendar_query
+    }
+
+    /// Checks if the server supports calendar-multiget REPORT.
+    #[must_use]
+    pub const fn can_multiget(&self) -> bool {
+        self.supports_calendars && self.supports_calendar_multiget
+    }
+
+    /// Checks if the server supports free-busy-query REPORT.
+    #[must_use]
+    pub const fn can_free_busy(&self) -> bool {
+        self.supports_calendars && self.supports_free_busy
+    }
+
+    /// Checks if the server supports MKCALENDAR.
+    #[must_use]
+    pub const fn can_mkcalendar(&self) -> bool {
+        self.supports_calendars && self.supports_mkcalendar
+    }
+}

@@ -30,6 +30,7 @@
 - [x] Calendar multiget (`multiget()`)
 - [x] MKCALENDAR (`mkcalendar()`)
 - [x] Basic authentication support
+- [x] Server capabilities detection with feature checks before API calls
 
 ## Future Work 📋
 
@@ -61,7 +62,6 @@
   - [ ] Calendar color (RFC 7909)
   - [ ] Managed attachments (RFC 8607)
   - [ ] Calendar availability (RFC 6638)
-- [ ] Server capabilities detection
 - [ ] HTTP/2 and HTTP/3 support
 - [ ] Custom property filtering
 - [ ] Query performance optimization
@@ -107,6 +107,7 @@
 - Todo overlap logic: Implement full RFC 4791 §9.9 table with all 8 property combinations
 - Todo helpers: Use real iCalendar strings in tests (parse-based approach) for better maintainability
 - Todo methods: Convenience aliases that delegate to existing event methods (non-breaking API)
+- Server capabilities: Parse DAV header to detect features, check before API calls that require specific capabilities
 
 ### Known Limitations
 

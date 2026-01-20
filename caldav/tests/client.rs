@@ -4,7 +4,9 @@
 
 //! Client integration tests with wiremock.
 
-use aimcal_caldav::{AuthMethod, CalDavClient, CalDavConfig, CalendarQueryRequest, Href};
+use aimcal_caldav::{
+    AuthMethod, CalDavClient, CalDavConfig, CalendarQueryRequest, Href, ServerCapabilities,
+};
 use aimcal_ical::{ICalendar, ProductId, ValueText, Version, formatter};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -190,6 +192,38 @@ END:VCALENDAR\r\n";
 async fn client_query_events() {
     let mock_server = MockServer::start().await;
 
+    // Mock OPTIONS request for discover
+    Mock::given(method("OPTIONS"))
+        .and(path("/calendars/user/"))
+        .respond_with(ResponseTemplate::new(200).insert_header("DAV", "1, 2, calendar-access"))
+        .mount(&mock_server)
+        .await;
+
+    // Mock PROPFIND for discover
+    Mock::given(method("PROPFIND"))
+        .and(path("/calendars/user/"))
+        .and(header("Content-Type", "application/xml; charset=utf-8"))
+        .respond_with(ResponseTemplate::new(207).set_body_raw(
+            "\
+<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<D:multistatus xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\">
+  <D:response>
+    <D:href>/calendars/user/</D:href>
+    <D:propstat>
+      <D:prop>
+        <C:calendar-home-set>
+          <D:href>/calendars/user/</D:href>
+        </C:calendar-home-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>",
+            "application/xml",
+        ))
+        .mount(&mock_server)
+        .await;
+
     let ical_data = r#"\
 <?xml version="1.0" encoding="utf-8" ?>
 <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
@@ -221,6 +255,9 @@ async fn client_query_events() {
     };
 
     let client = CalDavClient::new(config).expect("Failed to create client");
+
+    // Discover first to populate capabilities
+    client.discover().await.expect("Failed to discover");
 
     let request = CalendarQueryRequest::new()
         .component("VEVENT".to_string())
@@ -416,4 +453,410 @@ async fn client_basic_auth_headers() {
 
     let client = CalDavClient::new(config).expect("Failed to create client");
     let _result = client.discover().await.expect("Failed to discover");
+}
+
+#[tokio::test]
+#[ignore = "require network"]
+async fn client_discover_populates_capabilities() {
+    let mock_server = MockServer::start().await;
+
+    // Mock OPTIONS request with full CalDAV support
+    Mock::given(method("OPTIONS"))
+        .and(path("/dav/calendars/user/"))
+        .respond_with(ResponseTemplate::new(200).insert_header(
+            "DAV",
+            "1, 2, access-control, calendar-access, extended-mkcol",
+        ))
+        .mount(&mock_server)
+        .await;
+
+    // Mock PROPFIND for calendar-home-set
+    Mock::given(method("PROPFIND"))
+        .and(path("/dav/calendars/user/"))
+        .and(header("Content-Type", "application/xml; charset=utf-8"))
+        .respond_with(ResponseTemplate::new(207).set_body_raw(
+            "\
+<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<D:multistatus xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\">
+  <D:response>
+    <D:href>/dav/calendars/user/</D:href>
+    <D:propstat>
+      <D:prop>
+        <C:calendar-home-set>
+          <D:href>/dav/calendars/user/</D:href>
+        </C:calendar-home-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>",
+            "application/xml",
+        ))
+        .mount(&mock_server)
+        .await;
+
+    let config = CalDavConfig {
+        base_url: mock_server.uri(),
+        calendar_home: "/dav/calendars/user/".to_string(),
+        auth: AuthMethod::None,
+        ..Default::default()
+    };
+
+    let client = CalDavClient::new(config).expect("Failed to create client");
+
+    // Before discovery, capabilities should be empty
+    let caps = client.capabilities();
+    assert!(!caps.supports_calendars);
+    assert!(!caps.can_query());
+    assert!(!caps.can_multiget());
+    assert!(!caps.can_free_busy());
+    assert!(!caps.can_mkcalendar());
+
+    // After discovery, capabilities should be populated
+    let _result = client.discover().await.expect("Failed to discover");
+
+    let caps = client.capabilities();
+    assert!(caps.supports_calendars);
+    assert!(caps.can_query());
+    assert!(caps.can_multiget());
+    assert!(caps.can_free_busy());
+    assert!(caps.can_mkcalendar());
+}
+
+#[tokio::test]
+#[ignore = "require network"]
+async fn client_query_without_discovery_returns_unsupported_capability() {
+    let mock_server = MockServer::start().await;
+
+    let ical_data = r#"\
+<?xml version="1.0" encoding="utf-8" ?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:response>
+    <D:href>/calendars/user/event1.ics</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:getetag>"12345"</D:getetag>
+        <C:calendar-data>BEGIN:VCALENDAR&#13;&#10;VERSION:2.0&#13;&#10;PRODID:-//Example Corp.//CalDAV Client//EN&#13;&#10;BEGIN:VEVENT&#13;&#10;UID:1@example.com&#13;&#10;DTSTAMP:20250101T000000Z&#13;&#10;DTSTART:20250101T120000Z&#13;&#10;DTEND:20250101T130000Z&#13;&#10;SUMMARY:Test Event&#13;&#10;END:VEVENT&#13;&#10;END:VCALENDAR&#13;&#10;</C:calendar-data>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>"#;
+
+    // Mock REPORT request
+    Mock::given(method("REPORT"))
+        .and(path("/calendars/user/"))
+        .and(header("Content-Type", "application/xml; charset=utf-8"))
+        .respond_with(ResponseTemplate::new(207).set_body_raw(ical_data, "application/xml"))
+        .mount(&mock_server)
+        .await;
+
+    let config = CalDavConfig {
+        base_url: mock_server.uri(),
+        calendar_home: "/calendars/user/".to_string(),
+        auth: AuthMethod::None,
+        ..Default::default()
+    };
+
+    let client = CalDavClient::new(config).expect("Failed to create client");
+
+    // Don't call discover(), so capabilities are not populated
+
+    let request = CalendarQueryRequest::new().component("VEVENT".to_string());
+
+    let result = client
+        .query(&Href::new("/calendars/user/".to_string()), &request)
+        .await;
+
+    // Should fail with UnsupportedCapability
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(matches!(
+        err,
+        aimcal_caldav::CalDavError::UnsupportedCapability(_)
+    ));
+}
+
+#[tokio::test]
+#[ignore = "require network"]
+async fn client_query_without_calendar_access_fails() {
+    let mock_server = MockServer::start().await;
+
+    // Mock OPTIONS request WITHOUT calendar-access
+    Mock::given(method("OPTIONS"))
+        .and(path("/dav/calendars/user/"))
+        .respond_with(ResponseTemplate::new(200).insert_header("DAV", "1, 2"))
+        .mount(&mock_server)
+        .await;
+
+    // Mock PROPFIND for calendar-home-set
+    Mock::given(method("PROPFIND"))
+        .and(path("/dav/calendars/user/"))
+        .and(header("Content-Type", "application/xml; charset=utf-8"))
+        .respond_with(ResponseTemplate::new(207).set_body_raw(
+            "\
+<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<D:multistatus xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\">
+  <D:response>
+    <D:href>/dav/calendars/user/</D:href>
+    <D:propstat>
+      <D:prop>
+        <C:calendar-home-set>
+          <D:href>/dav/calendars/user/</D:href>
+        </C:calendar-home-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>",
+            "application/xml",
+        ))
+        .mount(&mock_server)
+        .await;
+
+    let config = CalDavConfig {
+        base_url: mock_server.uri(),
+        calendar_home: "/dav/calendars/user/".to_string(),
+        auth: AuthMethod::None,
+        ..Default::default()
+    };
+
+    let client = CalDavClient::new(config).expect("Failed to create client");
+
+    // Discover will show no CalDAV support
+    let _result = client.discover().await.expect("Failed to discover");
+
+    let request = CalendarQueryRequest::new().component("VEVENT".to_string());
+
+    let result = client
+        .query(&Href::new("/calendars/user/".to_string()), &request)
+        .await;
+
+    // Should fail with UnsupportedCapability
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(matches!(
+        err,
+        aimcal_caldav::CalDavError::UnsupportedCapability(_)
+    ));
+}
+
+#[tokio::test]
+#[ignore = "require network"]
+async fn client_query_with_capabilities_succeeds() {
+    let mock_server = MockServer::start().await;
+
+    // Mock OPTIONS request with calendar-access
+    Mock::given(method("OPTIONS"))
+        .and(path("/dav/calendars/user/"))
+        .respond_with(ResponseTemplate::new(200).insert_header("DAV", "1, 2, calendar-access"))
+        .mount(&mock_server)
+        .await;
+
+    // Mock PROPFIND for calendar-home-set
+    Mock::given(method("PROPFIND"))
+        .and(path("/dav/calendars/user/"))
+        .and(header("Content-Type", "application/xml; charset=utf-8"))
+        .respond_with(ResponseTemplate::new(207).set_body_raw(
+            "\
+<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+<D:multistatus xmlns:D=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\">
+  <D:response>
+    <D:href>/dav/calendars/user/</D:href>
+    <D:propstat>
+      <D:prop>
+        <C:calendar-home-set>
+          <D:href>/dav/calendars/user/</D:href>
+        </C:calendar-home-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>",
+            "application/xml",
+        ))
+        .mount(&mock_server)
+        .await;
+
+    let ical_data = r#"\
+<?xml version="1.0" encoding="utf-8" ?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:response>
+    <D:href>/calendars/user/event1.ics</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:getetag>"12345"</D:getetag>
+        <C:calendar-data>BEGIN:VCALENDAR&#13;&#10;VERSION:2.0&#13;&#10;PRODID:-//Example Corp.//CalDAV Client//EN&#13;&#10;BEGIN:VEVENT&#13;&#10;UID:1@example.com&#13;&#10;DTSTAMP:20250101T000000Z&#13;&#10;DTSTART:20250101T120000Z&#13;&#10;DTEND:20250101T130000Z&#13;&#10;SUMMARY:Test Event&#13;&#10;END:VEVENT&#13;&#10;END:VCALENDAR&#13;&#10;</C:calendar-data>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>"#;
+
+    // Mock REPORT request
+    Mock::given(method("REPORT"))
+        .and(path("/dav/calendars/user/"))
+        .and(header("Content-Type", "application/xml; charset=utf-8"))
+        .respond_with(ResponseTemplate::new(207).set_body_raw(ical_data, "application/xml"))
+        .mount(&mock_server)
+        .await;
+
+    let config = CalDavConfig {
+        base_url: mock_server.uri(),
+        calendar_home: "/dav/calendars/user/".to_string(),
+        auth: AuthMethod::None,
+        ..Default::default()
+    };
+
+    let client = CalDavClient::new(config).expect("Failed to create client");
+
+    // Discover first to populate capabilities
+    let _result = client.discover().await.expect("Failed to discover");
+
+    let request = CalendarQueryRequest::new().component("VEVENT".to_string());
+
+    // Should succeed now that capabilities are populated
+    let events = client
+        .query(&Href::new("/dav/calendars/user/".to_string()), &request)
+        .await
+        .expect("Failed to query events");
+
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].href.as_str(), "/calendars/user/event1.ics");
+}
+
+#[tokio::test]
+#[ignore = "require network"]
+async fn client_multiget_without_discovery_returns_unsupported_capability() {
+    let mock_server = MockServer::start().await;
+
+    let config = CalDavConfig {
+        base_url: mock_server.uri(),
+        calendar_home: "/calendars/user/".to_string(),
+        auth: AuthMethod::None,
+        ..Default::default()
+    };
+
+    let client = CalDavClient::new(config).expect("Failed to create client");
+
+    // Don't call discover(), so capabilities are not populated
+
+    let result = client
+        .multiget(&[Href::new("/calendars/user/event1.ics".to_string())])
+        .await;
+
+    // Should fail with UnsupportedCapability
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(matches!(
+        err,
+        aimcal_caldav::CalDavError::UnsupportedCapability(_)
+    ));
+}
+
+#[tokio::test]
+#[ignore = "require network"]
+async fn client_mkcalendar_without_discovery_returns_unsupported_capability() {
+    let mock_server = MockServer::start().await;
+
+    let config = CalDavConfig {
+        base_url: mock_server.uri(),
+        calendar_home: "/calendars/user/".to_string(),
+        auth: AuthMethod::None,
+        ..Default::default()
+    };
+
+    let client = CalDavClient::new(config).expect("Failed to create client");
+
+    // Don't call discover(), so capabilities are not populated
+
+    let result = client
+        .mkcalendar(
+            &Href::new("/calendars/user/new-calendar/".to_string()),
+            "New Calendar",
+            Some("A new calendar"),
+        )
+        .await;
+
+    // Should fail with UnsupportedCapability
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(matches!(
+        err,
+        aimcal_caldav::CalDavError::UnsupportedCapability(_)
+    ));
+}
+
+#[tokio::test]
+#[ignore = "require network"]
+async fn client_free_busy_without_discovery_returns_unsupported_capability() {
+    let mock_server = MockServer::start().await;
+
+    let config = CalDavConfig {
+        base_url: mock_server.uri(),
+        calendar_home: "/calendars/user/".to_string(),
+        auth: AuthMethod::None,
+        ..Default::default()
+    };
+
+    let client = CalDavClient::new(config).expect("Failed to create client");
+
+    // Don't call discover(), so capabilities are not populated
+
+    let result = client
+        .free_busy(
+            &Href::new("/calendars/user/".to_string()),
+            "20250101T000000Z",
+            "20250131T235959Z",
+        )
+        .await;
+
+    // Should fail with UnsupportedCapability
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(matches!(
+        err,
+        aimcal_caldav::CalDavError::UnsupportedCapability(_)
+    ));
+}
+
+#[tokio::test]
+#[ignore = "require network"]
+async fn test_server_capabilities_from_dav_header() {
+    // Test full CalDAV support
+    let caps = ServerCapabilities::from_dav_header("1, 2, calendar-access, extended-mkcol");
+    assert!(caps.supports_calendars);
+    assert!(caps.can_query());
+    assert!(caps.can_multiget());
+    assert!(caps.can_free_busy());
+    assert!(caps.can_mkcalendar());
+
+    // Test basic CalDAV support
+    let caps = ServerCapabilities::from_dav_header("1, 2, calendar-access");
+    assert!(caps.supports_calendars);
+    assert!(caps.can_query());
+    assert!(caps.can_multiget());
+    assert!(caps.can_free_busy());
+    assert!(caps.can_mkcalendar()); // implied by calendar-access
+
+    // Test no CalDAV support
+    let caps = ServerCapabilities::from_dav_header("1, 2");
+    assert!(!caps.supports_calendars);
+    assert!(!caps.can_query());
+    assert!(!caps.can_multiget());
+    assert!(!caps.can_free_busy());
+    assert!(!caps.can_mkcalendar());
+
+    // Test empty header
+    let caps = ServerCapabilities::from_dav_header("");
+    assert!(!caps.supports_calendars);
+    assert!(!caps.can_query());
+    assert!(!caps.can_multiget());
+    assert!(!caps.can_free_busy());
+    assert!(!caps.can_mkcalendar());
+
+    // Test case insensitivity
+    let caps = ServerCapabilities::from_dav_header("1, 2, CaLeNdAr-AcCeSs");
+    assert!(caps.supports_calendars);
+    assert!(caps.can_query());
 }

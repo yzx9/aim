@@ -36,6 +36,9 @@ pub enum CalDavError {
 
     /// Configuration error.
     Config(String),
+
+    /// Server doesn't support required capability.
+    UnsupportedCapability(String),
 }
 
 impl fmt::Display for CalDavError {
@@ -50,6 +53,9 @@ impl fmt::Display for CalDavError {
             Self::NotACalDavServer => write!(f, "Server doesn't support CalDAV"),
             Self::InvalidResponse(e) => write!(f, "Invalid server response: {e}"),
             Self::Config(e) => write!(f, "Configuration error: {e}"),
+            Self::UnsupportedCapability(cap) => {
+                write!(f, "Server doesn't support required capability: {cap}")
+            }
         }
     }
 }

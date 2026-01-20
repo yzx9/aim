@@ -23,7 +23,7 @@ use crate::request::{
 use crate::response::MultiStatusResponse;
 use crate::todo_helper::{get_todo_status, is_completed_todo, is_pending_todo};
 use crate::todo_overlap::todo_overlaps_time_range;
-use crate::types::{CalendarCollection, CalendarResource, ETag, Href};
+use crate::types::{CalendarCollection, CalendarResource, ETag, Href, ServerCapabilities};
 use crate::xml::ns;
 
 /// `CalDAV` client for accessing and managing calendars on `CalDAV` servers.
@@ -53,6 +53,7 @@ use crate::xml::ns;
 pub struct CalDavClient {
     http: Arc<HttpClient>,
     config: CalDavConfig,
+    capabilities: Arc<std::sync::RwLock<ServerCapabilities>>,
 }
 
 impl CalDavClient {
@@ -66,7 +67,32 @@ impl CalDavClient {
         Ok(Self {
             http: Arc::new(http),
             config,
+            capabilities: Arc::new(std::sync::RwLock::new(ServerCapabilities::new())),
         })
+    }
+
+    /// Returns the current server capabilities.
+    ///
+    /// Capabilities are discovered via [`discover()`] and updated when
+    /// the server reports supported features.
+    #[must_use]
+    pub fn capabilities(&self) -> ServerCapabilities {
+        let guard = self
+            .capabilities
+            .read()
+            .unwrap_or_else(|e| std::sync::PoisonError::into_inner(e));
+        ServerCapabilities::clone(&*guard)
+    }
+
+    /// Sets the server capabilities.
+    ///
+    /// This is typically called by [`discover()`] but can also be used
+    /// to manually set capabilities if needed.
+    pub fn set_capabilities(&self, caps: ServerCapabilities) {
+        *self
+            .capabilities
+            .write()
+            .unwrap_or_else(|e| std::sync::PoisonError::into_inner(e)) = caps;
     }
 
     /// Discovers `CalDAV` support and calendar home set.
@@ -88,7 +114,11 @@ impl CalDavClient {
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
 
-        let supports_calendars = dav_header.contains("calendar-access");
+        // Parse and store capabilities
+        let capabilities = ServerCapabilities::from_dav_header(dav_header);
+        self.set_capabilities(capabilities.clone());
+
+        let supports_calendars = capabilities.supports_calendars;
 
         // Find calendar home set
         let mut propfind = PropFindRequest::new();
@@ -133,13 +163,19 @@ impl CalDavClient {
     ///
     /// # Errors
     ///
-    /// Returns an error if MKCALENDAR fails.
+    /// Returns an error if MKCALENDAR fails or the server doesn't support it.
     pub async fn mkcalendar(
         &self,
         href: &Href,
         display_name: &str,
         description: Option<&str>,
     ) -> Result<(), CalDavError> {
+        // Check if server supports MKCALENDAR
+        let caps = self.capabilities();
+        if !caps.can_mkcalendar() {
+            return Err(CalDavError::UnsupportedCapability("MKCALENDAR".to_string()));
+        }
+
         let url = self.full_url(href.as_str());
 
         // Build MKCALENDAR request body
@@ -354,12 +390,20 @@ impl CalDavClient {
     ///
     /// # Errors
     ///
-    /// Returns an error if query fails.
+    /// Returns an error if query fails or the server doesn't support calendar-query.
     pub async fn query(
         &self,
         calendar_href: &Href,
         request: &CalendarQueryRequest,
     ) -> Result<Vec<CalendarResource>, CalDavError> {
+        // Check if server supports calendar-query REPORT
+        let caps = self.capabilities();
+        if !caps.can_query() {
+            return Err(CalDavError::UnsupportedCapability(
+                "calendar-query".to_string(),
+            ));
+        }
+
         let url = self.full_url(calendar_href.as_str());
         let xml_body = request.build()?;
 
@@ -386,8 +430,16 @@ impl CalDavClient {
     ///
     /// # Errors
     ///
-    /// Returns an error if multiget fails.
+    /// Returns an error if multiget fails or the server doesn't support calendar-multiget.
     pub async fn multiget(&self, hrefs: &[Href]) -> Result<Vec<CalendarResource>, CalDavError> {
+        // Check if server supports calendar-multiget REPORT
+        let caps = self.capabilities();
+        if !caps.can_multiget() {
+            return Err(CalDavError::UnsupportedCapability(
+                "calendar-multiget".to_string(),
+            ));
+        }
+
         if hrefs.is_empty() {
             return Ok(Vec::new());
         }
@@ -496,8 +548,7 @@ impl CalDavClient {
 
         if let Some(statuses) = statuses {
             filtered.retain(|resource| {
-                get_todo_status(&resource.data)
-                    .is_some_and(|status| statuses.contains(&status))
+                get_todo_status(&resource.data).is_some_and(|status| statuses.contains(&status))
             });
         }
 
@@ -543,13 +594,21 @@ impl CalDavClient {
     ///
     /// # Errors
     ///
-    /// Returns an error if free-busy query fails.
+    /// Returns an error if free-busy query fails or the server doesn't support free-busy-query.
     pub async fn free_busy(
         &self,
         calendar_href: &Href,
         start: &str,
         end: &str,
     ) -> Result<FreeBusyData, CalDavError> {
+        // Check if server supports free-busy-query REPORT
+        let caps = self.capabilities();
+        if !caps.can_free_busy() {
+            return Err(CalDavError::UnsupportedCapability(
+                "free-busy-query".to_string(),
+            ));
+        }
+
         let url = self.full_url(calendar_href.as_str());
 
         let request = FreeBusyQueryRequest::new(start.to_string(), end.to_string());
