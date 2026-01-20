@@ -33,6 +33,8 @@ mod http;
 mod request;
 mod response;
 mod sync;
+mod todo_helper;
+mod todo_overlap;
 mod types;
 mod xml;
 
@@ -44,4 +46,11 @@ pub use crate::request::{
     TextMatch, TimeRange,
 };
 pub use crate::response::MultiStatusResponse;
+pub use crate::todo_helper::{
+    extract_first_todo, get_todo_status, is_completed_todo, is_pending_todo,
+};
+pub use crate::todo_overlap::todo_overlaps_time_range;
 pub use crate::types::{CalendarCollection, CalendarResource, ETag, Href};
+
+// Re-export TodoStatusValue for convenience
+pub use aimcal_ical::semantic::TodoStatusValue;

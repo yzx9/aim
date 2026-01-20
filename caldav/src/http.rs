@@ -4,7 +4,7 @@
 
 //! HTTP client wrapper with authentication and `ETag` handling.
 
-use reqwest::{Client, RequestBuilder, Response};
+use reqwest::{Client, Method, RequestBuilder, Response, StatusCode};
 
 use crate::config::{AuthMethod, CalDavConfig};
 use crate::error::CalDavError;
@@ -32,16 +32,14 @@ impl HttpClient {
     }
 
     /// Builds a request with authentication headers.
-    pub fn build_request(&self, method: reqwest::Method, url: &str) -> RequestBuilder {
+    pub fn build_request(&self, method: Method, url: &str) -> RequestBuilder {
         let mut req = self.client.request(method, url);
 
         match &self.config.auth {
             AuthMethod::Basic { username, password } => {
                 req = req.basic_auth(username, Some(password));
             }
-            AuthMethod::Bearer { token } => {
-                req = req.bearer_auth(token);
-            }
+            AuthMethod::Bearer { token } => req = req.bearer_auth(token),
             AuthMethod::None => {}
         }
 
@@ -57,11 +55,11 @@ impl HttpClient {
         let resp = req.send().await?;
 
         match resp.status() {
-            reqwest::StatusCode::OK
-            | reqwest::StatusCode::CREATED
-            | reqwest::StatusCode::NO_CONTENT
-            | reqwest::StatusCode::MULTI_STATUS => Ok(resp),
-            reqwest::StatusCode::PRECONDITION_FAILED => Err(CalDavError::PreconditionFailed(
+            StatusCode::OK
+            | StatusCode::CREATED
+            | StatusCode::NO_CONTENT
+            | StatusCode::MULTI_STATUS => Ok(resp),
+            StatusCode::PRECONDITION_FAILED => Err(CalDavError::PreconditionFailed(
                 resp.headers()
                     .get("ETag")
                     .and_then(|v| v.to_str().ok())

@@ -13,22 +13,22 @@
 - [x] Implement request builders (PropFindRequest, CalendarQueryRequest, CalendarMultiGetRequest, FreeBusyQueryRequest)
 - [x] Implement response parsers (MultiStatusResponse with namespace handling)
 - [x] Implement main CalDavClient with all RFC 4791 methods
-- [x] Fix XML namespace prefix handling (use `local_name()`)
 - [x] Add support for self-closing XML elements (`Event::Empty`)
-- [x] Full test suite (25 tests passing).
+- [x] Full test suite (34 tests passing).
 
 ### CalDAV Operations (RFC 4791)
 
 - [x] Calendar discovery (`discover()`)
 - [x] List calendars (`list_calendars()`)
-- [x] Get event (`get_event()`)
-- [x] Create event (`create_event()`)
-- [x] Update event with ETag (`update_event()`)
-- [x] Delete event with ETag (`delete_event()`)
+- [x] Get event and todos (`get_event`, `get_todo`)
+- [x] Create event and todos (`create_event`, `create_todo`)
+- [x] Update event and todos with ETag (`update_event`, `update_todo`)
+- [x] Delete event and todos with ETag (`delete_event`, `delete_todo`)
+- [x] Free-busy query (`free_busy()`)
 - [x] Calendar query with filters (`query()`)
+  - [x] Todo query helpers (`get_pending_todos`, `get_completed_todos`, `query_todos`, `get_todos_by_date_range`)
 - [x] Calendar multiget (`multiget()`)
 - [x] MKCALENDAR (`mkcalendar()`)
-- [x] Free-busy query (`free_busy()`)
 - [x] Basic authentication support
 
 ## Future Work 📋
@@ -104,6 +104,9 @@
 - iCalendar format: Use CRLF line endings (`\r\n`) for RFC 5545 compliance
 - ETag format: Preserve quotes from server responses (e.g., `"abc123"`)
 - Authentication: Headers injected via HTTP client wrapper
+- Todo overlap logic: Implement full RFC 4791 §9.9 table with all 8 property combinations
+- Todo helpers: Use real iCalendar strings in tests (parse-based approach) for better maintainability
+- Todo methods: Convenience aliases that delegate to existing event methods (non-breaking API)
 
 ### Known Limitations
 
@@ -111,10 +114,12 @@
 - Some error types lack detailed context
 - No automatic retry for transient failures
 - Limited to basic CalDAV operations (no scheduling/sharing yet)
+- Todo overlap logic uses client-side filtering after server query (RFC 4791 §9.9 compliance)
 
 ### Dependencies
 
 - `aimcal-ical` - iCalendar parsing and formatting
+- `jiff` - Modern datetime and timezone library
 - `reqwest` - HTTP client
 - `quick-xml` - XML parsing and generation
 - `thiserror` - Error handling

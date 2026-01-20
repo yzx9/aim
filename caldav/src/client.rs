@@ -4,16 +4,25 @@
 
 //! `CalDAV` client for calendar operations.
 
+use std::io::Cursor;
 use std::sync::Arc;
 
-use aimcal_ical::parse;
+use aimcal_ical::{ICalendar, TodoStatusValue, formatter, parse};
+use jiff::Zoned;
+use jiff::civil::DateTime;
+use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
+use reqwest::Method;
 
 use crate::config::CalDavConfig;
 use crate::error::CalDavError;
 use crate::http::HttpClient;
-use crate::request::{CalendarMultiGetRequest, CalendarQueryRequest, FreeBusyQueryRequest, Prop, PropFindRequest};
+use crate::request::{
+    CalendarMultiGetRequest, CalendarQueryRequest, FreeBusyQueryRequest, Prop, PropFindRequest,
+};
 use crate::response::MultiStatusResponse;
+use crate::todo_helper::{get_todo_status, is_completed_todo, is_pending_todo};
+use crate::todo_overlap::todo_overlaps_time_range;
 use crate::types::{CalendarCollection, CalendarResource, ETag, Href};
 use crate::xml::ns;
 
@@ -70,7 +79,7 @@ impl CalDavClient {
         let url = self.full_url(&self.config.calendar_home);
         let resp = self
             .http
-            .execute(self.http.build_request(reqwest::Method::OPTIONS, &url))
+            .execute(self.http.build_request(Method::OPTIONS, &url))
             .await?;
 
         let dav_header = resp
@@ -91,7 +100,7 @@ impl CalDavClient {
             .execute(
                 self.http
                     .build_request(
-                        reqwest::Method::from_bytes(b"PROPFIND")
+                        Method::from_bytes(b"PROPFIND")
                             .map_err(|e| CalDavError::Http(format!("Invalid method: {e}")))?,
                         &url,
                     )
@@ -134,8 +143,7 @@ impl CalDavClient {
         let url = self.full_url(href.as_str());
 
         // Build MKCALENDAR request body
-        let mut writer =
-            quick_xml::Writer::new_with_indent(std::io::Cursor::new(Vec::new()), b' ', 2);
+        let mut writer = Writer::new_with_indent(Cursor::new(Vec::new()), b' ', 2);
 
         // <C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
         let mut mkcalendar = BytesStart::new("C:mkcalendar");
@@ -178,7 +186,7 @@ impl CalDavClient {
             .execute(
                 self.http
                     .build_request(
-                        reqwest::Method::from_bytes(b"MKCALENDAR")
+                        Method::from_bytes(b"MKCALENDAR")
                             .map_err(|e| CalDavError::Http(format!("Invalid method: {e}")))?,
                         &url,
                     )
@@ -199,7 +207,7 @@ impl CalDavClient {
         let url = self.full_url(href.as_str());
         let resp = self
             .http
-            .execute(self.http.build_request(reqwest::Method::GET, &url))
+            .execute(self.http.build_request(Method::GET, &url))
             .await?;
 
         let etag = HttpClient::extract_etag(&resp)?;
@@ -215,6 +223,17 @@ impl CalDavClient {
         Ok(CalendarResource::new(href.clone(), etag, data.to_owned()))
     }
 
+    /// Gets a single todo by href.
+    ///
+    /// This is a convenience alias for [`get_event`] that works with VTODO components.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the object doesn't exist or parsing fails.
+    pub async fn get_todo(&self, href: &Href) -> Result<CalendarResource, CalDavError> {
+        self.get_event(href).await
+    }
+
     /// Creates a new calendar object.
     ///
     /// # Errors
@@ -223,23 +242,38 @@ impl CalDavClient {
     pub async fn create_event(
         &self,
         href: &Href,
-        calendar: &aimcal_ical::ICalendar<String>,
+        calendar: &ICalendar<String>,
     ) -> Result<ETag, CalDavError> {
         let url = self.full_url(href.as_str());
-        let ical_data = aimcal_ical::formatter::format(calendar)
+        let ical_data = formatter::format(calendar)
             .map_err(|e| CalDavError::Ical(format!("Formatter error: {e}")))?;
 
         let resp = self
             .http
             .execute(
                 self.http
-                    .build_request(reqwest::Method::PUT, &url)
+                    .build_request(Method::PUT, &url)
                     .header("Content-Type", "text/calendar; charset=utf-8")
                     .body(ical_data),
             )
             .await?;
 
         HttpClient::extract_etag(&resp)
+    }
+
+    /// Creates a new todo.
+    ///
+    /// This is a convenience alias for [`create_event`] that works with VTODO components.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if creation fails.
+    pub async fn create_todo(
+        &self,
+        href: &Href,
+        calendar: &ICalendar<String>,
+    ) -> Result<ETag, CalDavError> {
+        self.create_event(href, calendar).await
     }
 
     /// Updates an existing calendar object.
@@ -251,17 +285,17 @@ impl CalDavClient {
         &self,
         href: &Href,
         etag: &ETag,
-        calendar: &aimcal_ical::ICalendar<String>,
+        calendar: &ICalendar<String>,
     ) -> Result<ETag, CalDavError> {
         let url = self.full_url(href.as_str());
-        let ical_data = aimcal_ical::formatter::format(calendar)
+        let ical_data = formatter::format(calendar)
             .map_err(|e| CalDavError::Ical(format!("Formatter error: {e}")))?;
 
         let resp = self
             .http
             .execute(HttpClient::if_match(
                 self.http
-                    .build_request(reqwest::Method::PUT, &url)
+                    .build_request(Method::PUT, &url)
                     .header("Content-Type", "text/calendar; charset=utf-8")
                     .body(ical_data),
                 etag,
@@ -269,6 +303,22 @@ impl CalDavClient {
             .await?;
 
         HttpClient::extract_etag(&resp)
+    }
+
+    /// Updates an existing todo.
+    ///
+    /// This is a convenience alias for [`update_event`] that works with VTODO components.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if update fails or `ETag` mismatch.
+    pub async fn update_todo(
+        &self,
+        href: &Href,
+        etag: &ETag,
+        calendar: &ICalendar<String>,
+    ) -> Result<ETag, CalDavError> {
+        self.update_event(href, etag, calendar).await
     }
 
     /// Deletes a calendar object.
@@ -281,12 +331,23 @@ impl CalDavClient {
 
         self.http
             .execute(HttpClient::if_match(
-                self.http.build_request(reqwest::Method::DELETE, &url),
+                self.http.build_request(Method::DELETE, &url),
                 etag,
             ))
             .await?;
 
         Ok(())
+    }
+
+    /// Deletes a todo.
+    ///
+    /// This is a convenience alias for [`delete_event`] that works with VTODO components.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deletion fails.
+    pub async fn delete_todo(&self, href: &Href, etag: &ETag) -> Result<(), CalDavError> {
+        self.delete_event(href, etag).await
     }
 
     /// Queries calendar objects with filters.
@@ -307,7 +368,7 @@ impl CalDavClient {
             .execute(
                 self.http
                     .build_request(
-                        reqwest::Method::from_bytes(b"REPORT")
+                        Method::from_bytes(b"REPORT")
                             .map_err(|e| CalDavError::Http(format!("Invalid method: {e}")))?,
                         &url,
                     )
@@ -345,7 +406,7 @@ impl CalDavClient {
             .execute(
                 self.http
                     .build_request(
-                        reqwest::Method::from_bytes(b"REPORT")
+                        Method::from_bytes(b"REPORT")
                             .map_err(|e| CalDavError::Http(format!("Invalid method: {e}")))?,
                         &url,
                     )
@@ -357,6 +418,125 @@ impl CalDavClient {
         let xml = resp.text().await?;
         let multistatus = MultiStatusResponse::from_xml(&xml)?;
         multistatus.into_resources()
+    }
+
+    /// Gets all pending todos from a calendar.
+    ///
+    /// Pending todos are those without a COMPLETED property and with status
+    /// other than "COMPLETED" or "CANCELLED".
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
+    pub async fn get_pending_todos(
+        &self,
+        calendar_href: &Href,
+    ) -> Result<Vec<CalendarResource>, CalDavError> {
+        let request = CalendarQueryRequest::new().component("VTODO".to_string());
+
+        let resources = self.query(calendar_href, &request).await?;
+
+        Ok(resources
+            .into_iter()
+            .filter(|resource| is_pending_todo(&resource.data))
+            .collect())
+    }
+
+    /// Gets all completed todos from a calendar.
+    ///
+    /// Completed todos have a COMPLETED property or status "COMPLETED".
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
+    pub async fn get_completed_todos(
+        &self,
+        calendar_href: &Href,
+    ) -> Result<Vec<CalendarResource>, CalDavError> {
+        let request = CalendarQueryRequest::new().component("VTODO".to_string());
+
+        let resources = self.query(calendar_href, &request).await?;
+
+        Ok(resources
+            .into_iter()
+            .filter(|resource| is_completed_todo(&resource.data))
+            .collect())
+    }
+
+    /// Queries todos with optional time range and status filters.
+    ///
+    /// # Arguments
+    ///
+    /// * `calendar_href` - The calendar collection href
+    /// * `start` - Optional start of time range (inclusive, UTC format)
+    /// * `end` - Optional end of time range (exclusive, UTC format)
+    /// * `statuses` - Optional list of status values to filter by
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
+    pub async fn query_todos(
+        &self,
+        calendar_href: &Href,
+        start: Option<&str>,
+        end: Option<&str>,
+        statuses: Option<&[TodoStatusValue]>,
+    ) -> Result<Vec<CalendarResource>, CalDavError> {
+        let request = if let Some(start) = start {
+            CalendarQueryRequest::new()
+                .component("VTODO".to_string())
+                .time_range(start.to_string(), end.map(str::to_string))
+        } else {
+            CalendarQueryRequest::new().component("VTODO".to_string())
+        };
+
+        let resources = self.query(calendar_href, &request).await?;
+
+        let mut filtered = resources;
+
+        if let Some(statuses) = statuses {
+            filtered.retain(|resource| {
+                get_todo_status(&resource.data)
+                    .is_some_and(|status| statuses.contains(&status))
+            });
+        }
+
+        Ok(filtered)
+    }
+
+    /// Gets todos within a date range using RFC 4791 §9.9 VTODO overlap logic.
+    ///
+    /// This method queries the server for todos in the time range, then applies
+    /// RFC 4791 §9.9 VTODO-specific overlap logic on the client side.
+    ///
+    /// # Arguments
+    ///
+    /// * `calendar_href` - The calendar collection href
+    /// * `start` - Start of time range in UTC format (e.g., "20260101T000000Z")
+    /// * `end` - End of time range in UTC format (e.g., "20260131T235959Z")
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
+    pub async fn get_todos_by_date_range(
+        &self,
+        calendar_href: &Href,
+        start: &str,
+        end: &str,
+    ) -> Result<Vec<CalendarResource>, CalDavError> {
+        let request = CalendarQueryRequest::new()
+            .component("VTODO".to_string())
+            .time_range(start.to_string(), Some(end.to_string()));
+
+        let resources = self.query(calendar_href, &request).await?;
+
+        let start_dt = Self::parse_utc_datetime(start)?;
+        let end_dt = Self::parse_utc_datetime(end)?;
+
+        Ok(resources
+            .into_iter()
+            .filter(|resource| todo_overlaps_time_range(&resource.data, &start_dt, &end_dt))
+            .collect())
     }
 
     /// Gets free/busy information.
@@ -380,7 +560,7 @@ impl CalDavClient {
             .execute(
                 self.http
                     .build_request(
-                        reqwest::Method::from_bytes(b"REPORT")
+                        Method::from_bytes(b"REPORT")
                             .map_err(|e| CalDavError::Http(format!("Invalid method: {e}")))?,
                         &url,
                     )
@@ -419,7 +599,7 @@ impl CalDavClient {
             .execute(
                 self.http
                     .build_request(
-                        reqwest::Method::from_bytes(b"PROPFIND")
+                        Method::from_bytes(b"PROPFIND")
                             .map_err(|e| CalDavError::Http(format!("Invalid method: {e}")))?,
                         &url,
                     )
@@ -437,6 +617,19 @@ impl CalDavClient {
     /// Builds full URL from href.
     fn full_url(&self, href: &str) -> String {
         format!("{}{}", self.config.base_url.trim_end_matches('/'), href)
+    }
+
+    /// Parses a UTC datetime string from `CalDAV` format.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the datetime string is invalid.
+    fn parse_utc_datetime(s: &str) -> Result<Zoned, CalDavError> {
+        // CalDAV uses format like "20260101T000000Z"
+        DateTime::strptime(s, "%Y%m%dT%H%M%SZ")
+            .map_err(|e| CalDavError::InvalidResponse(format!("Invalid datetime format: {e}")))?
+            .to_zoned(jiff::tz::TimeZone::UTC)
+            .map_err(|e| CalDavError::InvalidResponse(format!("Datetime conversion error: {e}")))
     }
 }
 

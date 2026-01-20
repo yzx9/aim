@@ -24,6 +24,7 @@ name = "aimcal-caldav"
 version = "0.11.0"
 dependencies = [
  "aimcal-ical",
+ "jiff",
  "quick-xml",
  "reqwest",
  "serde",

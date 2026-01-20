@@ -5,7 +5,7 @@
 //! Client integration tests with wiremock.
 
 use aimcal_caldav::{AuthMethod, CalDavClient, CalDavConfig, CalendarQueryRequest, Href};
-use aimcal_ical::ValueText;
+use aimcal_ical::{ICalendar, ProductId, ValueText, Version, formatter};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -181,7 +181,7 @@ END:VCALENDAR\r\n";
 
     assert_eq!(resource.href.as_str(), "/calendars/user/event1.ics");
     assert_eq!(resource.etag.as_str(), "\"abc123\"");
-    let formatted = aimcal_ical::formatter::format(&resource.data).unwrap();
+    let formatted = formatter::format(&resource.data).unwrap();
     assert!(formatted.contains("SUMMARY:Test Event"));
 }
 
@@ -236,7 +236,7 @@ async fn client_query_events() {
 
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].href.as_str(), "/calendars/user/event1.ics");
-    let formatted = aimcal_ical::formatter::format(&events[0].data).unwrap();
+    let formatted = formatter::format(&events[0].data).unwrap();
     assert!(formatted.contains("SUMMARY:Test Event"));
 }
 
@@ -266,9 +266,9 @@ async fn client_create_event() {
     let client = CalDavClient::new(config).expect("Failed to create client");
 
     // Create a minimal iCalendar
-    let mut ical = aimcal_ical::ICalendar::new();
-    ical.version = aimcal_ical::Version::default();
-    ical.prod_id = aimcal_ical::ProductId {
+    let mut ical = ICalendar::new();
+    ical.version = Version::default();
+    ical.prod_id = ProductId {
         value: ValueText::new("-//Test//CalDAV Client//EN".to_string()),
         x_parameters: Vec::new(),
         retained_parameters: Vec::new(),
