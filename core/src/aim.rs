@@ -126,27 +126,24 @@ impl Aim {
         let path: PathBuf = event.path().into();
         let mut calendar = parse_ics(&path).await?;
 
-        // Find and update the event by UID
-        let mut found = false;
+        let mut updated_event = None;
         for component in &mut calendar.components {
             if let CalendarComponent::Event(e) = component
                 && e.uid.content.to_string() == event.uid()
             // PERF: avoid to_string() here
             {
                 patch.resolve(self.now.clone()).apply_to(e);
-                found = true;
+                updated_event = Some(e.clone());
                 break;
             }
         }
 
-        if !found {
-            return Err("Event not found in calendar".into());
-        }
+        let updated_event = updated_event.ok_or("Event not found in calendar")?;
 
         write_ics(&path, &calendar).await?;
-        self.db.upsert_event(&path, &event).await?;
+        self.db.upsert_event(&path, &updated_event).await?;
 
-        let event_with_id = self.short_ids.event(event).await?;
+        let event_with_id = self.short_ids.event(updated_event).await?;
         Ok(event_with_id)
     }
 
@@ -244,26 +241,23 @@ impl Aim {
         let path: PathBuf = todo.path().into();
         let mut calendar = parse_ics(&path).await?;
 
-        // Find and update the todo by UID
-        let mut found = false;
+        let mut updated_todo = None;
         for component in &mut calendar.components {
             if let CalendarComponent::Todo(t) = component
                 && t.uid.content.to_string() == todo.uid()
             {
                 patch.resolve(&self.now).apply_to(t);
-                found = true;
+                updated_todo = Some(t.clone());
                 break;
             }
         }
 
-        if !found {
-            return Err("Todo not found in calendar".into());
-        }
+        let updated_todo = updated_todo.ok_or("Todo not found in calendar")?;
 
         write_ics(&path, &calendar).await?;
-        self.db.upsert_todo(&path, &todo).await?;
+        self.db.upsert_todo(&path, &updated_todo).await?;
 
-        let todo = self.short_ids.todo(todo).await?;
+        let todo = self.short_ids.todo(updated_todo).await?;
         Ok(todo)
     }
 

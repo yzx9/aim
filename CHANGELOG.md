@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- cli: Fix `delay` command showing old date after update (#98)
+
 ### Changed
 
 - ical: `DateTime` refactored from enum to struct wrapping new `DateTimeValue` enum
