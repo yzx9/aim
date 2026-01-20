@@ -45,6 +45,7 @@
             root = ./.;
             fileset = lib.fileset.unions [
               ./aimcal
+              ./caldav
               ./cli
               ./core
               ./ical
