@@ -7,6 +7,7 @@
 //! These tests validate the semantic analyzer's behavior on realistic iCalendar content
 //! and edge cases.
 
+use aimcal_ical::parse;
 use aimcal_ical::semantic::{CalendarComponent, SemanticError, semantic_analysis};
 use aimcal_ical::string_storage::Segments;
 use aimcal_ical::syntax::syntax_analysis;
@@ -1259,4 +1260,252 @@ END:VCALENDAR\r
         }
         _ => panic!("Expected XComponent"),
     }
+}
+
+#[test]
+fn semantic_tzid_accepts_vtimezone_reference() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VTIMEZONE\r
+TZID:Custom-Timezone\r
+BEGIN:STANDARD\r
+DTSTART:20071104T020000\r
+TZOFFSETFROM:-0400\r
+TZOFFSETTO:-0500\r
+END:STANDARD\r
+END:VTIMEZONE\r
+BEGIN:VEVENT\r
+UID:12345\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Custom-Timezone:20250615T100000\r
+SUMMARY:Test Event\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+    let calendars = parse(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 2);
+
+    match &calendar.components[1] {
+        CalendarComponent::Event(event) => {
+            assert_eq!(
+                event.dt_start.tz_id.as_ref().unwrap().to_string(),
+                "Custom-Timezone"
+            );
+        }
+        _ => panic!("Expected Event component"),
+    }
+}
+
+#[test]
+fn semantic_tzid_rejects_unknown_timezone() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VEVENT\r
+UID:12345\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Unknown-Timezone:20250615T100000\r
+SUMMARY:Test Event\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+    let result = parse(src);
+    assert!(result.is_err());
+}
+
+#[cfg(feature = "jiff")]
+#[test]
+fn semantic_tzid_accepts_iana_timezone() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VEVENT\r
+UID:12345\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=America/New_York:20250615T100000\r
+SUMMARY:Test Event\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+    let calendars = parse(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 1);
+
+    match &calendar.components[0] {
+        CalendarComponent::Event(event) => {
+            assert_eq!(
+                event.dt_start.tz_id.as_ref().unwrap().to_string(),
+                "America/New_York"
+            );
+        }
+        _ => panic!("Expected Event component"),
+    }
+}
+
+#[test]
+fn semantic_tzid_validates_multiple_components_with_vtimezone() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VTIMEZONE\r
+TZID:Custom-Timezone\r
+BEGIN:STANDARD\r
+DTSTART:20071104T020000\r
+TZOFFSETFROM:-0400\r
+TZOFFSETTO:-0500\r
+END:STANDARD\r
+END:VTIMEZONE\r
+BEGIN:VEVENT\r
+UID:1\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Custom-Timezone:20250615T100000\r
+SUMMARY:Event 1\r
+END:VEVENT\r
+BEGIN:VTODO\r
+UID:2\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Custom-Timezone:20250615T090000\r
+DUE;TZID=Custom-Timezone:20250615T170000\r
+SUMMARY:Task 1\r
+END:VTODO\r
+BEGIN:VJOURNAL\r
+UID:3\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Custom-Timezone:20250615T100000\r
+SUMMARY:Journal 1\r
+END:VJOURNAL\r
+END:VCALENDAR\r
+";
+    let calendars = parse(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 4);
+}
+
+#[test]
+fn semantic_tzid_validates_vtimezone_components() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VTIMEZONE\r
+TZID:Custom-Timezone\r
+BEGIN:STANDARD\r
+DTSTART:20071104T020000\r
+TZOFFSETFROM:-0400\r
+TZOFFSETTO:-0500\r
+END:STANDARD\r
+END:VTIMEZONE\r
+BEGIN:VEVENT\r
+UID:1\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Custom-Timezone:20250615T100000\r
+SUMMARY:Event with custom timezone\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+    let calendars = parse(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 2);
+
+    match &calendar.components[1] {
+        CalendarComponent::Event(event) => {
+            assert_eq!(
+                event.dt_start.tz_id.as_ref().unwrap().to_string(),
+                "Custom-Timezone"
+            );
+        }
+        _ => panic!("Expected Event component"),
+    }
+}
+
+#[cfg(feature = "jiff")]
+#[test]
+fn semantic_tzid_validates_partial_vtimezone_coverage() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VTIMEZONE\r
+TZID:Custom-Timezone\r
+BEGIN:STANDARD\r
+DTSTART:20071104T020000\r
+TZOFFSETFROM:-0400\r
+TZOFFSETTO:-0500\r
+END:STANDARD\r
+END:VTIMEZONE\r
+BEGIN:VEVENT\r
+UID:1\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Custom-Timezone:20250615T100000\r
+SUMMARY:Event with custom timezone\r
+END:VEVENT\r
+BEGIN:VEVENT\r
+UID:2\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=America/Los_Angeles:20250616T100000\r
+SUMMARY:Event with IANA timezone\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+    let calendars = parse(src).unwrap();
+    let calendar = &calendars[0];
+    assert_eq!(calendar.components.len(), 3);
+
+    match &calendar.components[1] {
+        CalendarComponent::Event(event) => {
+            assert_eq!(
+                event.dt_start.tz_id.as_ref().unwrap().to_string(),
+                "Custom-Timezone"
+            );
+        }
+        _ => panic!("Expected Event component"),
+    }
+
+    match &calendar.components[2] {
+        CalendarComponent::Event(event) => {
+            assert_eq!(
+                event.dt_start.tz_id.as_ref().unwrap().to_string(),
+                "America/Los_Angeles"
+            );
+        }
+        _ => panic!("Expected Event component"),
+    }
+}
+
+#[test]
+fn semantic_tzid_rejects_mixed_valid_invalid_tzids() {
+    let src = "\
+BEGIN:VCALENDAR\r
+VERSION:2.0\r
+PRODID:-//Example Corp.//CalDAV Client//EN\r
+BEGIN:VTIMEZONE\r
+TZID:Custom-Timezone\r
+BEGIN:STANDARD\r
+DTSTART:20071104T020000\r
+TZOFFSETFROM:-0400\r
+TZOFFSETTO:-0500\r
+END:STANDARD\r
+END:VTIMEZONE\r
+BEGIN:VEVENT\r
+UID:1\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Custom-Timezone:20250615T100000\r
+SUMMARY:Event with valid TZID\r
+END:VEVENT\r
+BEGIN:VEVENT\r
+UID:2\r
+DTSTAMP:20250101T000000Z\r
+DTSTART;TZID=Invalid-Timezone:20250616T100000\r
+SUMMARY:Event with invalid TZID\r
+END:VEVENT\r
+END:VCALENDAR\r
+";
+    let result = parse(src);
+    assert!(result.is_err());
 }

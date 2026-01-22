@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::semantic::{ICalendar, SemanticError, semantic_analysis};
+use crate::semantic::{ICalendar, SemanticError, semantic_analysis, validate_tzids};
 use crate::string_storage::Segments;
 use crate::syntax::SyntaxError;
 use crate::typed::{TypedError, typed_analysis};
@@ -56,7 +56,7 @@ use crate::typed::{TypedError, typed_analysis};
 /// let errors = result.unwrap_err();
 /// // Each error can be converted to a string for display
 /// for error in &errors {
-///   eprintln!("{}", error);
+///   eprintln!("{error}");
 /// }
 /// ```
 pub fn parse(src: &'_ str) -> Result<Vec<ICalendar<Segments<'_>>>, Vec<ParseError<'_>>> {
@@ -67,11 +67,23 @@ pub fn parse(src: &'_ str) -> Result<Vec<ICalendar<Segments<'_>>>, Vec<ParseErro
     let typed_components = typed_analysis(syntax_components)
         .map_err(|errs| errs.into_iter().map(ParseError::Typed).collect::<Vec<_>>())?;
 
-    let icalendars = semantic_analysis(typed_components).map_err(|errs| {
+    let mut icalendars = semantic_analysis(typed_components).map_err(|errs| {
         errs.into_iter()
             .map(ParseError::Semantic)
             .collect::<Vec<_>>()
     })?;
+
+    // Post-semantic: validate TZIDs against VTIMEZONE components and IANA database
+    let mut all_tz_errors = Vec::new();
+    // Clone the calendars for iteration to avoid lifetime issues
+    for calendar in &mut icalendars {
+        if let Err(errors) = validate_tzids(calendar) {
+            all_tz_errors.extend(errors.into_iter().map(ParseError::Semantic));
+        }
+    }
+    if !all_tz_errors.is_empty() {
+        return Err(all_tz_errors);
+    }
 
     Ok(icalendars)
 }

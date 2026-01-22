@@ -4,6 +4,7 @@
 
 //! iCalendar container types.
 
+use crate::semantic::tz_validator::{TzContext, ValidateTzids};
 use std::convert::TryFrom;
 
 use crate::keyword::{
@@ -392,6 +393,18 @@ impl CalendarComponent<Segments<'_>> {
             Self::VAlarm(v) => CalendarComponent::VAlarm(v.to_owned()),
             Self::XComponent(v) => CalendarComponent::XComponent(v.to_owned()),
             Self::Unrecognized(v) => CalendarComponent::Unrecognized(v.to_owned()),
+        }
+    }
+}
+
+impl ValidateTzids for CalendarComponent<Segments<'_>> {
+    fn validate_tzids(&mut self, ctx: &TzContext<'_>) -> Result<(), Vec<SemanticError<'static>>> {
+        match self {
+            CalendarComponent::Event(event) => event.validate_tzids(ctx),
+            CalendarComponent::Todo(todo) => todo.validate_tzids(ctx),
+            CalendarComponent::VJournal(journal) => journal.validate_tzids(ctx),
+            // VTimeZone, VFreeBusy, VAlarm don't have TZID parameters to validate
+            _ => Ok(()),
         }
     }
 }

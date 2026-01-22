@@ -62,9 +62,9 @@ pub enum DateTime {
         date: Date,
         /// Time part
         time: Time,
-        /// Cached parsed timezone (available with jiff feature)
+        /// Cached parsed timezone (when available in local database)
         #[cfg(feature = "jiff")]
-        tz_jiff: jiff::tz::TimeZone,
+        tz_jiff: Option<jiff::tz::TimeZone>,
     },
 
     /// Date and time in UTC
@@ -184,7 +184,7 @@ impl<S: StringStorage> DateTimeProperty<S> {
         date: Date,
         time: Time,
         tz_id: S,
-        #[cfg(feature = "jiff")] tz_jiff: jiff::tz::TimeZone,
+        #[cfg(feature = "jiff")] tz_jiff: Option<jiff::tz::TimeZone>,
         x_parameters: Vec<RawParameter<S>>,
         retained_parameters: Vec<Parameter<S>>,
         span: S::Span,
@@ -261,7 +261,7 @@ impl<S: StringStorage> DateTimeProperty<S> {
     #[must_use]
     pub fn timezone(&self) -> Option<&jiff::tz::TimeZone> {
         match self.value {
-            DateTime::Zoned { ref tz_jiff, .. } => Some(tz_jiff),
+            DateTime::Zoned { ref tz_jiff, .. } => tz_jiff.as_ref(),
             _ => None,
         }
     }
@@ -346,7 +346,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTimeProperty<Segments<'src>> {
                     tz_id = Some(value);
                     #[cfg(feature = "jiff")]
                     {
-                        tz_jiff = Some(tz);
+                        tz_jiff = tz; // Now Option<jiff::tz::TimeZone>
                     }
                 }
 
@@ -383,7 +383,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for DateTimeProperty<Segments<'src>> {
                             dt.time.into(),
                             tz_id_value,
                             #[cfg(feature = "jiff")]
-                            tz_jiff.unwrap(), // SAFETY: set above
+                            tz_jiff, // Pass Option instead of unwrap()
                             x_parameters,
                             retained_parameters,
                             span,
@@ -565,9 +565,9 @@ pub enum Period<S: StringStorage> {
         end: DateTime,
         /// Timezone ID (same for both start and end)
         tz_id: S,
-        /// Cached parsed timezone (available with jiff feature)
+        /// Cached parsed timezone (when available in local database)
         #[cfg(feature = "jiff")]
-        tz_jiff: jiff::tz::TimeZone,
+        tz_jiff: Option<jiff::tz::TimeZone>,
     },
 
     /// Start date/time in UTC with a duration
@@ -594,9 +594,9 @@ pub enum Period<S: StringStorage> {
         duration: ValueDuration,
         /// Start timezone ID
         tz_id: S,
-        /// Cached parsed timezone (available with jiff feature)
+        /// Cached parsed timezone (when available in local database)
         #[cfg(feature = "jiff")]
-        tz_jiff: jiff::tz::TimeZone,
+        tz_jiff: Option<jiff::tz::TimeZone>,
     },
 }
 
@@ -618,7 +618,7 @@ impl<S: StringStorage> Period<S> {
     pub fn jiff_timezone(&self) -> Option<&jiff::tz::TimeZone> {
         match self {
             Period::ExplicitZoned { tz_jiff: tz, .. }
-            | Period::DurationZoned { tz_jiff: tz, .. } => Some(tz),
+            | Period::DurationZoned { tz_jiff: tz, .. } => tz.as_ref(),
             _ => None,
         }
     }

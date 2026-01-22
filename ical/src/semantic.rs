@@ -9,6 +9,7 @@
 
 mod extensions;
 mod icalendar;
+mod tz_validator;
 mod valarm;
 mod vevent;
 mod vfreebusy;
@@ -18,6 +19,7 @@ mod vtodo;
 
 pub use extensions::{UnrecognizedComponent, XComponent};
 pub use icalendar::{CalendarComponent, ICalendar};
+pub use tz_validator::validate_tzids;
 pub use valarm::VAlarm;
 pub use vevent::{EventStatus, EventStatusValue, VEvent};
 pub use vfreebusy::VFreeBusy;
@@ -126,6 +128,18 @@ pub enum SemanticError<'src> {
         /// The span of the error
         span: Span,
     },
+
+    /// Timezone identifier not found in VTIMEZONE components or local database
+    /// This variant does not use the lifetime parameter, as it owns all its data
+    #[error(
+        "Timezone identifier '{tzid}' not found. Add a VTIMEZONE component or ensure the timezone is in the IANA database"
+    )]
+    TimezoneNotFound {
+        /// The timezone identifier that was not found (owned)
+        tzid: String,
+        /// The span of the error
+        span: Span,
+    },
 }
 
 impl SemanticError<'_> {
@@ -138,7 +152,8 @@ impl SemanticError<'_> {
             | Self::DuplicateProperty { span, .. }
             | Self::MissingProperty { span, .. }
             | Self::InvalidValue { span, .. }
-            | Self::ConstraintViolation { span, .. } => *span,
+            | Self::ConstraintViolation { span, .. }
+            | Self::TimezoneNotFound { span, .. } => *span,
         }
     }
 }

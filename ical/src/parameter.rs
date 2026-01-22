@@ -231,9 +231,9 @@ pub enum Parameter<S: StringStorage> {
     TimeZoneIdentifier {
         /// The TZID parameter value
         value: S,
-        /// The time zone definition associated with this TZID
+        /// Cached parsed timezone (only when available in local database)
         #[cfg(feature = "jiff")]
-        tz: jiff::tz::TimeZone,
+        tz: Option<jiff::tz::TimeZone>,
         /// The span of the parameter
         span: S::Span,
     },

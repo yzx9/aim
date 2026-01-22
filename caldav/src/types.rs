@@ -167,13 +167,14 @@ impl CalendarCollection {
     }
 }
 
-/// Server capabilities discovered from the CalDAV server.
+/// Server capabilities discovered from the `CalDAV` server.
 ///
 /// Represents the features and operations supported by the server,
 /// as discovered via the DAV header and PROPFIND operations.
 #[derive(Debug, Clone, Copy, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct ServerCapabilities {
-    /// Whether the server supports CalDAV (calendar-access).
+    /// Whether the server supports `CalDAV` (calendar-access).
     pub supports_calendars: bool,
     /// Whether the server supports the MKCALENDAR method.
     pub supports_mkcalendar: bool,
