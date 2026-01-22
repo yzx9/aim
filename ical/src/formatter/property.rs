@@ -36,11 +36,11 @@ use crate::parameter::{FreeBusyType, Parameter};
 use crate::property::{
     Action, Attachment, AttachmentValue, Attendee, CalendarScale, Categories, Classification,
     Comment, Completed, Contact, Created, DateTime, DateTimeProperty, DateTimeUtc, Description,
-    DtEnd, DtStamp, DtStart, Due, Duration, ExDate, ExDateValue, FreeBusy, Geo, LastModified,
-    Location, Method, Organizer, PercentComplete, Period, Priority, ProductId, Property, RDate,
-    RDateValue, RRule, RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status,
-    Summary, Time, TimeTransparency, Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo,
-    TzUrl, Uid, UnrecognizedProperty, UriProperty, Url, Version, XNameProperty,
+    DtEnd, DtStamp, DtStart, Due, Duration, ExDate, FreeBusy, Geo, LastModified, Location, Method,
+    Organizer, PercentComplete, Period, Priority, ProductId, Property, RDate, RDateValue, RRule,
+    RecurrenceId, RelatedTo, Repeat, RequestStatus, Resources, Sequence, Status, Summary, Time,
+    TimeTransparency, Trigger, TriggerValue, TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl, Uid,
+    UnrecognizedProperty, UriProperty, Url, Version, XNameProperty,
 };
 use crate::string_storage::StringStorage;
 use crate::syntax::RawParameter;
@@ -164,7 +164,7 @@ pub fn write_prop_duration<S: StringStorage>(
     f.writeln()
 }
 
-/// Write an `RDate` property (can contain DATE, DATE-TIME, or PERIOD values).
+/// Write an `RDate` property (can contain DATE-TIME or PERIOD values).
 pub fn write_prop_rdate<S: StringStorage>(
     f: &mut Formatter<impl Write>,
     rdate: &RDate<S>,
@@ -189,7 +189,6 @@ pub fn write_prop_rdate<S: StringStorage>(
             write!(f, ",")?;
         }
         match date {
-            RDateValue::Date(d) => write_date(f, *d)?,
             RDateValue::DateTime(dt) => write_datetime_value(f, dt)?,
             RDateValue::Period(p) => write_period(f, p)?,
         }
@@ -822,10 +821,7 @@ pub fn write_prop_ex_date<S: StringStorage>(
         if i > 0 {
             write!(f, ",")?;
         }
-        match date {
-            ExDateValue::Date(d) => write_date(f, *d)?,
-            ExDateValue::DateTime(dt) => write_datetime_value(f, dt)?,
-        }
+        write_datetime_value(f, date)?;
     }
     f.writeln()
 }

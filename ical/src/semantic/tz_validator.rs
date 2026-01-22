@@ -156,11 +156,15 @@ impl TzContext<'_> {
             let span = rdate.span;
 
             for value in &mut rdate.dates {
-                // Only validate DateTime variants (Date and Period don't have timezones)
-                if let crate::property::RDateValue::DateTime(dt) = value
-                    && let Err(e) = self.validate_value_dt(dt, tz_id, span)
-                {
-                    errors.push(e);
+                if let crate::property::RDateValue::DateTime(dt) = value {
+                    match dt {
+                        DateTime::Date(_) | DateTime::Floating { .. } | DateTime::Utc { .. } => {}
+                        DateTime::Zoned { .. } => {
+                            if let Err(e) = self.validate_value_dt(dt, tz_id, span) {
+                                errors.push(e);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -190,11 +194,13 @@ impl TzContext<'_> {
             let span = exdate.span;
 
             for value in &mut exdate.dates {
-                // Only validate DateTime variants (Date doesn't have timezone)
-                if let crate::property::ExDateValue::DateTime(dt) = value
-                    && let Err(e) = self.validate_value_dt(dt, tz_id, span)
-                {
-                    errors.push(e);
+                match value {
+                    DateTime::Date(_) | DateTime::Floating { .. } | DateTime::Utc { .. } => {}
+                    DateTime::Zoned { .. } => {
+                        if let Err(e) = self.validate_value_dt(value, tz_id, span) {
+                            errors.push(e);
+                        }
+                    }
                 }
             }
         }

@@ -13,46 +13,23 @@
 //! - 3.8.5.3: `RRule` - Recurrence rule
 //!
 //! Value types:
-//! - `ExDateValue` - Exception date/time value (DATE or DATE-TIME)
-//! - `RDateValue` - Recurrence date/time value (DATE, DATE-TIME, or PERIOD)
+//! - `RDateValue` - Recurrence date/time value (DATE-TIME or PERIOD)
 //! - `RecurrenceRule` - Recurrence rule value
 
 use std::convert::TryFrom;
 
 use crate::parameter::{Parameter, ValueType};
-use crate::property::{Date, DateTime, Period, PropertyKind};
+use crate::property::{DateTime, Period, PropertyKind};
 use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::{ParsedProperty, TypedError};
 use crate::value::{Value, ValueRecurrenceRule};
 
-/// Exception date-time value (can be DATE or DATE-TIME).
-#[derive(Debug, Clone)]
-pub enum ExDateValue {
-    /// Date-only value
-    Date(Date),
-    /// Date-time value
-    DateTime(DateTime), // TODO: duplicate Date here?
-}
-
-impl ExDateValue {
-    /// Clone this `ExDateValue`
-    #[must_use]
-    pub fn to_owned(&self) -> ExDateValue {
-        match self {
-            ExDateValue::Date(date) => ExDateValue::Date(*date),
-            ExDateValue::DateTime(dt) => ExDateValue::DateTime(dt.clone()),
-        }
-    }
-}
-
-/// Recurrence date-time value (can be DATE, DATE-TIME, or PERIOD).
+/// Recurrence date-time value (can be DATE-TIME or PERIOD).
 #[derive(Debug, Clone)]
 pub enum RDateValue<S: StringStorage> {
-    /// Date-only value
-    Date(Date),
-    /// Date-time value
-    DateTime(DateTime), // TODO: duplicate Date here?
+    /// Date-time value (includes Date variant via `DateTime::Date`)
+    DateTime(DateTime),
     /// Period value
     Period(Period<S>),
 }
@@ -62,7 +39,6 @@ impl RDateValue<Segments<'_>> {
     #[must_use]
     pub fn to_owned(&self) -> RDateValue<String> {
         match self {
-            RDateValue::Date(date) => RDateValue::Date(*date),
             RDateValue::DateTime(dt) => RDateValue::DateTime(dt.clone()),
             RDateValue::Period(period) => RDateValue::Period(period.to_owned()),
         }
@@ -76,7 +52,7 @@ impl RDateValue<Segments<'_>> {
 #[derive(Debug, Clone)]
 pub struct ExDate<S: StringStorage> {
     /// List of exception dates/times
-    pub dates: Vec<ExDateValue>,
+    pub dates: Vec<DateTime>,
     /// Timezone identifier (optional)
     pub tz_id: Option<S>,
     /// X-name parameters (custom experimental parameters)
@@ -124,7 +100,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<Segments<'src>> {
         let dates = match prop.value {
             Value::Date { values: dates, .. } => dates
                 .into_iter()
-                .map(|d| Ok(ExDateValue::Date(d)))
+                .map(|d| Ok(DateTime::Date(d)))
                 .collect::<Result<Vec<_>, _>>(),
             Value::DateTime { values: dts, .. } => {
                 // Determine the DateTime variant based on tz_id and UTC flag
@@ -159,7 +135,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for ExDate<Segments<'src>> {
                                 time: dt.time.into(),
                             }
                         };
-                        Ok(ExDateValue::DateTime(datetime))
+                        Ok(datetime)
                     })
                     .collect::<Result<Vec<_>, _>>()
             }
@@ -190,7 +166,7 @@ impl ExDate<Segments<'_>> {
     #[must_use]
     pub fn to_owned(&self) -> ExDate<String> {
         ExDate {
-            dates: self.dates.iter().map(ExDateValue::to_owned).collect(),
+            dates: self.dates.iter().map(DateTime::clone).collect(),
             tz_id: self.tz_id.as_ref().map(Segments::to_owned),
             x_parameters: self
                 .x_parameters
@@ -270,7 +246,7 @@ impl<'src> TryFrom<ParsedProperty<'src>> for RDate<Segments<'src>> {
         let dates = match prop.value {
             Value::Date { values: dates, .. } => dates
                 .into_iter()
-                .map(|d| Ok(RDateValue::Date(d)))
+                .map(|d| Ok(RDateValue::DateTime(DateTime::Date(d))))
                 .collect::<Result<Vec<_>, _>>(),
             Value::DateTime { values: dts, .. } => {
                 // Determine the DateTime variant based on tz_id and UTC flag

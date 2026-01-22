@@ -62,7 +62,7 @@ pub use descriptive::{
 };
 pub use kind::PropertyKind;
 pub use miscellaneous::RequestStatus;
-pub use recurrence::{ExDate, ExDateValue, RDate, RDateValue, RRule};
+pub use recurrence::{ExDate, RDate, RDateValue, RRule};
 pub use relationship::{Attendee, Contact, Organizer, RecurrenceId, RelatedTo, Uid, Url};
 pub use timezone::{TzId, TzName, TzOffsetFrom, TzOffsetTo, TzUrl};
 
