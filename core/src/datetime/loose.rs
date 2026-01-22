@@ -245,7 +245,7 @@ impl From<LooseDateTime> for ical::DateTimeProperty<String> {
                         date,
                         time,
                         tz_name.to_string(),
-                        tz.clone(),
+                        Some(tz.clone()),
                         Vec::new(),
                         Vec::new(),
                         (),

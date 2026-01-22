@@ -32,7 +32,7 @@ pub enum ExDateValue {
     /// Date-only value
     Date(Date),
     /// Date-time value
-    DateTime(DateTime),
+    DateTime(DateTime), // TODO: duplicate Date here?
 }
 
 impl ExDateValue {
@@ -52,7 +52,7 @@ pub enum RDateValue<S: StringStorage> {
     /// Date-only value
     Date(Date),
     /// Date-time value
-    DateTime(DateTime),
+    DateTime(DateTime), // TODO: duplicate Date here?
     /// Period value
     Period(Period<S>),
 }

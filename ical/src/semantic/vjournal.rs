@@ -14,6 +14,7 @@ use crate::property::{
     XNameProperty,
 };
 use crate::semantic::SemanticError;
+use crate::semantic::tz_validator::{TzContext, ValidateTzids};
 use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
 use crate::typed::TypedComponent;
@@ -46,7 +47,7 @@ pub struct VJournal<S: StringStorage> {
     /// Recurrence rule
     pub rrule: Option<RRule<S>>,
     /// Recurrence dates (can be `Period`, `Date`, `or DateTime`)
-    pub rdate: Vec<RDate<S>>,
+    pub rdate: Vec<RDate<S>>, // TODO: should be rdates?
     /// Exception dates (can be `Date` or `DateTime`)
     pub ex_date: Vec<ExDate<S>>,
     /// URL associated with the journal entry
@@ -361,4 +362,27 @@ struct PropertyCollector<S: StringStorage> {
     url:            Option<Url<S>>,
     x_properties:   Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
+}
+
+impl ValidateTzids for VJournal<Segments<'_>> {
+    fn validate_tzids(&mut self, ctx: &TzContext<'_>) -> Result<(), Vec<SemanticError<'static>>> {
+        let mut errors = Vec::new();
+
+        // Validate DtStart
+        if let Err(e) = ctx.validate_dt(&mut self.dt_start) {
+            errors.push(e);
+        }
+
+        // Validate RDate properties
+        errors.extend(ctx.validate_rdates(&mut self.rdate));
+
+        // Validate ExDate properties
+        errors.extend(ctx.validate_exdates(&mut self.ex_date));
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
 }

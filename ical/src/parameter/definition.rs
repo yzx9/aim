@@ -47,28 +47,21 @@ pub fn parse_rsvp(mut param: RawParameter<Segments<'_>>) -> ParseResult<'_> {
 ///
 /// # Errors
 ///
-/// Returns an error if:
-/// - The parameter does not have exactly one value (when jiff feature is enabled)
-/// - The timezone identifier is not valid (when jiff feature is enabled)
+/// Returns an error if the parameter does not have exactly one value.
 pub fn parse_tzid<'src>(mut param: RawParameter<Segments<'src>>) -> ParseResult<'src> {
     let span = param.span;
 
     #[cfg(feature = "jiff")]
     let op = |v: RawParameterValue<Segments<'src>>| {
-        // Use jiff to validate time zone identifier
         let tzid_str = v.value.resolve();
-        match jiff::tz::TimeZone::get(tzid_str.as_ref()) {
-            Ok(tz) => Ok(Parameter::TimeZoneIdentifier {
-                value: v.value,
-                span,
-                tz,
-            }),
-            Err(_) => Err(vec![TypedError::ParameterValueInvalid {
-                parameter: ParameterKind::TimeZoneIdentifier,
-                value: v.value,
-                span,
-            }]),
-        }
+        // Try to validate with jiff, but don't fail if not found
+        // (TZID may reference a VTIMEZONE component in the iCalendar)
+        let tz = jiff::tz::TimeZone::get(tzid_str.as_ref()).ok();
+        Ok(Parameter::TimeZoneIdentifier {
+            value: v.value,
+            span,
+            tz, // Now Option<jiff::tz::TimeZone>
+        })
     };
 
     #[cfg(not(feature = "jiff"))]

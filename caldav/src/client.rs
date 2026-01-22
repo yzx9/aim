@@ -5,7 +5,7 @@
 //! `CalDAV` client for calendar operations.
 
 use std::io::Cursor;
-use std::sync::Arc;
+use std::sync::{Arc, PoisonError};
 
 use aimcal_ical::{ICalendar, TodoStatusValue, formatter, parse};
 use jiff::Zoned;
@@ -80,7 +80,7 @@ impl CalDavClient {
         let guard = self
             .capabilities
             .read()
-            .unwrap_or_else(|e| std::sync::PoisonError::into_inner(e));
+            .unwrap_or_else(PoisonError::into_inner);
         ServerCapabilities::clone(&*guard)
     }
 
@@ -92,7 +92,7 @@ impl CalDavClient {
         *self
             .capabilities
             .write()
-            .unwrap_or_else(|e| std::sync::PoisonError::into_inner(e)) = caps;
+            .unwrap_or_else(PoisonError::into_inner) = caps;
     }
 
     /// Discovers `CalDAV` support and calendar home set.
@@ -116,7 +116,7 @@ impl CalDavClient {
 
         // Parse and store capabilities
         let capabilities = ServerCapabilities::from_dav_header(dav_header);
-        self.set_capabilities(capabilities.clone());
+        self.set_capabilities(capabilities);
 
         let supports_calendars = capabilities.supports_calendars;
 

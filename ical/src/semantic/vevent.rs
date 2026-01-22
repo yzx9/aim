@@ -13,6 +13,7 @@ use crate::property::{
     Geo, LastModified, Location, Organizer, Priority, Property, PropertyKind, RDate, RRule,
     Resources, Sequence, Status, StatusValue, Summary, TimeTransparency, Uid, Url, XNameProperty,
 };
+use crate::semantic::tz_validator::{TzContext, ValidateTzids};
 use crate::semantic::{SemanticError, VAlarm};
 use crate::string_storage::{Segments, StringStorage};
 use crate::syntax::RawParameter;
@@ -500,4 +501,34 @@ struct PropertyCollector< S: StringStorage> {
     ex_dates:       Vec<ExDate<S>>,
     x_properties:   Vec<XNameProperty<S>>,
     unrecognized_properties: Vec<Property<S>>,
+}
+
+impl ValidateTzids for VEvent<Segments<'_>> {
+    fn validate_tzids(&mut self, ctx: &TzContext<'_>) -> Result<(), Vec<SemanticError<'static>>> {
+        let mut errors = Vec::new();
+
+        // Validate DtStart
+        if let Err(e) = ctx.validate_dt(&mut self.dt_start) {
+            errors.push(e);
+        }
+
+        // Validate DtEnd if present
+        if let Some(ref mut dt_end) = self.dt_end
+            && let Err(e) = ctx.validate_dt(dt_end)
+        {
+            errors.push(e);
+        }
+
+        // Validate RDate properties
+        errors.extend(ctx.validate_rdates(&mut self.rdates));
+
+        // Validate ExDate properties
+        errors.extend(ctx.validate_exdates(&mut self.ex_dates));
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
 }

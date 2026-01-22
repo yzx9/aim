@@ -10,15 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - cli: Fix `delay` command showing old date after update (#98)
+- ical: TZID validation now correctly supports VTIMEZONE components per RFC 5545 Section 3.2.19 (#97)
 
 ### Changed
 
 - ical: `DateTime` refactored from enum to struct wrapping new `DateTimeValue` enum
-  - Core `DateTimeValue` enum contains value variants only (Floating, Zoned, Utc, Date)
-  - `DateTime<S>` struct separates value from metadata (parameters, span, tz_id)
-  - Property wrappers changed from `{ inner, span }` pattern to newtype `(inner)`
-  - `ExDateValue`, `RDateValue`, `TriggerValue` now use `DateTime` directly
-  - Improves API ergonomics with helper methods and consistent architecture
 - ical: `ValueTime::new()` now returns `Result<Self, String>` instead of `Self` for proper validation
 - ical: `ValueTime`, `ValueUtcOffset` and `property::Time` fields changed from `u8` to `i8`
 
