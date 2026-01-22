@@ -47,9 +47,9 @@ pub struct VJournal<S: StringStorage> {
     /// Recurrence rule
     pub rrule: Option<RRule<S>>,
     /// Recurrence dates (can be `Period`, `Date`, `or DateTime`)
-    pub rdate: Vec<RDate<S>>, // TODO: should be rdates?
+    pub rdates: Vec<RDate<S>>,
     /// Exception dates (can be `Date` or `DateTime`)
-    pub ex_date: Vec<ExDate<S>>,
+    pub ex_dates: Vec<ExDate<S>>,
     /// URL associated with the journal entry
     pub url: Option<Url<S>>,
     /// Custom X- properties (preserved for round-trip)
@@ -149,7 +149,7 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<Segments<'src>> {
                     }),
                     None => props.rrule = Some(rrule),
                 },
-                Property::RDate(rdate) => props.rdate.push(rdate),
+                Property::RDate(rdate) => props.rdates.push(rdate),
                 Property::ExDate(exdate) => props.ex_dates.push(exdate),
                 Property::Url(url) => match props.url {
                     Some(_) => errors.push(SemanticError::DuplicateProperty {
@@ -202,8 +202,8 @@ impl<'src> TryFrom<TypedComponent<'src>> for VJournal<Segments<'src>> {
                 classification: props.classification,
                 categories: props.categories,
                 rrule: props.rrule,
-                rdate: props.rdate,
-                ex_date: props.ex_dates,
+                rdates: props.rdates,
+                ex_dates: props.ex_dates,
                 url: props.url,
                 x_properties: props.x_properties,
                 retained_properties: props.unrecognized_properties,
@@ -234,8 +234,8 @@ impl VJournal<Segments<'_>> {
             classification: self.classification.as_ref().map(Classification::to_owned),
             categories: self.categories.iter().map(Categories::to_owned).collect(),
             rrule: self.rrule.as_ref().map(RRule::to_owned),
-            rdate: self.rdate.iter().map(RDate::to_owned).collect(),
-            ex_date: self.ex_date.iter().map(ExDate::to_owned).collect(),
+            rdates: self.rdates.iter().map(RDate::to_owned).collect(),
+            ex_dates: self.ex_dates.iter().map(ExDate::to_owned).collect(),
             url: self.url.as_ref().map(Url::to_owned),
             x_properties: self
                 .x_properties
@@ -357,7 +357,7 @@ struct PropertyCollector<S: StringStorage> {
     classification: Option<Classification<S>>,
     categories:     Vec<Categories<S>>,
     rrule:          Option<RRule<S>>,
-    rdate:          Vec<RDate<S>>,
+    rdates:         Vec<RDate<S>>,
     ex_dates:       Vec<ExDate<S>>,
     url:            Option<Url<S>>,
     x_properties:   Vec<XNameProperty<S>>,
@@ -374,10 +374,10 @@ impl ValidateTzids for VJournal<Segments<'_>> {
         }
 
         // Validate RDate properties
-        errors.extend(ctx.validate_rdates(&mut self.rdate));
+        errors.extend(ctx.validate_rdates(&mut self.rdates));
 
         // Validate ExDate properties
-        errors.extend(ctx.validate_exdates(&mut self.ex_date));
+        errors.extend(ctx.validate_exdates(&mut self.ex_dates));
 
         if errors.is_empty() {
             Ok(())

@@ -330,10 +330,10 @@ fn write_vjournal<S: StringStorage>(
         if let Some(rrule) = &journal.rrule {
             write_prop_rrule(f, rrule)?;
         }
-        for rdate in &journal.rdate {
+        for rdate in &journal.rdates {
             write_prop_rdate(f, rdate)?;
         }
-        for exdate in &journal.ex_date {
+        for exdate in &journal.ex_dates {
             write_prop_ex_date(f, exdate)?;
         }
         if let Some(url) = &journal.url {

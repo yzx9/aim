@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- ical: `VJournal` field `rdate` renamed to `rdates` and `ex_date` renamed to `ex_dates` for consistency
 - ical: `DateTime` refactored from enum to struct wrapping new `DateTimeValue` enum
 - ical: `ValueTime::new()` now returns `Result<Self, String>` instead of `Self` for proper validation
 - ical: `ValueTime`, `ValueUtcOffset` and `property::Time` fields changed from `u8` to `i8`
