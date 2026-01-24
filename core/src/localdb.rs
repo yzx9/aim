@@ -7,6 +7,8 @@ mod short_ids;
 mod todos;
 
 #[cfg(test)]
+mod migrations_tests;
+#[cfg(test)]
 mod tests_utils;
 
 use std::error::Error;
@@ -20,7 +22,7 @@ use crate::localdb::short_ids::ShortIds;
 use crate::localdb::todos::{TodoRecord, Todos};
 use crate::{Event, Todo};
 
-/// Global counter for generating unique in-memory database names
+/// Global counter for generating unique in-memory database names.
 static IN_MEMORY_DB_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone)]
