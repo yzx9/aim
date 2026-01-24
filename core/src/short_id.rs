@@ -182,9 +182,7 @@ impl<T: Todo> Todo for TodoWithShortId<T> {
 #[derive(Debug, Clone)]
 pub struct UidAndShortId {
     pub uid: String,
-
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     pub short_id: NonZeroU32,
-
     pub kind: Kind,
 }

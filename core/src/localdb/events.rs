@@ -193,3 +193,562 @@ fn format_date(date: Date) -> String {
 fn format_dt(dt: &Zoned) -> String {
     dt.strftime(STABLE_FORMAT_LOCAL).to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use jiff::civil;
+    use jiff::tz::TimeZone;
+
+    use super::*;
+
+    /// Test helper to create a test database
+    async fn setup_test_db() -> crate::localdb::LocalDb {
+        crate::localdb::LocalDb::open(None)
+            .await
+            .expect("Failed to create test database")
+    }
+
+    /// Test helper to create a test event
+    fn test_event(uid: &str, summary: &str) -> crate::localdb::tests_utils::TestEvent {
+        crate::localdb::tests_utils::test_event(uid, summary)
+    }
+
+    #[tokio::test]
+    async fn events_insert_inserts_new_event() {
+        // Arrange
+        let db = setup_test_db().await;
+        let event = test_event("event-1", "Test Event");
+        let record = EventRecord::from("/path/to/event.ics".to_string(), &event);
+
+        // Act
+        db.events
+            .insert(record)
+            .await
+            .expect("Failed to insert event");
+
+        // Assert
+        let retrieved = db
+            .events
+            .get("event-1")
+            .await
+            .expect("Failed to get event")
+            .expect("Event not found");
+        assert_eq!(retrieved.uid(), "event-1");
+        assert_eq!(retrieved.summary(), "Test Event");
+    }
+
+    #[tokio::test]
+    async fn events_insert_updates_existing_event() {
+        // Arrange
+        let db = setup_test_db().await;
+        let event = test_event("event-1", "Original Summary");
+        let record = EventRecord::from("/path/to/event.ics".to_string(), &event);
+        db.events
+            .insert(record)
+            .await
+            .expect("Failed to insert event");
+
+        // Act
+        let updated_event = test_event("event-1", "Updated Summary");
+        let updated_record = EventRecord::from("/new/path/event.ics".to_string(), &updated_event);
+        db.events
+            .insert(updated_record)
+            .await
+            .expect("Failed to update event");
+
+        // Assert
+        let retrieved = db
+            .events
+            .get("event-1")
+            .await
+            .expect("Failed to get event")
+            .expect("Event not found");
+        assert_eq!(retrieved.uid(), "event-1");
+        assert_eq!(retrieved.summary(), "Updated Summary");
+        assert_eq!(retrieved.path(), "/new/path/event.ics");
+    }
+
+    #[tokio::test]
+    async fn events_get_returns_event_by_uid() {
+        // Arrange
+        let db = setup_test_db().await;
+        let event = test_event("event-1", "Test Event");
+        let record = EventRecord::from("/path/to/event.ics".to_string(), &event);
+        db.events
+            .insert(record)
+            .await
+            .expect("Failed to insert event");
+
+        // Act
+        let retrieved = db.events.get("event-1").await.expect("Failed to get event");
+
+        // Assert
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().uid(), "event-1");
+    }
+
+    #[tokio::test]
+    async fn events_get_returns_none_for_missing_uid() {
+        // Arrange
+        let db = setup_test_db().await;
+
+        // Act
+        let retrieved = db
+            .events
+            .get("nonexistent")
+            .await
+            .expect("Failed to get event");
+
+        // Assert
+        assert!(retrieved.is_none());
+    }
+
+    #[tokio::test]
+    async fn events_handles_empty_optional_fields() {
+        // Arrange
+        let db = setup_test_db().await;
+        let event = test_event("event-1", "Test Event");
+        let record = EventRecord::from("/path/to/event.ics".to_string(), &event);
+
+        // Act
+        db.events
+            .insert(record)
+            .await
+            .expect("Failed to insert event");
+
+        // Assert
+        let retrieved = db
+            .events
+            .get("event-1")
+            .await
+            .expect("Failed to get event")
+            .expect("Event not found");
+        assert_eq!(retrieved.description(), None);
+        assert_eq!(retrieved.status(), None);
+        assert_eq!(retrieved.start(), None);
+        assert_eq!(retrieved.end(), None);
+    }
+
+    #[tokio::test]
+    async fn events_list_returns_all_events() {
+        // Arrange
+        let db = setup_test_db().await;
+        let event1 = test_event("event-1", "Event 1");
+        db.events
+            .insert(EventRecord::from("/path1.ics".into(), &event1))
+            .await
+            .unwrap();
+        let event2 = test_event("event-2", "Event 2");
+        db.events
+            .insert(EventRecord::from("/path2.ics".into(), &event2))
+            .await
+            .unwrap();
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: None,
+            end_after: None,
+        };
+        let pager = Pager {
+            limit: 10,
+            offset: 0,
+        };
+        let results = db.events.list(&conds, &pager).await.unwrap();
+
+        // Assert
+        assert_eq!(results.len(), 2);
+    }
+
+    #[tokio::test]
+    #[expect(clippy::indexing_slicing)]
+    async fn events_list_filters_by_start_before() {
+        // Arrange
+        let db = setup_test_db().await;
+        let cutoff = civil::date(2025, 1, 15)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let event_before = test_event("event-1", "Before Event").with_start(LooseDateTime::Local(
+            civil::date(2025, 1, 10)
+                .at(0, 0, 0, 0)
+                .to_zoned(TimeZone::UTC)
+                .unwrap(),
+        ));
+        db.events
+            .insert(EventRecord::from("/path1.ics".into(), &event_before))
+            .await
+            .unwrap();
+
+        let event_after = test_event("event-2", "After Event").with_start(LooseDateTime::Local(
+            civil::date(2025, 1, 20)
+                .at(0, 0, 0, 0)
+                .to_zoned(TimeZone::UTC)
+                .unwrap(),
+        ));
+        db.events
+            .insert(EventRecord::from("/path2.ics".into(), &event_after))
+            .await
+            .unwrap();
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: Some(cutoff),
+            end_after: None,
+        };
+        let pager = Pager {
+            limit: 10,
+            offset: 0,
+        };
+        let results = db.events.list(&conds, &pager).await.unwrap();
+
+        // Assert
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].uid(), "event-1");
+    }
+
+    #[tokio::test]
+    #[expect(clippy::indexing_slicing)]
+    async fn events_list_filters_by_both_conditions() {
+        // Arrange
+        let db = setup_test_db().await;
+        let start_cutoff = civil::date(2025, 1, 15)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+        let end_after = civil::date(2025, 1, 10)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let matching_event = test_event("event-1", "Matching Event")
+            .with_start(LooseDateTime::Local(
+                civil::date(2025, 1, 12)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ))
+            .with_end(LooseDateTime::Local(
+                civil::date(2025, 1, 14)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ));
+        db.events
+            .insert(EventRecord::from("/path1.ics".into(), &matching_event))
+            .await
+            .unwrap();
+
+        let non_matching_event =
+            test_event("event-2", "Non-Matching Event").with_start(LooseDateTime::Local(
+                civil::date(2025, 1, 20)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ));
+        db.events
+            .insert(EventRecord::from("/path2.ics".into(), &non_matching_event))
+            .await
+            .unwrap();
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: Some(start_cutoff),
+            end_after: Some(end_after),
+        };
+        let pager = Pager {
+            limit: 10,
+            offset: 0,
+        };
+        let results = db.events.list(&conds, &pager).await.unwrap();
+
+        // Assert
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].uid(), "event-1");
+    }
+
+    #[tokio::test]
+    async fn events_list_respects_limit() {
+        // Arrange
+        let db = setup_test_db().await;
+        for i in 1..=5 {
+            let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
+            db.events
+                .insert(EventRecord::from(format!("/path{i}.ics"), &event))
+                .await
+                .unwrap();
+        }
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: None,
+            end_after: None,
+        };
+        let pager = Pager {
+            limit: 3,
+            offset: 0,
+        };
+        let results = db.events.list(&conds, &pager).await.unwrap();
+
+        // Assert
+        assert_eq!(results.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn events_list_respects_offset() {
+        // Arrange
+        let db = setup_test_db().await;
+        for i in 1..=5 {
+            let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
+            db.events
+                .insert(EventRecord::from(format!("/path{i}.ics"), &event))
+                .await
+                .unwrap();
+        }
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: None,
+            end_after: None,
+        };
+        let pager = Pager {
+            limit: 10,
+            offset: 2,
+        };
+        let results = db.events.list(&conds, &pager).await.unwrap();
+
+        // Assert
+        assert_eq!(results.len(), 3);
+    }
+
+    #[tokio::test]
+    #[expect(clippy::indexing_slicing)]
+    async fn events_list_orders_by_start_time() {
+        // Arrange
+        let db = setup_test_db().await;
+        let event1 = test_event("event-1", "Third Event").with_start(LooseDateTime::Local(
+            civil::date(2025, 1, 30)
+                .at(0, 0, 0, 0)
+                .to_zoned(TimeZone::UTC)
+                .unwrap(),
+        ));
+        db.events
+            .insert(EventRecord::from("/path1.ics".into(), &event1))
+            .await
+            .unwrap();
+
+        let event2 = test_event("event-2", "First Event").with_start(LooseDateTime::Local(
+            civil::date(2025, 1, 10)
+                .at(0, 0, 0, 0)
+                .to_zoned(TimeZone::UTC)
+                .unwrap(),
+        ));
+        db.events
+            .insert(EventRecord::from("/path2.ics".into(), &event2))
+            .await
+            .unwrap();
+
+        let event3 = test_event("event-3", "Second Event").with_start(LooseDateTime::Local(
+            civil::date(2025, 1, 20)
+                .at(0, 0, 0, 0)
+                .to_zoned(TimeZone::UTC)
+                .unwrap(),
+        ));
+        db.events
+            .insert(EventRecord::from("/path3.ics".into(), &event3))
+            .await
+            .unwrap();
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: None,
+            end_after: None,
+        };
+        let pager = Pager {
+            limit: 10,
+            offset: 0,
+        };
+        let results = db.events.list(&conds, &pager).await.unwrap();
+
+        // Assert - results should be ordered by start time ASC
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].uid(), "event-2");
+        assert_eq!(results[1].uid(), "event-3");
+        assert_eq!(results[2].uid(), "event-1");
+    }
+
+    #[tokio::test]
+    async fn events_count_returns_total_count() {
+        // Arrange
+        let db = setup_test_db().await;
+        for i in 1..=5 {
+            let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
+            db.events
+                .insert(EventRecord::from(format!("/path{i}.ics"), &event))
+                .await
+                .unwrap();
+        }
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: None,
+            end_after: None,
+        };
+        let count = db.events.count(&conds).await.unwrap();
+
+        // Assert
+        assert_eq!(count, 5);
+    }
+
+    #[tokio::test]
+    async fn events_count_filters_by_start_before() {
+        // Arrange
+        let db = setup_test_db().await;
+        let cutoff = civil::date(2025, 1, 15)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let event_before = test_event("event-1", "Before Event").with_start(LooseDateTime::Local(
+            civil::date(2025, 1, 10)
+                .at(0, 0, 0, 0)
+                .to_zoned(TimeZone::UTC)
+                .unwrap(),
+        ));
+        db.events
+            .insert(EventRecord::from("/path1.ics".into(), &event_before))
+            .await
+            .unwrap();
+
+        let event_after = test_event("event-2", "After Event").with_start(LooseDateTime::Local(
+            civil::date(2025, 1, 20)
+                .at(0, 0, 0, 0)
+                .to_zoned(TimeZone::UTC)
+                .unwrap(),
+        ));
+        db.events
+            .insert(EventRecord::from("/path2.ics".into(), &event_after))
+            .await
+            .unwrap();
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: Some(cutoff),
+            end_after: None,
+        };
+        let count = db.events.count(&conds).await.unwrap();
+
+        // Assert
+        assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn events_count_filters_by_end_after() {
+        // Arrange
+        let db = setup_test_db().await;
+        let end_after = civil::date(2025, 1, 15)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let event_matching = test_event("event-1", "Matching Event")
+            .with_start(LooseDateTime::Local(
+                civil::date(2025, 1, 10)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ))
+            .with_end(LooseDateTime::Local(
+                civil::date(2025, 1, 20)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ));
+        db.events
+            .insert(EventRecord::from("/path1.ics".into(), &event_matching))
+            .await
+            .unwrap();
+
+        let event_non_matching = test_event("event-2", "Non-Matching Event")
+            .with_start(LooseDateTime::Local(
+                civil::date(2025, 1, 10)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ))
+            .with_end(LooseDateTime::Local(
+                civil::date(2025, 1, 12)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ));
+        db.events
+            .insert(EventRecord::from("/path2.ics".into(), &event_non_matching))
+            .await
+            .unwrap();
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: None,
+            end_after: Some(end_after),
+        };
+        let count = db.events.count(&conds).await.unwrap();
+
+        // Assert
+        assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn events_count_filters_by_both_conditions() {
+        // Arrange
+        let db = setup_test_db().await;
+        let start_cutoff = civil::date(2025, 1, 15)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+        let end_after = civil::date(2025, 1, 10)
+            .at(0, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let matching_event = test_event("event-1", "Matching Event")
+            .with_start(LooseDateTime::Local(
+                civil::date(2025, 1, 12)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ))
+            .with_end(LooseDateTime::Local(
+                civil::date(2025, 1, 14)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ));
+        db.events
+            .insert(EventRecord::from("/path1.ics".into(), &matching_event))
+            .await
+            .unwrap();
+
+        let non_matching_event =
+            test_event("event-2", "Non-Matching Event").with_start(LooseDateTime::Local(
+                civil::date(2025, 1, 20)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(TimeZone::UTC)
+                    .unwrap(),
+            ));
+        db.events
+            .insert(EventRecord::from("/path2.ics".into(), &non_matching_event))
+            .await
+            .unwrap();
+
+        // Act
+        let conds = ResolvedEventConditions {
+            start_before: Some(start_cutoff),
+            end_after: Some(end_after),
+        };
+        let count = db.events.count(&conds).await.unwrap();
+
+        // Assert
+        assert_eq!(count, 1);
+    }
+}

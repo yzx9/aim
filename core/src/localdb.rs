@@ -6,8 +6,12 @@ mod events;
 mod short_ids;
 mod todos;
 
+#[cfg(test)]
+mod tests_utils;
+
 use std::error::Error;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 
@@ -15,6 +19,9 @@ use crate::localdb::events::{EventRecord, Events};
 use crate::localdb::short_ids::ShortIds;
 use crate::localdb::todos::{TodoRecord, Todos};
 use crate::{Event, Todo};
+
+/// Global counter for generating unique in-memory database names
+static IN_MEMORY_DB_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone)]
 pub struct LocalDb {
@@ -29,18 +36,30 @@ impl LocalDb {
     /// Opens a sqlite database connection.
     /// If `state_dir` is `None`, it opens an in-memory database.
     pub async fn open(filename: Option<&Path>) -> Result<Self, Box<dyn Error>> {
-        let options = if let Some(filename) = filename {
+        let pool_opts = SqlitePoolOptions::new();
+        let (conn_opts, pool_opts) = if let Some(filename) = filename {
             tracing::info!(dir = %filename.display(), "connecting to SQLite database");
-            SqliteConnectOptions::new()
+            let conn_opts = SqliteConnectOptions::new()
                 .filename(filename.to_str().ok_or("Invalid path encoding")?)
-                .create_if_missing(true)
+                .create_if_missing(true);
+
+            (conn_opts, pool_opts)
         } else {
             tracing::info!("connecting to in-memory SQLite database");
-            SqliteConnectOptions::new().in_memory(true)
+            // Use shared in-memory database so all connections in the pool can access it
+            // Generate a unique name per call for test isolation
+            let db_id = IN_MEMORY_DB_COUNTER.fetch_add(1, Ordering::SeqCst);
+            let db_name = format!("file:memdb_{db_id}:?mode=memory&cache=shared");
+
+            let conn_opts = SqliteConnectOptions::new()
+                .filename(db_name)
+                .in_memory(true);
+
+            (conn_opts, pool_opts.max_connections(1)) // Single connection for in-memory databases
         };
 
-        let pool = SqlitePoolOptions::new()
-            .connect_with(options)
+        let pool = pool_opts
+            .connect_with(conn_opts)
             .await
             .map_err(|e| format!("Failed to connect to SQLite database: {e}"))?;
 
