@@ -371,7 +371,7 @@ impl Container<SimpleSpan> for SpanCollector {
     fn push(&mut self, span: SimpleSpan) {
         match self.0.last_mut() {
             Some(last) if last.end() == span.start() => {
-                *last = SimpleSpan::new(last.context(), last.start()..span.end());
+                *last = SimpleSpan::new((), last.start()..span.end());
             }
             _ => self.0.push(span),
         }
