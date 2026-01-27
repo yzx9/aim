@@ -15,18 +15,18 @@ Support two backend types (Local ICS files and WebDAV/CalDAV) with LocalDB as a 
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                         Aim                              │
+│                         Aim                             │
 │  now, config, backend: Box<dyn Backend>, db, short_ids  │
 └─────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│                    Backend Trait                         │
+│                    Backend Trait                        │
 │  - create/update/delete/get Event/Todo                  │
-│  - list/count Event/Todo                                 │
-│  - sync_cache()                                          │
-│  - uid_exists()                                          │
-└────────────┬────────────────────────────┬────────────────┘
+│  - list/count Event/Todo                                │
+│  - sync_cache()                                         │
+│  - uid_exists()                                         │
+└────────────┬────────────────────────────┬───────────────┘
              │                            │
              ▼                            ▼
       ┌─────────────┐             ┌──────────────┐
@@ -100,6 +100,7 @@ SELECT uid, 'file://' || path FROM todos;
 ### Phase 2: Backend Abstraction (core crate)
 
 **New Files**:
+
 - `core/src/backend.rs` - Backend trait, BackendError, BackendType, SyncResult
 - `core/src/backend/local.rs` - LocalBackend implementation
 - `core/src/backend/webdav.rs` - WebdavBackend implementation
@@ -139,11 +140,13 @@ pub trait Backend: Send + Sync {
 ```
 
 **LocalBackend**:
+
 - Uses `io.rs` functions (parse_ics, write_ics, add_calendar)
 - Stores hrefs as `file:///absolute/path/to/{uid}.ics`
 - sync_cache: scans directory, updates cache
 
 **WebdavBackend**:
+
 - Wraps `aimcal_caldav::CalDavClient`
 - On create: PUT to `calendar_href/{uid}.ics`, read Location header for actual href
 - Stores hrefs from server response
@@ -197,6 +200,7 @@ impl Default for BackendConfig {
 ```
 
 **Config examples**:
+
 ```toml
 # Local backend (default, backward compatible)
 backend_type = "local"
@@ -215,6 +219,7 @@ auth = { username = "user", password = "pass" }
 **Files**: `core/src/localdb.rs`, `core/src/localdb/events.rs`, `core/src/localdb/todos.rs`
 
 **Changes**:
+
 1. Add href table management:
 
 ```rust
@@ -328,6 +333,7 @@ async fn create_backend(config: &Config, db: LocalDb)
 **File**: `cli/src/main.rs` or `cli/src/sync.rs`
 
 Add new subcommand:
+
 ```rust
 #[derive(Subcommand)]
 enum Commands {
@@ -345,6 +351,7 @@ enum Commands {
 **File**: `core/src/localdb/migrations/20250124_remove_path.{up,down}.sql`
 
 After verifying href system works:
+
 ```sql
 ALTER TABLE events DROP COLUMN path;
 ALTER TABLE todos DROP COLUMN path;
@@ -353,6 +360,7 @@ ALTER TABLE todos DROP COLUMN path;
 ## File Change Summary
 
 ### New Files
+
 - `core/src/backend.rs`
 - `core/src/backend/mod.rs`
 - `core/src/backend/local.rs`
@@ -365,6 +373,7 @@ ALTER TABLE todos DROP COLUMN path;
 - `cli/src/sync.rs` (or add to main.rs)
 
 ### Modified Files
+
 - `core/src/lib.rs` - Export backend module
 - `core/src/aim.rs` - Refactor to use backend trait
 - `core/src/config.rs` - Add BackendConfig enum
@@ -375,6 +384,7 @@ ALTER TABLE todos DROP COLUMN path;
 - `cli/src/main.rs` - Add sync command
 
 ### Files to Check/Update
+
 - `core/Cargo.toml` - Add async-trait dependency
 - Ensure aimcal-caldav functions are compatible
 
@@ -406,13 +416,13 @@ ALTER TABLE todos DROP COLUMN path;
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Breaking existing configs | Default to local backend, auto-migrate |
-| WebDAV href conflicts | Let server decide via Location header |
-| Cache desync | Manual sync command + startup sync |
+| Risk                       | Mitigation                                   |
+| -------------------------- | -------------------------------------------- |
+| Breaking existing configs  | Default to local backend, auto-migrate       |
+| WebDAV href conflicts      | Let server decide via Location header        |
+| Cache desync               | Manual sync command + startup sync           |
 | Path column removal issues | Keep initially, remove in separate migration |
-| Performance | LocalDB still provides fast queries |
+| Performance                | LocalDB still provides fast queries          |
 
 ## Future Enhancements
 

@@ -124,6 +124,7 @@ impl Aim {
         };
 
         let path: PathBuf = event.path().into();
+        // TODO: should handle this error, e.g. allow user to ignore missing file
         let mut calendar = parse_ics(&path).await?;
 
         let mut updated_event = None;
