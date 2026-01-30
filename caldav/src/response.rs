@@ -87,7 +87,11 @@ impl MultiStatusResponse {
                         }
                         b"href" if in_response => {
                             if let Event::Text(text) = reader.read_event_into(&mut buf)? {
-                                let href = text.unescape()?.to_string();
+                                let text_str = str::from_utf8(&text)
+                                    .map_err(|e| CalDavError::Xml(format!("UTF-8 error: {e}")))?;
+                                let href = quick_xml::escape::unescape(text_str)
+                                    .map_err(|e| CalDavError::Xml(format!("Escape error: {e}")))?
+                                    .to_string();
                                 if let Some(ref mut resp) = current_response {
                                     resp.href = Href::new(href);
                                 }
@@ -103,7 +107,15 @@ impl MultiStatusResponse {
 
                         b"displayname" if in_prop => {
                             if let Event::Text(text) = reader.read_event_into(&mut buf)? {
-                                current_props.display_name = Some(text.unescape()?.to_string());
+                                let text_str = str::from_utf8(&text)
+                                    .map_err(|e| CalDavError::Xml(format!("UTF-8 error: {e}")))?;
+                                current_props.display_name = Some(
+                                    quick_xml::escape::unescape(text_str)
+                                        .map_err(|e| {
+                                            CalDavError::Xml(format!("Escape error: {e}"))
+                                        })?
+                                        .to_string(),
+                                );
                             }
                         }
                         b"resourcetype" if in_prop => {
@@ -131,13 +143,28 @@ impl MultiStatusResponse {
                         }
                         b"getetag" if in_prop => {
                             if let Event::Text(text) = reader.read_event_into(&mut buf)? {
-                                current_props.get_etag =
-                                    Some(ETag::new(text.unescape()?.to_string()));
+                                let text_str = str::from_utf8(&text)
+                                    .map_err(|e| CalDavError::Xml(format!("UTF-8 error: {e}")))?;
+                                current_props.get_etag = Some(ETag::new(
+                                    quick_xml::escape::unescape(text_str)
+                                        .map_err(|e| {
+                                            CalDavError::Xml(format!("Escape error: {e}"))
+                                        })?
+                                        .to_string(),
+                                ));
                             }
                         }
                         b"calendar-data" if in_prop => {
                             if let Event::Text(text) = reader.read_event_into(&mut buf)? {
-                                current_props.calendar_data = Some(text.unescape()?.to_string());
+                                let text_str = str::from_utf8(&text)
+                                    .map_err(|e| CalDavError::Xml(format!("UTF-8 error: {e}")))?;
+                                current_props.calendar_data = Some(
+                                    quick_xml::escape::unescape(text_str)
+                                        .map_err(|e| {
+                                            CalDavError::Xml(format!("Escape error: {e}"))
+                                        })?
+                                        .to_string(),
+                                );
                             }
                         }
                         b"calendar-home-set" if in_prop => {
@@ -156,8 +183,18 @@ impl MultiStatusResponse {
                                         if let Event::Text(text) =
                                             reader.read_event_into(&mut buf)?
                                         {
-                                            current_props.calendar_home_set =
-                                                Some(Href::new(text.unescape()?.to_string()));
+                                            let text_str = str::from_utf8(&text).map_err(|e| {
+                                                CalDavError::Xml(format!("UTF-8 error: {e}"))
+                                            })?;
+                                            current_props.calendar_home_set = Some(Href::new(
+                                                quick_xml::escape::unescape(text_str)
+                                                    .map_err(|e| {
+                                                        CalDavError::Xml(format!(
+                                                            "Escape error: {e}"
+                                                        ))
+                                                    })?
+                                                    .to_string(),
+                                            ));
                                         }
                                     }
                                     Event::Eof => {
@@ -181,7 +218,7 @@ impl MultiStatusResponse {
                                         if e.name().local_name().into_inner() == b"comp" =>
                                     {
                                         if let Ok(Some(name_attr)) = e.try_get_attribute("name") {
-                                            let name = std::str::from_utf8(&name_attr.value)
+                                            let name = str::from_utf8(&name_attr.value)
                                                 .map_err(|e| {
                                                     CalDavError::Xml(format!("UTF-8 error: {e}"))
                                                 })?
@@ -199,19 +236,37 @@ impl MultiStatusResponse {
                         }
                         b"calendar-description" if in_prop => {
                             if let Event::Text(text) = reader.read_event_into(&mut buf)? {
-                                current_props.calendar_description =
-                                    Some(text.unescape()?.to_string());
+                                let text_str = str::from_utf8(&text)
+                                    .map_err(|e| CalDavError::Xml(format!("UTF-8 error: {e}")))?;
+                                current_props.calendar_description = Some(
+                                    quick_xml::escape::unescape(text_str)
+                                        .map_err(|e| {
+                                            CalDavError::Xml(format!("Escape error: {e}"))
+                                        })?
+                                        .to_string(),
+                                );
                             }
                         }
                         b"calendar-timezone" if in_prop => {
                             if let Event::Text(text) = reader.read_event_into(&mut buf)? {
-                                current_props.calendar_timezone =
-                                    Some(text.unescape()?.to_string());
+                                let text_str = str::from_utf8(&text)
+                                    .map_err(|e| CalDavError::Xml(format!("UTF-8 error: {e}")))?;
+                                current_props.calendar_timezone = Some(
+                                    quick_xml::escape::unescape(text_str)
+                                        .map_err(|e| {
+                                            CalDavError::Xml(format!("Escape error: {e}"))
+                                        })?
+                                        .to_string(),
+                                );
                             }
                         }
                         b"status" if in_propstat => {
                             if let Event::Text(text) = reader.read_event_into(&mut buf)? {
-                                let status = text.unescape()?.to_string();
+                                let text_str = str::from_utf8(&text)
+                                    .map_err(|e| CalDavError::Xml(format!("UTF-8 error: {e}")))?;
+                                let status = quick_xml::escape::unescape(text_str)
+                                    .map_err(|e| CalDavError::Xml(format!("Escape error: {e}")))?
+                                    .to_string();
                                 current_prop_stats.push(PropStat {
                                     props: current_props.clone(),
                                     status,

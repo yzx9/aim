@@ -4,6 +4,8 @@
 
 //! XML utilities for WebDAV/CalDAV processing.
 
+use std::io;
+
 use quick_xml::events::Event;
 
 /// XML namespaces used in `CalDAV`.
@@ -21,7 +23,7 @@ pub mod ns {
 ///
 /// Returns an error if XML parsing fails.
 #[expect(dead_code)]
-pub fn read_element_text<R: std::io::BufRead>(
+pub fn read_element_text<R: io::BufRead>(
     reader: &mut quick_xml::Reader<R>,
     event: &Event,
 ) -> Result<Option<String>, quick_xml::Error> {
@@ -41,7 +43,9 @@ pub fn read_element_text<R: std::io::BufRead>(
                         }
                     }
                     Event::Text(e) => {
-                        let unescaped = e.unescape()?;
+                        let e_str = str::from_utf8(&e)
+                            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+                        let unescaped = quick_xml::escape::unescape(e_str)?;
                         text.push_str(unescaped.as_ref());
                     }
                     Event::Eof => break,
