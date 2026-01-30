@@ -312,25 +312,25 @@ impl MultiStatusResponse {
         for response in self.responses {
             // Find successful propstat (status starts with "HTTP/1.1 200" or "HTTP/1.1 207")
             for prop_stat in &response.prop_stats {
-                if prop_stat.status.contains("200") || prop_stat.status.contains("207") {
+                if (prop_stat.status.contains("200") || prop_stat.status.contains("207") )
                     // Check if we have calendar data
-                    if let Some(data) = &prop_stat.props.calendar_data {
-                        // Parse iCalendar data
-                        let calendars = parse(data)
-                            .map_err(|e| CalDavError::Ical(format!("Parse error: {e:?}")))?;
+                    && let Some(data) = &prop_stat.props.calendar_data
+                {
+                    // Parse iCalendar data
+                    let calendars = parse(data)
+                        .map_err(|e| CalDavError::Ical(format!("Parse error: {e:?}")))?;
 
-                        for calendar in calendars {
-                            let owned = calendar.to_owned();
-                            resources.push(CalendarResource::new(
-                                response.href.clone(),
-                                prop_stat
-                                    .props
-                                    .get_etag
-                                    .clone()
-                                    .unwrap_or_else(|| ETag::new(String::new())),
-                                owned,
-                            ));
-                        }
+                    for calendar in calendars {
+                        let owned = calendar.to_owned();
+                        resources.push(CalendarResource::new(
+                            response.href.clone(),
+                            prop_stat
+                                .props
+                                .get_etag
+                                .clone()
+                                .unwrap_or_else(|| ETag::new(String::new())),
+                            owned,
+                        ));
                     }
                 }
             }
@@ -346,24 +346,24 @@ impl MultiStatusResponse {
 
         for response in self.responses {
             for prop_stat in &response.prop_stats {
-                if prop_stat.status.contains("200") || prop_stat.status.contains("207") {
+                if (prop_stat.status.contains("200") || prop_stat.status.contains("207")) &&
                     // Only include if it's a calendar collection
-                    if prop_stat.props.is_calendar && prop_stat.props.is_collection {
-                        let mut collection = CalendarCollection::new(response.href.clone());
-                        collection
-                            .display_name
-                            .clone_from(&prop_stat.props.display_name);
-                        collection
-                            .description
-                            .clone_from(&prop_stat.props.calendar_description);
-                        collection.supported_components = prop_stat
-                            .props
-                            .supported_calendar_components
-                            .clone()
-                            .unwrap_or_default();
-                        collection.ctag.clone_from(&prop_stat.props.get_etag);
-                        collections.push(collection);
-                    }
+                    prop_stat.props.is_calendar && prop_stat.props.is_collection
+                {
+                    let mut collection = CalendarCollection::new(response.href.clone());
+                    collection
+                        .display_name
+                        .clone_from(&prop_stat.props.display_name);
+                    collection
+                        .description
+                        .clone_from(&prop_stat.props.calendar_description);
+                    collection.supported_components = prop_stat
+                        .props
+                        .supported_calendar_components
+                        .clone()
+                        .unwrap_or_default();
+                    collection.ctag.clone_from(&prop_stat.props.get_etag);
+                    collections.push(collection);
                 }
             }
         }

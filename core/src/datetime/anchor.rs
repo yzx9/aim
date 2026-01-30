@@ -4,7 +4,7 @@
 
 use std::{fmt, str::FromStr, sync::OnceLock};
 
-use jiff::civil::{self, date, time, Date, Time};
+use jiff::civil::{self, Date, Time, date, time};
 use jiff::tz::TimeZone;
 use jiff::{Span, Zoned};
 use regex::Regex;

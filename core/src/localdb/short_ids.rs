@@ -29,11 +29,13 @@ impl ShortIds {
                 .await?;
 
         match row {
-            Some((uid, kind)) => Ok(if let Some(kind) = Kind::parse_stable(&kind) { Some(UidAndShortId {
-                uid,
-                short_id,
-                kind,
-            }) } else {
+            Some((uid, kind)) => Ok(if let Some(kind) = Kind::parse_stable(&kind) {
+                Some(UidAndShortId {
+                    uid,
+                    short_id,
+                    kind,
+                })
+            } else {
                 tracing::warn!(kind, "unknown short_id kind");
                 None
             }),
