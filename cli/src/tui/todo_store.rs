@@ -92,14 +92,19 @@ impl TodoStore {
 
     pub fn submit_patch(self, aim: &Aim) -> Result<TodoPatch, Box<dyn Error>> {
         Ok(TodoPatch {
-            description: match self.dirty.description {
-                true if self.data.description.is_empty() => Some(None),
-                true => Some(Some(self.data.description.clone())),
-                false => None,
+            description: if self.dirty.description {
+                if self.data.description.is_empty() {
+                    Some(None)
+                } else {
+                    Some(Some(self.data.description.clone()))
+                }
+            } else {
+                None
             },
-            due: match self.dirty.due {
-                true => Some(parse_datetime(&aim.now(), &self.data.due)?),
-                false => None,
+            due: if self.dirty.due {
+                Some(parse_datetime(&aim.now(), &self.data.due)?)
+            } else {
+                None
             },
             percent_complete: self
                 .dirty

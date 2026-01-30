@@ -18,13 +18,6 @@
     clippy::indexing_slicing,
     clippy::pedantic
 )]
-// Allow certain clippy lints that are too restrictive for this crate
-#![allow(
-    clippy::option_option,
-    clippy::similar_names,
-    clippy::single_match_else,
-    clippy::match_bool
-)]
 
 mod client;
 mod config;

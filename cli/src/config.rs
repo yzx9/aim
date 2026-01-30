@@ -10,17 +10,16 @@ use aimcal_core::{APP_NAME, Config as CoreConfig};
 
 #[tracing::instrument]
 pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config), Box<dyn Error>> {
-    let path = match path {
-        Some(path) => path,
-        None => {
-            // TODO: zero config should works
-            // TODO: search config in multiple locations
-            let config = get_config_dir()?.join(format!("{APP_NAME}/config.toml"));
-            if !config.exists() {
-                return Err(format!("No config found at: {}", config.display()).into());
-            }
-            config
+    let path = if let Some(path) = path {
+        path
+    } else {
+        // TODO: zero config should works
+        // TODO: search config in multiple locations
+        let config = get_config_dir()?.join(format!("{APP_NAME}/config.toml"));
+        if !config.exists() {
+            return Err(format!("No config found at: {}", config.display()).into());
         }
+        config
     };
 
     fs::read_to_string(&path)

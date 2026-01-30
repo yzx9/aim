@@ -250,24 +250,19 @@ impl Iterator for SegmentedSpannedChars<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.seg_idx < self.segments.len() {
-            match self.chars {
-                Some((ref span, ref mut chars)) => match chars.next() {
-                    Some((start, c)) => {
-                        let char_span = match chars.peek() {
-                            Some((end, _)) => Span::new(span.start + start, span.start + end),
-                            None => Span::new(span.start + start, span.end),
-                        };
-                        return Some((c, char_span));
-                    }
-                    None => {
-                        self.seg_idx += 1;
-                        self.chars = None;
-                    }
-                },
-                None => {
-                    let (s, span) = self.segments.get(self.seg_idx).unwrap(); // SAFETY: due to while condition
-                    self.chars = Some((*span, s.char_indices().peekable()));
+            if let Some((ref span, ref mut chars)) = self.chars {
+                if let Some((start, c)) = chars.next() {
+                    let char_span = match chars.peek() {
+                        Some((end, _)) => Span::new(span.start + start, span.start + end),
+                        None => Span::new(span.start + start, span.end),
+                    };
+                    return Some((c, char_span));
                 }
+                self.seg_idx += 1;
+                self.chars = None;
+            } else {
+                let (s, span) = self.segments.get(self.seg_idx).unwrap(); // SAFETY: due to while condition
+                self.chars = Some((*span, s.char_indices().peekable()));
             }
         }
 

@@ -213,12 +213,11 @@ impl CmdEventEdit {
         // If TUI is needed, launch the TUI to edit the event
         if tui {
             let event = aim.get_event(&self.id).await?;
-            patch = match tui::patch_event(aim, &event, patch)? {
-                Some(data) => data,
-                None => {
-                    tracing::info!("user cancel the event editing");
-                    return Ok(());
-                }
+            patch = if let Some(data) = tui::patch_event(aim, &event, patch)? {
+                data
+            } else {
+                tracing::info!("user cancel the event editing");
+                return Ok(());
             }
         }
 

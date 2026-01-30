@@ -123,9 +123,9 @@ impl Aim {
             return Err("Event not found".into());
         };
 
-        let path: PathBuf = event.path().into();
+        let p: PathBuf = event.path().into();
         // TODO: should handle this error, e.g. allow user to ignore missing file
-        let mut calendar = parse_ics(&path).await?;
+        let mut calendar = parse_ics(&p).await?;
 
         let mut updated_event = None;
         for component in &mut calendar.components {
@@ -141,8 +141,8 @@ impl Aim {
 
         let updated_event = updated_event.ok_or("Event not found in calendar")?;
 
-        write_ics(&path, &calendar).await?;
-        self.db.upsert_event(&path, &updated_event).await?;
+        write_ics(&p, &calendar).await?;
+        self.db.upsert_event(&p, &updated_event).await?;
 
         let event_with_id = self.short_ids.event(updated_event).await?;
         Ok(event_with_id)
@@ -239,8 +239,8 @@ impl Aim {
             return Err("Todo not found".into());
         };
 
-        let path: PathBuf = todo.path().into();
-        let mut calendar = parse_ics(&path).await?;
+        let p: PathBuf = todo.path().into();
+        let mut calendar = parse_ics(&p).await?;
 
         let mut updated_todo = None;
         for component in &mut calendar.components {
@@ -255,8 +255,8 @@ impl Aim {
 
         let updated_todo = updated_todo.ok_or("Todo not found in calendar")?;
 
-        write_ics(&path, &calendar).await?;
-        self.db.upsert_todo(&path, &updated_todo).await?;
+        write_ics(&p, &calendar).await?;
+        self.db.upsert_todo(&p, &updated_todo).await?;
 
         let todo = self.short_ids.todo(updated_todo).await?;
         Ok(todo)

@@ -77,9 +77,10 @@ where
     }
 
     fn item_state(&self, store: &RefCell<S>) -> FormItemState {
-        match (self.is_visible)(store) {
-            true => self.item.item_state(store), // Visible if percent_complete is set or status is InProcess
-            false => FormItemState::Invisible,
+        if (self.is_visible)(store) {
+            self.item.item_state(store) // Visible if percent_complete is set or status is InProcess
+        } else {
+            FormItemState::Invisible
         }
     }
 }
@@ -119,16 +120,18 @@ where
     F: Fn(&RefCell<S>) -> bool,
 {
     fn render(&self, store: &RefCell<S>, area: Rect, buf: &mut Buffer) {
-        match (self.on_or_off)(store) {
-            true => self.on.render(store, area, buf),
-            false => self.off.render(store, area, buf),
+        if (self.on_or_off)(store) {
+            self.on.render(store, area, buf);
+        } else {
+            self.off.render(store, area, buf);
         }
     }
 
     fn get_cursor_position(&self, store: &RefCell<S>, area: Rect) -> Option<(u16, u16)> {
-        match (self.on_or_off)(store) {
-            true => self.on.get_cursor_position(store, area),
-            false => self.off.get_cursor_position(store, area),
+        if (self.on_or_off)(store) {
+            self.on.get_cursor_position(store, area)
+        } else {
+            self.off.get_cursor_position(store, area)
         }
     }
 
@@ -139,9 +142,10 @@ where
         area: Rect,
         event: KeyEvent,
     ) -> Option<Message> {
-        match (self.on_or_off)(store) {
-            true => self.on.on_key(dispatcher, store, area, event),
-            false => self.off.on_key(dispatcher, store, area, event),
+        if (self.on_or_off)(store) {
+            self.on.on_key(dispatcher, store, area, event)
+        } else {
+            self.off.on_key(dispatcher, store, area, event)
         }
     }
 
@@ -163,16 +167,18 @@ where
     F: Fn(&RefCell<S>) -> bool,
 {
     fn item_title(&self, store: &RefCell<S>) -> &str {
-        match (self.on_or_off)(store) {
-            true => self.on.item_title(store),
-            false => self.off.item_title(store),
+        if (self.on_or_off)(store) {
+            self.on.item_title(store)
+        } else {
+            self.off.item_title(store)
         }
     }
 
     fn item_state(&self, store: &RefCell<S>) -> FormItemState {
-        match (self.on_or_off)(store) {
-            true => self.on.item_state(store),
-            false => self.off.item_state(store),
+        if (self.on_or_off)(store) {
+            self.on.item_state(store)
+        } else {
+            self.off.item_state(store)
         }
     }
 }

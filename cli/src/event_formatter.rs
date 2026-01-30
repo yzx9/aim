@@ -151,27 +151,30 @@ fn format_summary(event: &impl Event) -> Cow<'_, str> {
 
 fn format_datetime_span(event: &impl Event) -> Cow<'_, str> {
     match (event.start(), event.end()) {
-        (Some(start), Some(end)) => match start.date() == end.date() {
-            true => match (start.time(), end.time()) {
-                (Some(stime), Some(etime)) => format!(
-                    "{} {}~{}",
-                    start.date().strftime("%Y-%m-%d"),
-                    stime.strftime("%H:%M"),
-                    etime.strftime("%H:%M")
-                ),
-                (Some(stime), None) => format!(
-                    "{} {}~24:00",
-                    start.date().strftime("%Y-%m-%d"),
-                    stime.strftime("%H:%M")
-                ),
-                (None, Some(etime)) => format!(
-                    "{} 00:00~{}",
-                    start.date().strftime("%Y-%m-%d"),
-                    etime.strftime("%H:%M")
-                ),
-                (None, None) => start.date().strftime("%Y-%m-%d").to_string(),
-            },
-            false => format!("{}~{}", format_datetime(start), format_datetime(end)),
+        (Some(start), Some(end)) => {
+            if start.date() == end.date() {
+                match (start.time(), end.time()) {
+                    (Some(stime), Some(etime)) => format!(
+                        "{} {}~{}",
+                        start.date().strftime("%Y-%m-%d"),
+                        stime.strftime("%H:%M"),
+                        etime.strftime("%H:%M")
+                    ),
+                    (Some(stime), None) => format!(
+                        "{} {}~24:00",
+                        start.date().strftime("%Y-%m-%d"),
+                        stime.strftime("%H:%M")
+                    ),
+                    (None, Some(etime)) => format!(
+                        "{} 00:00~{}",
+                        start.date().strftime("%Y-%m-%d"),
+                        etime.strftime("%H:%M")
+                    ),
+                    (None, None) => start.date().strftime("%Y-%m-%d").to_string(),
+                }
+            } else {
+                format!("{}~{}", format_datetime(start), format_datetime(end))
+            }
         }
         .into(),
         (Some(start), None) => format_datetime(start).into(),

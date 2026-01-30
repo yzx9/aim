@@ -80,18 +80,24 @@ impl EventStore {
 
     pub fn submit_patch(self, aim: &Aim) -> Result<EventPatch, Box<dyn Error>> {
         Ok(EventPatch {
-            description: match self.dirty.description {
-                true if self.data.description.is_empty() => Some(None),
-                true => Some(Some(self.data.description.clone())),
-                false => None,
+            description: if self.dirty.description {
+                if self.data.description.is_empty() {
+                    Some(None)
+                } else {
+                    Some(Some(self.data.description.clone()))
+                }
+            } else {
+                None
             },
-            start: match self.dirty.start {
-                true => Some(parse_datetime(&aim.now(), &self.data.start)?),
-                false => None,
+            start: if self.dirty.start {
+                Some(parse_datetime(&aim.now(), &self.data.start)?)
+            } else {
+                None
             },
-            end: match self.dirty.end {
-                true => Some(parse_datetime(&aim.now(), &self.data.end)?),
-                false => None,
+            end: if self.dirty.end {
+                Some(parse_datetime(&aim.now(), &self.data.end)?)
+            } else {
+                None
             },
             status: self.dirty.status.then_some(self.data.status),
             summary: self.dirty.summary.then(|| self.data.summary.clone()),

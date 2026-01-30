@@ -82,14 +82,20 @@ impl LooseDateTime {
                     RangePosition::InRange
                 }
             }
-            (Some(start), None) => match t >= &start.with_start_of_day() {
-                true => RangePosition::InRange,
-                false => RangePosition::Before,
-            },
-            (None, Some(end)) => match t > &end.with_end_of_day() {
-                true => RangePosition::After,
-                false => RangePosition::InRange,
-            },
+            (Some(start), None) => {
+                if t >= &start.with_start_of_day() {
+                    RangePosition::InRange
+                } else {
+                    RangePosition::Before
+                }
+            }
+            (None, Some(end)) => {
+                if t > &end.with_end_of_day() {
+                    RangePosition::After
+                } else {
+                    RangePosition::InRange
+                }
+            }
             (None, None) => RangePosition::InvalidRange,
         }
     }
@@ -98,16 +104,13 @@ impl LooseDateTime {
     pub(crate) fn from_local_datetime(dt: DateTime) -> LooseDateTime {
         // Try to interpret the datetime in the system timezone
         let tz = TimeZone::system();
-        match dt.to_zoned(tz) {
-            Ok(zoned) => LooseDateTime::Local(zoned),
-            Err(_) => {
-                // Fallback to floating if timezone conversion fails
-                tracing::warn!(
-                    ?dt,
-                    "failed to convert to local timezone, treating as floating"
-                );
-                LooseDateTime::Floating(dt)
-            }
+        if let Ok(zoned) = dt.to_zoned(tz) { LooseDateTime::Local(zoned) } else {
+            // Fallback to floating if timezone conversion fails
+            tracing::warn!(
+                ?dt,
+                "failed to convert to local timezone, treating as floating"
+            );
+            LooseDateTime::Floating(dt)
         }
     }
 
@@ -157,18 +160,14 @@ impl From<ical::DateTimeProperty<Segments<'_>>> for LooseDateTime {
             let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
             if let Some(tz_id) = &dt.tz_id {
                 let tz_id_str = tz_id.to_string();
-                match TimeZone::get(tz_id_str.as_str()) {
-                    Ok(tz) => match civil_dt.to_zoned(tz) {
-                        Ok(zoned) => LooseDateTime::Local(zoned),
-                        Err(_) => {
-                            tracing::warn!(tzid = %tz_id_str, "unknown timezone, treating as floating");
-                            LooseDateTime::Floating(civil_dt)
-                        }
-                    },
-                    Err(_) => {
+                if let Ok(tz) = TimeZone::get(tz_id_str.as_str()) {
+                    if let Ok(zoned) = civil_dt.to_zoned(tz) { LooseDateTime::Local(zoned) } else {
                         tracing::warn!(tzid = %tz_id_str, "unknown timezone, treating as floating");
                         LooseDateTime::Floating(civil_dt)
                     }
+                } else {
+                    tracing::warn!(tzid = %tz_id_str, "unknown timezone, treating as floating");
+                    LooseDateTime::Floating(civil_dt)
                 }
             } else {
                 tracing::warn!("zoned datetime without tz_id, treating as floating");
@@ -198,18 +197,14 @@ impl From<ical::DateTimeProperty<String>> for LooseDateTime {
         } else if dt.is_zoned() {
             let civil_dt = DateTime::from_parts(date.civil_date(), time.unwrap().civil_time());
             if let Some(tz_id) = &dt.tz_id {
-                match TimeZone::get(tz_id.as_str()) {
-                    Ok(tz) => match civil_dt.to_zoned(tz) {
-                        Ok(zoned) => LooseDateTime::Local(zoned),
-                        Err(_) => {
-                            tracing::warn!(tzid = %tz_id, "unknown timezone, treating as floating");
-                            LooseDateTime::Floating(civil_dt)
-                        }
-                    },
-                    Err(_) => {
+                if let Ok(tz) = TimeZone::get(tz_id.as_str()) {
+                    if let Ok(zoned) = civil_dt.to_zoned(tz) { LooseDateTime::Local(zoned) } else {
                         tracing::warn!(tzid = %tz_id, "unknown timezone, treating as floating");
                         LooseDateTime::Floating(civil_dt)
                     }
+                } else {
+                    tracing::warn!(tzid = %tz_id, "unknown timezone, treating as floating");
+                    LooseDateTime::Floating(civil_dt)
                 }
             } else {
                 tracing::warn!("zoned datetime without tz_id, treating as floating");

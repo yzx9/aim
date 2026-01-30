@@ -216,12 +216,11 @@ impl CmdTodoEdit {
         // If TUI is needed, launch the TUI editor to let user edit the patch
         if tui {
             let todo = aim.get_todo(&self.id).await?;
-            patch = match tui::patch_todo(aim, &todo, patch)? {
-                Some(data) => data,
-                None => {
-                    tracing::info!("user cancel the todo editing");
-                    return Ok(());
-                }
+            patch = if let Some(data) = tui::patch_todo(aim, &todo, patch)? {
+                data
+            } else {
+                tracing::info!("user cancel the todo editing");
+                return Ok(());
             };
         }
 

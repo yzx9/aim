@@ -4,9 +4,8 @@
 
 use std::{borrow::Cow, fmt::Display, num::NonZeroU32, str::FromStr};
 
-use aimcal_ical::{
-    self as ical, Description, DtEnd, DtStamp, DtStart, EventStatusValue, Summary, Uid, VEvent,
-};
+use aimcal_ical as ical;
+use aimcal_ical::{Description, DtEnd, DtStamp, DtStart, EventStatusValue, Summary, Uid, VEvent};
 use jiff::{Span, ToSpan, Zoned};
 
 use crate::{DateTimeAnchor, LooseDateTime};
@@ -252,6 +251,7 @@ impl EventPatch {
 
 /// Patch for an event, allowing partial updates.
 #[derive(Debug, Default, Clone)]
+#[expect(clippy::option_option)]
 pub struct ResolvedEventPatch<'a> {
     pub description: Option<Option<&'a str>>,
     pub start: Option<Option<LooseDateTime>>,

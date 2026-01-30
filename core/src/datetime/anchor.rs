@@ -4,7 +4,7 @@
 
 use std::{fmt, str::FromStr, sync::OnceLock};
 
-use jiff::civil::{self, Date, Time, date, time};
+use jiff::civil::{self, date, time, Date, Time};
 use jiff::tz::TimeZone;
 use jiff::{Span, Zoned};
 use regex::Regex;
@@ -133,13 +133,14 @@ impl DateTimeAnchor {
     /// Returns an error if date/time operations fail.
     pub fn resolve_since(self, start: &LooseDateTime) -> Result<LooseDateTime, String> {
         match self {
-            DateTimeAnchor::InDays(n) => match n {
-                0 => Ok(match start {
-                    LooseDateTime::Local(zoned) => next_suggested_time(&zoned.datetime()),
-                    LooseDateTime::Floating(dt) => next_suggested_time(dt),
-                    LooseDateTime::DateOnly(d) => first_suggested_time(*d),
-                }),
-                _ => {
+            DateTimeAnchor::InDays(n) => {
+                if n == 0 {
+                    Ok(match start {
+                        LooseDateTime::Local(zoned) => next_suggested_time(&zoned.datetime()),
+                        LooseDateTime::Floating(dt) => next_suggested_time(dt),
+                        LooseDateTime::DateOnly(d) => first_suggested_time(*d),
+                    })
+                } else {
                     let date = start
                         .date()
                         .checked_add(Span::new().days(n))
@@ -148,7 +149,7 @@ impl DateTimeAnchor {
                     let dt = civil::DateTime::from_parts(date, t);
                     Ok(LooseDateTime::from_local_datetime(dt))
                 }
-            },
+            }
             DateTimeAnchor::Relative(n) => Ok(start.clone() + Span::new().seconds(n)),
             DateTimeAnchor::DateTime(dt) => Ok(dt),
             DateTimeAnchor::Time(t) => {
@@ -172,9 +173,10 @@ impl DateTimeAnchor {
     /// Returns an error if date/time operations fail.
     pub fn resolve_since_zoned(self, start: &Zoned) -> Result<LooseDateTime, String> {
         match self {
-            DateTimeAnchor::InDays(n) => match n {
-                0 => Ok(next_suggested_time(&start.datetime())),
-                _ => {
+            DateTimeAnchor::InDays(n) => {
+                if n == 0 {
+                    Ok(next_suggested_time(&start.datetime()))
+                } else {
                     let date = start
                         .datetime()
                         .date()
@@ -184,7 +186,7 @@ impl DateTimeAnchor {
                     let dt = civil::DateTime::from_parts(date, t);
                     Ok(LooseDateTime::from_local_datetime(dt))
                 }
-            },
+            }
             DateTimeAnchor::Relative(n) => {
                 let zoned = start
                     .checked_add(Span::new().seconds(n))

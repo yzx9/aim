@@ -253,6 +253,7 @@ impl TodoPatch {
 }
 
 #[derive(Debug, Clone)]
+#[expect(clippy::option_option)]
 pub struct ResolvedTodoPatch<'a> {
     pub description: Option<Option<&'a str>>,
     pub due: Option<Option<LooseDateTime>>,

@@ -244,9 +244,8 @@ impl CmdNew {
             draft.summary.clone_from(summary);
         }
 
-        match self.status {
-            Some(EventOrTodoStatus::Event(s)) => draft.status = s,
-            _ => { /* do nothing */ }
+        if let Some(EventOrTodoStatus::Event(s)) = self.status {
+            draft.status = s;
         }
 
         // fields (event specific)
@@ -281,9 +280,8 @@ impl CmdNew {
             draft.summary.clone_from(summary);
         }
 
-        match self.status {
-            Some(EventOrTodoStatus::Todo(s)) => draft.status = s,
-            _ => { /* do nothing */ }
+        if let Some(EventOrTodoStatus::Todo(s)) = self.status {
+            draft.status = s;
         }
 
         // fields (todo specific)
