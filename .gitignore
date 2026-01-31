@@ -1,8 +1,5 @@
-.direnv/
-__pycache__/
 dist
 .DS_Store
-.aider*
 *.local
 
 # Logs
@@ -14,3 +11,8 @@ target/
 
 # nix
 /result
+.direnv/
+
+# AI tools
+.claude/
+.opencode/
