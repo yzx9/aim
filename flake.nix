@@ -108,8 +108,11 @@
           env = {
             RUST_LOG = "info";
 
-            # Set up default config to be the development config
+            # Set up default config to be development config
             AIM_CONFIG = toString ./. + "/cli/config.dev.toml";
+
+            # Enforce explicit config specification in development
+            AIM_DEV = "1";
           };
 
           packages = with pkgs; [
