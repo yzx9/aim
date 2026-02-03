@@ -138,6 +138,43 @@ aim --help
 nix run . -- --help
 ```
 
+## Configuration
+
+AIM can be configured via three methods (in priority order):
+
+1. **CLI flag**: `aim --config /path/to/config.toml`
+2. **Environment variable**: `AIM_CONFIG=/path/to/config.toml aim`
+3. **Default location**: `$XDG_CONFIG_HOME/aim/config.toml` (Unix) or `%LOCALAPPDATA%/aim/config.toml` (Windows)
+
+See `cli/config.example.toml` in the repository for a sample configuration file.
+
+### Development Setup
+
+For local development, `.envrc` file sets `AIM_CONFIG` to point to `cli/config.dev.toml`, which uses isolated development directories (`.dev-calendar/` and `.dev-state/`) to keep your work separate from your actual calendar data.
+
+If using Nix without direnv, the development environment is automatically configured with the same `cli/config.dev.toml`.
+
+#### Initialize with Examples
+
+To quickly populate your development calendar with all example files:
+
+```bash
+just init-examples
+```
+
+This command copies all example files to `.dev-calendar/` directory, which will be automatically loaded on the first `aim` run.
+
+### Example iCalendar Files
+
+The `examples/` directory contains sample iCalendar (`.ics`) files demonstrating various features:
+
+- **simple-meeting.ics** - Basic one-time meeting event
+- **recurring-task.ics** - Daily recurring task with RRULE
+- **todo-with-priority.ics** - Todo with priority and progress tracking
+- **multi-event.ics** - Complex calendar with multiple events, todos, and timezone definitions
+
+See `examples/README.md` for detailed documentation of each example file.
+
 ## Goals
 
 - **Enable command-line calendar management**: Perform queries and manage events and todos directly from the CLI.

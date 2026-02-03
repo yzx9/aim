@@ -38,3 +38,30 @@ release version:
 # Add a new migration to the database
 migrate-add name:
   cd core && sqlx migrate add -r --source src/localdb/migrations {{name}}
+
+# Initialize development calendar with example files
+init-dev:
+  #!/usr/bin/env bash
+  set -euxo pipefail
+  mkdir -p .dev-calendar
+  # Check if already initialized
+  if [ -f .dev-calendar/.dev-marker ]; then
+    echo "Dev calendar already initialized"
+    echo "Run 'just reinit-dev' to re-initialize"
+  else
+    cp examples/*.ics .dev-calendar/
+    touch .dev-calendar/.dev-marker
+    echo "Copied $(ls examples/*.ics 2>/dev/null | wc -l) example files to .dev-calendar/"
+    echo "Dev database will be initialized on first 'aim' run"
+  fi
+
+# Re-initialize development database and calendar
+reinit-dev:
+  #!/usr/bin/env bash
+  set -euxo pipefail
+  # Removing development database...
+  rm -rf .dev-state
+  # Removing dev calendar marker...
+  rm -f .dev-calendar/.dev-marker
+  # Re-initializing dev calendar...
+  just init-examples
