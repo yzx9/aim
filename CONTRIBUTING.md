@@ -1,6 +1,7 @@
 # Contributing to AIM
 
-Thank you for your interest in contributing to AIM! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to AIM! This document provides guidelines and
+instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -20,14 +21,16 @@ Thank you for your interest in contributing to AIM! This document provides guide
 - **Git**: For version control
 - **just** (optional): Command runner
 - **Nix** (optional): Declarative builds and deployments
+- **direnv** (optional): Automatic environment management for Nix
 
-The project supports Nix for reproducible development environments, and we
-recommend giving it a try:
+The project supports Nix for reproducible development environments, and we recommend giving it a
+try:
 
 - Automatic Rust toolchain provisioning
 - Shell completion installation
 - SQLite system library support
 - Development shell with all dependencies
+- Works with direnv for automatic shell activation
 
 ### Setting Up Development Environment
 
@@ -38,18 +41,60 @@ git clone https://github.com/yzx9/aim.git
 cd aim
 ```
 
-2. **Using Nix (recommended):**
+2. **Set up Nix development environment (recommended):**
+
+The Nix development shell automatically sets these environment variables:
+
+- **AIM_DEV**: Set to `1` to enforce explicit config specification
+  - In development mode, config must be provided via `--config` flag or `AIM_CONFIG` env var
+  - Prevents accidentally using production configs during development
+  - Recognized values: `1`, `true`, `yes` (enables), `0`, `false`, `no` (disables)
+  - Case-insensitive
+  - Unrecognized values are ignored with a warning
+
+- **AIM_CONFIG**: Set to point to development config at `cli/config.dev.toml`
+
+Using Nix (recommended):
 
 ```bash
 nix develop
 ```
 
-This will provide a complete development environment with all dependencies.
+Or with **direnv** (for automatic shell activation):
+
+```bash
+# Install direnv (if not already installed)
+nix-env -iA nixpkgs.direnv
+
+# Hook direnv into your shell
+echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
+# or for zsh:
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
+
+# Reload your shell or run:
+source ~/.bashrc  # or source ~/.zshrc
+
+# Allow the .envrc
+direnv allow
+```
+
+With direnv, the development environment is automatically loaded when you `cd` into the project
+directory, and unloaded when you leave it.
+
+Both methods provide a complete development environment with all dependencies and the environment
+variables above automatically set.
 
 3. **Or install dependencies manually:**
 
 ```bash
 cargo build
+```
+
+When not using Nix, set the environment variables manually:
+
+```bash
+export AIM_DEV=1
+export AIM_CONFIG="$(pwd)/cli/config.dev.toml"
 ```
 
 ### Project Structure
