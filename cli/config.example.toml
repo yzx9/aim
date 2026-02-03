@@ -1,0 +1,19 @@
+# Example configuration file for AIM
+# Copy this file and customize for your needs
+
+[core]
+# Path to the calendar directory (required)
+calendar_path = "calendar"
+
+# Directory for storing application state (optional, defaults to platform-specific)
+# state_dir = "state"
+
+# Default due time for new tasks (optional, e.g., "1d", "2h", "tomorrow")
+# default_due = "1d"
+
+# Default priority for new tasks (optional, default: none)
+# Options: none, low, medium, high
+# default_priority = "medium"
+
+# If true, items with no priority will be listed first (optional, default: false)
+# default_priority_none_fist = true

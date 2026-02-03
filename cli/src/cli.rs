@@ -85,7 +85,8 @@ impl Cli {
                 arg!(-c --config [CONFIG] "Path to the configuration file")
                     .long_help(
                         "\
-Path to the configuration file. Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
+Path to the configuration file. Can be specified via AIM_CONFIG environment variable. \
+Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
 %LOCALAPPDATA%/aim/config.toml on Windows.",
                     )
                     .value_parser(value_parser!(PathBuf))

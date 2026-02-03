@@ -107,6 +107,9 @@
         devShells.default = pkgs.mkShell {
           env = {
             RUST_LOG = "info";
+
+            # Set up default config to be the development config
+            AIM_CONFIG = toString ./. + "/cli/config.dev.toml";
           };
 
           packages = with pkgs; [

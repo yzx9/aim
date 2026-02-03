@@ -16,3 +16,7 @@ target/
 # AI tools
 .claude/
 .opencode/
+
+# Development
+.dev-calendar/
+.dev-state/

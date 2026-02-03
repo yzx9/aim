@@ -1,0 +1,15 @@
+# Development configuration file for AIM
+# Used during local development and testing
+
+[core]
+# Use a calendar directory in the repository for development
+calendar_path = ".dev-calendar"
+
+# Store state in a local directory
+state_dir = ".dev-state"
+
+# Default due time for new tasks
+default_due = "1d"
+
+# Default priority for new tasks (valid: none, low/8, mid/5, high/2, 1-9)
+default_priority = "mid"
