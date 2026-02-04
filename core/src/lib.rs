@@ -34,4 +34,4 @@ pub use crate::config::{APP_NAME, Config};
 pub use crate::datetime::{DateTimeAnchor, LooseDateTime, RangePosition};
 pub use crate::event::{Event, EventConditions, EventDraft, EventPatch, EventStatus};
 pub use crate::todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus};
-pub use crate::types::{Id, Kind, Pager, Priority, SortOrder};
+pub use crate::types::{BackendKind, Id, Kind, Pager, Priority, SortOrder};

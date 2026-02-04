@@ -20,7 +20,14 @@ async fn common_module_imports_work() {
 #[tokio::test]
 async fn common_module_fixtures_work() {
     let config = test_config("/test/cal", Some("/test/state"));
-    assert_eq!(config.calendar_path.to_str().unwrap(), "/test/cal");
+    assert_eq!(
+        config
+            .calendar_path
+            .expect("calendar_path should be set")
+            .to_str()
+            .unwrap(),
+        "/test/cal"
+    );
 }
 
 #[tokio::test]

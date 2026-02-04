@@ -18,7 +18,7 @@ async fn aim_new_todo_creates_file_and_database_entry() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -50,7 +50,7 @@ async fn aim_get_todo_resolves_short_id() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -78,7 +78,7 @@ async fn aim_update_todo_modifies_file_and_database() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -112,7 +112,7 @@ async fn aim_list_todos_returns_all_todos() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -157,7 +157,7 @@ async fn aim_list_todos_with_pagination() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -226,7 +226,7 @@ async fn aim_count_todos_returns_correct_count() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -266,7 +266,7 @@ async fn aim_default_todo_draft_uses_config_defaults() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P2,
@@ -285,7 +285,7 @@ async fn aim_update_todo_clears_optional_fields() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -319,7 +319,7 @@ async fn aim_update_todo_status_to_completed_sets_completed_timestamp() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -356,7 +356,7 @@ async fn aim_update_todo_status_from_completed_clears_completed_timestamp() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -399,7 +399,7 @@ async fn aim_list_todos_with_status_filter() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -448,7 +448,7 @@ async fn aim_list_todos_with_priority_sort() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -498,7 +498,7 @@ async fn aim_get_todo_returns_error_for_nonexistent() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -516,7 +516,7 @@ async fn aim_update_todo_returns_error_for_nonexistent() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,

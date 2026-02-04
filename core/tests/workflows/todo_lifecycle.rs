@@ -20,7 +20,7 @@ async fn todo_lifecycle_create_with_config_defaults() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P2,
@@ -53,7 +53,7 @@ async fn todo_lifecycle_status_evolution() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -106,7 +106,7 @@ async fn todo_lifecycle_priority_handling() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::P5,
@@ -142,7 +142,7 @@ async fn todo_lifecycle_sorting() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -225,7 +225,7 @@ async fn todo_lifecycle_filtering() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -318,7 +318,7 @@ async fn todo_lifecycle_batch_operations() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(1)),
         default_priority: Priority::P5,
@@ -386,7 +386,7 @@ async fn todo_lifecycle_percent_complete_validation() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -471,7 +471,7 @@ async fn todo_lifecycle_metadata_updates() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -545,7 +545,7 @@ async fn todo_lifecycle_with_due_dates() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -580,7 +580,7 @@ async fn todo_lifecycle_rebuild_from_files() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,

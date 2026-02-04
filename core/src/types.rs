@@ -2,14 +2,71 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::num::NonZeroU32;
+
+/// Backend type for events and todos
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum BackendKind {
+    /// Local ICS files
+    #[default]
+    Local,
+    // /// `CalDAV` server
+    // CalDav,
+    // /// System reminder (not yet implemented)
+    // #[serde(rename = "system-reminder")]
+    // SystemReminder,
+}
+
+impl fmt::Display for BackendKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Local => write!(f, "local"),
+            // Self::CalDav => write!(f, "caldav"),
+            // Self::SystemReminder => write!(f, "system-reminder"),
+        }
+    }
+}
+
+impl AsRef<str> for BackendKind {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Local => "local",
+            // Self::CalDav => "caldav",
+            // Self::SystemReminder => "system-reminder",
+        }
+    }
+}
+
+impl TryFrom<u8> for BackendKind {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(BackendKind::Local),
+            // 1 => Ok(BackendKind::CalDav),
+            // 2 => Ok(BackendKind::SystemReminder),
+            _ => Err(format!("Invalid backend kind value: {value}")),
+        }
+    }
+}
+
+impl From<BackendKind> for u8 {
+    fn from(kind: BackendKind) -> Self {
+        match kind {
+            BackendKind::Local => 0,
+            // BackendKind::CalDav => 1,
+            // BackendKind::SystemReminder => 2,
+        }
+    }
+}
 
 /// The unique identifier for a todo item, which can be either a UID or a short ID.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Id {
     /// The unique identifier for the todo item.
     Uid(String),
-
     /// Either a short identifier or a unique identifier.
     ShortIdOrUid(String),
 }
@@ -40,7 +97,6 @@ impl Id {
 pub enum Kind {
     /// An event item.
     Event,
-
     /// A todo item.
     Todo,
 }
@@ -67,7 +123,6 @@ impl Kind {
 pub enum SortOrder {
     /// Ascending order.
     Asc,
-
     /// Descending order.
     Desc,
 }
@@ -87,7 +142,6 @@ impl SortOrder {
 pub struct Pager {
     /// The maximum number of items to return.
     pub limit: i64,
-
     /// The number of items to skip before starting to collect the result set.
     pub offset: i64,
 }
@@ -107,47 +161,38 @@ pub enum Priority {
     #[serde(rename = "none", alias = "0")]
     #[cfg_attr(feature = "clap", clap(name = "none", alias = "0"))]
     None,
-
     /// Priority 1, highest priority.
     #[serde(rename = "1")]
     #[cfg_attr(feature = "clap", clap(name = "1", hide = true))]
     P1,
-
     /// Priority 2, high priority.
     #[serde(rename = "2", alias = "high")]
     #[cfg_attr(feature = "clap", clap(name = "high", alias = "2"))]
     P2,
-
     /// Priority 3.
     #[serde(rename = "3")]
     #[cfg_attr(feature = "clap", clap(name = "3", hide = true))]
     P3,
-
     /// Priority 4.
     #[serde(rename = "4")]
     #[cfg_attr(feature = "clap", clap(name = "4", hide = true))]
     P4,
-
     /// Priority 5, medium priority.
     #[serde(rename = "5", alias = "mid")]
     #[cfg_attr(feature = "clap", clap(name = "mid", alias = "5"))]
     P5,
-
     /// Priority 6.
     #[serde(rename = "6")]
     #[cfg_attr(feature = "clap", clap(name = "6", hide = true))]
     P6,
-
     /// Priority 7.
     #[serde(rename = "7")]
     #[cfg_attr(feature = "clap", clap(name = "7", hide = true))]
     P7,
-
     /// Priority 8, low priority.
     #[serde(rename = "8", alias = "low")]
     #[cfg_attr(feature = "clap", clap(name = "low", alias = "8"))]
     P8,
-
     /// Priority 9, lowest priority.
     #[serde(rename = "9")]
     #[cfg_attr(feature = "clap", clap(name = "9", hide = true))]
@@ -201,7 +246,7 @@ priority_from_to_int!(u16);
 priority_from_to_int!(u32);
 priority_from_to_int!(u64);
 
-impl<'de> serde::Deserialize<'de> for Priority {
+impl<'de> Deserialize<'de> for Priority {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -211,25 +256,19 @@ impl<'de> serde::Deserialize<'de> for Priority {
         impl serde::de::Visitor<'_> for PriorityVisitor {
             type Value = Priority;
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter
                     .write_str(r#"a string of "none", "high", "mid", "low" or number from 0 to 9"#)
             }
 
-            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
                 match v {
                     0..=9 => Ok(v.into()),
                     _ => Err(E::custom(format!("invalid priority: {v}"))),
                 }
             }
 
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
                 match v {
                     "0" | "none" => Ok(Priority::None),
                     "1" => Ok(Priority::P1),

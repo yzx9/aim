@@ -21,27 +21,27 @@ impl Events {
         Self { pool }
     }
 
-    pub async fn insert(&self, event: EventRecord) -> Result<(), sqlx::Error> {
+    pub async fn upsert(&self, event: EventRecord) -> Result<(), sqlx::Error> {
         const SQL: &str = "\
-INSERT INTO events (uid, path, summary, description, status, start, end)
+INSERT INTO events (uid, summary, description, status, start, end, backend_kind)
 VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uid) DO UPDATE SET
-    path        = excluded.path,
-    summary     = excluded.summary,
-    description = excluded.description,
-    status      = excluded.status,
-    start       = excluded.start,
-    end         = excluded.end;
+    summary      = excluded.summary,
+    description  = excluded.description,
+    status       = excluded.status,
+    start        = excluded.start,
+    end          = excluded.end,
+    backend_kind = excluded.backend_kind;
 ";
 
         sqlx::query(SQL)
             .bind(&event.uid)
-            .bind(&event.path)
             .bind(&event.summary)
             .bind(&event.description)
             .bind(&event.status)
             .bind(&event.start)
             .bind(&event.end)
+            .bind(event.backend_kind)
             .execute(&self.pool)
             .await?;
 
@@ -50,7 +50,7 @@ ON CONFLICT(uid) DO UPDATE SET
 
     pub async fn get(&self, uid: &str) -> Result<Option<EventRecord>, sqlx::Error> {
         const SQL: &str = "\
-SELECT uid, path, summary, description, status, start, end
+SELECT uid, summary, description, status, start, end, backend_kind
 FROM events
 WHERE uid = ?;
 ";
@@ -67,7 +67,7 @@ WHERE uid = ?;
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
         let mut sql = "\
-SELECT uid, path, summary, description, status, start, end
+SELECT uid, summary, description, status, start, end, backend_kind
 FROM events
 "
         .to_string();
@@ -130,20 +130,19 @@ FROM events
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct EventRecord {
-    path: String,
     uid: String,
     summary: String,
     description: String,
     status: String,
     start: String,
     end: String,
+    backend_kind: u8,
 }
 
 impl EventRecord {
-    pub fn from<E: Event>(path: String, event: &E) -> Self {
+    pub fn from_event(uid: &str, event: &impl Event, backend_kind: u8) -> Self {
         Self {
-            uid: event.uid().to_string(),
-            path,
+            uid: uid.to_string(),
             summary: event.summary().to_string(),
             description: event
                 .description()
@@ -152,11 +151,13 @@ impl EventRecord {
             status: event.status().map(|s| s.to_string()).unwrap_or_default(),
             start: event.start().map(|a| a.format_stable()).unwrap_or_default(),
             end: event.end().map(|a| a.format_stable()).unwrap_or_default(),
+            backend_kind,
         }
     }
 
-    pub fn path(&self) -> &str {
-        &self.path
+    #[allow(dead_code)]
+    pub fn backend_kind(&self) -> u8 {
+        self.backend_kind
     }
 }
 
@@ -218,11 +219,11 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let event = test_event("event-1", "Test Event");
-        let record = EventRecord::from("/path/to/event.ics".to_string(), &event);
+        let record = EventRecord::from_event("event-1", &event, 0);
 
         // Act
         db.events
-            .insert(record)
+            .upsert(record)
             .await
             .expect("Failed to insert event");
 
@@ -242,17 +243,17 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let event = test_event("event-1", "Original Summary");
-        let record = EventRecord::from("/path/to/event.ics".to_string(), &event);
+        let record = EventRecord::from_event("event-1", &event, 0);
         db.events
-            .insert(record)
+            .upsert(record)
             .await
             .expect("Failed to insert event");
 
         // Act
         let updated_event = test_event("event-1", "Updated Summary");
-        let updated_record = EventRecord::from("/new/path/event.ics".to_string(), &updated_event);
+        let updated_record = EventRecord::from_event("event-1", &updated_event, 0);
         db.events
-            .insert(updated_record)
+            .upsert(updated_record)
             .await
             .expect("Failed to update event");
 
@@ -265,7 +266,7 @@ mod tests {
             .expect("Event not found");
         assert_eq!(retrieved.uid(), "event-1");
         assert_eq!(retrieved.summary(), "Updated Summary");
-        assert_eq!(retrieved.path(), "/new/path/event.ics");
+        assert_eq!(retrieved.backend_kind(), 0);
     }
 
     #[tokio::test]
@@ -273,9 +274,9 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let event = test_event("event-1", "Test Event");
-        let record = EventRecord::from("/path/to/event.ics".to_string(), &event);
+        let record = EventRecord::from_event("event-1", &event, 0);
         db.events
-            .insert(record)
+            .upsert(record)
             .await
             .expect("Failed to insert event");
 
@@ -308,11 +309,11 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let event = test_event("event-1", "Test Event");
-        let record = EventRecord::from("/path/to/event.ics".to_string(), &event);
+        let record = EventRecord::from_event("event-1", &event, 0);
 
         // Act
         db.events
-            .insert(record)
+            .upsert(record)
             .await
             .expect("Failed to insert event");
 
@@ -335,12 +336,12 @@ mod tests {
         let db = setup_test_db().await;
         let event1 = test_event("event-1", "Event 1");
         db.events
-            .insert(EventRecord::from("/path1.ics".into(), &event1))
+            .upsert(EventRecord::from_event("event-1", &event1, 0))
             .await
             .unwrap();
         let event2 = test_event("event-2", "Event 2");
         db.events
-            .insert(EventRecord::from("/path2.ics".into(), &event2))
+            .upsert(EventRecord::from_event("event-2", &event2, 0))
             .await
             .unwrap();
 
@@ -376,7 +377,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .insert(EventRecord::from("/path1.ics".into(), &event_before))
+            .upsert(EventRecord::from_event("event-1", &event_before, 0))
             .await
             .unwrap();
 
@@ -387,7 +388,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .insert(EventRecord::from("/path2.ics".into(), &event_after))
+            .upsert(EventRecord::from_event("event-2", &event_after, 0))
             .await
             .unwrap();
 
@@ -435,7 +436,7 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .insert(EventRecord::from("/path1.ics".into(), &matching_event))
+            .upsert(EventRecord::from_event("event-1", &matching_event, 0))
             .await
             .unwrap();
 
@@ -447,7 +448,7 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .insert(EventRecord::from("/path2.ics".into(), &non_matching_event))
+            .upsert(EventRecord::from_event("event-2", &non_matching_event, 0))
             .await
             .unwrap();
 
@@ -474,7 +475,7 @@ mod tests {
         for i in 1..=5 {
             let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
             db.events
-                .insert(EventRecord::from(format!("/path{i}.ics"), &event))
+                .upsert(EventRecord::from_event(&format!("event-{i}"), &event, 0))
                 .await
                 .unwrap();
         }
@@ -501,7 +502,7 @@ mod tests {
         for i in 1..=5 {
             let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
             db.events
-                .insert(EventRecord::from(format!("/path{i}.ics"), &event))
+                .upsert(EventRecord::from_event(&format!("event-{i}"), &event, 0))
                 .await
                 .unwrap();
         }
@@ -533,7 +534,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .insert(EventRecord::from("/path1.ics".into(), &event1))
+            .upsert(EventRecord::from_event("event-1", &event1, 0))
             .await
             .unwrap();
 
@@ -544,7 +545,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .insert(EventRecord::from("/path2.ics".into(), &event2))
+            .upsert(EventRecord::from_event("event-2", &event2, 0))
             .await
             .unwrap();
 
@@ -555,7 +556,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .insert(EventRecord::from("/path3.ics".into(), &event3))
+            .upsert(EventRecord::from_event("event-3", &event3, 0))
             .await
             .unwrap();
 
@@ -584,7 +585,7 @@ mod tests {
         for i in 1..=5 {
             let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
             db.events
-                .insert(EventRecord::from(format!("/path{i}.ics"), &event))
+                .upsert(EventRecord::from_event(&format!("event-{i}"), &event, 0))
                 .await
                 .unwrap();
         }
@@ -616,7 +617,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .insert(EventRecord::from("/path1.ics".into(), &event_before))
+            .upsert(EventRecord::from_event("event-1", &event_before, 0))
             .await
             .unwrap();
 
@@ -627,7 +628,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .insert(EventRecord::from("/path2.ics".into(), &event_after))
+            .upsert(EventRecord::from_event("event-2", &event_after, 0))
             .await
             .unwrap();
 
@@ -665,7 +666,7 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .insert(EventRecord::from("/path1.ics".into(), &event_matching))
+            .upsert(EventRecord::from_event("event-1", &event_matching, 0))
             .await
             .unwrap();
 
@@ -683,7 +684,7 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .insert(EventRecord::from("/path2.ics".into(), &event_non_matching))
+            .upsert(EventRecord::from_event("event-2", &event_non_matching, 0))
             .await
             .unwrap();
 
@@ -725,7 +726,7 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .insert(EventRecord::from("/path1.ics".into(), &matching_event))
+            .upsert(EventRecord::from_event("event-1", &matching_event, 0))
             .await
             .unwrap();
 
@@ -737,7 +738,7 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .insert(EventRecord::from("/path2.ics".into(), &non_matching_event))
+            .upsert(EventRecord::from_event("event-2", &non_matching_event, 0))
             .await
             .unwrap();
 

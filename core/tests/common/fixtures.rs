@@ -28,7 +28,7 @@ use aimcal_core::{
 #[must_use]
 pub fn test_config(calendar_path: &str, state_dir: Option<&str>) -> Config {
     Config {
-        calendar_path: PathBuf::from(calendar_path),
+        calendar_path: Some(PathBuf::from(calendar_path)),
         state_dir: state_dir.map(PathBuf::from),
         default_due: None,
         default_priority: Priority::None,
@@ -50,7 +50,7 @@ pub fn test_config_with_due(
     default_due: DateTimeAnchor,
 ) -> Config {
     Config {
-        calendar_path: PathBuf::from(calendar_path),
+        calendar_path: Some(PathBuf::from(calendar_path)),
         state_dir: state_dir.map(PathBuf::from),
         default_due: Some(default_due),
         default_priority: Priority::None,
@@ -62,7 +62,7 @@ pub fn test_config_with_due(
 #[must_use]
 pub fn test_config_defaults() -> Config {
     Config {
-        calendar_path: PathBuf::from("/tmp/test-calendar"),
+        calendar_path: Some(PathBuf::from("/tmp/test-calendar")),
         state_dir: Some(PathBuf::from("/tmp/test-state")),
         default_due: Some(DateTimeAnchor::InDays(1)),
         default_priority: Priority::P5,
@@ -250,7 +250,7 @@ impl TestConfigBuilder {
         );
 
         Config {
-            calendar_path,
+            calendar_path: Some(calendar_path),
             state_dir: Some(state_dir),
             default_due: self.default_due,
             default_priority: self.default_priority,
@@ -429,7 +429,7 @@ mod tests {
     fn test_config_creates_config() {
         let config = test_config("/cal", Some("/state"));
 
-        assert_eq!(config.calendar_path, PathBuf::from("/cal"));
+        assert_eq!(config.calendar_path, Some(PathBuf::from("/cal")));
         assert_eq!(config.state_dir, Some(PathBuf::from("/state")));
         assert!(config.default_due.is_none());
         assert_eq!(config.default_priority, Priority::None);
@@ -447,7 +447,10 @@ mod tests {
     fn test_config_defaults_has_all_values() {
         let config = test_config_defaults();
 
-        assert_eq!(config.calendar_path, PathBuf::from("/tmp/test-calendar"));
+        assert_eq!(
+            config.calendar_path,
+            Some(PathBuf::from("/tmp/test-calendar"))
+        );
         assert_eq!(config.state_dir, Some(PathBuf::from("/tmp/test-state")));
         assert_eq!(config.default_due, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(config.default_priority, Priority::P5);

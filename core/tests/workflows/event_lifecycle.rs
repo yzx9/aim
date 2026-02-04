@@ -24,7 +24,7 @@ async fn event_lifecycle_create_flow() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -63,7 +63,7 @@ async fn event_lifecycle_update_flow() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -106,7 +106,7 @@ async fn event_lifecycle_external_modification_detected() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -147,7 +147,7 @@ async fn event_lifecycle_status_transitions() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -201,7 +201,7 @@ async fn event_lifecycle_batch_operations() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -312,7 +312,7 @@ END:VCALENDAR
 
     // Act - load the file and create event with same UID via Aim
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -348,7 +348,7 @@ async fn event_lifecycle_rebuild_from_files() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -406,7 +406,7 @@ async fn event_lifecycle_with_custom_datetimes() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,

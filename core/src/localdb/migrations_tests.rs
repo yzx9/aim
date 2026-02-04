@@ -311,7 +311,574 @@ async fn migrations_init_idempotent() {
 }
 
 // =============================================================================
+// ICS Optional Migration Tests
+// =============================================================================
+
+#[tokio::test]
+async fn migrations_ics_optional_creates_resources_table() {
+    let pool = create_pool_without_migrations().await;
+
+    // Apply init migration first to create events/todos tables
+    apply_migration(&pool, "20250801070804_init_events_todos").await;
+
+    // Apply migration
+    apply_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify backend_kind column was added to events table
+    let events_columns = get_table_columns(&pool, "events").await;
+    assert_eq!(events_columns.len(), 7);
+    assert!(events_columns.iter().any(|c| c.name == "backend_kind"));
+    assert!(
+        events_columns
+            .iter()
+            .filter(|c| c.name == "backend_kind")
+            .all(|c| c.not_null)
+    );
+
+    // Verify backend_kind column was added to todos table
+    let todos_columns = get_table_columns(&pool, "todos").await;
+    assert_eq!(todos_columns.len(), 9);
+    assert!(todos_columns.iter().any(|c| c.name == "backend_kind"));
+    assert!(
+        todos_columns
+            .iter()
+            .filter(|c| c.name == "backend_kind")
+            .all(|c| c.not_null)
+    );
+
+    // Drop test database
+}
+
+#[tokio::test]
+async fn migrations_ics_optional_migrates_existing_path_data() {
+    let pool = create_pool_without_migrations().await;
+
+    // Apply init migration first to create tables with path column
+    apply_migration(&pool, "20250801070804_init_events_todos").await;
+
+    // Add test event and todo
+    sqlx::query(
+            "INSERT INTO events (uid, path, summary, description, status, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("test-event-1")
+        .bind("/path/to/test-event-1.ics")
+        .bind("Test Event 1")
+        .bind("")
+        .bind("confirmed")
+        .bind("2025-01-01T00:00:00Z")
+        .bind("2025-01-01T01:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    sqlx::query(
+            "INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("test-todo-1")
+        .bind("/path/to/test-todo-1.ics")
+        .bind("")
+        .bind("")
+        .bind(0)
+        .bind(0)
+        .bind("needs-action")
+        .bind("Test Todo 1")
+        .bind("2025-01-01T10:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Apply migration
+    apply_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify data was migrated to resources table
+    let event_resource = sqlx::query_as::<_, (String, i8, String)>(
+        "SELECT uid, backend_kind, resource_id FROM resources WHERE uid = ? AND backend_kind = 0",
+    )
+    .bind("test-event-1")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        event_resource,
+        (
+            "test-event-1".to_string(),
+            0i8,
+            "file:///path/to/test-event-1.ics".to_string()
+        )
+    );
+
+    let todo_resource = sqlx::query_as::<_, (String, i8, String)>(
+        "SELECT uid, backend_kind, resource_id FROM resources WHERE uid = ? AND backend_kind = 0",
+    )
+    .bind("test-todo-1")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        todo_resource,
+        (
+            "test-todo-1".to_string(),
+            0i8,
+            "file:///path/to/test-todo-1.ics".to_string()
+        )
+    );
+
+    // Drop test database
+}
+
+#[tokio::test]
+async fn migrations_ics_optional_removes_path_columns() {
+    let pool = create_pool_without_migrations().await;
+
+    // Apply init migration first to create tables with path column
+    apply_migration(&pool, "20250801070804_init_events_todos").await;
+
+    // Add test data with path column
+    sqlx::query(
+            "INSERT INTO events (uid, path, summary, description, status, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("test-event-2")
+        .bind("/path/to/test-event-2.ics")
+        .bind("Test Event 2")
+        .bind("")
+        .bind("confirmed")
+        .bind("2025-01-01T00:00:00Z")
+        .bind("2025-01-01T01:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    sqlx::query(
+            "INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("test-todo-2")
+        .bind("/path/to/test-todo-2.ics")
+        .bind("")
+        .bind("")
+        .bind(0)
+        .bind(0)
+        .bind("needs-action")
+        .bind("Test Todo 2")
+        .bind("2025-01-01T10:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Apply migration
+    apply_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify path column was removed from events table
+    let events_columns = get_table_columns(&pool, "events").await;
+    assert_eq!(events_columns.len(), 7); // Should be 7 columns (removed path, added backend_kind)
+
+    let event_col_names: Vec<_> = events_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(!event_col_names.contains(&"path"));
+    assert!(event_col_names.contains(&"backend_kind"));
+
+    // Verify path column was removed from todos table
+    let todos_columns = get_table_columns(&pool, "todos").await;
+    assert_eq!(todos_columns.len(), 9); // Should be 9 columns (removed path, added backend_kind)
+
+    let todo_col_names: Vec<_> = todos_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(!todo_col_names.contains(&"path"));
+    assert!(todo_col_names.contains(&"backend_kind"));
+
+    // Verify data still exists (migration should preserve all event/todo data)
+    let event_count = get_row_count(&pool, "events").await;
+    assert_eq!(event_count, 1);
+
+    let todo_count = get_row_count(&pool, "todos").await;
+    assert_eq!(todo_count, 1);
+
+    // Drop test database
+}
+
+#[tokio::test]
+async fn migrations_ics_optional_idempotency_preserves_data() {
+    let pool = create_pool_without_migrations().await;
+
+    // Apply init migration first to create tables with path column
+    apply_migration(&pool, "20250801070804_init_events_todos").await;
+
+    // Add test event and todo
+    sqlx::query(
+            "INSERT INTO events (uid, path, summary, description, status, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("test-event-3")
+        .bind("/path/to/test-event-3.ics")
+        .bind("Test Event 3")
+        .bind("")
+        .bind("confirmed")
+        .bind("2025-01-01T00:00:00Z")
+        .bind("2025-01-01T01:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    sqlx::query(
+            "INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("test-todo-3")
+        .bind("/path/to/test-todo-3.ics")
+        .bind("")
+        .bind("")
+        .bind(0)
+        .bind(0)
+        .bind("needs-action")
+        .bind("Test Todo 3")
+        .bind("2025-01-01T10:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Apply migration
+    apply_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify all data preserved in events
+    let events_columns = get_table_columns(&pool, "events").await;
+    assert_eq!(events_columns.len(), 7);
+
+    let event_col_names: Vec<_> = events_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(event_col_names.contains(&"uid"));
+    assert!(event_col_names.contains(&"summary"));
+    assert!(event_col_names.contains(&"description"));
+    assert!(event_col_names.contains(&"status"));
+    assert!(event_col_names.contains(&"start"));
+    assert!(event_col_names.contains(&"end"));
+    assert!(event_col_names.contains(&"backend_kind"));
+
+    let event_count = get_row_count(&pool, "events").await;
+    assert_eq!(event_count, 1);
+
+    // Verify resources table has the migrated data
+    let event_resource = sqlx::query_as::<_, (String, i8, String)>(
+        "SELECT uid, backend_kind, resource_id FROM resources WHERE uid = ? AND backend_kind = 0",
+    )
+    .bind("test-event-3")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        event_resource,
+        (
+            "test-event-3".to_string(),
+            0i8,
+            "file:///path/to/test-event-3.ics".to_string()
+        )
+    );
+
+    // Verify all data preserved in todos
+    let todos_columns = get_table_columns(&pool, "todos").await;
+    assert_eq!(todos_columns.len(), 9);
+
+    let todo_col_names: Vec<_> = todos_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(todo_col_names.contains(&"uid"));
+    assert!(todo_col_names.contains(&"summary"));
+    assert!(todo_col_names.contains(&"description"));
+    assert!(todo_col_names.contains(&"status"));
+    assert!(todo_col_names.contains(&"priority"));
+    assert!(todo_col_names.contains(&"due"));
+    assert!(todo_col_names.contains(&"completed"));
+    assert!(todo_col_names.contains(&"backend_kind"));
+
+    let todo_count = get_row_count(&pool, "todos").await;
+    assert_eq!(todo_count, 1);
+
+    // Verify resources table has the migrated data
+    let todo_resource = sqlx::query_as::<_, (String, i8, String)>(
+        "SELECT uid, backend_kind, resource_id FROM resources WHERE uid = ? AND backend_kind = 0",
+    )
+    .bind("test-todo-3")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        todo_resource,
+        (
+            "test-todo-3".to_string(),
+            0i8,
+            "file:///path/to/test-todo-3.ics".to_string()
+        )
+    );
+
+    // Drop test database
+}
+
+#[tokio::test]
+async fn migrations_ics_optional_creates_index() {
+    let pool = create_pool_without_migrations().await;
+
+    // Apply init migration first
+    apply_migration(&pool, "20250801070804_init_events_todos").await;
+
+    // Apply migration
+    apply_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify index was created
+    let indexes =
+        sqlx::query("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='resources'")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+
+    assert_eq!(indexes.len(), 2);
+
+    let index_names: Vec<_> = indexes.iter().map(|i| i.get::<_, _>("name")).collect();
+    assert!(index_names.contains(&"idx_resources_backend_kind"));
+
+    // Drop test database
+}
+
+#[tokio::test]
+async fn migrations_ics_optional_full_cycle() {
+    let pool = create_pool_without_migrations().await;
+
+    // Apply init migration first
+    apply_migration(&pool, "20250801070804_init_events_todos").await;
+
+    // Add test data BEFORE up migration (with path column)
+    sqlx::query(
+            "INSERT INTO events (uid, path, summary, description, status, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("full-cycle-event")
+        .bind("/path/to/full-cycle.ics")
+        .bind("Full Cycle Event")
+        .bind("")
+        .bind("confirmed")
+        .bind("2025-01-01T00:00:00Z")
+        .bind("2025-01-01T01:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    sqlx::query(
+            "INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("full-cycle-todo")
+        .bind("/path/to/full-cycle.ics")
+        .bind("")
+        .bind("")
+        .bind(0)
+        .bind(0)
+        .bind("needs-action")
+        .bind("Full Cycle Todo")
+        .bind("2025-01-01T10:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Apply up migration
+    apply_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify changes
+    let tables = get_table_names(&pool).await;
+    assert!(tables.iter().any(|t| t == "resources"));
+    assert!(tables.iter().any(|t| t == "events"));
+    assert!(tables.iter().any(|t| t == "todos"));
+
+    // Verify resources table
+    let columns = get_table_columns(&pool, "resources").await;
+    assert_eq!(columns.len(), 4);
+    assert!(columns.iter().any(|c| c.name == "uid"));
+    assert!(columns.iter().any(|c| c.name == "backend_kind"));
+    assert!(columns.iter().any(|c| c.name == "resource_id"));
+    assert!(columns.iter().any(|c| c.name == "metadata"));
+
+    // Verify backend_kind in events
+    let events_columns = get_table_columns(&pool, "events").await;
+    assert!(events_columns.iter().any(|c| c.name == "backend_kind"));
+    let col_names: Vec<_> = events_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(col_names.contains(&"uid"));
+    assert!(col_names.contains(&"backend_kind"));
+
+    // Verify backend_kind in todos
+    let todos_columns = get_table_columns(&pool, "todos").await;
+    assert!(todos_columns.iter().any(|c| c.name == "backend_kind"));
+    let todo_col_names: Vec<_> = todos_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(todo_col_names.contains(&"uid"));
+    assert!(todo_col_names.contains(&"backend_kind"));
+
+    // Verify data migrated to resources
+    let event_resource = sqlx::query_as::<_, (String, i8, String)>(
+        "SELECT uid, backend_kind, resource_id FROM resources WHERE uid = ? AND backend_kind = 0",
+    )
+    .bind("full-cycle-event")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        event_resource,
+        (
+            "full-cycle-event".to_string(),
+            0i8,
+            "file:///path/to/full-cycle.ics".to_string()
+        )
+    );
+
+    let todo_resource = sqlx::query_as::<_, (String, i8, String)>(
+        "SELECT uid, backend_kind, resource_id FROM resources WHERE uid = ? AND backend_kind = 0",
+    )
+    .bind("full-cycle-todo")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        todo_resource,
+        (
+            "full-cycle-todo".to_string(),
+            0i8,
+            "file:///path/to/full-cycle.ics".to_string()
+        )
+    );
+
+    // Apply down migration
+    apply_down_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify path columns are restored
+    let events_columns = get_table_columns(&pool, "events").await;
+    assert_eq!(events_columns.len(), 7); // Should have 7 columns again (original structure)
+
+    let event_col_names: Vec<_> = events_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(event_col_names.contains(&"path"));
+    assert!(!event_col_names.contains(&"backend_kind")); // backend_kind should be preserved
+
+    let todos_columns = get_table_columns(&pool, "todos").await;
+    assert_eq!(todos_columns.len(), 9); // Should have 9 columns again (original structure)
+
+    let todos_column_names: Vec<_> = todos_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(todos_column_names.contains(&"path"));
+    assert!(!todos_column_names.contains(&"backend_kind")); // backend_kind should be preserved
+
+    // Verify resources table was dropped
+    let tables = get_table_names(&pool).await;
+    assert!(!tables.iter().any(|t| t == "resources"));
+
+    // Drop test database
+}
+
+// =============================================================================
 // Down Migration Tests
+// =============================================================================
+
+#[tokio::test]
+async fn migrations_ics_optional_down_restores_path() {
+    let pool = create_pool_without_migrations().await;
+
+    // Create tables with path column
+    apply_migration(&pool, "20250801070804_init_events_todos").await;
+
+    // Add test data
+    sqlx::query(
+            "INSERT INTO events (uid, path, summary, description, status, start, end) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("down-event-1")
+        .bind("/down-event-1")
+        .bind("Down Event 1")
+        .bind("")
+        .bind("confirmed")
+        .bind("2025-01-01T00:00:00Z")
+        .bind("2025-01-01T01:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    sqlx::query(
+            "INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind("down-todo-1")
+        .bind("/down-todo-1")
+        .bind("")
+        .bind("")
+        .bind(0)
+        .bind(0)
+        .bind("needs-action")
+        .bind("Down Todo 1")
+        .bind("2025-01-01T10:00:00Z")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Apply up migration first (to get to state where down migration works)
+    apply_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify up migration worked
+    let tables = get_table_names(&pool).await;
+    assert!(tables.iter().any(|t| t == "resources"));
+
+    let events_columns = get_table_columns(&pool, "events").await;
+    assert!(!events_columns.iter().any(|c| c.name == "path"));
+    assert!(events_columns.iter().any(|c| c.name == "backend_kind"));
+
+    let todos_columns = get_table_columns(&pool, "todos").await;
+    assert!(!todos_columns.iter().any(|c| c.name == "path"));
+    assert!(todos_columns.iter().any(|c| c.name == "backend_kind"));
+
+    // Apply down migration
+    apply_down_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify path columns are restored
+    let events_columns = get_table_columns(&pool, "events").await;
+    assert!(events_columns.iter().any(|c| c.name == "path"));
+    assert!(!events_columns.iter().any(|c| c.name == "backend_kind"));
+
+    let todos_columns = get_table_columns(&pool, "todos").await;
+    assert!(todos_columns.iter().any(|c| c.name == "path"));
+    assert!(!todos_columns.iter().any(|c| c.name == "backend_kind"));
+
+    // Verify resources table was dropped
+    let tables = get_table_names(&pool).await;
+    assert!(!tables.iter().any(|t| t == "resources"));
+
+    // Verify data still exists (down migration should preserve all event/todo data)
+    let event_count = get_row_count(&pool, "events").await;
+    assert_eq!(event_count, 1);
+
+    let todo_count = get_row_count(&pool, "todos").await;
+    assert_eq!(todo_count, 1);
+
+    // Drop test database
+}
+
+#[tokio::test]
+async fn migrations_ics_optional_down_drops_resources_table() {
+    let pool = create_pool_without_migrations().await;
+
+    // Apply init migration first
+    apply_migration(&pool, "20250801070804_init_events_todos").await;
+
+    // Apply up migration (to get to state where down migration works)
+    apply_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Apply down migration
+    apply_down_migration(&pool, "20260131235400_ics_optional").await;
+
+    // Verify resources table was dropped
+    let tables = get_table_names(&pool).await;
+    assert!(!tables.iter().any(|t| t == "resources"));
+
+    // Verify events table exists without backend_kind
+    let events_columns = get_table_columns(&pool, "events").await;
+    assert_eq!(events_columns.len(), 7); // Should be 7 columns (original structure)
+
+    let events_col_names: Vec<_> = events_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(events_col_names.contains(&"uid"));
+    assert!(events_col_names.contains(&"path"));
+    assert!(!events_col_names.contains(&"backend_kind"));
+
+    // Verify todos table exists without backend_kind
+    let todos_columns = get_table_columns(&pool, "todos").await;
+    assert_eq!(todos_columns.len(), 9); // Should be 9 columns (original structure)
+
+    let todos_column_names: Vec<_> = todos_columns.iter().map(|c| c.name.as_str()).collect();
+    assert!(todos_column_names.contains(&"uid"));
+    assert!(todos_column_names.contains(&"path"));
+    assert!(!todos_column_names.contains(&"backend_kind"));
+
+    // Drop test database
+}
+
+// =============================================================================
+// Data Preservation Tests (ensure no data loss during migration)
 // =============================================================================
 
 #[tokio::test]
