@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod events;
+mod resources;
 mod short_ids;
 mod todos;
 
@@ -18,6 +19,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 
 use crate::localdb::events::{EventRecord, Events};
+use crate::localdb::resources::Resources;
 use crate::localdb::short_ids::ShortIds;
 use crate::localdb::todos::{TodoRecord, Todos};
 use crate::{Event, Todo};
@@ -32,6 +34,7 @@ pub struct LocalDb {
     pub events: Events,
     pub todos: Todos,
     pub short_ids: ShortIds,
+    pub resources: Resources,
 }
 
 impl LocalDb {
@@ -74,30 +77,36 @@ impl LocalDb {
         let events = Events::new(pool.clone());
         let todos = Todos::new(pool.clone());
         let short_ids = ShortIds::new(pool.clone());
+        let resources = Resources::new(pool.clone());
         Ok(LocalDb {
             pool,
             events,
             todos,
             short_ids,
+            resources,
         })
     }
 
     pub async fn upsert_event(
         &self,
-        path: &Path,
+        uid: &str,
         event: &impl Event,
+        backend_kind: u8,
     ) -> Result<(), Box<dyn Error>> {
-        let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
-        let record = EventRecord::from(path.clone(), event);
+        let record = EventRecord::from_event(uid, event, backend_kind);
         self.events
-            .insert(record)
+            .upsert(record)
             .await
             .map_err(|e| format!("Failed to upsert event: {e}").into())
     }
 
-    pub async fn upsert_todo(&self, path: &Path, todo: &impl Todo) -> Result<(), Box<dyn Error>> {
-        let path = path.to_str().ok_or("Invalid path encoding")?.to_string();
-        let record = TodoRecord::from(path.clone(), todo);
+    pub async fn upsert_todo(
+        &self,
+        uid: &str,
+        todo: &impl Todo,
+        backend_kind: u8,
+    ) -> Result<(), Box<dyn Error>> {
+        let record = TodoRecord::from_todo(uid, todo, backend_kind);
         self.todos
             .upsert(&record)
             .await

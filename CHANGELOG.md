@@ -7,19 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- cli: Fix `delay` command showing old date after update (#98)
-- ical: TZID validation now correctly supports VTIMEZONE components per RFC 5545 Section 3.2.19 (#97)
+- core: `BackendKind` enum added to public API for future backend type identification
 
 ### Changed
 
+- core: Preparatory infrastructure for multi-backend architecture with unified resources table
+  to support local ICS, CalDAV, and other backends
+  - core: Config `calendar_path` is now optional - AIM can operate in LocalDB-only mode without
+    ICS files when not configured
+  - core: Events/todos now stored primarily in database with optional ICS file sync when
+    `calendar_path` is configured (preparatory for multi-backend support)
+  - core: New database migration (20260131235400_ics_optional) to migrate from path-based to
+    resource-based storage
 - ical: `VJournal` field `rdate` renamed to `rdates` and `ex_date` renamed to `ex_dates` for consistency
 - ical: `DateTime` refactored from enum to struct wrapping new `DateTimeValue` enum
 - ical: `ValueTime::new()` now returns `Result<Self, String>` instead of `Self` for proper validation
 - ical: `ValueTime`, `ValueUtcOffset` and `property::Time` fields changed from `u8` to `i8`
 - ical: Removed `ExDateValue` enum wrapper - `ExDate.dates` now uses `Vec<DateTime>` directly
 - ical: Removed `RDateValue::Date` variant - use `RDateValue::DateTime(DateTime::Date(...))` instead
+
+### Fixed
+
+- cli: Fix `delay` command showing old date after update (#98)
+- ical: TZID validation now correctly supports VTIMEZONE components per RFC 5545 Section 3.2.19 (#97)
 
 ## [0.11.0] - 2026-01-18
 

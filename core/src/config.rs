@@ -13,8 +13,12 @@ pub const APP_NAME: &str = "aim";
 /// Configuration for the AIM application.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Config {
-    /// Path to the calendar directory.
-    pub calendar_path: PathBuf,
+    /// Path to the calendar directory (optional ICS export/import).
+    ///
+    /// If set, AIM will sync events/todos with ICS files in this directory.
+    /// If not set, AIM will only use `LocalDb` for storage.
+    #[serde(default)]
+    pub calendar_path: Option<PathBuf>,
 
     /// Directory for storing application state.
     #[serde(default)]
@@ -40,8 +44,10 @@ impl Config {
     /// If path normalization fails.
     #[tracing::instrument(skip(self))]
     pub fn normalize(&mut self) -> Result<(), Box<dyn Error>> {
-        // Normalize calendar path
-        self.calendar_path = expand_path(&self.calendar_path)?;
+        // Normalize calendar path if set
+        if let Some(ref calendar_path) = self.calendar_path {
+            self.calendar_path = Some(expand_path(calendar_path)?);
+        }
 
         // Normalize state directory
         match &self.state_dir {
@@ -132,7 +138,7 @@ default_priority_none_fist = true
 "#;
 
         let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
-        assert_eq!(config.calendar_path, PathBuf::from("calendar"));
+        assert_eq!(config.calendar_path, Some(PathBuf::from("calendar")));
         assert_eq!(config.state_dir, Some(PathBuf::from("state")));
         assert_eq!(config.default_due, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(config.default_priority, Priority::P2);
@@ -140,13 +146,13 @@ default_priority_none_fist = true
     }
 
     #[test]
+    #[allow(clippy::needless_raw_string_hashes)]
     fn parses_minimal_toml_with_defaults() {
         const TOML: &str = r#"
-calendar_path = "calendar"
 "#;
 
         let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
-        assert_eq!(config.calendar_path, PathBuf::from("calendar"));
+        assert_eq!(config.calendar_path, None);
         assert_eq!(config.state_dir, None);
         assert_eq!(config.default_due, None);
         assert_eq!(config.default_priority, Priority::None);

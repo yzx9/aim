@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Cow;
+
 use jiff::Zoned;
 use sqlx::{Sqlite, SqlitePool, query::QueryAs, sqlite::SqliteArguments};
-use std::borrow::Cow;
 
 use crate::datetime::STABLE_FORMAT_LOCAL;
 use crate::todo::{ResolvedTodoConditions, ResolvedTodoSort};
@@ -22,22 +23,21 @@ impl Todos {
 
     pub async fn upsert(&self, todo: &TodoRecord) -> Result<(), sqlx::Error> {
         const SQL: &str = "\
-INSERT INTO todos (uid, path, completed, description, percent, priority, status, summary, due)
+INSERT INTO todos (uid, completed, description, percent, priority, status, summary, due, backend_kind)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uid) DO UPDATE SET
-    path        = excluded.path,
-    completed   = excluded.completed,
-    description = excluded.description,
-    percent     = excluded.percent,
-    priority    = excluded.priority,
-    status      = excluded.status,
-    summary     = excluded.summary,
-    due         = excluded.due;
+    completed    = excluded.completed,
+    description  = excluded.description,
+    percent      = excluded.percent,
+    priority     = excluded.priority,
+    status       = excluded.status,
+    summary      = excluded.summary,
+    due          = excluded.due,
+    backend_kind = excluded.backend_kind;
 ";
 
         sqlx::query(SQL)
             .bind(&todo.uid)
-            .bind(&todo.path)
             .bind(&todo.completed)
             .bind(&todo.description)
             .bind(todo.percent)
@@ -45,6 +45,7 @@ ON CONFLICT(uid) DO UPDATE SET
             .bind(&todo.status)
             .bind(&todo.summary)
             .bind(&todo.due)
+            .bind(todo.backend_kind)
             .execute(&self.pool)
             .await?;
 
@@ -53,7 +54,7 @@ ON CONFLICT(uid) DO UPDATE SET
 
     pub async fn get(&self, uid: &str) -> Result<Option<TodoRecord>, sqlx::Error> {
         const SQL: &str = "\
-SELECT uid, path, completed, description, percent, priority, status, summary, due
+SELECT uid, completed, description, percent, priority, status, summary, due, backend_kind
 FROM todos
 WHERE uid = ?;
 ";
@@ -71,7 +72,7 @@ WHERE uid = ?;
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
         let mut sql = "\
-SELECT uid, path, completed, description, percent, priority, status, summary, due
+SELECT uid, completed, description, percent, priority, status, summary, due, backend_kind
 FROM todos
 "
         .to_string();
@@ -161,7 +162,6 @@ FROM todos
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TodoRecord {
     uid: String,
-    path: String,
     completed: String,
     description: String,
     percent: Option<u8>,
@@ -169,13 +169,13 @@ pub struct TodoRecord {
     status: String,
     summary: String,
     due: String,
+    backend_kind: u8,
 }
 
 impl TodoRecord {
-    pub fn from<T: Todo>(path: String, todo: &T) -> Self {
+    pub fn from_todo(uid: &str, todo: &impl Todo, backend_kind: u8) -> Self {
         Self {
-            uid: todo.uid().to_string(),
-            path,
+            uid: uid.to_string(),
             summary: todo.summary().to_string(),
             description: todo.description().unwrap_or_default().to_string(),
             due: todo.due().map(|a| a.format_stable()).unwrap_or_default(),
@@ -186,11 +186,13 @@ impl TodoRecord {
             percent: todo.percent_complete(),
             priority: todo.priority().into(),
             status: todo.status().to_string(),
+            backend_kind,
         }
     }
 
-    pub fn path(&self) -> &str {
-        &self.path
+    #[allow(dead_code)]
+    pub fn backend_kind(&self) -> u8 {
+        self.backend_kind
     }
 }
 
@@ -258,7 +260,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let todo = test_todo("todo-1", "Test Todo");
-        let record = TodoRecord::from("/path/to/todo.ics".to_string(), &todo);
+        let record = TodoRecord::from_todo("todo-1", &todo, 0);
 
         // Act
         db.todos
@@ -282,7 +284,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let todo = test_todo("todo-1", "Original Summary");
-        let record = TodoRecord::from("/path/to/todo.ics".to_string(), &todo);
+        let record = TodoRecord::from_todo("todo-1", &todo, 0);
         db.todos
             .upsert(&record)
             .await
@@ -290,7 +292,7 @@ mod tests {
 
         // Act
         let updated_todo = test_todo("todo-1", "Updated Summary");
-        let updated_record = TodoRecord::from("/new/path/todo.ics".to_string(), &updated_todo);
+        let updated_record = TodoRecord::from_todo("todo-1", &updated_todo, 0);
         db.todos
             .upsert(&updated_record)
             .await
@@ -305,7 +307,6 @@ mod tests {
             .expect("Todo not found");
         assert_eq!(retrieved.uid(), "todo-1");
         assert_eq!(retrieved.summary(), "Updated Summary");
-        assert_eq!(retrieved.path(), "/new/path/todo.ics");
     }
 
     #[tokio::test]
@@ -313,7 +314,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let todo = test_todo("todo-1", "Test Todo");
-        let record = TodoRecord::from("/path/to/todo.ics".to_string(), &todo);
+        let record = TodoRecord::from_todo("todo-1", &todo, 0);
         db.todos
             .upsert(&record)
             .await
@@ -350,7 +351,7 @@ mod tests {
 
         // Test with None
         let todo1 = test_todo("todo-1", "Test None");
-        let record1 = TodoRecord::from("/path/to/todo1.ics".to_string(), &todo1);
+        let record1 = TodoRecord::from_todo("todo-1", &todo1, 0);
         db.todos
             .upsert(&record1)
             .await
@@ -358,7 +359,7 @@ mod tests {
 
         // Test with 0
         let todo2 = test_todo("todo-2", "Test 0").with_percent_complete(0);
-        let record2 = TodoRecord::from("/path/to/todo2.ics".to_string(), &todo2);
+        let record2 = TodoRecord::from_todo("todo-2", &todo2, 0);
         db.todos
             .upsert(&record2)
             .await
@@ -366,7 +367,7 @@ mod tests {
 
         // Test with 100
         let todo3 = test_todo("todo-3", "Test 100").with_percent_complete(100);
-        let record3 = TodoRecord::from("/path/to/todo3.ics".to_string(), &todo3);
+        let record3 = TodoRecord::from_todo("todo-3", &todo3, 0);
         db.todos
             .upsert(&record3)
             .await
@@ -417,7 +418,7 @@ mod tests {
         {
             let uid = format!("todo-{}", i + 1);
             let todo = test_todo(&uid, "Test Todo").with_priority(*priority);
-            let record = TodoRecord::from(format!("/path/to/todo{}.ics", i + 1), &todo);
+            let record = TodoRecord::from_todo(&uid, &todo, 0);
             db.todos
                 .upsert(&record)
                 .await
@@ -439,12 +440,12 @@ mod tests {
         let db = setup_test_db().await;
         let todo1 = test_todo("todo-1", "Todo 1");
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo1))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
             .await
             .unwrap();
         let todo2 = test_todo("todo-2", "Todo 2");
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo2))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
             .await
             .unwrap();
 
@@ -472,13 +473,13 @@ mod tests {
         let todo_needs_action =
             test_todo("todo-1", "Needs Action").with_status(TodoStatus::NeedsAction);
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo_needs_action))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_needs_action, 0))
             .await
             .unwrap();
 
         let todo_completed = test_todo("todo-2", "Completed").with_status(TodoStatus::Completed);
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo_completed))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_completed, 0))
             .await
             .unwrap();
 
@@ -516,7 +517,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo_before))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_before, 0))
             .await
             .unwrap();
 
@@ -527,7 +528,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo_after))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_after, 0))
             .await
             .unwrap();
 
@@ -567,7 +568,7 @@ mod tests {
                     .unwrap(),
             ));
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo_matching))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_matching, 0))
             .await
             .unwrap();
 
@@ -580,7 +581,7 @@ mod tests {
                     .unwrap(),
             ));
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo_wrong_status))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_wrong_status, 0))
             .await
             .unwrap();
 
@@ -613,7 +614,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo1))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
             .await
             .unwrap();
 
@@ -624,7 +625,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo2))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
             .await
             .unwrap();
 
@@ -635,7 +636,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path3.ics".into(), &todo3))
+            .upsert(&TodoRecord::from_todo("todo-3", &todo3, 0))
             .await
             .unwrap();
 
@@ -670,7 +671,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo1))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
             .await
             .unwrap();
 
@@ -681,7 +682,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo2))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
             .await
             .unwrap();
 
@@ -692,7 +693,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path3.ics".into(), &todo3))
+            .upsert(&TodoRecord::from_todo("todo-3", &todo3, 0))
             .await
             .unwrap();
 
@@ -722,19 +723,19 @@ mod tests {
         let db = setup_test_db().await;
         let todo1 = test_todo("todo-1", "None Priority").with_priority(Priority::None);
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo1))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
             .await
             .unwrap();
 
         let todo2 = test_todo("todo-2", "High Priority").with_priority(Priority::P2);
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo2))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
             .await
             .unwrap();
 
         let todo3 = test_todo("todo-3", "Low Priority").with_priority(Priority::P8);
         db.todos
-            .upsert(&TodoRecord::from("/path3.ics".into(), &todo3))
+            .upsert(&TodoRecord::from_todo("todo-3", &todo3, 0))
             .await
             .unwrap();
 
@@ -767,19 +768,19 @@ mod tests {
         let db = setup_test_db().await;
         let todo1 = test_todo("todo-1", "None Priority").with_priority(Priority::None);
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo1))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
             .await
             .unwrap();
 
         let todo2 = test_todo("todo-2", "High Priority").with_priority(Priority::P2);
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo2))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
             .await
             .unwrap();
 
         let todo3 = test_todo("todo-3", "Low Priority").with_priority(Priority::P8);
         db.todos
-            .upsert(&TodoRecord::from("/path3.ics".into(), &todo3))
+            .upsert(&TodoRecord::from_todo("todo-3", &todo3, 0))
             .await
             .unwrap();
 
@@ -812,7 +813,7 @@ mod tests {
         for i in 1..=5 {
             let todo = test_todo(&format!("todo-{i}"), &format!("Todo {i}"));
             db.todos
-                .upsert(&TodoRecord::from(format!("/path{i}.ics"), &todo))
+                .upsert(&TodoRecord::from_todo(&format!("todo-{i}"), &todo, 0))
                 .await
                 .unwrap();
         }
@@ -840,7 +841,7 @@ mod tests {
         for i in 1..=5 {
             let todo = test_todo(&format!("todo-{i}"), &format!("Todo {i}"));
             db.todos
-                .upsert(&TodoRecord::from(format!("/path{i}.ics"), &todo))
+                .upsert(&TodoRecord::from_todo(&format!("todo-{i}"), &todo, 0))
                 .await
                 .unwrap();
         }
@@ -868,7 +869,7 @@ mod tests {
         for i in 1..=5 {
             let todo = test_todo(&format!("todo-{i}"), &format!("Todo {i}"));
             db.todos
-                .upsert(&TodoRecord::from(format!("/path{i}.ics"), &todo))
+                .upsert(&TodoRecord::from_todo(&format!("todo-{i}"), &todo, 0))
                 .await
                 .unwrap();
         }
@@ -891,13 +892,13 @@ mod tests {
         let todo_needs_action =
             test_todo("todo-1", "Needs Action").with_status(TodoStatus::NeedsAction);
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo_needs_action))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_needs_action, 0))
             .await
             .unwrap();
 
         let todo_completed = test_todo("todo-2", "Completed").with_status(TodoStatus::Completed);
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo_completed))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_completed, 0))
             .await
             .unwrap();
 
@@ -928,7 +929,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo_before))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_before, 0))
             .await
             .unwrap();
 
@@ -939,7 +940,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo_after))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_after, 0))
             .await
             .unwrap();
 
@@ -972,7 +973,7 @@ mod tests {
                     .unwrap(),
             ));
         db.todos
-            .upsert(&TodoRecord::from("/path1.ics".into(), &todo_matching))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_matching, 0))
             .await
             .unwrap();
 
@@ -985,7 +986,7 @@ mod tests {
                     .unwrap(),
             ));
         db.todos
-            .upsert(&TodoRecord::from("/path2.ics".into(), &todo_wrong_status))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_wrong_status, 0))
             .await
             .unwrap();
 

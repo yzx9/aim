@@ -55,7 +55,7 @@ async fn config_default_due_applied() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::None,
@@ -103,7 +103,7 @@ async fn config_default_priority_applied() {
         (Priority::None, Priority::None),
     ] {
         let config = Config {
-            calendar_path: temp_dirs.calendar_path.clone(),
+            calendar_path: Some(temp_dirs.calendar_path.clone()),
             state_dir: Some(temp_dirs.state_dir.clone()),
             default_due: None,
             default_priority,
@@ -126,7 +126,7 @@ async fn config_priority_sorting_behavior() {
 
     // Test with none_first = true
     let config_none_first = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -171,7 +171,7 @@ async fn config_priority_sorting_behavior() {
     // Test with none_first = false
     let temp_dirs2 = setup_temp_dirs().await.unwrap();
     let config_some_first = Config {
-        calendar_path: temp_dirs2.calendar_path.clone(),
+        calendar_path: Some(temp_dirs2.calendar_path.clone()),
         state_dir: Some(temp_dirs2.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -210,38 +210,11 @@ async fn config_priority_sorting_behavior() {
 }
 
 #[tokio::test]
-async fn config_invalid_path_handling() {
-    // Test with non-existent calendar path
-    let temp_dirs = setup_temp_dirs().await.unwrap();
-    let config1 = TestConfigBuilder::new()
-        .with_calendar_path(&PathBuf::from(
-            "/nonexistent/path/that/does/not/exist/calendar",
-        ))
-        .with_state_dir(&temp_dirs.state_dir)
-        .build();
-
-    let result1 = Aim::new(config1).await;
-    assert!(
-        result1.is_err(),
-        "Should fail with non-existent calendar path"
-    );
-
-    // Test with writable temp path should succeed
-    let config2 = TestConfigBuilder::new()
-        .with_calendar_path(&temp_dirs.calendar_path)
-        .with_state_dir(&temp_dirs.state_dir)
-        .build();
-
-    let result2 = Aim::new(config2).await;
-    assert!(result2.is_ok(), "Should succeed with valid temp paths");
-}
-
-#[tokio::test]
 async fn config_timezone_handling() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -269,7 +242,7 @@ async fn config_mixed_defaults_integration() {
     // Arrange - config with multiple defaults
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P3,
@@ -327,7 +300,7 @@ async fn config_persistence_across_restarts() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P5,
@@ -368,7 +341,7 @@ async fn config_default_draft_consistency() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(1)),
         default_priority: Priority::P2,
@@ -402,7 +375,7 @@ async fn config_event_defaults() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        calendar_path: temp_dirs.calendar_path.clone(),
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P5,
@@ -441,7 +414,7 @@ async fn config_datetime_anchor_variations() {
 
     for anchor in anchors {
         let config = Config {
-            calendar_path: temp_dirs.calendar_path.clone(),
+            calendar_path: Some(temp_dirs.calendar_path.clone()),
             state_dir: Some(temp_dirs.state_dir.clone()),
             default_due: Some(anchor.clone()),
             default_priority: Priority::None,

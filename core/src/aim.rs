@@ -10,7 +10,7 @@ use jiff::Zoned;
 use tokio::fs;
 use uuid::Uuid;
 
-use crate::io::{add_calendar, parse_ics, write_ics};
+use crate::io::{add_calendar_if_enabled, parse_ics, write_ics};
 use crate::localdb::LocalDb;
 use crate::short_id::ShortIds;
 use crate::{
@@ -25,7 +25,6 @@ pub struct Aim {
     config: Config,
     db: LocalDb,
     short_ids: ShortIds,
-    calendar_path: PathBuf,
 }
 
 impl Aim {
@@ -41,8 +40,8 @@ impl Aim {
 
         let db = initialize_db(&config).await?;
         let short_ids = ShortIds::new(db.clone());
-        let calendar_path = config.calendar_path.clone();
-        add_calendar(&db, &calendar_path)
+
+        add_calendar_if_enabled(&db, config.calendar_path.as_ref())
             .await
             .map_err(|e| format!("Failed to add calendar files: {e}"))?;
 
@@ -51,7 +50,6 @@ impl Aim {
             config,
             db,
             short_ids,
-            calendar_path,
         })
     }
 
@@ -95,15 +93,23 @@ impl Aim {
     ) -> Result<impl Event + 'static, Box<dyn Error>> {
         let uid = self.generate_uid(Kind::Event).await?;
         let event = draft.resolve(&self.now).into_ics(&uid);
-        let path = self.get_path(&uid);
 
-        // Create calendar with single event
-        // TODO: consider reusing existing calendar if possible. see also: Todo
-        let mut calendar = ICalendar::new();
-        calendar.components.push(event.clone().into());
+        self.db.upsert_event(&uid, &event, 0).await?;
 
-        write_ics(&path, &calendar).await?;
-        self.db.upsert_event(&path, &event).await?;
+        if let Some(calendar_path) = &self.config.calendar_path {
+            let path = calendar_path.join(format!("{uid}.ics"));
+
+            let mut calendar = ICalendar::new();
+            calendar.components.push(event.clone().into());
+
+            write_ics(&path, &calendar).await?;
+
+            let resource_id = format!("file://{}", path.display());
+            self.db
+                .resources
+                .insert(&uid, 0, &resource_id, None)
+                .await?;
+        }
 
         let event = self.short_ids.event(event).await?;
         Ok(event)
@@ -123,29 +129,40 @@ impl Aim {
             return Err("Event not found".into());
         };
 
-        let p: PathBuf = event.path().into();
-        // TODO: should handle this error, e.g. allow user to ignore missing file
-        let mut calendar = parse_ics(&p).await?;
+        let resource = self.db.resources.get(&uid, 0).await?;
 
-        let mut updated_event = None;
-        for component in &mut calendar.components {
-            if let CalendarComponent::Event(e) = component
-                && e.uid.content.to_string() == event.uid()
-            // PERF: avoid to_string() here
-            {
-                patch.resolve(self.now.clone()).apply_to(e);
-                updated_event = Some(e.clone());
-                break;
+        if let Some(res) = resource {
+            let ics_path = res
+                .resource_id
+                .strip_prefix("file://")
+                .ok_or("Invalid resource_id format")?;
+            let ics_path_buf = PathBuf::from(ics_path);
+
+            let mut calendar = parse_ics(&ics_path_buf).await?;
+
+            let mut updated_event = None;
+            for component in &mut calendar.components {
+                if let CalendarComponent::Event(e) = component
+                    && e.uid.content.to_string() == event.uid()
+                {
+                    patch.resolve(self.now.clone()).apply_to(e);
+                    updated_event = Some(e.clone());
+                    break;
+                }
             }
+
+            let updated_event = updated_event.ok_or("Event not found in calendar")?;
+
+            write_ics(&ics_path_buf, &calendar).await?;
+
+            self.db.upsert_event(&uid, &updated_event, 0).await?;
+
+            let event_with_id = self.short_ids.event(updated_event).await?;
+            Ok(event_with_id)
+        } else {
+            // TODO: generate ICS file for LocalDB-only events
+            Err("Cannot update LocalDB-only events without ICS support yet".into())
         }
-
-        let updated_event = updated_event.ok_or("Event not found in calendar")?;
-
-        write_ics(&p, &calendar).await?;
-        self.db.upsert_event(&p, &updated_event).await?;
-
-        let event_with_id = self.short_ids.event(updated_event).await?;
-        Ok(event_with_id)
     }
 
     /// Get the kind of the given id, which can be either an event or a todo.
@@ -212,14 +229,23 @@ impl Aim {
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.generate_uid(Kind::Todo).await?;
         let todo = draft.resolve(&self.config, &self.now).into_ics(&uid);
-        let path = self.get_path(&uid);
 
-        // Create calendar with single todo
-        let mut calendar = ICalendar::new();
-        calendar.components.push(todo.clone().into());
+        self.db.upsert_todo(&uid, &todo, 0).await?;
 
-        write_ics(&path, &calendar).await?;
-        self.db.upsert_todo(&path, &todo).await?;
+        if let Some(calendar_path) = &self.config.calendar_path {
+            let path = calendar_path.join(format!("{uid}.ics"));
+
+            let mut calendar = ICalendar::new();
+            calendar.components.push(todo.clone().into());
+
+            write_ics(&path, &calendar).await?;
+
+            let resource_id = format!("file://{}", path.display());
+            self.db
+                .resources
+                .insert(&uid, 0, &resource_id, None)
+                .await?;
+        }
 
         let todo_with_id = self.short_ids.todo(todo).await?;
         Ok(todo_with_id)
@@ -239,27 +265,39 @@ impl Aim {
             return Err("Todo not found".into());
         };
 
-        let p: PathBuf = todo.path().into();
-        let mut calendar = parse_ics(&p).await?;
+        let resource = self.db.resources.get(&uid, 0).await?;
 
-        let mut updated_todo = None;
-        for component in &mut calendar.components {
-            if let CalendarComponent::Todo(t) = component
-                && t.uid.content.to_string() == todo.uid()
-            {
-                patch.resolve(&self.now).apply_to(t);
-                updated_todo = Some(t.clone());
-                break;
+        if let Some(res) = resource {
+            let ics_path = res
+                .resource_id
+                .strip_prefix("file://")
+                .ok_or("Invalid resource_id format")?;
+            let ics_path_buf = PathBuf::from(ics_path);
+
+            let mut calendar = parse_ics(&ics_path_buf).await?;
+
+            let mut updated_todo = None;
+            for component in &mut calendar.components {
+                if let CalendarComponent::Todo(t) = component
+                    && t.uid.content.to_string() == todo.uid()
+                {
+                    patch.resolve(&self.now).apply_to(t);
+                    updated_todo = Some(t.clone());
+                    break;
+                }
             }
+
+            let updated_todo = updated_todo.ok_or("Todo not found in calendar")?;
+
+            write_ics(&ics_path_buf, &calendar).await?;
+
+            self.db.upsert_todo(&uid, &updated_todo, 0).await?;
+
+            let todo = self.short_ids.todo(updated_todo).await?;
+            Ok(todo)
+        } else {
+            Err("Cannot update LocalDB-only todos without ICS support yet".into())
         }
-
-        let updated_todo = updated_todo.ok_or("Todo not found in calendar")?;
-
-        write_ics(&p, &calendar).await?;
-        self.db.upsert_todo(&p, &updated_todo).await?;
-
-        let todo = self.short_ids.todo(updated_todo).await?;
-        Ok(todo)
     }
 
     /// Get a todo by its id.
@@ -335,20 +373,11 @@ impl Aim {
                 continue;
             }
 
-            let path = self.get_path(&uid);
-            if fs::try_exists(&path).await? {
-                tracing::debug!(uid, ?path, "uid already exists as a file");
-                continue;
-            }
             return Ok(uid);
         }
 
         tracing::warn!("failed to generate a unique uid after multiple attempts");
         Err("Failed to generate a unique UID after multiple attempts".into())
-    }
-
-    fn get_path(&self, uid: &str) -> PathBuf {
-        self.calendar_path.join(format!("{uid}.ics"))
     }
 }
 

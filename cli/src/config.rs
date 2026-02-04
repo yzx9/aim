@@ -144,7 +144,7 @@ calendar_path = "{}"
 
             let (config, _) = parse_config(Some(config_path.clone())).await.unwrap();
 
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_CONFIG_ENV);
@@ -178,7 +178,7 @@ calendar_path = "{}"
 
             let (config, _) = parse_config(None).await.unwrap();
 
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_CONFIG_ENV);
@@ -224,7 +224,7 @@ calendar_path = "{}"
 
             let (config, _) = parse_config(Some(cli_config_path)).await.unwrap();
 
-            assert_eq!(config.calendar_path, cli_calendar_dir);
+            assert_eq!(config.calendar_path, Some(cli_calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_CONFIG_ENV);
@@ -263,7 +263,7 @@ calendar_path = "{}"
 
             let (config, _) = parse_config(None).await.unwrap();
 
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var("XDG_CONFIG_HOME");
@@ -416,7 +416,7 @@ calendar_path = "{}"
             }
 
             let (config, _) = parse_config(None).await.unwrap();
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_DEV_ENV);
@@ -457,7 +457,7 @@ calendar_path = "{}"
             }
 
             let (config, _) = parse_config(None).await.unwrap();
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_DEV_ENV);
@@ -498,7 +498,7 @@ calendar_path = "{}"
             }
 
             let (config, _) = parse_config(None).await.unwrap();
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_DEV_ENV);
@@ -557,7 +557,7 @@ calendar_path = "{}"
             }
 
             let (config, _) = parse_config(None).await.unwrap();
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_DEV_ENV);
@@ -589,7 +589,7 @@ calendar_path = "{}"
             }
 
             let (config, _) = parse_config(Some(config_path)).await.unwrap();
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_DEV_ENV);
@@ -623,7 +623,7 @@ calendar_path = "{}"
             }
 
             let (config, _) = parse_config(None).await.unwrap();
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_CONFIG_ENV);
@@ -664,7 +664,7 @@ calendar_path = "{}"
             }
 
             let (config, _) = parse_config(None).await.unwrap();
-            assert_eq!(config.calendar_path, calendar_dir);
+            assert_eq!(config.calendar_path, Some(calendar_dir));
 
             unsafe {
                 std::env::remove_var(AIM_DEV_ENV);

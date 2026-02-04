@@ -7,19 +7,20 @@ manages local storage of calendar events, todos, and short ID mappings
 
 ## Database Schema
 
-The database maintains three tables created through migrations:
+The database maintains four tables created through migrations:
 
 ### 1. events Table
 
 ```sql
 CREATE TABLE IF NOT EXISTS events (
     uid         TEXT PRIMARY KEY,     -- Unique event identifier
-    path        TEXT NOT NULL,        -- Source .ics file path
     summary     TEXT NOT NULL,        -- Event title/summary
     description TEXT NOT NULL,        -- Event description
     status      TEXT NOT NULL,        -- Event status (confirmed, tentative, etc.)
     start       TEXT NOT NULL,        -- Start datetime (ISO 8601)
     end         TEXT NOT NULL         -- End datetime (ISO 8601)
+    calendar_id TEXT NOT NULL,      -- Owning calendar identifier
+    backend_kind TINYINT NOT NULL DEFAULT 0,  -- Backend type (0=local, 1=caldav)
 );
 ```
 
@@ -28,7 +29,6 @@ CREATE TABLE IF NOT EXISTS events (
 ```sql
 CREATE TABLE IF NOT EXISTS todos (
     uid         TEXT PRIMARY KEY,     -- Unique todo identifier
-    path        TEXT NOT NULL,        -- Source .ics file path
     summary     TEXT NOT NULL,        -- Todo title/summary
     description TEXT NOT NULL,        -- Todo description
     status      TEXT NOT NULL,        -- Todo status (needs-action, etc.)
@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS todos (
     percent     INTEGER,              -- Percent complete (0-100, nullable)
     due         TEXT NOT NULL,        -- Due datetime (ISO 8601, empty if none)
     completed   TEXT NOT NULL         -- Completion datetime (ISO 8601, empty if none)
+    calendar_id TEXT NOT NULL,      -- Owning calendar identifier
+    backend_kind TINYINT NOT NULL DEFAULT 0,  -- Backend type (0=local, 1=caldav)
 );
 ```
 
@@ -44,27 +46,50 @@ CREATE TABLE IF NOT EXISTS todos (
 - `percent` is nullable (no value if not set)
 - Empty strings represent `None` for optional fields (`due`, `completed`, `description`)
 
-### 3. short_ids Table
+### 3. calendars Table
 
 ```sql
-CREATE TABLE short_ids (
-    short_id INTEGER PRIMARY KEY,     -- Compact numeric ID (ROWID-based)
-    uid      TEXT UNIQUE NOT NULL,    -- UUID being mapped
-    kind     TEXT NOT NULL            -- Entity type ("event" or "todo")
+CREATE TABLE IF NOT EXISTS calendars (
+    id        TEXT PRIMARY KEY,     -- Unique calendar ID (user-configured)
+    name      TEXT NOT NULL,        -- Display name (e.g., "Personal", "Work")
+    kind      TEXT NOT NULL,        -- Backend type (local, caldav)
+    priority  INTEGER NOT NULL DEFAULT 0,  -- Conflict resolution order
+    enabled   INTEGER NOT NULL DEFAULT 1,  -- Enable/disable flag
+    config    TEXT NOT NULL,        -- Calendar-specific config (JSON)
+    created_at TEXT NOT NULL,     -- Creation timestamp
+    updated_at TEXT NOT NULL,     -- Last update timestamp
+);
+```
+
+### 4. resources Table
+
+```sql
+CREATE TABLE IF NOT EXISTS resources (
+    uid          TEXT NOT NULL,      -- Event/todo UID
+    calendar_id  TEXT NOT NULL,      -- Owning calendar identifier
+    resource_id  TEXT NOT NULL,      -- Backend resource (file://path, /dav/href, etc.)
+    metadata     TEXT,                -- Backend-specific metadata (JSON, e.g., etag for CalDAV)
+    PRIMARY KEY (uid, calendar_id)
 );
 ```
 
 **Constraints**:
 
-- `short_id` uses ROWID (no AUTOINCREMENT) for compact IDs
-- `uid` must be unique (one short_id per UUID)
-- `kind` is either "event" or "todo"
+- One event/todo belongs to exactly one calendar (`calendar_id`)
+- `resources` maps `(uid, calendar_id)` to backend resource
+- No foreign key constraints (referential integrity enforced at application layer)
+- `metadata` is nullable (not used for local backend)
 
 ## Migration History
 
 1. `20250801070804_init_events_todos` - Initial schema with events and todos
 2. `20250801095832_add_short_ids` - Added short_ids table with AUTOINCREMENT
 3. `20250805075731_drop_autoincrement` - Removed AUTOINCREMENT (data-preserving migration)
+4. `20260131235400_ics_optional` - Made ICS support optional:
+   - Added `backend_kind` column to events/todos
+   - Created unified `resources` table for multi-backend support
+   - Removed `path` column from events/todos
+   - Migrated existing paths to resources table
 
 ## Code Standards
 
@@ -72,6 +97,8 @@ CREATE TABLE short_ids (
 
 - All fields are `NOT NULL`, unless an empty value has a special meaning
 - All database operations are `async`
+- **No foreign key constraints**: Referential integrity enforced at application layer
+- **Calendar ownership via `calendar_id`**: Each event/todo belongs to exactly one calendar
 
 ### Test Coverage Requirements
 
@@ -143,3 +170,4 @@ When modifying the schema:
 3. **Add migration tests** - Test schema changes and data preservation
 4. **Update this document** - Document schema changes
 5. **Test migration** - Verify up/down migrations work
+6. **Avoid foreign key constraints** - Use application-layer referential integrity only
