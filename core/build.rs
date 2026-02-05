@@ -4,5 +4,5 @@
 
 fn main() {
     // trigger recompilation when a new migration is added
-    println!("cargo:rerun-if-changed=src/localdb/migrations");
+    println!("cargo:rerun-if-changed=src/db/migrations");
 }

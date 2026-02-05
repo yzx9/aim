@@ -10,8 +10,8 @@ use jiff::Zoned;
 use tokio::fs;
 use uuid::Uuid;
 
+use crate::db::Db;
 use crate::io::{add_calendar_if_enabled, parse_ics, write_ics};
-use crate::localdb::LocalDb;
 use crate::short_id::ShortIds;
 use crate::{
     Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo, TodoConditions,
@@ -23,7 +23,7 @@ use crate::{
 pub struct Aim {
     now: Zoned,
     config: Config,
-    db: LocalDb,
+    db: Db,
     short_ids: ShortIds,
 }
 
@@ -160,8 +160,8 @@ impl Aim {
             let event_with_id = self.short_ids.event(updated_event).await?;
             Ok(event_with_id)
         } else {
-            // TODO: generate ICS file for LocalDB-only events
-            Err("Cannot update LocalDB-only events without ICS support yet".into())
+            // TODO: generate ICS file for DB-only events
+            Err("Cannot update DB-only events without ICS support yet".into())
         }
     }
 
@@ -296,7 +296,7 @@ impl Aim {
             let todo = self.short_ids.todo(updated_todo).await?;
             Ok(todo)
         } else {
-            Err("Cannot update LocalDB-only todos without ICS support yet".into())
+            Err("Cannot update DB-only todos without ICS support yet".into())
         }
     }
 
@@ -389,12 +389,12 @@ async fn prepare(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn initialize_db(config: &Config) -> Result<LocalDb, Box<dyn Error>> {
+async fn initialize_db(config: &Config) -> Result<Db, Box<dyn Error>> {
     const NAME: &str = "aim.db";
     let db = if let Some(parent) = &config.state_dir {
-        LocalDb::open(Some(&parent.join(NAME))).await
+        Db::open(Some(&parent.join(NAME))).await
     } else {
-        LocalDb::open(None).await
+        Db::open(None).await
     }
     .map_err(|e| format!("Failed to initialize db: {e}"))?;
 

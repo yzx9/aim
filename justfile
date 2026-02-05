@@ -37,7 +37,7 @@ release version:
 
 # Add a new migration to the database
 migrate-add name:
-  cd core && sqlx migrate add -r --source src/localdb/migrations {{name}}
+  cd core && sqlx migrate add -r --source src/db/migrations {{name}}
 
 # Initialize development calendar with example files
 init-dev:

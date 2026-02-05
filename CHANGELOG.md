@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - core: Preparatory infrastructure for multi-backend architecture with unified resources table
   to support local ICS, CalDAV, and other backends
-  - core: Config `calendar_path` is now optional - AIM can operate in LocalDB-only mode without
+  - core: Config `calendar_path` is now optional - AIM can operate in DB-only mode without
     ICS files when not configured
   - core: Events/todos now stored primarily in database with optional ICS file sync when
     `calendar_path` is configured (preparatory for multi-backend support)

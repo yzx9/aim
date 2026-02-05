@@ -6,16 +6,16 @@ use std::{borrow::Cow, error::Error, num::NonZeroU32};
 
 use jiff::Zoned;
 
-use crate::localdb::LocalDb;
+use crate::db::Db;
 use crate::{Event, EventStatus, Id, Kind, LooseDateTime, Priority, Todo, TodoStatus};
 
 #[derive(Debug, Clone)]
 pub struct ShortIds {
-    db: LocalDb,
+    db: Db,
 }
 
 impl ShortIds {
-    pub fn new(db: LocalDb) -> Self {
+    pub fn new(db: Db) -> Self {
         Self { db }
     }
 

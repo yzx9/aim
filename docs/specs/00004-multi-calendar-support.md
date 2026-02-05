@@ -29,7 +29,7 @@ Support multiple independent calendars, each with its own configuration (local, 
        │
        ▼
 ┌──────────────────────────┐
-│  LocalDb                 │
+│  Db                      │
 │  ├─ calendars (new)      │  ← calendar metadata
 │  ├─ events               │  ← calendar_id
 │  ├─ todos                │  ← calendar_id

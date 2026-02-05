@@ -18,7 +18,7 @@ Define flexible and configurable conflict resolution strategies for local ICS ba
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   LocalDB       │         │   ICS File      │
+│   Db            │         │   ICS File      │
 │  (SQLite)       │         │  ~/calendar/    │
 ├─────────────────┤         ├─────────────────┤
 │ UID: abc123     │         │ UID: abc123     │
@@ -33,7 +33,7 @@ User modifies event via CLI (`aim event edit`), ICS file has old data.
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   LocalDB       │         │   ICS File      │
+│   Db            │         │   ICS File      │
 │  (SQLite)       │         │  ~/calendar/    │
 ├─────────────────┤         ├─────────────────┤
 │ UID: abc123     │◄───────►│ UID: abc123     │
@@ -48,7 +48,7 @@ External calendar app modifies ICS file, database has stale data.
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   LocalDB       │         │   ICS File      │
+│   Db            │         │   ICS File      │
 │  (SQLite)       │         │  ~/calendar/    │
 ├─────────────────┤         ├─────────────────┤
 │ UID: abc123     │◄───────►│ UID: abc123     │
@@ -63,7 +63,7 @@ Both sides modified independently, need conflict resolution.
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   LocalDB       │         │   ICS File      │
+│   Db            │         │   ICS File      │
 │  (SQLite)       │         │  ~/calendar/    │
 ├─────────────────┤         ├─────────────────┤
 │ UID: abc123     │◄───────►│ NOT FOUND       │
@@ -77,7 +77,7 @@ External app deleted event from ICS file, still exists in database.
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   LocalDB       │         │   ICS File      │
+│   Db            │         │   ICS File      │
 │  (SQLite)       │         │  ~/calendar/    │
 ├─────────────────┤         ├─────────────────┤
 │ UID: abc123     │◄──────►│ UID: abc123    │
@@ -196,12 +196,12 @@ if database.has(uid):
 ```
 for each conflict:
     println!("Conflict detected for event: {}", event.summary())
-    println!("  LocalDB: {}", local_data)
+    println!("  Db     : {}", local_data)
     println!("  ICS file: {}", ics_data)
     println!()
     println!("Choose resolution:")
-    println!("  [1] Keep LocalDB (overwrite ICS file)")
-    println!("  [2] Keep ICS file (overwrite LocalDB)")
+    println!("  [1] Keep Db      (overwrite ICS file)")
+    println!("  [2] Keep ICS file (overwrite Db     )")
     println!("  [3] Skip (resolve later)")
 
     match user_choice {
@@ -526,7 +526,7 @@ ALTER TABLE todos ADD COLUMN deleted INTEGER DEFAULT 0;
 
 ### Phase 1: Database Schema Migration
 
-**Files**: `core/src/localdb/migrations/20250204_add_conflict_tracking.{up,down}.sql`
+**Files**: `core/src/db/migrations/20250204_add_conflict_tracking.{up,down}.sql`
 
 1. Add `updated_by`, `deleted` columns to events/todos
 2. Set default values for existing records
@@ -692,19 +692,19 @@ conflict_logging = true
 # User workflow
 $ aim sync
 Conflict detected for event: Team Standup
-  LocalDB: Team Standup at 10:00am
+  Db : Team Standup at 10:00am
   ICS file: Team Standup at 11:00am
 
 Choose resolution:
-  [1] Keep LocalDB (overwrite ICS file)
-  [2] Keep ICS file (overwrite LocalDB)
+  [1] Keep Db (overwrite ICS file)
+  [2] Keep ICS file (overwrite Db)
   [3] Skip (resolve later)
 > 2
 
 # Log shows: CONFLICT uid=xxx type=user_resolution resolution=user_kept_ics
 
 Conflict detected for event: Old Meeting
-  LocalDB: Old Meeting exists
+  Db : Old Meeting exists
   ICS file: NOT FOUND
 
 Choose resolution:

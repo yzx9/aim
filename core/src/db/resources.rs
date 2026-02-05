@@ -96,8 +96,8 @@ impl ResourceRecord {
 
 #[cfg(test)]
 mod tests {
-    async fn setup_test_db() -> crate::localdb::LocalDb {
-        crate::localdb::LocalDb::open(None)
+    async fn setup_test_db() -> crate::db::Db {
+        crate::db::Db::open(None)
             .await
             .expect("Failed to create test database")
     }
@@ -107,8 +107,8 @@ mod tests {
         let db = setup_test_db().await;
 
         // Insert a todo first to satisfy FK constraint
-        let todo = crate::localdb::tests_utils::test_todo("test-uid", "Test Todo");
-        let todo_record = crate::localdb::todos::TodoRecord::from_todo("test-uid", &todo, 0);
+        let todo = crate::db::tests_utils::test_todo("test-uid", "Test Todo");
+        let todo_record = crate::db::todos::TodoRecord::from_todo("test-uid", &todo, 0);
         let upsert_result = db.todos.upsert(&todo_record).await;
         if let Err(e) = upsert_result {
             panic!("Failed to upsert todo: {e:?}");
@@ -116,8 +116,8 @@ mod tests {
 
         // NOTE: Due to migration design with dual FK constraints,
         // we also need to insert into events table to satisfy both FKs
-        let event = crate::localdb::tests_utils::test_event("test-uid", "Test Event");
-        let event_record = crate::localdb::events::EventRecord::from_event("test-uid", &event, 0);
+        let event = crate::db::tests_utils::test_event("test-uid", "Test Event");
+        let event_record = crate::db::events::EventRecord::from_event("test-uid", &event, 0);
         db.events.upsert(event_record).await.unwrap();
 
         let insert_result = db
@@ -151,14 +151,14 @@ mod tests {
         let db = setup_test_db().await;
 
         // Insert a todo first to satisfy FK constraint
-        let todo = crate::localdb::tests_utils::test_todo("test-uid", "Test Todo");
-        let todo_record = crate::localdb::todos::TodoRecord::from_todo("test-uid", &todo, 0);
+        let todo = crate::db::tests_utils::test_todo("test-uid", "Test Todo");
+        let todo_record = crate::db::todos::TodoRecord::from_todo("test-uid", &todo, 0);
         db.todos.upsert(&todo_record).await.unwrap();
 
         // NOTE: Due to migration design with dual FK constraints,
         // we also need to insert into events table to satisfy both FKs
-        let event = crate::localdb::tests_utils::test_event("test-uid", "Test Event");
-        let event_record = crate::localdb::events::EventRecord::from_event("test-uid", &event, 0);
+        let event = crate::db::tests_utils::test_event("test-uid", "Test Event");
+        let event_record = crate::db::events::EventRecord::from_event("test-uid", &event, 0);
         db.events.upsert(event_record).await.unwrap();
 
         db.resources
@@ -177,14 +177,14 @@ mod tests {
         let db = setup_test_db().await;
 
         // Insert a todo first to satisfy FK constraint
-        let todo = crate::localdb::tests_utils::test_todo("test-uid", "Test Todo");
-        let todo_record = crate::localdb::todos::TodoRecord::from_todo("test-uid", &todo, 0);
+        let todo = crate::db::tests_utils::test_todo("test-uid", "Test Todo");
+        let todo_record = crate::db::todos::TodoRecord::from_todo("test-uid", &todo, 0);
         db.todos.upsert(&todo_record).await.unwrap();
 
         // NOTE: Due to migration design with dual FK constraints,
         // we also need to insert into events table to satisfy both FKs
-        let event = crate::localdb::tests_utils::test_event("test-uid", "Test Event");
-        let event_record = crate::localdb::events::EventRecord::from_event("test-uid", &event, 0);
+        let event = crate::db::tests_utils::test_event("test-uid", "Test Event");
+        let event_record = crate::db::events::EventRecord::from_event("test-uid", &event, 0);
         db.events.upsert(event_record).await.unwrap();
 
         db.resources
@@ -215,14 +215,14 @@ mod tests {
         let db = setup_test_db().await;
 
         // Insert a todo first to satisfy FK constraint
-        let todo = crate::localdb::tests_utils::test_todo("test-uid", "Test Todo");
-        let todo_record = crate::localdb::todos::TodoRecord::from_todo("test-uid", &todo, 1);
+        let todo = crate::db::tests_utils::test_todo("test-uid", "Test Todo");
+        let todo_record = crate::db::todos::TodoRecord::from_todo("test-uid", &todo, 1);
         db.todos.upsert(&todo_record).await.unwrap();
 
         // NOTE: Due to migration design with dual FK constraints,
         // we also need to insert into events table to satisfy both FKs
-        let event = crate::localdb::tests_utils::test_event("test-uid", "Test Event");
-        let event_record = crate::localdb::events::EventRecord::from_event("test-uid", &event, 0);
+        let event = crate::db::tests_utils::test_event("test-uid", "Test Event");
+        let event_record = crate::db::events::EventRecord::from_event("test-uid", &event, 0);
         db.events.upsert(event_record).await.unwrap();
 
         let json = r#"{"etag":"\"abc123\"","version":1}"#;

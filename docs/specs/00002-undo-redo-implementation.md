@@ -78,14 +78,14 @@ Implement a persistent undo/redo mechanism for AIM using the **Command Pattern w
 **Files to create/modify:**
 
 - **NEW**: `core/src/undo.rs` - UndoableCommand, Operation types, and UndoManager
-- **NEW**: `core/src/localdb/undo_log.rs` - Database operations for undo log
-- **NEW**: `core/src/localdb/migrations/YYYYMMDDHHMMSS_add_undo_log.sql` - Database migration
+- **NEW**: `core/src/db/undo_log.rs` - Database operations for undo log
+- **NEW**: `core/src/db/migrations/YYYYMMDDHHMMSS_add_undo_log.sql` - Database migration
 - **MODIFY**: `core/src/aim.rs` - Add undoable operation methods + undo/redo/history methods
 - **MODIFY**: `core/src/event.rs` - Ensure EventPatch captures full state
 - **MODIFY**: `core/src/todo.rs` - Ensure TodoPatch captures full state
-- **MODIFY**: `core/src/localdb/events.rs` - Add delete method if missing
-- **MODIFY**: `core/src/localdb/todos.rs` - Add delete method if missing
-- **MODIFY**: `core/src/localdb.rs` - Add undo_log module and field
+- **MODIFY**: `core/src/db/events.rs` - Add delete method if missing
+- **MODIFY**: `core/src/db/todos.rs` - Add delete method if missing
+- **MODIFY**: `core/src/db.rs` - Add undo_log module and field
 
 **Core data structures:**
 
@@ -142,7 +142,7 @@ impl UndoableCommand {
 ```rust
 // core/src/undo.rs
 
-use crate::localdb::undo_log::UndoLog;
+use crate::db::undo_log::UndoLog;
 use serde::{Deserialize, Serialize};
 
 /// Manages undo/redo history within Aim
@@ -197,10 +197,10 @@ impl UndoManager {
 }
 ```
 
-**UndoLog database operations (core/src/localdb/undo_log.rs):**
+**UndoLog database operations (core/src/db/undo_log.rs):**
 
 ```rust
-// core/src/localdb/undo_log.rs
+// core/src/db/undo_log.rs
 
 use sqlx::SqlitePool;
 use aimcal_core::undo::UndoableCommand;
@@ -296,7 +296,7 @@ impl UndoLog {
 }
 ```
 
-**Database migration (core/src/localdb/migrations/YYYYMMDDHHMMSS_add_undo_log.sql):**
+**Database migration (core/src/db/migrations/YYYYMMDDHHMMSS_add_undo_log.sql):**
 
 ```sql
 -- Undo log table for storing undoable operations
@@ -327,7 +327,7 @@ CREATE INDEX IF NOT EXISTS idx_undo_log_timestamp ON undo_log(timestamp);
 pub struct Aim {
     now: Zoned,
     config: Config,
-    db: LocalDb,
+    db: Db,
     short_ids: ShortIds,
     calendar_path: PathBuf,
     undo_manager: UndoManager,  // NEW: embedded undo manager
@@ -594,12 +594,12 @@ aim history           # Show undo history
 - `/Users/yzx9/git/aim/core/src/aim.rs` - Add undoable operation methods + undo/redo/history methods
 - `/Users/yzx9/git/aim/core/src/event.rs` - EventPatch state capture
 - `/Users/yzx9/git/aim/core/src/todo.rs` - TodoPatch state capture
-- `/Users/yzx9/git/aim/core/src/localdb/events.rs` - Event DB operations
-- `/Users/yzx9/git/aim/core/src/localdb/todos.rs` - Todo DB operations
-- `/Users/yzx9/git/aim/core/src/localdb.rs` - Add undo_log module and field
+- `/Users/yzx9/git/aim/core/src/db/events.rs` - Event DB operations
+- `/Users/yzx9/git/aim/core/src/db/todos.rs` - Todo DB operations
+- `/Users/yzx9/git/aim/core/src/db.rs` - Add undo_log module and field
 - **NEW**: `/Users/yzx9/git/aim/core/src/undo.rs` - UndoableCommand, Operation, UndoManager
-- **NEW**: `/Users/yzx9/git/aim/core/src/localdb/undo_log.rs` - Database operations for undo log
-- **NEW**: `/Users/yzx9/git/aim/core/src/localdb/migrations/YYYYMMDDHHMMSS_add_undo_log.sql` - Database migration
+- **NEW**: `/Users/yzx9/git/aim/core/src/db/undo_log.rs` - Database operations for undo log
+- **NEW**: `/Users/yzx9/git/aim/core/src/db/migrations/YYYYMMDDHHMMSS_add_undo_log.sql` - Database migration
 
 ### CLI Layer
 

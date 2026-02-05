@@ -22,9 +22,9 @@
 mod aim;
 mod config;
 mod datetime;
+mod db;
 mod event;
 mod io;
-mod localdb;
 mod short_id;
 mod todo;
 mod types;
