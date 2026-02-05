@@ -10,7 +10,7 @@ We do NOT use `mod.rs` files. Declare modules directly in parent modules:
 ```
 src/
 ├── lib.rs          # Crate root
-├── localdb.rs      # Module declared with `mod localdb;`
+├── db.rs           # Module declared with `mod db;`
 └── datetime/
     ├── mod.rs      # NOT used
     └── parser.rs   # Use src/datetime_parser.rs instead

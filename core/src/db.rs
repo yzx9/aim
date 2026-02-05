@@ -18,17 +18,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 
-use crate::localdb::events::{EventRecord, Events};
-use crate::localdb::resources::Resources;
-use crate::localdb::short_ids::ShortIds;
-use crate::localdb::todos::{TodoRecord, Todos};
+use crate::db::events::{EventRecord, Events};
+use crate::db::resources::Resources;
+use crate::db::short_ids::ShortIds;
+use crate::db::todos::{TodoRecord, Todos};
 use crate::{Event, Todo};
 
 /// Global counter for generating unique in-memory database names.
 static IN_MEMORY_DB_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone)]
-pub struct LocalDb {
+pub struct Db {
     pool: SqlitePool,
 
     pub events: Events,
@@ -37,7 +37,7 @@ pub struct LocalDb {
     pub resources: Resources,
 }
 
-impl LocalDb {
+impl Db {
     /// Opens a sqlite database connection.
     /// If `state_dir` is `None`, it opens an in-memory database.
     pub async fn open(filename: Option<&Path>) -> Result<Self, Box<dyn Error>> {
@@ -68,7 +68,7 @@ impl LocalDb {
             .await
             .map_err(|e| format!("Failed to connect to SQLite database: {e}"))?;
 
-        sqlx::migrate!("src/localdb/migrations") // relative path from the crate root
+        sqlx::migrate!("src/db/migrations") // relative path from the crate root
             .run(&pool)
             .await
             .map_err(|e| format!("Failed to run migrations: {e}"))?;
@@ -78,7 +78,7 @@ impl LocalDb {
         let todos = Todos::new(pool.clone());
         let short_ids = ShortIds::new(pool.clone());
         let resources = Resources::new(pool.clone());
-        Ok(LocalDb {
+        Ok(Db {
             pool,
             events,
             todos,

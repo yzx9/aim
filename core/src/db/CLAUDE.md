@@ -1,6 +1,6 @@
-# LocalDB Module
+# Database Module
 
-The `localdb` module provides a SQLite database wrapper using SQLx with a migration system. It
+The `db` module provides a SQLite database wrapper using SQLx with a migration system. It
 manages local storage of calendar events, todos, and short ID mappings
 
 ## Module Overview

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-//! Comprehensive database migration tests for the localdb module.
+//! Comprehensive database migration tests for the db module.
 //!
 //! This test module validates:
 //! - Schema changes from migrations
@@ -17,7 +17,7 @@ use std::sync::atomic::Ordering;
 use sqlx::Row;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 
-use crate::localdb::IN_MEMORY_DB_COUNTER;
+use crate::db::IN_MEMORY_DB_COUNTER;
 
 /// Creates a database pool without running migrations automatically.
 async fn create_pool_without_migrations() -> SqlitePool {
@@ -39,7 +39,7 @@ fn read_migration_file(name: &str) -> String {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let path = PathBuf::from(manifest_dir)
         .join("src")
-        .join("localdb")
+        .join("db")
         .join("migrations")
         .join(name);
 

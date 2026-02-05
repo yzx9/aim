@@ -320,7 +320,7 @@ pub use crate::expander::EventExpander;
 
 ### 3.1 Schema Migration
 
-**New file**: `core/src/localdb/migrations/YYYYMMDD_add_recurrence.sql`
+**New file**: `core/src/db/migrations/YYYYMMDD_add_recurrence.sql`
 
 ```sql
 -- Add recurrence columns to events table
@@ -348,7 +348,7 @@ CREATE INDEX idx_todos_recurrence_id ON todos(recurrence_id) WHERE recurrence_id
 
 ### 3.2 Storage Logic
 
-**Modify**: `core/src/localdb/events.rs`
+**Modify**: `core/src/db/events.rs`
 
 ```rust
 impl EventRow {
@@ -438,7 +438,7 @@ impl EventRepo {
 }
 ```
 
-**Similar changes for**: `core/src/localdb/todos.rs`
+**Similar changes for**: `core/src/db/todos.rs`
 
 ---
 

@@ -18,11 +18,13 @@ core/src/
 ├── short_id.rs         # Short ID generation and mapping
 ├── types.rs            # Common types (Id, Kind, Pager, Priority, SortOrder)
 ├── io.rs               # File I/O operations
-└── localdb.rs          # LocalDB module declaration
-    ├── db.rs           # LocalDb struct, connection pooling
+└── db.rs               # Database module declaration
     ├── events.rs       # Event storage operations
     ├── todos.rs        # Todo storage operations
     ├── short_ids.rs    # Short ID mapping
+    ├── resources.rs    # Resource tracking for backends
+    ├── tests_utils.rs  # Test utilities
+    ├── migrations_tests.rs  # Migration tests
     └── migrations/     # Database migrations
 ```
 

@@ -8,13 +8,13 @@ use std::path::{Path, PathBuf};
 use aimcal_ical::{CalendarComponent, ICalendar, formatter::format, parse};
 use tokio::fs;
 
-use crate::localdb::LocalDb;
+use crate::db::Db;
 
 /// Add ICS files from calendar directory to database.
 /// This is only called when `calendar_path` is configured in Config.
 #[tracing::instrument(skip(db))]
 pub async fn add_calendar_if_enabled(
-    db: &LocalDb,
+    db: &Db,
     calendar_path: Option<&PathBuf>,
 ) -> Result<(), Box<dyn Error>> {
     let Some(path) = calendar_path else {
@@ -34,7 +34,7 @@ pub async fn add_calendar_if_enabled(
 }
 
 #[tracing::instrument(skip(db))]
-async fn add_calendar(db: &LocalDb, calendar_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+async fn add_calendar(db: &Db, calendar_path: &PathBuf) -> Result<(), Box<dyn Error>> {
     let mut reader = fs::read_dir(calendar_path)
         .await
         .map_err(|e| format!("Failed to read directory: {e}"))?;
@@ -89,7 +89,7 @@ pub async fn write_ics(path: &Path, calendar: &ICalendar<String>) -> Result<(), 
         .map_err(|e| format!("Failed to write calendar file: {e}"))
 }
 
-async fn add_ics(db: LocalDb, path: &Path) -> Result<(), Box<dyn Error>> {
+async fn add_ics(db: Db, path: &Path) -> Result<(), Box<dyn Error>> {
     tracing::debug!(path = %path.display(), "parsing file");
     let calendar = parse_ics(path).await?;
 
@@ -144,7 +144,7 @@ END:VCALENDAR\r
             .await
             .expect("Failed to write test file");
 
-        let db = LocalDb::open(None)
+        let db = Db::open(None)
             .await
             .expect("Failed to create test database");
 
@@ -200,7 +200,7 @@ END:VCALENDAR\r
             .await
             .expect("Failed to write todo1.ics");
 
-        let db = LocalDb::open(None)
+        let db = Db::open(None)
             .await
             .expect("Failed to create test database");
 
@@ -258,7 +258,7 @@ END:VCALENDAR\r
             .await
             .expect("Failed to write event.ics");
 
-        let db = LocalDb::open(None)
+        let db = Db::open(None)
             .await
             .expect("Failed to create test database");
 
@@ -282,7 +282,7 @@ END:VCALENDAR\r
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let calendar_path = temp_dir.path().to_path_buf();
 
-        let db = LocalDb::open(None)
+        let db = Db::open(None)
             .await
             .expect("Failed to create test database");
 
@@ -328,7 +328,7 @@ END:VCALENDAR\r
             .await
             .expect("Failed to write mixed.ics");
 
-        let db = LocalDb::open(None)
+        let db = Db::open(None)
             .await
             .expect("Failed to create test database");
 
@@ -391,7 +391,7 @@ END:VCALENDAR\r
             .await
             .expect("Failed to write valid.ics");
 
-        let db = LocalDb::open(None)
+        let db = Db::open(None)
             .await
             .expect("Failed to create test database");
 

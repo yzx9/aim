@@ -16,7 +16,7 @@ pub struct Config {
     /// Path to the calendar directory (optional ICS export/import).
     ///
     /// If set, AIM will sync events/todos with ICS files in this directory.
-    /// If not set, AIM will only use `LocalDb` for storage.
+    /// If not set, AIM will only use `Db` for storage.
     #[serde(default)]
     pub calendar_path: Option<PathBuf>,
 

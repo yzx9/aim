@@ -119,8 +119,8 @@ mod tests {
     use crate::short_id::ShortIds;
 
     /// Test helper to create a test database
-    async fn setup_test_db() -> crate::localdb::LocalDb {
-        crate::localdb::LocalDb::open(None)
+    async fn setup_test_db() -> crate::db::Db {
+        crate::db::Db::open(None)
             .await
             .expect("Failed to create test database")
     }

@@ -244,15 +244,15 @@ mod tests {
     use super::*;
 
     /// Test helper to create a test database
-    async fn setup_test_db() -> crate::localdb::LocalDb {
-        crate::localdb::LocalDb::open(None)
+    async fn setup_test_db() -> crate::db::Db {
+        crate::db::Db::open(None)
             .await
             .expect("Failed to create test database")
     }
 
     /// Test helper to create a test todo
-    fn test_todo(uid: &str, summary: &str) -> crate::localdb::tests_utils::TestTodo {
-        crate::localdb::tests_utils::test_todo(uid, summary)
+    fn test_todo(uid: &str, summary: &str) -> crate::db::tests_utils::TestTodo {
+        crate::db::tests_utils::test_todo(uid, summary)
     }
 
     #[tokio::test]

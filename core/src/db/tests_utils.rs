@@ -2,20 +2,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-//! Test utilities for the localdb module.
+//! Test utilities for the db module.
 //!
 //! This module provides helper functions and test doubles for unit testing
-//! the localdb module components (events, todos, `` `short_ids` ``).
+//! the db module components (events, todos, `` `short_ids` ``).
 
 use std::borrow::Cow;
 
-use crate::localdb::LocalDb;
+use crate::db::Db;
 use crate::{Event, EventStatus, LooseDateTime, Priority, Todo, TodoStatus};
 
 /// Creates an in-memory test database.
 ///
 /// This function creates a new in-memory `` `SQLite` `` database, runs all migrations,
-/// and returns a `LocalDb` instance ready for testing.
+/// and returns a `Db` instance ready for testing.
 ///
 /// # Example
 ///
@@ -23,8 +23,8 @@ use crate::{Event, EventStatus, LooseDateTime, Priority, Todo, TodoStatus};
 /// let db = setup_test_db().await;
 /// // Use db for testing...
 /// ```
-pub async fn setup_test_db() -> LocalDb {
-    LocalDb::open(None)
+pub async fn setup_test_db() -> Db {
+    Db::open(None)
         .await
         .expect("Failed to create test database")
 }
