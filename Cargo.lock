@@ -24,10 +24,14 @@ name = "aimcal-caldav"
 version = "0.11.0"
 dependencies = [
  "aimcal-ical",
+ "clap",
+ "colored",
+ "dotenvy",
  "jiff",
  "quick-xml",
  "reqwest",
  "serde",
+ "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
