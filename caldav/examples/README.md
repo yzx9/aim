@@ -46,8 +46,34 @@ cargo run --example caldav_cli -- list-todos \
 # Get specific resource
 cargo run --example caldav_cli -- get \
   --server https://caldav.example.com \
-  --href /dav/calendars/user/personal/event1.ics \
-  --output json
+  /dav/calendars/user/personal/event1.ics
+
+# Add a new event from file
+cargo run --example caldav_cli -- add \
+  --server https://caldav.example.com \
+  /dav/calendars/user/personal/new-event.ics \
+  /path/to/event.ics
+
+# Add a new event from stdin
+cat event.ics | cargo run --example caldav_cli -- add \
+  --server https://caldav.example.com \
+  /dav/calendars/user/personal/new-event.ics -
+
+# Edit an existing event from file
+cargo run --example caldav_cli -- edit \
+  --server https://caldav.example.com \
+  /dav/calendars/user/personal/event1.ics \
+  /path/to/updated-event.ics
+
+# Edit an existing event from stdin
+cat updated-event.ics | cargo run --example caldav_cli -- edit \
+  --server https://caldav.example.com \
+  /dav/calendars/user/personal/event1.ics -
+
+# Delete an event
+cargo run --example caldav_cli -- delete \
+  --server https://caldav.example.com \
+  /dav/calendars/user/personal/event1.ics
 ```
 
 ### Environment Variables and .env Files
@@ -115,3 +141,6 @@ The following environment variables can be used instead of command-line argument
 - `list-events` - List events in a time range
 - `list-todos` - List todos with status filtering
 - `get` - Get a specific calendar object by href
+- `add` - Create a new calendar object
+- `edit` - Update an existing calendar object
+- `delete` - Delete a calendar object

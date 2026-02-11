@@ -78,6 +78,25 @@ enum Commands {
         /// Resource href
         href: String,
     },
+    /// Add a new event or todo
+    Add {
+        /// Resource href (full path to the .ics file on the server)
+        href: String,
+        /// iCalendar file path (or "-" for stdin)
+        input: String,
+    },
+    /// Edit an existing event or todo
+    Edit {
+        /// Resource href
+        href: String,
+        /// iCalendar file path (or "-" for stdin)
+        input: String,
+    },
+    /// Delete an event or todo
+    Delete {
+        /// Resource href
+        href: String,
+    },
 }
 
 impl Cli {
@@ -155,15 +174,14 @@ async fn cmd_list_cals(client: &CalDavClient) -> Result<(), Box<dyn std::error::
         return Ok(());
     }
 
-    println!("{:-<80}", "");
-    println!("{:<40} {:<20} {:<20}", "Name", "Components", "Description");
-    println!("{:-<80}", "");
+    println!("{:-<100}", "");
+    println!("{:<50} {:<20} {:<20}", "Href", "Name", "Components");
+    println!("{:-<100}", "");
 
     for cal in &calendars {
         let name = cal.display_name.as_deref().unwrap_or("Unnamed");
         let components = cal.supported_components.join(", ");
-        let desc = cal.description.as_deref().unwrap_or("");
-        println!("{:<40} {:<20} {}", name, components, desc);
+        println!("{:<50} {:<20} {}", cal.href.as_str(), name, components);
     }
 
     Ok(())
@@ -332,6 +350,33 @@ fn format_todo_status(status: &aimcal_ical::TodoStatus<String>) -> String {
     }
 }
 
+/// Read iCalendar data from a file or stdin.
+fn read_icalendar(input: &str) -> Result<ICalendar<String>, Box<dyn std::error::Error>> {
+    let content = if input == "-" {
+        use std::io::Read;
+        let mut buffer = String::new();
+        std::io::stdin().read_to_string(&mut buffer)?;
+        buffer
+    } else {
+        std::fs::read_to_string(input)?
+    };
+
+    let calendars = aimcal_ical::parse(&content).map_err(|e| {
+        format!(
+            "iCalendar parsing failed: {}",
+            e.iter()
+                .map(|err| format!("{err}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    })?;
+    Ok(calendars
+        .into_iter()
+        .next()
+        .ok_or_else(|| "No calendar data found in input".to_string())?
+        .to_owned())
+}
+
 async fn cmd_get(client: &CalDavClient, href: &str) -> Result<(), Box<dyn std::error::Error>> {
     let href_obj = Href::new(href.to_string());
     let resource = client.get_event(&href_obj).await?;
@@ -343,6 +388,112 @@ async fn cmd_get(client: &CalDavClient, href: &str) -> Result<(), Box<dyn std::e
     // Output formatted iCalendar
     let ical_str = formatter::format(&resource.data)?;
     println!("{}", ical_str);
+
+    Ok(())
+}
+
+async fn cmd_add(
+    client: &CalDavClient,
+    href: &str,
+    input: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let href_obj = Href::new(href.to_string());
+    let ical = read_icalendar(input)?;
+
+    // Determine if this is an event or todo based on components
+    let has_event = ical
+        .components
+        .iter()
+        .any(|c| matches!(c, CalendarComponent::Event(_)));
+    let has_todo = ical
+        .components
+        .iter()
+        .any(|c| matches!(c, CalendarComponent::Todo(_)));
+
+    let etag = if has_event {
+        client.create_event(&href_obj, &ical).await?
+    } else if has_todo {
+        client.create_todo(&href_obj, &ical).await?
+    } else {
+        return Err("No VEVENT or VTODO component found in iCalendar data".into());
+    };
+
+    println!("{}", "✓ Resource created successfully".green());
+    println!("Href: {}", href);
+    println!("ETag: {}", etag.as_str());
+
+    Ok(())
+}
+
+async fn cmd_edit(
+    client: &CalDavClient,
+    href: &str,
+    input: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let href_obj = Href::new(href.to_string());
+
+    // Get current resource to retrieve ETag
+    let resource = client.get_event(&href_obj).await?;
+    let current_etag = resource.etag;
+
+    // Read new iCalendar data
+    let ical = read_icalendar(input)?;
+
+    // Determine if this is an event or todo based on components
+    let has_event = ical
+        .components
+        .iter()
+        .any(|c| matches!(c, CalendarComponent::Event(_)));
+    let has_todo = ical
+        .components
+        .iter()
+        .any(|c| matches!(c, CalendarComponent::Todo(_)));
+
+    let new_etag = if has_event {
+        client.update_event(&href_obj, &current_etag, &ical).await?
+    } else if has_todo {
+        client.update_todo(&href_obj, &current_etag, &ical).await?
+    } else {
+        return Err("No VEVENT or VTODO component found in iCalendar data".into());
+    };
+
+    println!("{}", "✓ Resource updated successfully".green());
+    println!("Href: {}", href);
+    println!("Old ETag: {}", current_etag.as_str());
+    println!("New ETag: {}", new_etag.as_str());
+
+    Ok(())
+}
+
+async fn cmd_delete(client: &CalDavClient, href: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let href_obj = Href::new(href.to_string());
+
+    // Get current resource to retrieve ETag
+    let resource = client.get_event(&href_obj).await?;
+    let etag = resource.etag;
+
+    // Determine if this is an event or todo based on components
+    let has_event = resource
+        .data
+        .components
+        .iter()
+        .any(|c| matches!(c, CalendarComponent::Event(_)));
+    let has_todo = resource
+        .data
+        .components
+        .iter()
+        .any(|c| matches!(c, CalendarComponent::Todo(_)));
+
+    if has_event {
+        client.delete_event(&href_obj, &etag).await?;
+    } else if has_todo {
+        client.delete_todo(&href_obj, &etag).await?;
+    } else {
+        return Err("No VEVENT or VTODO component found in resource".into());
+    }
+
+    println!("{}", "✓ Resource deleted successfully".green());
+    println!("Href: {}", href);
 
     Ok(())
 }
@@ -389,6 +540,11 @@ fn format_error(err: Box<dyn Error>) -> String {
         format!("{} Authentication failed", "Error:".red().bold())
     } else if err_str.contains("404") || err_str.contains("not found") {
         format!("{} Resource not found", "Error:".red().bold())
+    } else if err_str.contains("412") || err_str.contains("precondition") {
+        format!(
+            "{} ETag conflict - resource was modified by another client",
+            "Error:".red().bold()
+        )
     } else if err_str.contains("CalDAV") {
         format!("{} Server doesn't support CalDAV", "Error:".red().bold())
     } else if err_str.contains("network") || err_str.contains("connection") {
@@ -429,6 +585,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 cmd_list_todos(&client, &calendar, &status).await
             }
             Commands::Get { href } => cmd_get(&client, &href).await,
+            Commands::Add { href, input } => cmd_add(&client, &href, &input).await,
+            Commands::Edit { href, input } => cmd_edit(&client, &href, &input).await,
+            Commands::Delete { href } => cmd_delete(&client, &href).await,
         }
     });
 
