@@ -49,4 +49,4 @@ sqlite = ["aimcal-core/sqlite"]
 sqlite-unbundled = ["aimcal-core/sqlite-unbundled"]
 
 [dev-dependencies]
-tempfile = "3.17"
+tempfile = "3.25"
