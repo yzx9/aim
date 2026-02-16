@@ -12,8 +12,8 @@ pub enum BackendKind {
     /// Local ICS files
     #[default]
     Local,
-    // /// `CalDAV` server
-    // CalDav,
+    /// `CalDAV` server
+    CalDav,
     // /// System reminder (not yet implemented)
     // #[serde(rename = "system-reminder")]
     // SystemReminder,
@@ -23,7 +23,7 @@ impl fmt::Display for BackendKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Local => write!(f, "local"),
-            // Self::CalDav => write!(f, "caldav"),
+            Self::CalDav => write!(f, "caldav"),
             // Self::SystemReminder => write!(f, "system-reminder"),
         }
     }
@@ -33,7 +33,7 @@ impl AsRef<str> for BackendKind {
     fn as_ref(&self) -> &str {
         match self {
             Self::Local => "local",
-            // Self::CalDav => "caldav",
+            Self::CalDav => "caldav",
             // Self::SystemReminder => "system-reminder",
         }
     }
@@ -45,7 +45,7 @@ impl TryFrom<u8> for BackendKind {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(BackendKind::Local),
-            // 1 => Ok(BackendKind::CalDav),
+            1 => Ok(BackendKind::CalDav),
             // 2 => Ok(BackendKind::SystemReminder),
             _ => Err(format!("Invalid backend kind value: {value}")),
         }
@@ -56,7 +56,7 @@ impl From<BackendKind> for u8 {
     fn from(kind: BackendKind) -> Self {
         match kind {
             BackendKind::Local => 0,
-            // BackendKind::CalDav => 1,
+            BackendKind::CalDav => 1,
             // BackendKind::SystemReminder => 2,
         }
     }

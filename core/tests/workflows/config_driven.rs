@@ -11,8 +11,8 @@
 use std::path::PathBuf;
 
 use aimcal_core::{
-    Aim, Config, DateTimeAnchor, Id, LooseDateTime, Pager, Priority, SortOrder, Todo,
-    TodoConditions, TodoDraft, TodoSort, TodoStatus,
+    Aim, BackendConfig, Config, DateTimeAnchor, Id, LooseDateTime, Pager, Priority, SortOrder,
+    Todo, TodoConditions, TodoDraft, TodoSort, TodoStatus,
 };
 use jiff::Zoned;
 
@@ -55,6 +55,9 @@ async fn config_default_due_applied() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -105,6 +108,9 @@ async fn config_default_priority_applied() {
         (Priority::None, Priority::None),
     ] {
         let config = Config {
+            backend: BackendConfig::Local {
+                calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+            },
             calendar_path: Some(temp_dirs.calendar_path.clone()),
             state_dir: Some(temp_dirs.state_dir.clone()),
             default_due: None,
@@ -130,6 +136,9 @@ async fn config_priority_sorting_behavior() {
 
     // Test with none_first = true
     let config_none_first = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -177,6 +186,9 @@ async fn config_priority_sorting_behavior() {
     // Test with none_first = false
     let temp_dirs2 = setup_temp_dirs().await.unwrap();
     let config_some_first = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs2.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs2.calendar_path.clone()),
         state_dir: Some(temp_dirs2.state_dir.clone()),
         default_due: None,
@@ -222,6 +234,9 @@ async fn config_timezone_handling() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -252,6 +267,9 @@ async fn config_mixed_defaults_integration() {
     // Arrange - config with multiple defaults
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -312,6 +330,9 @@ async fn config_persistence_across_restarts() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -355,6 +376,9 @@ async fn config_default_draft_consistency() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(1)),
@@ -391,6 +415,9 @@ async fn config_event_defaults() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -432,6 +459,9 @@ async fn config_datetime_anchor_variations() {
 
     for anchor in anchors {
         let config = Config {
+            backend: BackendConfig::Local {
+                calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+            },
             calendar_path: Some(temp_dirs.calendar_path.clone()),
             state_dir: Some(temp_dirs.state_dir.clone()),
             default_due: Some(anchor.clone()),

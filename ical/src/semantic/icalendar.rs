@@ -4,7 +4,6 @@
 
 //! iCalendar container types.
 
-use crate::semantic::tz_validator::{TzContext, ValidateTzids};
 use std::convert::TryFrom;
 
 use crate::keyword::{
@@ -13,6 +12,7 @@ use crate::keyword::{
 use crate::property::{
     CalendarScale, Method, ProductId, Property, PropertyKind, Version, VersionValue, XNameProperty,
 };
+use crate::semantic::tz_validator::{TzContext, ValidateTzids};
 use crate::semantic::{
     SemanticError, UnrecognizedComponent, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
     XComponent,
@@ -69,6 +69,38 @@ impl ICalendar<String> {
 impl Default for ICalendar<String> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl ICalendar<String> {
+    /// Get all VEVENT components from this calendar.
+    #[must_use]
+    pub fn events(&self) -> Vec<&VEvent<String>> {
+        self.components
+            .iter()
+            .filter_map(|comp| {
+                if let CalendarComponent::Event(event) = comp {
+                    Some(event)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Get all VTODO components from this calendar.
+    #[must_use]
+    pub fn todos(&self) -> Vec<&VTodo<String>> {
+        self.components
+            .iter()
+            .filter_map(|comp| {
+                if let CalendarComponent::Todo(todo) = comp {
+                    Some(todo)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
