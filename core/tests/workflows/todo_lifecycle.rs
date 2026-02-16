@@ -9,8 +9,8 @@
 //! configuration defaults, status transitions, and data persistence.
 
 use aimcal_core::{
-    Aim, Config, DateTimeAnchor, Id, LooseDateTime, Pager, Priority, SortOrder, Todo,
-    TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus,
+    Aim, BackendConfig, Config, DateTimeAnchor, Id, LooseDateTime, Pager, Priority, SortOrder,
+    Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus,
 };
 
 use crate::common::{setup_temp_dirs, test_todo_draft};
@@ -20,6 +20,9 @@ async fn todo_lifecycle_create_with_config_defaults() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -55,6 +58,9 @@ async fn todo_lifecycle_status_evolution() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -110,6 +116,9 @@ async fn todo_lifecycle_priority_handling() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -148,6 +157,9 @@ async fn todo_lifecycle_sorting() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -233,6 +245,9 @@ async fn todo_lifecycle_filtering() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -328,6 +343,9 @@ async fn todo_lifecycle_batch_operations() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(1)),
@@ -398,6 +416,9 @@ async fn todo_lifecycle_percent_complete_validation() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -485,6 +506,9 @@ async fn todo_lifecycle_metadata_updates() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -561,6 +585,9 @@ async fn todo_lifecycle_with_due_dates() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -598,6 +625,9 @@ async fn todo_lifecycle_rebuild_from_files() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,

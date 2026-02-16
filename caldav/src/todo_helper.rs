@@ -12,12 +12,9 @@ use aimcal_ical::semantic::{CalendarComponent, TodoStatusValue, VTodo};
 /// Extracts the first VTODO component from an iCalendar object.
 #[must_use]
 pub fn extract_first_todo(calendar: &ICalendar<String>) -> Option<&VTodo<String>> {
-    calendar.components.iter().find_map(|comp| {
-        if let CalendarComponent::Todo(todo) = comp {
-            Some(todo)
-        } else {
-            None
-        }
+    calendar.components.iter().find_map(|comp| match comp {
+        CalendarComponent::Todo(todo) => Some(todo),
+        _ => None,
     })
 }
 
@@ -38,25 +35,19 @@ pub fn get_todo_status(calendar: &ICalendar<String>) -> Option<TodoStatusValue> 
 /// - Its status is not COMPLETED or CANCELLED
 #[must_use]
 pub fn is_pending_todo(calendar: &ICalendar<String>) -> bool {
-    if let Some(todo) = extract_first_todo(calendar) {
+    extract_first_todo(calendar).is_some_and(|todo| {
         // Check if completed
         if todo.completed.is_some() {
             return false;
         }
 
         // Check status
-        if let Some(status) = todo.status.as_ref() {
-            match status.value {
-                TodoStatusValue::Completed | TodoStatusValue::Cancelled => return false,
-                TodoStatusValue::NeedsAction | TodoStatusValue::InProcess => return true,
-            }
-        }
-
         // No completed property and no status means pending
-        true
-    } else {
-        false
-    }
+        matches!(
+            todo.status.as_ref().map(|s| s.value),
+            Some(TodoStatusValue::Completed | TodoStatusValue::Cancelled)
+        )
+    })
 }
 
 /// Checks if a todo is completed.
@@ -66,21 +57,18 @@ pub fn is_pending_todo(calendar: &ICalendar<String>) -> bool {
 /// - Its status is COMPLETED
 #[must_use]
 pub fn is_completed_todo(calendar: &ICalendar<String>) -> bool {
-    if let Some(todo) = extract_first_todo(calendar) {
+    extract_first_todo(calendar).is_some_and(|todo| {
         // Check if completed
         if todo.completed.is_some() {
             return true;
         }
 
         // Check status
-        if let Some(status) = todo.status.as_ref() {
-            return matches!(status.value, TodoStatusValue::Completed);
-        }
-
-        false
-    } else {
-        false
-    }
+        matches!(
+            todo.status.as_ref().map(|s| s.value),
+            Some(TodoStatusValue::Completed)
+        )
+    })
 }
 
 // TODO: Add unit tests for todo helper functions

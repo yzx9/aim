@@ -15,7 +15,9 @@ repository.workspace = true
 readme.workspace = true
 
 [dependencies]
+aimcal-caldav = { version = "0.11.0", path = "../caldav" }
 aimcal-ical.workspace = true
+async-trait = "0.1"
 bimap = { version = "0.6.3", features = ["serde"] }
 jiff = { version = "0.2", features = ["serde"] }
 clap = { version = "4.6", features = ["derive"], optional = true }
@@ -36,6 +38,7 @@ xdg = "3.0.0"
 tempfile = "3"
 toml = "1.1.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+wiremock = "0.6"
 
 [features]
 default = ["sqlite"]

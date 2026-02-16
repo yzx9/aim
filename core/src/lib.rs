@@ -20,18 +20,22 @@
 )]
 
 mod aim;
+mod backend;
 mod config;
 mod datetime;
 mod db;
 mod event;
-mod io;
 mod short_id;
 mod todo;
 mod types;
 
 pub use crate::aim::Aim;
-pub use crate::config::{APP_NAME, Config};
+pub use crate::backend::{Backend, BackendError, CaldavBackend, LocalBackend, SyncResult};
+pub use crate::config::{APP_NAME, BackendConfig, Config};
+
+// Re-export AuthMethod for use in config
 pub use crate::datetime::{DateTimeAnchor, LooseDateTime, RangePosition};
 pub use crate::event::{Event, EventConditions, EventDraft, EventPatch, EventStatus};
 pub use crate::todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus};
 pub use crate::types::{BackendKind, Id, Kind, Pager, Priority, SortOrder};
+pub use aimcal_caldav::AuthMethod;

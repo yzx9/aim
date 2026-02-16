@@ -7,8 +7,8 @@
 //! Tests creating, reading, updating, and listing events.
 
 use aimcal_core::{
-    Aim, Config, Event, EventConditions, EventDraft, EventPatch, EventStatus, Id, LooseDateTime,
-    Pager, Priority,
+    Aim, BackendConfig, Config, Event, EventConditions, EventDraft, EventPatch, EventStatus, Id,
+    LooseDateTime, Pager, Priority,
 };
 
 use crate::common::{setup_temp_dirs, test_event_draft};
@@ -18,6 +18,9 @@ async fn aim_new_event_creates_file_and_database_entry() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -52,6 +55,9 @@ async fn aim_get_event_resolves_short_id() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -82,6 +88,9 @@ async fn aim_update_event_modifies_file_and_database() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -121,6 +130,9 @@ async fn aim_list_events_returns_all_events() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -167,6 +179,9 @@ async fn aim_list_events_with_pagination() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -235,6 +250,9 @@ async fn aim_count_events_returns_correct_count() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -277,6 +295,9 @@ async fn aim_new_event_assigns_sequential_short_ids() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -307,6 +328,9 @@ async fn aim_update_event_clears_optional_fields() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -346,6 +370,9 @@ async fn aim_get_event_returns_error_for_nonexistent() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -366,6 +393,9 @@ async fn aim_update_event_returns_error_for_nonexistent() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -392,6 +422,9 @@ async fn aim_event_status_updates_correctly() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -430,6 +463,9 @@ async fn aim_event_with_custom_datetimes() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -460,6 +496,9 @@ async fn aim_flush_short_ids_removes_mappings() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
+        backend: BackendConfig::Local {
+            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
+        },
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -505,6 +544,7 @@ async fn aim_update_db_only_event_without_calendar_path_succeeds() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        backend: BackendConfig::default(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -553,6 +593,7 @@ async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        backend: BackendConfig::default(),
     };
     let aim_no_calendar = Aim::new(config_no_calendar).await.unwrap();
 
@@ -572,6 +613,7 @@ async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        backend: BackendConfig::default(),
     };
     let aim = Aim::new(config_with_calendar).await.unwrap();
 
@@ -612,6 +654,7 @@ async fn aim_update_db_only_event_status_updates_correctly() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        backend: BackendConfig::default(),
     };
     let aim = Aim::new(config).await.unwrap();
 

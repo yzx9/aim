@@ -6,9 +6,56 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 
 use crate::{DateTimeAnchor, Priority};
+use aimcal_caldav::AuthMethod;
 
 /// The name of the AIM application.
 pub const APP_NAME: &str = "aim";
+
+/// Backend configuration for storage.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(tag = "type")]
+pub enum BackendConfig {
+    /// Local ICS file backend.
+    #[serde(rename = "local")]
+    Local {
+        /// Path to the calendar directory for ICS files.
+        calendar_path: Option<String>,
+    },
+    /// `CalDAV` server backend.
+    #[serde(rename = "caldav")]
+    Caldav {
+        /// Base URL of the `CalDAV` server.
+        base_url: String,
+        /// Calendar home path on the server.
+        calendar_home: String,
+        /// Href of the calendar collection on the server.
+        calendar_href: String,
+        /// Authentication method.
+        auth: AuthMethod,
+        /// Request timeout in seconds.
+        #[serde(default = "default_timeout_secs")]
+        timeout_secs: u64,
+        /// User agent string for HTTP requests.
+        #[serde(default = "default_user_agent")]
+        user_agent: String,
+    },
+}
+
+impl Default for BackendConfig {
+    fn default() -> Self {
+        Self::Local {
+            calendar_path: None,
+        }
+    }
+}
+
+fn default_timeout_secs() -> u64 {
+    30
+}
+
+fn default_user_agent() -> String {
+    "aimcal/0.11.0".to_string()
+}
 
 /// Configuration for the AIM application.
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -49,6 +96,10 @@ pub struct Config {
     /// to prevent accidental use of the system default state directory.
     #[serde(skip)]
     pub dev_mode: bool,
+
+    /// Backend configuration.
+    #[serde(default)]
+    pub backend: BackendConfig,
 }
 
 impl Config {

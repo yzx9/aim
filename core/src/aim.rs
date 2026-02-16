@@ -3,30 +3,39 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::error::Error;
-use std::path::PathBuf;
+use std::fmt;
 
-use aimcal_ical::{CalendarComponent, ICalendar};
 use jiff::Zoned;
 use tokio::fs;
 use uuid::Uuid;
 
+use crate::backend::{Backend, CaldavBackend, LocalBackend, SyncResult};
 use crate::db::Db;
-use crate::event::reconstruct_event_from_db;
-use crate::io::{add_calendar_if_enabled, parse_ics, write_ics};
 use crate::short_id::ShortIds;
-use crate::todo::reconstruct_todo_from_db;
 use crate::{
-    Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo, TodoConditions,
-    TodoDraft, TodoPatch, TodoSort,
+    BackendConfig, Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo,
+    TodoConditions, TodoDraft, TodoPatch, TodoSort,
 };
 
 /// AIM calendar application core.
-#[derive(Debug, Clone)]
 pub struct Aim {
     now: Zoned,
     config: Config,
     db: Db,
     short_ids: ShortIds,
+    backend: Box<dyn Backend>,
+}
+
+impl fmt::Debug for Aim {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Aim")
+            .field("now", &self.now)
+            .field("config", &self.config)
+            .field("db", &self.db)
+            .field("short_ids", &self.short_ids)
+            .field("backend", &"Box<dyn Backend>")
+            .finish()
+    }
 }
 
 impl Aim {
@@ -43,15 +52,54 @@ impl Aim {
         let db = initialize_db(&config).await?;
         let short_ids = ShortIds::new(db.clone());
 
-        add_calendar_if_enabled(&db, config.calendar_path.as_ref())
+        // Create backend based on configuration
+        let backend: Box<dyn Backend> = match &config.backend {
+            BackendConfig::Local { calendar_path } => {
+                let calendar_path = calendar_path.as_ref().map_or_else(
+                    || {
+                        config.state_dir.as_ref().map_or_else(
+                            || std::path::PathBuf::from("calendar"),
+                            |p| p.join("calendar"),
+                        )
+                    },
+                    std::path::PathBuf::from,
+                );
+                Box::new(LocalBackend::with_db(calendar_path, db.clone()))
+            }
+            BackendConfig::Caldav {
+                base_url,
+                calendar_home,
+                calendar_href,
+                auth,
+                timeout_secs,
+                user_agent,
+            } => {
+                let caldav_config = aimcal_caldav::CalDavConfig {
+                    base_url: base_url.clone(),
+                    calendar_home: calendar_home.clone(),
+                    auth: auth.clone(),
+                    timeout_secs: *timeout_secs,
+                    user_agent: user_agent.clone(),
+                };
+                Box::new(
+                    CaldavBackend::new(caldav_config, calendar_href.clone(), db.clone())
+                        .map_err(|e| format!("Failed to create CalDAV backend: {e}"))?,
+                )
+            }
+        };
+
+        // Sync backend with local cache
+        backend
+            .sync_cache()
             .await
-            .map_err(|e| format!("Failed to add calendar files: {e}"))?;
+            .map_err(|e| format!("Failed to sync backend cache: {e}"))?;
 
         Ok(Self {
             now,
             config,
             db,
             short_ids,
+            backend,
         })
     }
 
@@ -88,7 +136,7 @@ impl Aim {
     /// Add a new event from the given draft.
     ///
     /// # Errors
-    /// If the event is not found, database or file system access fails.
+    /// If the event is not found, database or backend access fails.
     pub async fn new_event(
         &self,
         draft: EventDraft,
@@ -96,22 +144,21 @@ impl Aim {
         let uid = self.generate_uid(Kind::Event).await?;
         let event = draft.resolve(&self.now).into_ics(&uid);
 
-        self.db.upsert_event(&uid, &event, 0).await?;
+        // Create event in backend
+        let resource_id = self
+            .backend
+            .create_event(&uid, &event)
+            .await
+            .map_err(|e| format!("Failed to create event in backend: {e}"))?;
 
-        if let Some(calendar_path) = &self.config.calendar_path {
-            let path = calendar_path.join(format!("{uid}.ics"));
-
-            let mut calendar = ICalendar::new();
-            calendar.components.push(event.clone().into());
-
-            write_ics(&path, &calendar).await?;
-
-            let resource_id = format!("file://{}", path.display());
-            self.db
-                .resources
-                .insert(&uid, 0, &resource_id, None)
-                .await?;
-        }
+        // Store in database with resource mapping
+        self.db
+            .upsert_event(&uid, &event, self.backend.backend_kind())
+            .await?;
+        self.db
+            .resources
+            .insert(&uid, self.backend.backend_kind(), &resource_id, None)
+            .await?;
 
         let event = self.short_ids.event(event).await?;
         Ok(event)
@@ -120,83 +167,31 @@ impl Aim {
     /// Upsert an event into the calendar.
     ///
     /// # Errors
-    /// If the event is not found, database or file system access fails.
+    /// If the event is not found, database or backend access fails.
     pub async fn update_event(
         &self,
         id: &Id,
         patch: EventPatch,
     ) -> Result<impl Event + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
-        let Some(event) = self.db.events.get(&uid).await? else {
+        let Some(_event) = self.db.events.get(&uid).await? else {
             return Err("Event not found".into());
         };
 
-        let resource = self.db.resources.get(&uid, 0).await?;
+        // Update event through backend
+        let updated_event = self
+            .backend
+            .update_event(&uid, &patch)
+            .await
+            .map_err(|e| format!("Failed to update event in backend: {e}"))?;
 
-        if let Some(res) = resource {
-            let ics_path = res
-                .resource_id
-                .strip_prefix("file://")
-                .ok_or("Invalid resource_id format")?;
-            let ics_path_buf = PathBuf::from(ics_path);
+        // Update database
+        self.db
+            .upsert_event(&uid, &updated_event, self.backend.backend_kind())
+            .await?;
 
-            let mut calendar = parse_ics(&ics_path_buf).await?;
-
-            let mut updated_event = None;
-            for component in &mut calendar.components {
-                if let CalendarComponent::Event(e) = component
-                    && e.uid.content.to_string() == event.uid()
-                {
-                    patch.resolve(self.now.clone()).apply_to(e);
-                    updated_event = Some(e.clone());
-                    break;
-                }
-            }
-
-            let updated_event = updated_event.ok_or("Event not found in calendar")?;
-
-            write_ics(&ics_path_buf, &calendar).await?;
-
-            self.db.upsert_event(&uid, &updated_event, 0).await?;
-
-            let event_with_id = self.short_ids.event(updated_event).await?;
-            Ok(event_with_id)
-        } else if let Some(calendar_path) = &self.config.calendar_path {
-            // DB-only event - handle based on calendar_path configuration
-
-            // Generate ICS file for this DB-only event
-            let p = calendar_path.join(format!("{uid}.ics"));
-
-            // Reconstruct VEvent from database record and apply patch
-            let mut event_ics = reconstruct_event_from_db(&event, &self.now);
-            patch.resolve(self.now.clone()).apply_to(&mut event_ics);
-
-            // Write ICS file
-            let mut calendar = ICalendar::new();
-            calendar.components.push(event_ics.clone().into());
-            write_ics(&p, &calendar).await?;
-
-            // Create resource record
-            let resource_id = format!("file://{}", p.display());
-            self.db
-                .resources
-                .insert(&uid, 0, &resource_id, None)
-                .await?;
-
-            // Update database
-            self.db.upsert_event(&uid, &event_ics, 0).await?;
-
-            self.short_ids.event(event_ics).await
-        } else {
-            // Pure DB-only update - apply patch directly
-            let mut event_ics = reconstruct_event_from_db(&event, &self.now);
-            patch.resolve(self.now.clone()).apply_to(&mut event_ics);
-
-            // Update database only (no ICS file)
-            self.db.upsert_event(&uid, &event_ics, 0).await?;
-
-            self.short_ids.event(event_ics).await
-        }
+        let event_with_id = self.short_ids.event(updated_event).await?;
+        Ok(event_with_id)
     }
 
     /// Get the kind of the given id, which can be either an event or a todo.
@@ -259,112 +254,59 @@ impl Aim {
     /// Add a new todo from the given draft.
     ///
     /// # Errors
-    /// If the todo is not found, database or file system access fails.
+    /// If the todo is not found, database or backend access fails.
     pub async fn new_todo(&self, draft: TodoDraft) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.generate_uid(Kind::Todo).await?;
         let todo = draft.resolve(&self.config, &self.now).into_ics(&uid);
 
-        self.db.upsert_todo(&uid, &todo, 0).await?;
+        // Create todo in backend
+        let resource_id = self
+            .backend
+            .create_todo(&uid, &todo)
+            .await
+            .map_err(|e| format!("Failed to create todo in backend: {e}"))?;
 
-        if let Some(calendar_path) = &self.config.calendar_path {
-            let path = calendar_path.join(format!("{uid}.ics"));
-
-            let mut calendar = ICalendar::new();
-            calendar.components.push(todo.clone().into());
-
-            write_ics(&path, &calendar).await?;
-
-            let resource_id = format!("file://{}", path.display());
-            self.db
-                .resources
-                .insert(&uid, 0, &resource_id, None)
-                .await?;
-        }
+        // Store in database with resource mapping
+        self.db
+            .upsert_todo(&uid, &todo, self.backend.backend_kind())
+            .await?;
+        self.db
+            .resources
+            .insert(&uid, self.backend.backend_kind(), &resource_id, None)
+            .await?;
 
         let todo_with_id = self.short_ids.todo(todo).await?;
         Ok(todo_with_id)
     }
 
-    /// Upsert an event into the calendar.
+    /// Upsert a todo into the calendar.
     ///
     /// # Errors
-    /// If the todo is not found, database or file system access fails.
+    /// If the todo is not found, database or backend access fails.
     pub async fn update_todo(
         &self,
         id: &Id,
         patch: TodoPatch,
     ) -> Result<impl Todo + 'static, Box<dyn Error>> {
         let uid = self.short_ids.get_uid(id).await?;
-        let Some(todo) = self.db.todos.get(&uid).await? else {
+        let Some(_todo) = self.db.todos.get(&uid).await? else {
             return Err("Todo not found".into());
         };
 
-        let resource = self.db.resources.get(&uid, 0).await?;
+        // Update todo through backend
+        let updated_todo = self
+            .backend
+            .update_todo(&uid, &patch)
+            .await
+            .map_err(|e| format!("Failed to update todo in backend: {e}"))?;
 
-        if let Some(res) = resource {
-            let ics_path = res
-                .resource_id
-                .strip_prefix("file://")
-                .ok_or("Invalid resource_id format")?;
-            let ics_path_buf = PathBuf::from(ics_path);
+        // Update database
+        self.db
+            .upsert_todo(&uid, &updated_todo, self.backend.backend_kind())
+            .await?;
 
-            let mut calendar = parse_ics(&ics_path_buf).await?;
-
-            let mut updated_todo = None;
-            for component in &mut calendar.components {
-                if let CalendarComponent::Todo(t) = component
-                    && t.uid.content.to_string() == todo.uid()
-                {
-                    patch.resolve(&self.now).apply_to(t);
-                    updated_todo = Some(t.clone());
-                    break;
-                }
-            }
-
-            let updated_todo = updated_todo.ok_or("Todo not found in calendar")?;
-
-            write_ics(&ics_path_buf, &calendar).await?;
-
-            self.db.upsert_todo(&uid, &updated_todo, 0).await?;
-
-            let todo = self.short_ids.todo(updated_todo).await?;
-            Ok(todo)
-        } else if let Some(calendar_path) = &self.config.calendar_path {
-            // DB-only todo - handle based on calendar_path configuration
-
-            // Generate ICS file for this DB-only todo
-            let p = calendar_path.join(format!("{uid}.ics"));
-
-            // Reconstruct VTodo from database record and apply patch
-            let mut todo_ics = reconstruct_todo_from_db(&todo, &self.now);
-            patch.resolve(&self.now).apply_to(&mut todo_ics);
-
-            // Write ICS file
-            let mut calendar = ICalendar::new();
-            calendar.components.push(todo_ics.clone().into());
-            write_ics(&p, &calendar).await?;
-
-            // Create resource record
-            let resource_id = format!("file://{}", p.display());
-            self.db
-                .resources
-                .insert(&uid, 0, &resource_id, None)
-                .await?;
-
-            // Update database
-            self.db.upsert_todo(&uid, &todo_ics, 0).await?;
-
-            self.short_ids.todo(todo_ics).await
-        } else {
-            // Pure DB-only update - apply patch directly
-            let mut todo_ics = reconstruct_todo_from_db(&todo, &self.now);
-            patch.resolve(&self.now).apply_to(&mut todo_ics);
-
-            // Update database only (no ICS file)
-            self.db.upsert_todo(&uid, &todo_ics, 0).await?;
-
-            self.short_ids.todo(todo_ics).await
-        }
+        let todo = self.short_ids.todo(updated_todo).await?;
+        Ok(todo)
     }
 
     /// Get a todo by its id.
@@ -412,6 +354,17 @@ impl Aim {
     /// If database access fails.
     pub async fn flush_short_ids(&self) -> Result<(), Box<dyn Error>> {
         self.short_ids.flush().await
+    }
+
+    /// Synchronizes the backend with the local cache.
+    ///
+    /// # Errors
+    /// If synchronization fails.
+    pub async fn sync(&self) -> Result<SyncResult, Box<dyn Error>> {
+        self.backend
+            .sync_cache()
+            .await
+            .map_err(|e| format!("Failed to sync: {e}").into())
     }
 
     /// Close the AIM instance, saving any changes to the database.
