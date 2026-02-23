@@ -4,12 +4,22 @@
 
 use std::{fmt, str::FromStr, sync::OnceLock};
 
+use jiff::civil::Weekday;
 use jiff::civil::{Date, DateTime, Time, time};
 use jiff::{Span, Zoned};
 use regex::Regex;
 use serde::de;
 
 use crate::LooseDateTime;
+
+/// Offset for weekday resolution in weeks.
+///
+/// - `0` = This/next occurrence (could be today if same weekday)
+/// - `1` = Next week's occurrence
+/// - `2` = 2 weeks from now
+/// - `-1` = Last/previous occurrence
+/// - `-2` = 2 weeks ago
+pub type WeekdayOffset = i8;
 
 /// Represents a date and time anchor that can be used to calculate relative dates and times.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +39,14 @@ pub enum DateTimeAnchor {
 
     /// A month and day without year (year resolved at resolution time).
     MonthDay(i8, i8),
+
+    /// A weekday with optional offset in weeks.
+    Weekday {
+        /// The target weekday.
+        day: Weekday,
+        /// The week offset (0=this, 1=next week, -1=last week, etc.).
+        offset: WeekdayOffset,
+    },
 }
 
 impl DateTimeAnchor {
@@ -84,6 +102,11 @@ impl DateTimeAnchor {
                 .map_err(|e| format!("Failed to create date: {e}"))?
                 .to_zoned(now.time_zone().clone())
                 .map_err(|e| format!("Failed to convert to zoned: {e}")),
+            DateTimeAnchor::Weekday { day, offset } => {
+                let date = resolve_weekday_date(now.date(), *day, *offset);
+                date.to_zoned(now.time_zone().clone())
+                    .map_err(|e| format!("Failed to convert to zoned: {e}"))
+            }
         }
     }
 
@@ -117,6 +140,13 @@ impl DateTimeAnchor {
                 .map_err(|e| format!("Failed to convert to zoned: {e}"))?
                 .end_of_day()
                 .map_err(|e| format!("Failed to get end of day: {e}")),
+            DateTimeAnchor::Weekday { day, offset } => {
+                let date = resolve_weekday_date(now.date(), *day, *offset);
+                date.to_zoned(now.time_zone().clone())
+                    .map_err(|e| format!("Failed to convert to zoned: {e}"))?
+                    .end_of_day()
+                    .map_err(|e| format!("Failed to get end of day: {e}"))
+            }
         }
     }
 
@@ -136,6 +166,10 @@ impl DateTimeAnchor {
                     Ok(d) => LooseDateTime::DateOnly(d),
                     Err(_) => now.clone(), // Fallback to now if invalid date
                 }
+            }
+            DateTimeAnchor::Weekday { day, offset } => {
+                let date = resolve_weekday_date(now.date(), day, offset);
+                LooseDateTime::DateOnly(date)
             }
         }
     }
@@ -182,6 +216,10 @@ impl DateTimeAnchor {
                 let d = Date::new(year, month, day)
                     .map_err(|e| format!("Failed to create date: {e}"))?;
                 Ok(LooseDateTime::DateOnly(d))
+            }
+            DateTimeAnchor::Weekday { day, offset } => {
+                let date = resolve_weekday_date(start.date(), day, offset);
+                Ok(LooseDateTime::DateOnly(date))
             }
         }
     }
@@ -230,6 +268,10 @@ impl DateTimeAnchor {
                 let d = Date::new(year, month, day)
                     .map_err(|e| format!("Failed to create date: {e}"))?;
                 Ok(LooseDateTime::DateOnly(d))
+            }
+            DateTimeAnchor::Weekday { day, offset } => {
+                let date = resolve_weekday_date(start.date(), day, offset);
+                Ok(LooseDateTime::DateOnly(date))
             }
         }
     }
@@ -280,6 +322,11 @@ impl FromStr for DateTimeAnchor {
         }
         if let Some(days) = parse_days(t) {
             return Ok(Self::InDays(days));
+        }
+
+        // Try weekday expressions (e.g., "monday", "next friday", "last tuesday")
+        if let Some((day, offset)) = parse_weekday_expression(t) {
+            return Ok(Self::Weekday { day, offset });
         }
 
         Err(format!("Invalid datetime anchor: {t}"))
@@ -385,6 +432,82 @@ fn is_valid_month_day(month: i8, day: i8) -> bool {
     };
 
     day <= max_day
+}
+
+/// Parse weekday name (full or abbreviated, case-insensitive) to `Weekday`.
+fn parse_weekday_name(s: &str) -> Option<Weekday> {
+    let lower = s.to_lowercase();
+    match lower.as_str() {
+        "monday" | "mon" => Some(Weekday::Monday),
+        "tuesday" | "tue" => Some(Weekday::Tuesday),
+        "wednesday" | "wed" => Some(Weekday::Wednesday),
+        "thursday" | "thu" => Some(Weekday::Thursday),
+        "friday" | "fri" => Some(Weekday::Friday),
+        "saturday" | "sat" => Some(Weekday::Saturday),
+        "sunday" | "sun" => Some(Weekday::Sunday),
+        _ => None,
+    }
+}
+
+/// Parse a weekday expression (e.g., "monday", "next friday", "last tuesday").
+fn parse_weekday_expression(s: &str) -> Option<(Weekday, WeekdayOffset)> {
+    let s = s.trim().to_lowercase();
+    let parts: Vec<&str> = s.split_whitespace().collect();
+
+    match parts.len() {
+        1 => {
+            // Just a weekday name
+            let day = parse_weekday_name(parts[0])?;
+            Some((day, 0)) // 0 = this/next occurrence
+        }
+        2 => {
+            // Modifier + weekday name
+            let offset: WeekdayOffset = match parts[0] {
+                "this" => 0,
+                "next" => 1,
+                "last" => -1,
+                _ => return None,
+            };
+            let day = parse_weekday_name(parts[1])?;
+            Some((day, offset))
+        }
+        _ => None,
+    }
+}
+
+/// Calculate the date for a weekday relative to a reference date.
+///
+/// # Arguments
+/// * `ref_date` - The reference date
+/// * `target` - The target weekday
+/// * `offset` - Week offset (0=this, 1=next week, -1=last week, etc.)
+fn resolve_weekday_date(ref_date: Date, target: Weekday, offset: WeekdayOffset) -> Date {
+    let ref_weekday = ref_date.weekday();
+    let ref_offset = ref_weekday.to_monday_zero_offset() as i64;
+    let target_offset = target.to_monday_zero_offset() as i64;
+
+    // Days until next occurrence (0 if same day)
+    let days_to_next = (target_offset - ref_offset + 7) % 7;
+    // Days since last occurrence (0 if same day)
+    let days_since_last = (ref_offset - target_offset + 7) % 7;
+
+    let total_days: i64 = if offset >= 0 {
+        // For offset 0: if same day, stay today; otherwise go to next occurrence
+        // For offset > 0: go to the occurrence offset weeks from now
+        days_to_next + offset as i64 * 7
+    } else {
+        // For negative offset: go backwards
+        // If same day, we need to go back at least a week
+        if days_since_last == 0 {
+            offset as i64 * 7
+        } else {
+            -days_since_last + (offset as i64 + 1) * 7
+        }
+    };
+
+    ref_date
+        .checked_add(Span::new().days(total_days))
+        .unwrap_or(ref_date)
 }
 
 #[cfg(test)]
@@ -970,6 +1093,294 @@ mod tests {
             "6-31",  // June 31
             "9-31",  // September 31
             "11-31", // November 31
+        ] {
+            let result = DateTimeAnchor::from_str(s);
+            assert!(result.is_err(), "Should reject invalid '{s}'");
+        }
+    }
+
+    #[test]
+    fn parses_weekday_names() {
+        // Full names (case-insensitive)
+        for (s, expected) in [
+            ("monday", Weekday::Monday),
+            ("Tuesday", Weekday::Tuesday),
+            ("WEDNESDAY", Weekday::Wednesday),
+            ("thursday", Weekday::Thursday),
+            ("Friday", Weekday::Friday),
+            ("saturday", Weekday::Saturday),
+            ("Sunday", Weekday::Sunday),
+        ] {
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            assert_eq!(
+                anchor,
+                DateTimeAnchor::Weekday {
+                    day: expected,
+                    offset: 0
+                },
+                "Failed to parse '{s}'"
+            );
+        }
+
+        // Abbreviations (case-insensitive)
+        for (s, expected) in [
+            ("mon", Weekday::Monday),
+            ("TUE", Weekday::Tuesday),
+            ("Wed", Weekday::Wednesday),
+            ("thu", Weekday::Thursday),
+            ("FRI", Weekday::Friday),
+            ("sat", Weekday::Saturday),
+            ("SUN", Weekday::Sunday),
+        ] {
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            assert_eq!(
+                anchor,
+                DateTimeAnchor::Weekday {
+                    day: expected,
+                    offset: 0
+                },
+                "Failed to parse '{s}'"
+            );
+        }
+    }
+
+    #[test]
+    fn parses_weekday_with_modifiers() {
+        // "this" modifier
+        for (s, expected) in [
+            ("this monday", Weekday::Monday),
+            ("this tuesday", Weekday::Tuesday),
+            ("THIS FRIDAY", Weekday::Friday),
+        ] {
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            assert_eq!(
+                anchor,
+                DateTimeAnchor::Weekday {
+                    day: expected,
+                    offset: 0
+                },
+                "Failed to parse '{s}'"
+            );
+        }
+
+        // "next" modifier
+        for (s, expected) in [
+            ("next monday", Weekday::Monday),
+            ("next tuesday", Weekday::Tuesday),
+            ("NEXT FRIDAY", Weekday::Friday),
+        ] {
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            assert_eq!(
+                anchor,
+                DateTimeAnchor::Weekday {
+                    day: expected,
+                    offset: 1
+                },
+                "Failed to parse '{s}'"
+            );
+        }
+
+        // "last" modifier
+        for (s, expected) in [
+            ("last monday", Weekday::Monday),
+            ("last tuesday", Weekday::Tuesday),
+            ("LAST FRIDAY", Weekday::Friday),
+        ] {
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            assert_eq!(
+                anchor,
+                DateTimeAnchor::Weekday {
+                    day: expected,
+                    offset: -1
+                },
+                "Failed to parse '{s}'"
+            );
+        }
+    }
+
+    #[test]
+    fn resolves_weekday_this_offset_same_day() {
+        // Monday 2025-01-06, asking for "monday" (offset 0)
+        let now = date(2025, 1, 6)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Monday,
+            offset: 0,
+        };
+
+        // Should return today (same day)
+        let result = anchor.resolve_at_start_of_day(&now).unwrap();
+        assert_eq!(result.date(), date(2025, 1, 6));
+    }
+
+    #[test]
+    fn resolves_weekday_this_offset_different_day() {
+        // Monday 2025-01-06, asking for "friday" (offset 0)
+        let now = date(2025, 1, 6)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Friday,
+            offset: 0,
+        };
+
+        // Should return Friday of this week (2025-01-10)
+        let result = anchor.resolve_at_start_of_day(&now).unwrap();
+        assert_eq!(result.date(), date(2025, 1, 10));
+    }
+
+    #[test]
+    fn resolves_weekday_next_offset() {
+        // Monday 2025-01-06, asking for "next monday" (offset 1)
+        let now = date(2025, 1, 6)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Monday,
+            offset: 1,
+        };
+
+        // Should return next week's Monday (2025-01-13)
+        let result = anchor.resolve_at_start_of_day(&now).unwrap();
+        assert_eq!(result.date(), date(2025, 1, 13));
+    }
+
+    #[test]
+    fn resolves_weekday_last_offset() {
+        // Monday 2025-01-06, asking for "last friday" (offset -1)
+        let now = date(2025, 1, 6)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Friday,
+            offset: -1,
+        };
+
+        // Should return previous Friday (2025-01-03)
+        let result = anchor.resolve_at_start_of_day(&now).unwrap();
+        assert_eq!(result.date(), date(2025, 1, 3));
+    }
+
+    #[test]
+    fn resolves_weekday_last_offset_same_day() {
+        // Monday 2025-01-06, asking for "last monday" (offset -1)
+        let now = date(2025, 1, 6)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Monday,
+            offset: -1,
+        };
+
+        // Should return previous Monday (2024-12-30)
+        let result = anchor.resolve_at_start_of_day(&now).unwrap();
+        assert_eq!(result.date(), date(2024, 12, 30));
+    }
+
+    #[test]
+    fn resolves_weekday_with_end_of_day() {
+        // Monday 2025-01-06, asking for "friday" (offset 0)
+        let now = date(2025, 1, 6)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap();
+
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Friday,
+            offset: 0,
+        };
+
+        let result = anchor.resolve_at_end_of_day(&now).unwrap();
+        assert_eq!(result.date(), date(2025, 1, 10));
+        assert!(result.time() > time(23, 59, 59, 0));
+    }
+
+    #[test]
+    fn resolves_weekday_since_loose_datetime() {
+        let now: LooseDateTime = LooseDateTime::Local(
+            date(2025, 1, 6) // Monday
+                .at(12, 0, 0, 0)
+                .to_zoned(TimeZone::system())
+                .unwrap(),
+        );
+
+        // This Friday (offset 0)
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Friday,
+            offset: 0,
+        };
+        let result = anchor.resolve_since(&now).unwrap();
+        assert_eq!(result, LooseDateTime::DateOnly(date(2025, 1, 10)));
+
+        // Next Monday (offset 1)
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Monday,
+            offset: 1,
+        };
+        let result = anchor.resolve_since(&now).unwrap();
+        assert_eq!(result, LooseDateTime::DateOnly(date(2025, 1, 13)));
+
+        // Last Friday (offset -1)
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Friday,
+            offset: -1,
+        };
+        let result = anchor.resolve_since(&now).unwrap();
+        assert_eq!(result, LooseDateTime::DateOnly(date(2025, 1, 3)));
+    }
+
+    #[test]
+    fn resolves_weekday_since_zoned() {
+        let now = date(2025, 1, 6) // Monday
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap();
+
+        // This Friday (offset 0)
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Friday,
+            offset: 0,
+        };
+        let result = anchor.resolve_since_zoned(&now).unwrap();
+        assert_eq!(result, LooseDateTime::DateOnly(date(2025, 1, 10)));
+
+        // Next Monday (offset 1)
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Monday,
+            offset: 1,
+        };
+        let result = anchor.resolve_since_zoned(&now).unwrap();
+        assert_eq!(result, LooseDateTime::DateOnly(date(2025, 1, 13)));
+
+        // Last Friday (offset -1)
+        let anchor = DateTimeAnchor::Weekday {
+            day: Weekday::Friday,
+            offset: -1,
+        };
+        let result = anchor.resolve_since_zoned(&now).unwrap();
+        assert_eq!(result, LooseDateTime::DateOnly(date(2025, 1, 3)));
+    }
+
+    #[test]
+    fn rejects_invalid_weekday_expressions() {
+        for s in [
+            "mondayy",
+            "nex monday", // typo in "next"
+            "next mond",  // invalid abbreviation
+            "nextnext monday",
+            "monday next",
+            "next",
         ] {
             let result = DateTimeAnchor::from_str(s);
             assert!(result.is_err(), "Should reject invalid '{s}'");

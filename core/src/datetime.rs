@@ -6,7 +6,8 @@ mod anchor;
 mod loose;
 mod util;
 
-pub use anchor::DateTimeAnchor;
+#[allow(unused_imports)] // WeekdayOffset is part of public API for DateTimeAnchor::Weekday
+pub use anchor::{DateTimeAnchor, WeekdayOffset};
 pub use loose::LooseDateTime;
 pub use util::RangePosition;
 pub(crate) use util::{STABLE_FORMAT_DATEONLY, STABLE_FORMAT_LOCAL};
