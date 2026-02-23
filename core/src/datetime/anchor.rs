@@ -4,8 +4,7 @@
 
 use std::{fmt, str::FromStr, sync::OnceLock};
 
-use jiff::civil::{self, Date, Time, date, time};
-use jiff::tz::TimeZone;
+use jiff::civil::{Date, DateTime, Time, time};
 use jiff::{Span, Zoned};
 use regex::Regex;
 use serde::de;
@@ -14,6 +13,7 @@ use crate::LooseDateTime;
 
 /// Represents a date and time anchor that can be used to calculate relative dates and times.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DateTimeAnchor {
     /// A specific number of days in the future or past.
     InDays(i64),
@@ -26,6 +26,9 @@ pub enum DateTimeAnchor {
 
     /// A specific time.
     Time(Time),
+
+    /// A month and day without year (year resolved at resolution time).
+    MonthDay(i8, i8),
 }
 
 impl DateTimeAnchor {
@@ -60,26 +63,27 @@ impl DateTimeAnchor {
     /// Returns an error if date/time operations fail.
     pub fn resolve_at_start_of_day(&self, now: &Zoned) -> Result<Zoned, String> {
         match self {
-            DateTimeAnchor::InDays(n) => {
-                let start = now
-                    .start_of_day()
-                    .map_err(|e| format!("Failed to get start of day: {e}"))?;
-                start
-                    .checked_add(Span::new().days(*n))
-                    .map_err(|e| format!("Failed to add days to start of day: {e}"))
-            }
+            DateTimeAnchor::InDays(n) => now
+                .start_of_day()
+                .map_err(|e| format!("Failed to get start of day: {e}"))?
+                .checked_add(Span::new().days(*n))
+                .map_err(|e| format!("Failed to add days to start of day: {e}")),
             DateTimeAnchor::Relative(n) => now
                 .checked_add(Span::new().seconds(*n))
                 .map_err(|e| format!("Failed to add relative seconds: {e}")),
             DateTimeAnchor::DateTime(dt) => dt
                 .with_start_of_day()
-                .to_zoned(TimeZone::system())
+                .to_zoned(now.time_zone().clone())
                 .map_err(|e| format!("Failed to convert to zoned: {e}")),
             DateTimeAnchor::Time(t) => now
                 .with()
                 .time(*t)
                 .build()
                 .map_err(|e| format!("Failed to build zoned: {e}")),
+            DateTimeAnchor::MonthDay(month, day) => Date::new(now.date().year(), *month, *day)
+                .map_err(|e| format!("Failed to create date: {e}"))?
+                .to_zoned(now.time_zone().clone())
+                .map_err(|e| format!("Failed to convert to zoned: {e}")),
         }
     }
 
@@ -90,25 +94,29 @@ impl DateTimeAnchor {
     /// Returns an error if date/time operations fail.
     pub fn resolve_at_end_of_day(&self, now: &Zoned) -> Result<Zoned, String> {
         match self {
-            DateTimeAnchor::InDays(n) => {
-                let end = now
-                    .end_of_day()
-                    .map_err(|e| format!("Failed to get end of day: {e}"))?;
-                end.checked_add(Span::new().days(*n))
-                    .map_err(|e| format!("Failed to add days to end of day: {e}"))
-            }
+            DateTimeAnchor::InDays(n) => now
+                .end_of_day()
+                .map_err(|e| format!("Failed to get end of day: {e}"))?
+                .checked_add(Span::new().days(*n))
+                .map_err(|e| format!("Failed to add days to end of day: {e}")),
             DateTimeAnchor::Relative(n) => now
                 .checked_add(Span::new().seconds(*n))
                 .map_err(|e| format!("Failed to add relative seconds: {e}")),
             DateTimeAnchor::DateTime(dt) => dt
                 .with_end_of_day()
-                .to_zoned(TimeZone::system())
+                .to_zoned(now.time_zone().clone())
                 .map_err(|e| format!("Failed to convert to zoned: {e}")),
             DateTimeAnchor::Time(t) => now
                 .with()
                 .time(*t)
                 .build()
                 .map_err(|e| format!("Failed to build zoned: {e}")),
+            DateTimeAnchor::MonthDay(month, day) => Date::new(now.date().year(), *month, *day)
+                .map_err(|e| format!("Failed to create date: {e}"))?
+                .to_zoned(now.time_zone().clone())
+                .map_err(|e| format!("Failed to convert to zoned: {e}"))?
+                .end_of_day()
+                .map_err(|e| format!("Failed to get end of day: {e}")),
         }
     }
 
@@ -120,8 +128,14 @@ impl DateTimeAnchor {
             DateTimeAnchor::Relative(n) => now.clone() + Span::new().seconds(n),
             DateTimeAnchor::DateTime(dt) => dt,
             DateTimeAnchor::Time(t) => {
-                let dt = civil::DateTime::from_parts(now.date(), t);
+                let dt = DateTime::from_parts(now.date(), t);
                 LooseDateTime::from_local_datetime(dt)
+            }
+            DateTimeAnchor::MonthDay(month, day) => {
+                match Date::new(now.date().year(), month, day) {
+                    Ok(d) => LooseDateTime::DateOnly(d),
+                    Err(_) => now.clone(), // Fallback to now if invalid date
+                }
             }
         }
     }
@@ -146,7 +160,7 @@ impl DateTimeAnchor {
                         .checked_add(Span::new().days(n))
                         .map_err(|e| format!("Failed to add days to start date: {e}"))?;
                     let t = time(9, 0, 0, 0);
-                    let dt = civil::DateTime::from_parts(date, t);
+                    let dt = DateTime::from_parts(date, t);
                     Ok(LooseDateTime::from_local_datetime(dt))
                 }
             }
@@ -160,8 +174,14 @@ impl DateTimeAnchor {
                         .checked_add(Span::new().days(1))
                         .map_err(|e| format!("Failed to add day to date: {e}"))?;
                 }
-                let dt = civil::DateTime::from_parts(date, t);
+                let dt = DateTime::from_parts(date, t);
                 Ok(LooseDateTime::from_local_datetime(dt))
+            }
+            DateTimeAnchor::MonthDay(month, day) => {
+                let year = start.date().year();
+                let d = Date::new(year, month, day)
+                    .map_err(|e| format!("Failed to create date: {e}"))?;
+                Ok(LooseDateTime::DateOnly(d))
             }
         }
     }
@@ -183,7 +203,7 @@ impl DateTimeAnchor {
                         .checked_add(Span::new().days(n))
                         .map_err(|e| format!("Failed to add days to start date: {e}"))?;
                     let t = time(9, 0, 0, 0);
-                    let dt = civil::DateTime::from_parts(date, t);
+                    let dt = DateTime::from_parts(date, t);
                     Ok(LooseDateTime::from_local_datetime(dt))
                 }
             }
@@ -202,8 +222,14 @@ impl DateTimeAnchor {
                         .checked_add(Span::new().days(1))
                         .map_err(|e| format!("Failed to add day to date: {e}"))?;
                 }
-                let dt = civil::DateTime::from_parts(date, t);
+                let dt = DateTime::from_parts(date, t);
                 Ok(LooseDateTime::from_local_datetime(dt))
+            }
+            DateTimeAnchor::MonthDay(month, day) => {
+                let year = start.date().year();
+                let d = Date::new(year, month, day)
+                    .map_err(|e| format!("Failed to create date: {e}"))?;
+                Ok(LooseDateTime::DateOnly(d))
             }
         }
     }
@@ -223,7 +249,7 @@ impl FromStr for DateTimeAnchor {
         }
 
         // Try datetime
-        if let Ok(dt) = civil::DateTime::strptime("%Y-%m-%d %H:%M", t) {
+        if let Ok(dt) = DateTime::strptime("%Y-%m-%d %H:%M", t) {
             return Ok(Self::DateTime(LooseDateTime::from_local_datetime(dt)));
         }
 
@@ -232,9 +258,9 @@ impl FromStr for DateTimeAnchor {
             return Ok(Self::DateTime(LooseDateTime::DateOnly(d)));
         }
 
-        // Try date with current year
-        if let Some(d) = parse_md_with_year(t, i32::from(date(2025, 1, 1).year())) {
-            return Ok(Self::DateTime(LooseDateTime::DateOnly(d)));
+        // Try month-day format (year resolved at resolution time)
+        if let Some((month, day)) = parse_month_day(t) {
+            return Ok(Self::MonthDay(month, day));
         }
 
         // Try time
@@ -310,13 +336,13 @@ parse_with_regex!(parse_days, r"(?i)^\s*(?:in\s*)?(\d+)\s*d(?:ays)?\s*$"); // "1
 
 const HOURS: [i8; 3] = [9, 13, 18];
 
-fn next_suggested_time(now: &civil::DateTime) -> LooseDateTime {
+fn next_suggested_time(now: &DateTime) -> LooseDateTime {
     let date = now.date();
     let current_hour = now.hour();
     for &hour in &HOURS {
         if current_hour < hour {
             let time = time(hour, 0, 0, 0);
-            let dt = civil::DateTime::from_parts(date, time);
+            let dt = DateTime::from_parts(date, time);
             return LooseDateTime::from_local_datetime(dt);
         }
     }
@@ -326,14 +352,39 @@ fn next_suggested_time(now: &civil::DateTime) -> LooseDateTime {
 
 fn first_suggested_time(date: Date) -> LooseDateTime {
     let time = time(HOURS[0], 0, 0, 0);
-    let dt = civil::DateTime::from_parts(date, time);
+    let dt = DateTime::from_parts(date, time);
     LooseDateTime::from_local_datetime(dt)
 }
 
-fn parse_md_with_year(s: &str, year: i32) -> Option<Date> {
-    // Prepend year to the month-day string for parsing
-    let full_str = format!("{year}-{s}");
-    Date::strptime("%Y-%m-%d", &full_str).ok()
+fn parse_month_day(s: &str) -> Option<(i8, i8)> {
+    static REGEX: OnceLock<Regex> = OnceLock::new();
+    let re = REGEX.get_or_init(|| Regex::new(r"^(\d{1,2})-(\d{1,2})$").unwrap());
+    if let Some(captures) = re.captures(s)
+        && let Ok(month) = captures[1].parse::<i8>()
+        && let Ok(day) = captures[2].parse::<i8>()
+        && is_valid_month_day(month, day)
+    {
+        Some((month, day))
+    } else {
+        None
+    }
+}
+
+/// Checks if the month-day combination is valid.
+fn is_valid_month_day(month: i8, day: i8) -> bool {
+    // Month must be 1-12, day must be at least 1
+    if !(1..=12).contains(&month) || day < 1 {
+        return false;
+    }
+
+    // Maximum days per month
+    let max_day = match month {
+        2 => 29,              // February (allow 29 for leap years, validated at resolution)
+        4 | 6 | 9 | 11 => 30, // 30-day months
+        _ => 31,              // 31-day months (1, 3, 5, 7, 8, 10, 12)
+    };
+
+    day <= max_day
 }
 
 #[cfg(test)]
@@ -701,6 +752,10 @@ mod tests {
             ),
             // Time only
             ("14:30", DateTimeAnchor::Time(time(14, 30, 0, 0))),
+            // Month-day (year resolved later)
+            ("8-10", DateTimeAnchor::MonthDay(8, 10)),
+            ("12-25", DateTimeAnchor::MonthDay(12, 25)),
+            ("1-1", DateTimeAnchor::MonthDay(1, 1)),
         ] {
             let anchor: DateTimeAnchor = s.parse().unwrap();
             assert_eq!(anchor, expected, "Failed to parse '{s}'");
@@ -837,5 +892,87 @@ mod tests {
         let result = next_suggested_time(&now);
         let expected = LooseDateTime::DateOnly(date(2025, 1, 1));
         assert_eq!(result, expected, "Exactly at 6 PM, should suggest DateOnly");
+    }
+
+    #[test]
+    fn resolves_monthday_with_current_year() {
+        let now = date(2025, 6, 15)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap();
+
+        let anchor = DateTimeAnchor::MonthDay(8, 10);
+
+        // resolve_at_start_of_day
+        let result = anchor.resolve_at_start_of_day(&now).unwrap();
+        assert_eq!(result.date(), date(2025, 8, 10));
+        assert_eq!(result.time(), time(0, 0, 0, 0));
+
+        // resolve_at_end_of_day
+        let result = anchor.resolve_at_end_of_day(&now).unwrap();
+        assert_eq!(result.date(), date(2025, 8, 10));
+        assert!(result.time() > time(23, 59, 59, 0));
+    }
+
+    #[test]
+    fn resolves_monthday_since_loose_datetime() {
+        let now: LooseDateTime = LooseDateTime::Local(
+            date(2025, 6, 15)
+                .at(12, 0, 0, 0)
+                .to_zoned(TimeZone::system())
+                .unwrap(),
+        );
+
+        let anchor = DateTimeAnchor::MonthDay(12, 25);
+        let result = anchor.resolve_since(&now).unwrap();
+        assert_eq!(result, LooseDateTime::DateOnly(date(2025, 12, 25)));
+    }
+
+    #[test]
+    fn resolves_monthday_since_zoned() {
+        let now = date(2025, 6, 15)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::system())
+            .unwrap();
+
+        let anchor = DateTimeAnchor::MonthDay(1, 1);
+        let result = anchor.resolve_since_zoned(&now).unwrap();
+        assert_eq!(result, LooseDateTime::DateOnly(date(2025, 1, 1)));
+    }
+
+    #[test]
+    fn validates_month_day_combinations() {
+        // Valid month-day combinations
+        for (s, expected) in [
+            ("1-1", DateTimeAnchor::MonthDay(1, 1)),
+            ("1-31", DateTimeAnchor::MonthDay(1, 31)),
+            ("2-28", DateTimeAnchor::MonthDay(2, 28)),
+            ("2-29", DateTimeAnchor::MonthDay(2, 29)), // Leap year handled at resolution
+            ("3-31", DateTimeAnchor::MonthDay(3, 31)),
+            ("4-30", DateTimeAnchor::MonthDay(4, 30)),
+            ("6-30", DateTimeAnchor::MonthDay(6, 30)),
+            ("9-30", DateTimeAnchor::MonthDay(9, 30)),
+            ("11-30", DateTimeAnchor::MonthDay(11, 30)),
+            ("12-31", DateTimeAnchor::MonthDay(12, 31)),
+        ] {
+            let anchor: DateTimeAnchor = s.parse().unwrap();
+            assert_eq!(anchor, expected, "Failed to parse valid '{s}'");
+        }
+
+        // Invalid month-day combinations
+        for s in [
+            "0-1",   // Month 0
+            "13-1",  // Month 13
+            "1-0",   // Day 0
+            "1-32",  // January 32
+            "2-30",  // February 30
+            "4-31",  // April 31
+            "6-31",  // June 31
+            "9-31",  // September 31
+            "11-31", // November 31
+        ] {
+            let result = DateTimeAnchor::from_str(s);
+            assert!(result.is_err(), "Should reject invalid '{s}'");
+        }
     }
 }
