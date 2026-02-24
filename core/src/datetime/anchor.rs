@@ -457,18 +457,18 @@ fn parse_weekday_expression(s: &str) -> Option<(Weekday, WeekdayOffset)> {
     match parts.len() {
         1 => {
             // Just a weekday name
-            let day = parse_weekday_name(parts[0])?;
+            let day = parse_weekday_name(parts.first()?)?;
             Some((day, 0)) // 0 = this/next occurrence
         }
         2 => {
             // Modifier + weekday name
-            let offset: WeekdayOffset = match parts[0] {
+            let offset: WeekdayOffset = match *parts.first()? {
                 "this" => 0,
                 "next" => 1,
                 "last" => -1,
                 _ => return None,
             };
-            let day = parse_weekday_name(parts[1])?;
+            let day = parse_weekday_name(parts.get(1)?)?;
             Some((day, offset))
         }
         _ => None,
@@ -483,8 +483,8 @@ fn parse_weekday_expression(s: &str) -> Option<(Weekday, WeekdayOffset)> {
 /// * `offset` - Week offset (0=this, 1=next week, -1=last week, etc.)
 fn resolve_weekday_date(ref_date: Date, target: Weekday, offset: WeekdayOffset) -> Date {
     let ref_weekday = ref_date.weekday();
-    let ref_offset = ref_weekday.to_monday_zero_offset() as i64;
-    let target_offset = target.to_monday_zero_offset() as i64;
+    let ref_offset = i64::from(ref_weekday.to_monday_zero_offset());
+    let target_offset = i64::from(target.to_monday_zero_offset());
 
     // Days until next occurrence (0 if same day)
     let days_to_next = (target_offset - ref_offset + 7) % 7;
@@ -494,14 +494,14 @@ fn resolve_weekday_date(ref_date: Date, target: Weekday, offset: WeekdayOffset) 
     let total_days: i64 = if offset >= 0 {
         // For offset 0: if same day, stay today; otherwise go to next occurrence
         // For offset > 0: go to the occurrence offset weeks from now
-        days_to_next + offset as i64 * 7
+        days_to_next + i64::from(offset) * 7
     } else {
         // For negative offset: go backwards
         // If same day, we need to go back at least a week
         if days_since_last == 0 {
-            offset as i64 * 7
+            i64::from(offset) * 7
         } else {
-            -days_since_last + (offset as i64 + 1) * 7
+            -days_since_last + (i64::from(offset) + 1) * 7
         }
     };
 
