@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ical: Removed `ExDateValue` enum wrapper - `ExDate.dates` now uses `Vec<DateTime>` directly
 - ical: Removed `RDateValue::Date` variant - use `RDateValue::DateTime(DateTime::Date(...))` instead
 
+### Deprecated
+
+- core: `"in xxx"` duration syntax in `DateTimeAnchor` (e.g., `"in 10d"`, `"in 5 hours"`) is now
+  deprecated and will be removed in v0.14.0. Use the shorter form instead (e.g., `"10d"`, `"5h"`)
+
 ### Fixed
 
 - cli: Fix `delay` command showing old date after update (#98)

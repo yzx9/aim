@@ -8,6 +8,7 @@ use jiff::civil::{Date, DateTime, Time, Weekday, time};
 use jiff::{Span, Zoned};
 use regex::Regex;
 use serde::de;
+use tracing::warn;
 
 use crate::LooseDateTime;
 
@@ -365,12 +366,40 @@ macro_rules! parse_with_regex {
     };
 }
 
+// Parse duration with optional deprecated "in xxx" prefix support.
+// TODO(v0.14.0): remove this macro and use `parse_with_regex` instead
+macro_rules! parse_with_regex_and_deprecated_in {
+    ($fn:ident, $re:expr, $unit:literal) => {
+        fn $fn(s: &str) -> Option<i64> {
+            static REGEX: OnceLock<Regex> = OnceLock::new();
+            let re = REGEX.get_or_init(|| Regex::new($re).unwrap());
+            if let Some(captures) = re.captures(s)
+                && let Ok(num) = captures[1].parse::<i64>()
+            {
+                if s.to_lowercase().contains("in ") {
+                    warn!(
+                        "\"in xxx\" duration syntax is deprecated and will be removed in v0.14.0. \
+                         Use \"{num}{}\" instead of \"{}\"",
+                        $unit,
+                        s.trim()
+                    );
+                }
+                return Some(num);
+            }
+            None
+        }
+    };
+}
+
 parse_with_regex!(parse_seconds, r"^\s*(\d+)\s*s(?:ec|econds)?\s*$"); // "10s", "10 sec", "10 seconds"
 parse_with_regex!(parse_minutes, r"^\s*(\d+)\s*m(?:in|inutes)?\s*$"); // "10m", "10 min", "10minutes"
 
-// TODO: remove "in xxx" support?
-parse_with_regex!(parse_hours, r"(?i)^\s*(?:in\s*)?(\d+)\s*h(?:ours)?\s*$"); // "10h", "10 hours", "10hours", "in 10hours"
-parse_with_regex!(parse_days, r"(?i)^\s*(?:in\s*)?(\d+)\s*d(?:ays)?\s*$"); // "10d", "in 10d", "in 10 days"
+parse_with_regex_and_deprecated_in!(
+    parse_hours,
+    r"(?i)^\s*(?:in\s*)?(\d+)\s*h(?:ours)?\s*$",
+    "h"
+); // "10h", "10 hours", "in 10h", "in 10 hours"
+parse_with_regex_and_deprecated_in!(parse_days, r"(?i)^\s*(?:in\s*)?(\d+)\s*d(?:ays)?\s*$", "d"); // "10d", "10 days", "in 10d", "in 10 days"
 
 const HOURS: [i8; 3] = [9, 13, 18];
 
