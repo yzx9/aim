@@ -4,22 +4,12 @@
 
 use std::{fmt, str::FromStr, sync::OnceLock};
 
-use jiff::civil::Weekday;
-use jiff::civil::{Date, DateTime, Time, time};
+use jiff::civil::{Date, DateTime, Time, Weekday, time};
 use jiff::{Span, Zoned};
 use regex::Regex;
 use serde::de;
 
 use crate::LooseDateTime;
-
-/// Offset for weekday resolution in weeks.
-///
-/// - `0` = This/next occurrence (could be today if same weekday)
-/// - `1` = Next week's occurrence
-/// - `2` = 2 weeks from now
-/// - `-1` = Last/previous occurrence
-/// - `-2` = 2 weeks ago
-pub type WeekdayOffset = i8;
 
 /// Represents a date and time anchor that can be used to calculate relative dates and times.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,25 +17,26 @@ pub type WeekdayOffset = i8;
 pub enum DateTimeAnchor {
     /// A specific number of days in the future or past.
     InDays(i64),
-
     /// A specific number of seconds in the future or past.
     Relative(i64),
-
     /// A specific date and time.
     DateTime(LooseDateTime),
-
     /// A specific time.
     Time(Time),
-
     /// A month and day without year (year resolved at resolution time).
     MonthDay(i8, i8),
-
     /// A weekday with optional offset in weeks.
     Weekday {
         /// The target weekday.
         day: Weekday,
-        /// The week offset (0=this, 1=next week, -1=last week, etc.).
-        offset: WeekdayOffset,
+        /// Offset for weekday resolution in weeks.
+        ///
+        /// - `0` = This/next occurrence (could be today if same weekday)
+        /// - `1` = Next week's occurrence
+        /// - `2` = 2 weeks from now
+        /// - `-1` = Last/previous occurrence
+        /// - `-2` = 2 weeks ago
+        offset: i8,
     },
 }
 
@@ -141,8 +132,8 @@ impl DateTimeAnchor {
                 .end_of_day()
                 .map_err(|e| format!("Failed to get end of day: {e}")),
             DateTimeAnchor::Weekday { day, offset } => {
-                let date = resolve_weekday_date(now.date(), *day, *offset);
-                date.to_zoned(now.time_zone().clone())
+                resolve_weekday_date(now.date(), *day, *offset)
+                    .to_zoned(now.time_zone().clone())
                     .map_err(|e| format!("Failed to convert to zoned: {e}"))?
                     .end_of_day()
                     .map_err(|e| format!("Failed to get end of day: {e}"))
@@ -450,7 +441,7 @@ fn parse_weekday_name(s: &str) -> Option<Weekday> {
 }
 
 /// Parse a weekday expression (e.g., "monday", "next friday", "last tuesday").
-fn parse_weekday_expression(s: &str) -> Option<(Weekday, WeekdayOffset)> {
+fn parse_weekday_expression(s: &str) -> Option<(Weekday, i8)> {
     let s = s.trim().to_lowercase();
     let parts: Vec<&str> = s.split_whitespace().collect();
 
@@ -462,7 +453,7 @@ fn parse_weekday_expression(s: &str) -> Option<(Weekday, WeekdayOffset)> {
         }
         2 => {
             // Modifier + weekday name
-            let offset: WeekdayOffset = match *parts.first()? {
+            let offset = match *parts.first()? {
                 "this" => 0,
                 "next" => 1,
                 "last" => -1,
@@ -481,7 +472,7 @@ fn parse_weekday_expression(s: &str) -> Option<(Weekday, WeekdayOffset)> {
 /// * `ref_date` - The reference date
 /// * `target` - The target weekday
 /// * `offset` - Week offset (0=this, 1=next week, -1=last week, etc.)
-fn resolve_weekday_date(ref_date: Date, target: Weekday, offset: WeekdayOffset) -> Date {
+fn resolve_weekday_date(ref_date: Date, target: Weekday, offset: i8) -> Date {
     let ref_weekday = ref_date.weekday();
     let ref_offset = i64::from(ref_weekday.to_monday_zero_offset());
     let target_offset = i64::from(target.to_monday_zero_offset());
