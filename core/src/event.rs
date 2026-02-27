@@ -401,6 +401,53 @@ pub struct ResolvedEventConditions {
     pub end_after: Option<Zoned>,
 }
 
+/// Reconstructs a [`VEvent`] from an Event trait object for database-only updates.
+pub fn reconstruct_event_from_db<E: Event>(event: &E, now: &Zoned) -> VEvent<String> {
+    // Convert to UTC for DTSTAMP (required by RFC 5545)
+    let utc_now = now.with_time_zone(jiff::tz::TimeZone::UTC);
+    let dt_stamp = DtStamp::new(utc_now.datetime());
+
+    // Events require dt_start, use a default if not available
+    let dt_start = event.start().map_or_else(
+        || {
+            let default_start: LooseDateTime = now.clone().into();
+            DtStart::new(default_start)
+        },
+        DtStart::new,
+    );
+
+    VEvent {
+        uid: Uid::new(event.uid().into_owned()),
+        dt_stamp,
+        dt_start,
+        dt_end: event.end().map(DtEnd::new),
+        duration: None,
+        summary: Some(Summary::new(event.summary().into_owned())),
+        description: event
+            .description()
+            .map(|d| Description::new(d.into_owned())),
+        status: event.status().map(|s| ical::EventStatus::new(s.into())),
+        location: None,
+        geo: None,
+        url: None,
+        organizer: None,
+        attendees: Vec::new(),
+        last_modified: None,
+        transparency: None,
+        sequence: None,
+        priority: None,
+        classification: None,
+        resources: None,
+        categories: None,
+        rrule: None,
+        rdates: Vec::new(),
+        ex_dates: Vec::new(),
+        x_properties: Vec::new(),
+        retained_properties: Vec::new(),
+        alarms: Vec::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

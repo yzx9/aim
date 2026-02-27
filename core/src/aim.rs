@@ -11,8 +11,10 @@ use tokio::fs;
 use uuid::Uuid;
 
 use crate::db::Db;
+use crate::event::reconstruct_event_from_db;
 use crate::io::{add_calendar_if_enabled, parse_ics, write_ics};
 use crate::short_id::ShortIds;
+use crate::todo::reconstruct_todo_from_db;
 use crate::{
     Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo, TodoConditions,
     TodoDraft, TodoPatch, TodoSort,
@@ -159,9 +161,41 @@ impl Aim {
 
             let event_with_id = self.short_ids.event(updated_event).await?;
             Ok(event_with_id)
+        } else if let Some(calendar_path) = &self.config.calendar_path {
+            // DB-only event - handle based on calendar_path configuration
+
+            // Generate ICS file for this DB-only event
+            let p = calendar_path.join(format!("{uid}.ics"));
+
+            // Reconstruct VEvent from database record and apply patch
+            let mut event_ics = reconstruct_event_from_db(&event, &self.now);
+            patch.resolve(self.now.clone()).apply_to(&mut event_ics);
+
+            // Write ICS file
+            let mut calendar = ICalendar::new();
+            calendar.components.push(event_ics.clone().into());
+            write_ics(&p, &calendar).await?;
+
+            // Create resource record
+            let resource_id = format!("file://{}", p.display());
+            self.db
+                .resources
+                .insert(&uid, 0, &resource_id, None)
+                .await?;
+
+            // Update database
+            self.db.upsert_event(&uid, &event_ics, 0).await?;
+
+            self.short_ids.event(event_ics).await
         } else {
-            // TODO: generate ICS file for DB-only events
-            Err("Cannot update DB-only events without ICS support yet".into())
+            // Pure DB-only update - apply patch directly
+            let mut event_ics = reconstruct_event_from_db(&event, &self.now);
+            patch.resolve(self.now.clone()).apply_to(&mut event_ics);
+
+            // Update database only (no ICS file)
+            self.db.upsert_event(&uid, &event_ics, 0).await?;
+
+            self.short_ids.event(event_ics).await
         }
     }
 
@@ -295,8 +329,41 @@ impl Aim {
 
             let todo = self.short_ids.todo(updated_todo).await?;
             Ok(todo)
+        } else if let Some(calendar_path) = &self.config.calendar_path {
+            // DB-only todo - handle based on calendar_path configuration
+
+            // Generate ICS file for this DB-only todo
+            let p = calendar_path.join(format!("{uid}.ics"));
+
+            // Reconstruct VTodo from database record and apply patch
+            let mut todo_ics = reconstruct_todo_from_db(&todo, &self.now);
+            patch.resolve(&self.now).apply_to(&mut todo_ics);
+
+            // Write ICS file
+            let mut calendar = ICalendar::new();
+            calendar.components.push(todo_ics.clone().into());
+            write_ics(&p, &calendar).await?;
+
+            // Create resource record
+            let resource_id = format!("file://{}", p.display());
+            self.db
+                .resources
+                .insert(&uid, 0, &resource_id, None)
+                .await?;
+
+            // Update database
+            self.db.upsert_todo(&uid, &todo_ics, 0).await?;
+
+            self.short_ids.todo(todo_ics).await
         } else {
-            Err("Cannot update DB-only todos without ICS support yet".into())
+            // Pure DB-only update - apply patch directly
+            let mut todo_ics = reconstruct_todo_from_db(&todo, &self.now);
+            patch.resolve(&self.now).apply_to(&mut todo_ics);
+
+            // Update database only (no ICS file)
+            self.db.upsert_todo(&uid, &todo_ics, 0).await?;
+
+            self.short_ids.todo(todo_ics).await
         }
     }
 

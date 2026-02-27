@@ -455,3 +455,42 @@ pub enum ResolvedTodoSort {
     Due(SortOrder),
     Priority { order: SortOrder, none_first: bool },
 }
+
+/// Reconstructs a [`VTodo`] from a Todo trait object for database-only updates.
+pub fn reconstruct_todo_from_db<T: Todo>(todo: &T, now: &Zoned) -> VTodo<String> {
+    // Convert to UTC for DTSTAMP (required by RFC 5545)
+    let utc_now = now.with_time_zone(jiff::tz::TimeZone::UTC);
+    let dt_stamp = DtStamp::new(utc_now.datetime());
+
+    VTodo {
+        uid: Uid::new(todo.uid().into_owned()),
+        dt_stamp,
+        dt_start: None,
+        due: todo.due().map(Due::new),
+        completed: todo
+            .completed()
+            .map(|c| Completed::new(c.with_time_zone(jiff::tz::TimeZone::UTC).datetime())),
+        duration: None,
+        summary: Some(Summary::new(todo.summary().into_owned())),
+        description: todo.description().map(|d| Description::new(d.into_owned())),
+        status: Some(ical::TodoStatus::new(todo.status().into())),
+        percent_complete: todo.percent_complete().map(PercentComplete::new),
+        priority: Some(ical::Priority::new(Into::<u8>::into(todo.priority()))),
+        location: None,
+        geo: None,
+        url: None,
+        organizer: None,
+        attendees: Vec::new(),
+        last_modified: None,
+        sequence: None,
+        classification: None,
+        resources: None,
+        categories: None,
+        rrule: None,
+        rdates: Vec::new(),
+        ex_dates: Vec::new(),
+        x_properties: Vec::new(),
+        retained_properties: Vec::new(),
+        alarms: Vec::new(),
+    }
+}

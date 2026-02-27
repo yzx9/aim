@@ -534,3 +534,138 @@ async fn aim_update_todo_returns_error_for_nonexistent() {
         .await;
     assert!(result.is_err(), "Should return error for nonexistent todo");
 }
+
+// DB-only todo update tests (no calendar_path configured)
+
+#[tokio::test]
+async fn aim_update_db_only_todo_without_calendar_path_succeeds() {
+    let temp_dirs = setup_temp_dirs().await.unwrap();
+
+    // Config WITHOUT calendar_path - creates DB-only todos
+    let config = Config {
+        calendar_path: None, // No calendar path - DB-only mode
+        state_dir: Some(temp_dirs.state_dir.clone()),
+        default_due: None,
+        default_priority: Priority::None,
+        default_priority_none_fist: false,
+    };
+    let aim = Aim::new(config).await.unwrap();
+
+    // Create todo (DB-only, no ICS file)
+    let draft = test_todo_draft("DB-only Task");
+    let todo = aim.new_todo(draft).await.unwrap();
+    let uid = todo.uid().as_ref().to_string();
+
+    // Verify no ICS file was created
+    let expected_path = temp_dirs.calendar_path.join(format!("{uid}.ics"));
+    assert!(
+        !expected_path.exists(),
+        "No .ics file should be created for DB-only todo"
+    );
+
+    // Update the todo - should succeed without ICS file
+    let patch = TodoPatch {
+        summary: Some("Updated DB-only Task".to_string()),
+        status: Some(TodoStatus::Completed),
+        ..Default::default()
+    };
+    let updated = aim.update_todo(&Id::Uid(uid.clone()), patch).await.unwrap();
+
+    assert_eq!(updated.summary().as_ref(), "Updated DB-only Task");
+    assert_eq!(updated.status(), TodoStatus::Completed);
+
+    // Verify update persisted to database
+    let retrieved = aim.get_todo(&Id::Uid(uid)).await.unwrap();
+    assert_eq!(retrieved.summary().as_ref(), "Updated DB-only Task");
+    assert_eq!(retrieved.status(), TodoStatus::Completed);
+}
+
+#[tokio::test]
+async fn aim_update_db_only_todo_with_calendar_path_creates_ics_file() {
+    let temp_dirs = setup_temp_dirs().await.unwrap();
+
+    // First, create a DB-only todo without calendar_path
+    let config_no_calendar = Config {
+        calendar_path: None,
+        state_dir: Some(temp_dirs.state_dir.clone()),
+        default_due: None,
+        default_priority: Priority::None,
+        default_priority_none_fist: false,
+    };
+    let aim_no_calendar = Aim::new(config_no_calendar).await.unwrap();
+
+    let draft = test_todo_draft("Task to Migrate");
+    let todo = aim_no_calendar.new_todo(draft).await.unwrap();
+    let uid = todo.uid().as_ref().to_string();
+
+    // Close the first instance
+    aim_no_calendar.close().await.unwrap();
+
+    // Now open with calendar_path configured
+    let config_with_calendar = Config {
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
+        state_dir: Some(temp_dirs.state_dir.clone()),
+        default_due: None,
+        default_priority: Priority::None,
+        default_priority_none_fist: false,
+    };
+    let aim = Aim::new(config_with_calendar).await.unwrap();
+
+    // Update the todo - should create ICS file
+    let patch = TodoPatch {
+        summary: Some("Migrated Task".to_string()),
+        ..Default::default()
+    };
+    let updated = aim.update_todo(&Id::Uid(uid.clone()), patch).await.unwrap();
+
+    assert_eq!(updated.summary().as_ref(), "Migrated Task");
+
+    // Verify ICS file was created
+    let expected_path = temp_dirs.calendar_path.join(format!("{uid}.ics"));
+    assert!(
+        expected_path.exists(),
+        "ICS file should be created when updating DB-only todo with calendar_path"
+    );
+
+    // Verify resource record was created
+    let retrieved = aim.get_todo(&Id::Uid(uid)).await.unwrap();
+    assert_eq!(retrieved.summary().as_ref(), "Migrated Task");
+}
+
+#[tokio::test]
+async fn aim_update_db_only_todo_status_to_completed_sets_timestamp() {
+    let temp_dirs = setup_temp_dirs().await.unwrap();
+
+    // Config WITHOUT calendar_path - creates DB-only todos
+    let config = Config {
+        calendar_path: None,
+        state_dir: Some(temp_dirs.state_dir.clone()),
+        default_due: None,
+        default_priority: Priority::None,
+        default_priority_none_fist: false,
+    };
+    let aim = Aim::new(config).await.unwrap();
+
+    // Create and complete a DB-only todo
+    let draft = test_todo_draft("Task to Complete");
+    let todo = aim.new_todo(draft).await.unwrap();
+    let uid = todo.uid().as_ref().to_string();
+
+    assert!(
+        todo.completed().is_none(),
+        "Initially should have no completed timestamp"
+    );
+
+    // Update status to Completed
+    let patch = TodoPatch {
+        status: Some(TodoStatus::Completed),
+        ..Default::default()
+    };
+    let updated = aim.update_todo(&Id::Uid(uid), patch).await.unwrap();
+
+    assert!(
+        updated.completed().is_some(),
+        "Completed timestamp should be set for DB-only todo"
+    );
+    assert_eq!(updated.status(), TodoStatus::Completed);
+}
