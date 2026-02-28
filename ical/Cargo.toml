@@ -14,7 +14,7 @@ readme.workspace = true
 
 [dependencies]
 chumsky = "0.12.0"
-jiff = { version = "0.2.20", optional = true }
+jiff = { version = "0.2.21", optional = true }
 lexical = "7.0.5"
 logos = "0.16.1"
 thiserror = "2.0.18"
