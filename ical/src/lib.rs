@@ -21,6 +21,7 @@
 
 pub mod formatter;
 pub mod keyword;
+pub mod ops;
 pub mod parameter;
 mod parser;
 pub mod property;

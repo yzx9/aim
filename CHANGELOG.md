@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ical: RRule expansion support with `RRuleExt` and `VEventExt` traits for expanding recurrence
+  rules according to RFC 5545, including support for DAILY, WEEKLY, MONTHLY, YEARLY frequencies
+  with INTERVAL, COUNT, UNTIL, BYMONTH, BYWEEKNO, BYYEARDAY, BYMONTHDAY, BYDAY, BYSETPOS, and WKST
 - core: `BackendKind` enum added to public API for future backend type identification
 - core: Weekday expressions support in `DateTimeAnchor` (e.g., "monday", "next friday", "last tuesday")
   with full names, abbreviations (mon, tue, etc.), and extensible integer offset type
