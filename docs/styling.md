@@ -67,20 +67,7 @@ use crate::fmt as custom_fmt;
 let _ = std::any::TypeId::of::<T>();  // Only used once in entire file
 ```
 
-## 3. Git Commit
-
-Always run lint and format before commit.
-
-Follow the [Gitmoji](https://gitmoji.dev/) convention:
-
-```
-✨ (core): Add event recurrence support
-🐛 (cli): Fix crash when parsing invalid dates
-📝 (docs): Update installation instructions
-♻️ (ical): Refactor parser for better error messages
-```
-
-## 4. Comments and Documentation
+## 3. Comments and Documentation
 
 - **Language**: All comments and documentation MUST be in English.
 - All `pub` items of library MUST have documentation:
@@ -139,6 +126,11 @@ Use standard markers for action items:
 // HACK: Workaround for https://github.com/yzx9/aim/issues/123
 ```
 
+## 4. Git Commit
+
+Use the `/git-commit` skill to create commits following the project's Gitmoji convention.
+See `.agents/skills/git-commit/SKILL.md` for details.
+
 ## 5. Keep It Simple
 
 Avoid over-engineering:
@@ -148,7 +140,7 @@ Avoid over-engineering:
 - Don't add error handling for impossible scenarios
 - Three similar lines of code > premature abstraction
 
-## License Headers
+## 6. License Headers
 
 All source files must start with:
 
