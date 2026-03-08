@@ -10,7 +10,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use aimcal_ical::{parse, formatter::format_to_string};
+//! use aimcal_ical::{parse, fmt::format};
 //!
 //! let input = std::fs::read_to_string("event.ics")?;
 //! let calendars = parse(&input)?;
@@ -28,7 +28,7 @@ mod value;
 
 use std::io::{self, Write};
 
-use crate::formatter::component::write_icalendar;
+use crate::fmt::component::write_icalendar;
 use crate::semantic::ICalendar;
 use crate::string_storage::StringStorage;
 
@@ -37,7 +37,7 @@ use crate::string_storage::StringStorage;
 /// # Example
 ///
 /// ```ignore
-/// use aimcal_ical::{parse, formatter::format_to_string};
+/// use aimcal_ical::{parse, fmt::format};
 ///
 /// let input = std::fs::read_to_string("event.ics")?;
 /// let calendars = parse(&input)?;
@@ -159,7 +159,7 @@ impl FoldingStyle {
 /// # Example
 ///
 /// ```ignore
-/// use aimcal_ical::formatter::Formatter;
+/// use aimcal_ical::fmt::Formatter;
 ///
 /// let mut buffer = Vec::new();
 /// let mut formatter = Formatter::new(&mut buffer);

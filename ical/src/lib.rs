@@ -19,7 +19,18 @@
     clippy::pedantic
 )]
 
-pub mod formatter;
+pub mod fmt;
+
+// TODO: Remove deprecated `formatter` module alias in version 0.15.0 (3 versions after 0.12.0)
+/// Deprecated alias for [`fmt`] module.
+#[deprecated(
+    since = "0.12.0",
+    note = "Use `fmt` module instead. Will be removed in 0.15.0"
+)]
+pub mod formatter {
+    #[doc(hidden)]
+    pub use crate::fmt::*;
+}
 pub mod keyword;
 pub mod ops;
 pub mod parameter;

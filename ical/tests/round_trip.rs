@@ -7,7 +7,7 @@
 //! These tests verify that parsing, converting to owned, formatting,
 //! and parsing again produces equivalent results.
 
-use aimcal_ical::formatter::format;
+use aimcal_ical::fmt::format;
 use aimcal_ical::{
     CalendarComponent, ICalendar, Segments, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
     parse,

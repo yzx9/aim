@@ -9,8 +9,8 @@
 
 use std::io::{self, Write};
 
-use crate::formatter::Formatter;
-use crate::formatter::property::{
+use crate::fmt::Formatter;
+use crate::fmt::property::{
     write_prop_action, write_prop_attach, write_prop_attendee, write_prop_calscale,
     write_prop_categories, write_prop_class, write_prop_completed, write_prop_contact,
     write_prop_description, write_prop_dtend, write_prop_dtstamp, write_prop_dtstart,

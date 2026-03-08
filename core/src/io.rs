@@ -5,7 +5,7 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use aimcal_ical::{CalendarComponent, ICalendar, formatter::format, parse};
+use aimcal_ical::{CalendarComponent, ICalendar, fmt::format, parse};
 use tokio::fs;
 
 use crate::db::Db;

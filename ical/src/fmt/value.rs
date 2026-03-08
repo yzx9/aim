@@ -9,7 +9,7 @@
 
 use std::io::{self, Write};
 
-use crate::formatter::Formatter;
+use crate::fmt::Formatter;
 use crate::keyword::{
     KW_BOOLEAN_FALSE, KW_BOOLEAN_TRUE, KW_RRULE_BYDAY, KW_RRULE_BYHOUR, KW_RRULE_BYMINUTE,
     KW_RRULE_BYMONTH, KW_RRULE_BYMONTHDAY, KW_RRULE_BYSECOND, KW_RRULE_BYSETPOS, KW_RRULE_BYWEEKNO,
@@ -402,7 +402,7 @@ pub fn format_value_text<S: StringStorage>(text: &ValueText<S>) -> String {
 mod tests {
     use super::*;
 
-    use crate::formatter::{FormatOptions, Formatter};
+    use crate::fmt::{FormatOptions, Formatter};
 
     #[test]
     fn test_format_date() {

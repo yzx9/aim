@@ -14,7 +14,7 @@ use std::io::Write as _;
 use aimcal_caldav::{
     AuthMethod, CalDavClient, CalDavConfig, CalDavError, CalendarQueryRequest, Href,
 };
-use aimcal_ical::formatter;
+use aimcal_ical::fmt;
 use aimcal_ical::{CalendarComponent, ICalendar};
 use clap::{Parser, Subcommand};
 use colored::Colorize as _;
@@ -386,7 +386,7 @@ async fn cmd_get(client: &CalDavClient, href: &str) -> Result<(), Box<dyn std::e
     println!();
 
     // Output formatted iCalendar
-    let ical_str = formatter::format(&resource.data)?;
+    let ical_str = fmt::format(&resource.data)?;
     println!("{}", ical_str);
 
     Ok(())

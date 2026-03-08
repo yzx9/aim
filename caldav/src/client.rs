@@ -7,7 +7,7 @@
 use std::io::Cursor;
 use std::sync::{Arc, PoisonError};
 
-use aimcal_ical::{ICalendar, TodoStatusValue, formatter, parse};
+use aimcal_ical::{ICalendar, TodoStatusValue, fmt, parse};
 use jiff::Zoned;
 use jiff::civil::DateTime;
 use quick_xml::Writer;
@@ -281,7 +281,7 @@ impl CalDavClient {
         calendar: &ICalendar<String>,
     ) -> Result<ETag, CalDavError> {
         let url = self.full_url(href.as_str());
-        let ical_data = formatter::format(calendar)
+        let ical_data = fmt::format(calendar)
             .map_err(|e| CalDavError::Ical(format!("Formatter error: {e}")))?;
 
         let resp = self
@@ -324,7 +324,7 @@ impl CalDavClient {
         calendar: &ICalendar<String>,
     ) -> Result<ETag, CalDavError> {
         let url = self.full_url(href.as_str());
-        let ical_data = formatter::format(calendar)
+        let ical_data = fmt::format(calendar)
             .map_err(|e| CalDavError::Ical(format!("Formatter error: {e}")))?;
 
         let resp = self

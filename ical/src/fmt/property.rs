@@ -11,15 +11,15 @@ use std::fmt::Display;
 use std::io::{self, Write};
 
 use crate::StatusValue;
-use crate::formatter::Formatter;
-use crate::formatter::parameter::{
+use crate::fmt::Formatter;
+use crate::fmt::parameter::{
     write_param_altrep, write_param_cn, write_param_cutype, write_param_delegated_from,
     write_param_delegated_to, write_param_dir, write_param_encoding, write_param_fbtype,
     write_param_fmttype, write_param_language, write_param_member, write_param_partstat,
     write_param_related, write_param_reltype, write_param_role, write_param_rsvp,
     write_param_sent_by, write_param_tzid, write_parameters, write_syntax_parameters,
 };
-use crate::formatter::value::{
+use crate::fmt::value::{
     format_value_text, write_date, write_duration, write_recurrence_rule, write_utc_offset,
     write_value,
 };

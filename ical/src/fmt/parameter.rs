@@ -9,7 +9,7 @@
 
 use std::io::{self, Write};
 
-use crate::formatter::Formatter;
+use crate::fmt::Formatter;
 use crate::keyword::{
     KW_ALTREP, KW_CN, KW_CUTYPE, KW_DELEGATED_FROM, KW_DELEGATED_TO, KW_DIR, KW_ENCODING,
     KW_FBTYPE, KW_FMTTYPE, KW_LANGUAGE, KW_MEMBER, KW_PARTSTAT, KW_RANGE, KW_RELATED, KW_RELTYPE,

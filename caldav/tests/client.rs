@@ -7,7 +7,7 @@
 use aimcal_caldav::{
     AuthMethod, CalDavClient, CalDavConfig, CalendarQueryRequest, Href, ServerCapabilities,
 };
-use aimcal_ical::{ICalendar, ProductId, ValueText, Version, formatter};
+use aimcal_ical::{ICalendar, ProductId, ValueText, Version, fmt};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -183,7 +183,7 @@ END:VCALENDAR\r\n";
 
     assert_eq!(resource.href.as_str(), "/calendars/user/event1.ics");
     assert_eq!(resource.etag.as_str(), "\"abc123\"");
-    let formatted = formatter::format(&resource.data).unwrap();
+    let formatted = fmt::format(&resource.data).unwrap();
     assert!(formatted.contains("SUMMARY:Test Event"));
 }
 
@@ -273,7 +273,7 @@ async fn client_query_events() {
 
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].href.as_str(), "/calendars/user/event1.ics");
-    let formatted = formatter::format(&events[0].data).unwrap();
+    let formatted = fmt::format(&events[0].data).unwrap();
     assert!(formatted.contains("SUMMARY:Test Event"));
 }
 

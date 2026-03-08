@@ -4,7 +4,7 @@
 
 //! Integration tests for the iCalendar formatter.
 
-use aimcal_ical::formatter::{FormatOptions, format};
+use aimcal_ical::fmt::{FormatOptions, format};
 use aimcal_ical::parse;
 
 #[test]
