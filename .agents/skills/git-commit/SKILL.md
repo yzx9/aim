@@ -1,14 +1,6 @@
 ---
 name: git-commit
 description: Create a git commit with proper message
-allowed-tools:
-  - Bash(git add:*)
-  - Bash(git diff:*)
-  - Bash(git status:*)
-  - Bash(git commit:*)
-  - Bash(cargo fmt:*)
-  - Bash(cargo test:*)
-  - Bash(just lint:*)
 ---
 
 # Git Commit

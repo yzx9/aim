@@ -1,10 +1,10 @@
-# iCal Module Architecture
+# iCal module architecture
 
 The iCal module provides a comprehensive parser and formatter for the iCalendar format (RFC 5545)
 using a multi-phase analysis approach. The architecture separates concerns through distinct layers
 for syntax parsing, typed analysis and semantic validation.
 
-## Architecture Overview
+## Architecture overview
 
 The parser follows a **four-phase pipeline**:
 
@@ -26,7 +26,7 @@ The parser follows a **four-phase pipeline**:
 4. **Unifyied Parser** - main `parse()` function coordinates all phases
 5. **Formatter** - Format icalendar to RFC 5545
 
-## String Storage Abstraction
+## String storage abstraction
 
 The parser uses a generic storage parameter system built on the `StringStorage` trait to enable
 both zero-copy parsing and owned data representations with a unified API.
@@ -42,87 +42,19 @@ instead of being tied to specific string types, providing flexibility while main
 Types use `Segments<'src>` for zero-copy borrowed data and `String` for owned data.
 Conversion between the two is done through the `to_owned()` method on each type.
 
-## Module Structure
-
-```
-ical/
-├── Cargo.toml
-├── CLAUDE.md
-├── RFC5545.txt # Internet Calendaring and Scheduling Core Object Specification (iCalendar)
-├── src/
-│   ├── lib.rs              # Public API exports
-│   ├── keyword.rs          # RFC 5545 keyword constants
-│   ├── string_storage.rs   # String storage abstraction
-│   ├── parser.rs           # Unified parser orchestration
-│   ├── syntax.rs           # Syntax analysis
-│   ├── syntax/             # Syntax analysis implementation
-│   │   ├── lexer.rs        # Lexical analysis (tokenization)
-│   │   ├── scanner.rs      # Scans tokens into content lines
-│   │   └── tree_builder.rs # Builds component tree from content lines
-│   ├── typed.rs            # Typed module entry point
-│   ├── parameter.rs        # Parameter enum and TryFrom implementation
-│   ├── parameter/          # Parameter pass implementation
-│   │   ├── definition.rs   # Parameter type enums and parsing functions
-│   │   ├── kind.rs         # ParameterKind enum
-│   │   └── util.rs         # Parameter parsing utilities
-│   ├── value.rs            # Value enum and parsing
-│   ├── value/              # Value pass implementation
-│   │   ├── datetime.rs     # Date/time value types (ValueDate, ValueDateTime, ValueTime, ValueUtcOffset)
-│   │   ├── duration.rs     # Duration value type (ValueDuration)
-│   │   ├── miscellaneous.rs # Miscellaneous value types (Binary, Boolean)
-│   │   ├── numeric.rs      # Numeric value types (Float, Integer)
-│   │   ├── period.rs       # Period value type (ValuePeriod)
-│   │   ├── rrule.rs        # Recurrence rule type (RecurrenceRule, Day, WeekDay)
-│   │   └── text.rs         # Text value type (ValueText)
-│   ├── property.rs         # Property enum and TryFrom implementation
-│   ├── property/           # Property types organized by RFC 5545 sections
-│   │   ├── kind.rs         # PropertyKind enum with value type mappings
-│   │   ├── calendar.rs     # Section 3.7 - Calendar properties (CalScale, Method, ProdId, Version)
-│   │   ├── descriptive.rs  # Section 3.8.1 - Descriptive properties (Attach, Categories, Class, Comment, etc.)
-│   │   ├── datetime.rs     # Section 3.8.2 - Date/time properties (Completed, DtStart, DtEnd,Due, Duration, etc.)
-│   │   ├── timezone.rs     # Section 3.8.3 - Time zone properties (TzId, TzName, TzOffsetFrom, etc.)
-│   │   ├── relationship.rs # Section 3.8.4 - Relationship properties (Attendee, Contact, Organizer, etc.)
-│   │   ├── recurrence.rs   # Section 3.8.5 - Recurrence properties (ExDate, RDate)
-│   │   ├── alarm.rs        # Section 3.8.6 - Alarm properties (Action, Repeat, Trigger)
-│   │   ├── changemgmt.rs   # Section 3.8.7 - Change management properties (Created, DtStamp, etc.)
-│   │   ├── miscellaneous.rs # Section 3.8.8 - Miscellaneous properties (RequestStatus)
-│   │   └── util.rs         # Common properties and utilities (Text, macros, helpers)
-│   ├── semantic.rs         # Semantic analysis entry point and error types
-│   ├── semantic/           # Semantic component implementations
-│   │   ├── icalendar.rs    # ICalendar root component
-│   │   ├── valarm.rs       # VAlarm component
-│   │   ├── vevent.rs       # VEvent component
-│   │   ├── vfreebusy.rs    # VFreeBusy component
-│   │   ├── vjournal.rs     # VJournal component
-│   │   ├── vtimezone.rs    # VTimeZone component
-│   │   └── vtodo.rs        # VTodo component
-│   ├── formatter.rs        # RFC 5545 formatter orchestration
-│   └── formatter/          # RFC 5545 formatter
-│       ├── component.rs    # Component formatting
-│       ├── property.rs     # Property formatting
-│       ├── parameter.rs    # Parameter formatting
-│       └── value.rs        # Value formatting
-└── tests/
-    ├── syntax.rs        # Syntax tests
-    ├── typed.rs         # Typed analysis tests
-    ├── semantic.rs      # Semantic tests
-    ├── formatter.rs     # Formatter tests
-    └── round_trip.rs    # Round-trip tests (parse → to_owned → format → parse)
-```
-
 ## Dependencies
 
-- **logos** - Lexer generation
-- **chumsky** - Parser combinators
-- **lexical** - Numeric parsing
-- **thiserror** - Error handling
-- **jiff** (optional) - Datetime and timezone validation
+- logos: Lexer generation
+- chumsky: Parser combinators
+- lexical: Numeric parsing
+- thiserror: Error handling
+- jiff (optional): Datetime and timezone validation
 
-## Features
+## Crate features
 
-- **jiff** (default) - Datetime integration
+- **jiff** (default) - Datetime integration. ALWAYS add feature condition for jiff use.
 
-## Design Principles
+## Design principles
 
 - **Phase Separation**: Each parsing phase has clear responsibilities and well-defined interfaces
 - **RFC 5545 Compliance**: Complete support for all required value types and parameters
@@ -132,7 +64,7 @@ ical/
   for each property (e.g., `Created`, `DtStart`, `Summary`)
 - **Performance**: Zero-copy parsing where possible, minimal allocations
 
-## Error Handling
+## Error handling
 
 The architecture provides comprehensive error reporting with:
 
@@ -140,7 +72,7 @@ The architecture provides comprehensive error reporting with:
 - Detailed error messages explaining RFC 5545 violations
 - Phase-specific error categorization (syntax vs. validation)
 
-## Feature Support
+## Feature support
 
 - **Generic Storage Parameter System**: Unified type system using generic storage parameter
   `S: StringStorage` for flexibility. This enables both zero-copy parsing (borrowed data

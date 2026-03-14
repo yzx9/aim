@@ -1,10 +1,7 @@
 ---
 name: changelog
 description: Update CHANGELOG.md with new entry
-allowed-tools:
-  - Bash(git log:*)
-  - Bash(git diff:*)
-argument-hint: [version] [change-type] [message]
+disable-model-invocation: true
 ---
 
 # Changelog Update
