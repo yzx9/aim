@@ -13,6 +13,7 @@ use aimcal_core::{LooseDateTime, Priority, TodoDraft, TodoStatus};
 #[test]
 fn todo_draft_empty_fields_are_none_or_needs_action() {
     let draft = TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,
@@ -33,6 +34,7 @@ fn todo_draft_empty_fields_are_none_or_needs_action() {
 fn todo_draft_with_all_fields_populated() {
     let due = LooseDateTime::Local(jiff::Zoned::now());
     let draft = TodoDraft {
+        calendar_id: None,
         description: Some("Test description".to_string()),
         due: Some(due.clone()),
         percent_complete: Some(50),
@@ -52,6 +54,7 @@ fn todo_draft_with_all_fields_populated() {
 #[test]
 fn todo_draft_can_be_created_with_builder_pattern() {
     let mut draft = TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,
@@ -72,6 +75,7 @@ fn todo_draft_can_be_created_with_builder_pattern() {
 #[test]
 fn todo_draft_status_can_be_all_variants() {
     let needs_action = TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,
@@ -81,6 +85,7 @@ fn todo_draft_status_can_be_all_variants() {
     };
 
     let completed = TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,
@@ -90,6 +95,7 @@ fn todo_draft_status_can_be_all_variants() {
     };
 
     let in_process = TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,
@@ -99,6 +105,7 @@ fn todo_draft_status_can_be_all_variants() {
     };
 
     let cancelled = TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,
@@ -128,6 +135,7 @@ fn todo_draft_priority_can_be_all_levels() {
         Priority::P9,
     ] {
         let draft = TodoDraft {
+            calendar_id: None,
             description: None,
             due: None,
             percent_complete: None,
@@ -143,6 +151,7 @@ fn todo_draft_priority_can_be_all_levels() {
 #[test]
 fn todo_draft_percent_complete_accepts_range() {
     let zero = TodoDraft {
+        calendar_id: None,
         percent_complete: Some(0),
         description: None,
         due: None,
@@ -151,6 +160,7 @@ fn todo_draft_percent_complete_accepts_range() {
         summary: String::new(),
     };
     let fifty = TodoDraft {
+        calendar_id: None,
         percent_complete: Some(50),
         description: None,
         due: None,
@@ -159,6 +169,7 @@ fn todo_draft_percent_complete_accepts_range() {
         summary: String::new(),
     };
     let hundred = TodoDraft {
+        calendar_id: None,
         percent_complete: Some(100),
         description: None,
         due: None,
@@ -176,6 +187,7 @@ fn todo_draft_percent_complete_accepts_range() {
 fn todo_draft_due_with_different_datetime_types() {
     let local = LooseDateTime::Local(jiff::Zoned::now());
     let draft1 = TodoDraft {
+        calendar_id: None,
         due: Some(local.clone()),
         description: None,
         percent_complete: None,
@@ -191,6 +203,7 @@ fn todo_draft_due_with_different_datetime_types() {
 #[test]
 fn todo_draft_description_optional() {
     let with_desc = TodoDraft {
+        calendar_id: None,
         description: Some("Has description".to_string()),
         due: None,
         percent_complete: None,
@@ -200,6 +213,7 @@ fn todo_draft_description_optional() {
     };
 
     let without_desc = TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,

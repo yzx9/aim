@@ -66,6 +66,7 @@ impl EventStore {
 
     pub fn submit_draft(self, aim: &Aim) -> Result<EventDraft, Box<dyn Error>> {
         Ok(EventDraft {
+            calendar_id: None,
             description: self.dirty.description.then_some(self.data.description),
             start: parse_datetime(&aim.now(), &self.data.start)?,
             end: parse_datetime(&aim.now(), &self.data.end)?,

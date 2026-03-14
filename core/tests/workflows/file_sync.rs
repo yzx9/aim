@@ -33,6 +33,8 @@ async fn file_sync_external_modification_detected() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config.clone()).await.unwrap();
 
@@ -73,6 +75,7 @@ END:VCALENDAR
     let events = aim2
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -104,6 +107,8 @@ async fn file_sync_database_rebuild_from_files() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // Create multiple events and todos
@@ -119,6 +124,7 @@ async fn file_sync_database_rebuild_from_files() {
 
     let event_count_before = aim1
         .count_events(&EventConditions {
+            calendar_id: None,
             startable: None,
             cutoff: None,
         })
@@ -126,6 +132,7 @@ async fn file_sync_database_rebuild_from_files() {
         .unwrap();
     let todo_count_before = aim1
         .count_todos(&TodoConditions {
+            calendar_id: None,
             status: None,
             due: None,
         })
@@ -144,6 +151,7 @@ async fn file_sync_database_rebuild_from_files() {
     // Assert - verify all events and todos reloaded
     let event_count_after = aim2
         .count_events(&EventConditions {
+            calendar_id: None,
             startable: None,
             cutoff: None,
         })
@@ -151,6 +159,7 @@ async fn file_sync_database_rebuild_from_files() {
         .unwrap();
     let todo_count_after = aim2
         .count_todos(&TodoConditions {
+            calendar_id: None,
             status: None,
             due: None,
         })
@@ -163,6 +172,7 @@ async fn file_sync_database_rebuild_from_files() {
     let events = aim2
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -178,6 +188,7 @@ async fn file_sync_database_rebuild_from_files() {
     let todos = aim2
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -207,6 +218,8 @@ async fn file_sync_add_remove_calendar_files() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config.clone()).await.unwrap();
 
@@ -214,6 +227,7 @@ async fn file_sync_add_remove_calendar_files() {
     let events1 = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -253,6 +267,7 @@ END:VCALENDAR
     let events2 = aim2
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -283,6 +298,7 @@ END:VCALENDAR
     let events3 = aim3
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -315,6 +331,8 @@ async fn file_sync_corrupted_file_handling() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // Create valid files
@@ -353,6 +371,7 @@ END:VCALENDAR
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -397,6 +416,8 @@ async fn file_sync_mixed_components_in_single_file() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // Create file with multiple components
@@ -436,6 +457,7 @@ END:VCALENDAR
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -450,6 +472,7 @@ END:VCALENDAR
     let todos = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -494,6 +517,8 @@ async fn file_sync_empty_directory_handling() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // Act - load empty directory
@@ -503,6 +528,7 @@ async fn file_sync_empty_directory_handling() {
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -518,6 +544,7 @@ async fn file_sync_empty_directory_handling() {
     let todos = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -547,6 +574,8 @@ async fn file_sync_non_ics_files_ignored() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // Create valid .ics file
@@ -582,6 +611,7 @@ END:VCALENDAR
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -623,6 +653,8 @@ async fn file_sync_persistence_across_restarts() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // First run - create data
@@ -655,6 +687,7 @@ async fn file_sync_persistence_across_restarts() {
     let events = aim3
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -670,6 +703,7 @@ async fn file_sync_persistence_across_restarts() {
     let todos = aim3
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },

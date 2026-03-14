@@ -39,6 +39,8 @@ pub fn test_config(calendar_path: &str, state_dir: Option<&str>) -> Config {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     }
 }
 
@@ -66,6 +68,8 @@ pub fn test_config_with_due(
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     }
 }
 
@@ -83,6 +87,8 @@ pub fn test_config_defaults() -> Config {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     }
 }
 
@@ -100,6 +106,7 @@ pub fn test_config_defaults() -> Config {
 #[must_use]
 pub fn test_event_draft(summary: &str) -> EventDraft {
     EventDraft {
+        calendar_id: None,
         description: None,
         start: None,
         end: None,
@@ -124,6 +131,7 @@ pub fn test_event_draft_full(
     end: LooseDateTime,
 ) -> EventDraft {
     EventDraft {
+        calendar_id: None,
         description: Some(description.to_string()),
         start: Some(start),
         end: Some(end),
@@ -140,6 +148,7 @@ pub fn test_event_draft_full(
 #[must_use]
 pub fn test_todo_draft(summary: &str) -> TodoDraft {
     TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,
@@ -165,6 +174,7 @@ pub fn test_todo_draft_full(
     priority: Priority,
 ) -> TodoDraft {
     TodoDraft {
+        calendar_id: None,
         description: Some(description.to_string()),
         due: Some(due),
         percent_complete: None,
@@ -276,6 +286,8 @@ impl TestConfigBuilder {
             default_priority_none_fist: self.default_priority_none_fist,
             config_dir: None,
             dev_mode: false,
+            calendars: Vec::new(),
+            default_calendar: "default".to_string(),
         }
     }
 }

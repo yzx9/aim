@@ -23,25 +23,25 @@ impl Events {
 
     pub async fn upsert(&self, event: EventRecord) -> Result<(), sqlx::Error> {
         const SQL: &str = "\
-INSERT INTO events (uid, summary, description, status, start, end, backend_kind)
+INSERT INTO events (uid, calendar_id, summary, description, status, start, end)
 VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uid) DO UPDATE SET
+    calendar_id  = excluded.calendar_id,
     summary      = excluded.summary,
     description  = excluded.description,
     status       = excluded.status,
     start        = excluded.start,
-    end          = excluded.end,
-    backend_kind = excluded.backend_kind;
+    end          = excluded.end;
 ";
 
         sqlx::query(SQL)
             .bind(&event.uid)
+            .bind(&event.calendar_id)
             .bind(&event.summary)
             .bind(&event.description)
             .bind(&event.status)
             .bind(&event.start)
             .bind(&event.end)
-            .bind(event.backend_kind)
             .execute(&self.pool)
             .await?;
 
@@ -50,7 +50,7 @@ ON CONFLICT(uid) DO UPDATE SET
 
     pub async fn get(&self, uid: &str) -> Result<Option<EventRecord>, sqlx::Error> {
         const SQL: &str = "\
-SELECT uid, summary, description, status, start, end, backend_kind
+SELECT uid, calendar_id, summary, description, status, start, end
 FROM events
 WHERE uid = ?;
 ";
@@ -67,12 +67,13 @@ WHERE uid = ?;
         pager: &Pager,
     ) -> Result<Vec<EventRecord>, sqlx::Error> {
         let mut sql = "\
-SELECT uid, summary, description, status, start, end, backend_kind
+SELECT uid, calendar_id, summary, description, status, start, end
 FROM events
+JOIN calendars ON calendars.id = events.calendar_id
 "
         .to_string();
         sql += &Self::build_where(conds);
-        sql += "ORDER BY start ASC LIMIT ? OFFSET ?;";
+        sql += "ORDER BY calendars.priority ASC, start ASC LIMIT ? OFFSET ?;";
 
         let mut executable = sqlx::query_as(&sql);
         executable = Self::bind_conditions(conds, executable);
@@ -85,7 +86,9 @@ FROM events
     }
 
     pub async fn count(&self, conds: &ResolvedEventConditions) -> Result<i64, sqlx::Error> {
-        let mut sql = "SELECT COUNT(*) FROM events".to_string();
+        let mut sql =
+            "SELECT COUNT(*) FROM events JOIN calendars ON calendars.id = events.calendar_id"
+                .to_string();
         sql += &Self::build_where(conds);
         sql += ";";
 
@@ -97,19 +100,18 @@ FROM events
     }
 
     fn build_where(conds: &ResolvedEventConditions) -> String {
-        let mut where_clauses = Vec::new();
+        let mut where_clauses = vec!["calendars.enabled = 1"];
         if conds.start_before.is_some() {
             where_clauses.push("start <= ?");
         }
         if conds.end_after.is_some() {
             where_clauses.push("(end >= ? OR end = ?)");
         }
-
-        if where_clauses.is_empty() {
-            String::new()
-        } else {
-            format!(" WHERE {} ", where_clauses.join(" AND "))
+        if conds.calendar_id.is_some() {
+            where_clauses.push("events.calendar_id = ?");
         }
+
+        format!(" WHERE {} ", where_clauses.join(" AND "))
     }
 
     fn bind_conditions<'a, O>(
@@ -124,6 +126,9 @@ FROM events
                 .bind(format_dt(end_after))
                 .bind(format_date(end_after.date()));
         }
+        if let Some(ref calendar_id) = conds.calendar_id {
+            query = query.bind(calendar_id);
+        }
         query
     }
 }
@@ -136,13 +141,15 @@ pub struct EventRecord {
     status: String,
     start: String,
     end: String,
-    backend_kind: u8,
+    /// Calendar ID for this event.
+    pub calendar_id: String,
 }
 
 impl EventRecord {
-    pub fn from_event(uid: &str, event: &impl Event, backend_kind: u8) -> Self {
+    pub fn from_event(uid: &str, event: &impl Event, calendar_id: &str) -> Self {
         Self {
             uid: uid.to_string(),
+            calendar_id: calendar_id.to_string(),
             summary: event.summary().to_string(),
             description: event
                 .description()
@@ -151,13 +158,12 @@ impl EventRecord {
             status: event.status().map(|s| s.to_string()).unwrap_or_default(),
             start: event.start().map(|a| a.format_stable()).unwrap_or_default(),
             end: event.end().map(|a| a.format_stable()).unwrap_or_default(),
-            backend_kind,
         }
     }
 
     #[allow(dead_code)]
-    pub fn backend_kind(&self) -> u8 {
-        self.backend_kind
+    pub fn calendar_id(&self) -> &str {
+        &self.calendar_id
     }
 }
 
@@ -219,7 +225,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let event = test_event("event-1", "Test Event");
-        let record = EventRecord::from_event("event-1", &event, 0);
+        let record = EventRecord::from_event("event-1", &event, "default");
 
         // Act
         db.events
@@ -243,7 +249,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let event = test_event("event-1", "Original Summary");
-        let record = EventRecord::from_event("event-1", &event, 0);
+        let record = EventRecord::from_event("event-1", &event, "default");
         db.events
             .upsert(record)
             .await
@@ -251,7 +257,7 @@ mod tests {
 
         // Act
         let updated_event = test_event("event-1", "Updated Summary");
-        let updated_record = EventRecord::from_event("event-1", &updated_event, 0);
+        let updated_record = EventRecord::from_event("event-1", &updated_event, "default");
         db.events
             .upsert(updated_record)
             .await
@@ -266,7 +272,7 @@ mod tests {
             .expect("Event not found");
         assert_eq!(retrieved.uid(), "event-1");
         assert_eq!(retrieved.summary(), "Updated Summary");
-        assert_eq!(retrieved.backend_kind(), 0);
+        assert_eq!(retrieved.calendar_id(), "default");
     }
 
     #[tokio::test]
@@ -274,7 +280,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let event = test_event("event-1", "Test Event");
-        let record = EventRecord::from_event("event-1", &event, 0);
+        let record = EventRecord::from_event("event-1", &event, "default");
         db.events
             .upsert(record)
             .await
@@ -309,7 +315,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let event = test_event("event-1", "Test Event");
-        let record = EventRecord::from_event("event-1", &event, 0);
+        let record = EventRecord::from_event("event-1", &event, "default");
 
         // Act
         db.events
@@ -336,12 +342,12 @@ mod tests {
         let db = setup_test_db().await;
         let event1 = test_event("event-1", "Event 1");
         db.events
-            .upsert(EventRecord::from_event("event-1", &event1, 0))
+            .upsert(EventRecord::from_event("event-1", &event1, "default"))
             .await
             .unwrap();
         let event2 = test_event("event-2", "Event 2");
         db.events
-            .upsert(EventRecord::from_event("event-2", &event2, 0))
+            .upsert(EventRecord::from_event("event-2", &event2, "default"))
             .await
             .unwrap();
 
@@ -349,6 +355,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: None,
             end_after: None,
+            calendar_id: None,
         };
         let pager = Pager {
             limit: 10,
@@ -377,7 +384,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .upsert(EventRecord::from_event("event-1", &event_before, 0))
+            .upsert(EventRecord::from_event("event-1", &event_before, "default"))
             .await
             .unwrap();
 
@@ -388,7 +395,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .upsert(EventRecord::from_event("event-2", &event_after, 0))
+            .upsert(EventRecord::from_event("event-2", &event_after, "default"))
             .await
             .unwrap();
 
@@ -396,6 +403,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: Some(cutoff),
             end_after: None,
+            calendar_id: None,
         };
         let pager = Pager {
             limit: 10,
@@ -436,7 +444,11 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .upsert(EventRecord::from_event("event-1", &matching_event, 0))
+            .upsert(EventRecord::from_event(
+                "event-1",
+                &matching_event,
+                "default",
+            ))
             .await
             .unwrap();
 
@@ -448,7 +460,11 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .upsert(EventRecord::from_event("event-2", &non_matching_event, 0))
+            .upsert(EventRecord::from_event(
+                "event-2",
+                &non_matching_event,
+                "default",
+            ))
             .await
             .unwrap();
 
@@ -456,6 +472,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: Some(start_cutoff),
             end_after: Some(end_after),
+            calendar_id: None,
         };
         let pager = Pager {
             limit: 10,
@@ -475,7 +492,11 @@ mod tests {
         for i in 1..=5 {
             let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
             db.events
-                .upsert(EventRecord::from_event(&format!("event-{i}"), &event, 0))
+                .upsert(EventRecord::from_event(
+                    &format!("event-{i}"),
+                    &event,
+                    "default",
+                ))
                 .await
                 .unwrap();
         }
@@ -484,6 +505,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: None,
             end_after: None,
+            calendar_id: None,
         };
         let pager = Pager {
             limit: 3,
@@ -502,7 +524,11 @@ mod tests {
         for i in 1..=5 {
             let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
             db.events
-                .upsert(EventRecord::from_event(&format!("event-{i}"), &event, 0))
+                .upsert(EventRecord::from_event(
+                    &format!("event-{i}"),
+                    &event,
+                    "default",
+                ))
                 .await
                 .unwrap();
         }
@@ -511,6 +537,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: None,
             end_after: None,
+            calendar_id: None,
         };
         let pager = Pager {
             limit: 10,
@@ -534,7 +561,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .upsert(EventRecord::from_event("event-1", &event1, 0))
+            .upsert(EventRecord::from_event("event-1", &event1, "default"))
             .await
             .unwrap();
 
@@ -545,7 +572,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .upsert(EventRecord::from_event("event-2", &event2, 0))
+            .upsert(EventRecord::from_event("event-2", &event2, "default"))
             .await
             .unwrap();
 
@@ -556,7 +583,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .upsert(EventRecord::from_event("event-3", &event3, 0))
+            .upsert(EventRecord::from_event("event-3", &event3, "default"))
             .await
             .unwrap();
 
@@ -564,6 +591,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: None,
             end_after: None,
+            calendar_id: None,
         };
         let pager = Pager {
             limit: 10,
@@ -585,7 +613,11 @@ mod tests {
         for i in 1..=5 {
             let event = test_event(&format!("event-{i}"), &format!("Event {i}"));
             db.events
-                .upsert(EventRecord::from_event(&format!("event-{i}"), &event, 0))
+                .upsert(EventRecord::from_event(
+                    &format!("event-{i}"),
+                    &event,
+                    "default",
+                ))
                 .await
                 .unwrap();
         }
@@ -594,6 +626,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: None,
             end_after: None,
+            calendar_id: None,
         };
         let count = db.events.count(&conds).await.unwrap();
 
@@ -617,7 +650,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .upsert(EventRecord::from_event("event-1", &event_before, 0))
+            .upsert(EventRecord::from_event("event-1", &event_before, "default"))
             .await
             .unwrap();
 
@@ -628,7 +661,7 @@ mod tests {
                 .unwrap(),
         ));
         db.events
-            .upsert(EventRecord::from_event("event-2", &event_after, 0))
+            .upsert(EventRecord::from_event("event-2", &event_after, "default"))
             .await
             .unwrap();
 
@@ -636,6 +669,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: Some(cutoff),
             end_after: None,
+            calendar_id: None,
         };
         let count = db.events.count(&conds).await.unwrap();
 
@@ -666,7 +700,11 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .upsert(EventRecord::from_event("event-1", &event_matching, 0))
+            .upsert(EventRecord::from_event(
+                "event-1",
+                &event_matching,
+                "default",
+            ))
             .await
             .unwrap();
 
@@ -684,7 +722,11 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .upsert(EventRecord::from_event("event-2", &event_non_matching, 0))
+            .upsert(EventRecord::from_event(
+                "event-2",
+                &event_non_matching,
+                "default",
+            ))
             .await
             .unwrap();
 
@@ -692,6 +734,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: None,
             end_after: Some(end_after),
+            calendar_id: None,
         };
         let count = db.events.count(&conds).await.unwrap();
 
@@ -726,7 +769,11 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .upsert(EventRecord::from_event("event-1", &matching_event, 0))
+            .upsert(EventRecord::from_event(
+                "event-1",
+                &matching_event,
+                "default",
+            ))
             .await
             .unwrap();
 
@@ -738,7 +785,11 @@ mod tests {
                     .unwrap(),
             ));
         db.events
-            .upsert(EventRecord::from_event("event-2", &non_matching_event, 0))
+            .upsert(EventRecord::from_event(
+                "event-2",
+                &non_matching_event,
+                "default",
+            ))
             .await
             .unwrap();
 
@@ -746,6 +797,7 @@ mod tests {
         let conds = ResolvedEventConditions {
             start_before: Some(start_cutoff),
             end_after: Some(end_after),
+            calendar_id: None,
         };
         let count = db.events.count(&conds).await.unwrap();
 

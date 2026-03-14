@@ -118,24 +118,28 @@ pub struct LocalBackend {
     calendar_path: PathBuf,
     /// Database reference for syncing (optional, set when attached to Aim)
     db: Option<Db>,
+    /// The calendar identifier.
+    calendar_id: String,
 }
 
 impl LocalBackend {
     /// Creates a new `LocalBackend` with the specified calendar path.
     #[must_use]
-    pub fn new(calendar_path: PathBuf) -> Self {
+    pub fn new(calendar_path: PathBuf, calendar_id: String) -> Self {
         Self {
             calendar_path,
             db: None,
+            calendar_id,
         }
     }
 
     /// Creates a new `LocalBackend` with the specified calendar path and database.
     #[must_use]
-    pub fn with_db(calendar_path: PathBuf, db: Db) -> Self {
+    pub fn with_db(calendar_path: PathBuf, db: Db, calendar_id: String) -> Self {
         Self {
             calendar_path,
             db: Some(db),
+            calendar_id,
         }
     }
 
@@ -190,13 +194,15 @@ impl LocalBackend {
                             CalendarComponent::Event(event) => {
                                 let uid = event.uid.content.to_string();
 
-                                if let Err(e) = db.upsert_event(&uid, &event, 0).await {
+                                if let Err(e) =
+                                    db.upsert_event(&uid, &event, &self.calendar_id).await
+                                {
                                     tracing::error!(path = %path.display(), uid = %uid, err = %e, "failed to upsert event");
                                     continue;
                                 }
                                 if let Err(e) = db
                                     .resources
-                                    .insert(&uid, 0, &self.resource_id(&uid), None)
+                                    .insert(&uid, &self.calendar_id, &self.resource_id(&uid), None)
                                     .await
                                 {
                                     tracing::error!(path = %path.display(), uid = %uid, err = %e, "failed to insert resource");
@@ -207,13 +213,14 @@ impl LocalBackend {
                             CalendarComponent::Todo(todo) => {
                                 let uid = todo.uid.content.to_string();
 
-                                if let Err(e) = db.upsert_todo(&uid, &todo, 0).await {
+                                if let Err(e) = db.upsert_todo(&uid, &todo, &self.calendar_id).await
+                                {
                                     tracing::error!(path = %path.display(), uid = %uid, err = %e, "failed to upsert todo");
                                     continue;
                                 }
                                 if let Err(e) = db
                                     .resources
-                                    .insert(&uid, 0, &self.resource_id(&uid), None)
+                                    .insert(&uid, &self.calendar_id, &self.resource_id(&uid), None)
                                     .await
                                 {
                                     tracing::error!(path = %path.display(), uid = %uid, err = %e, "failed to insert resource");
@@ -322,10 +329,10 @@ impl crate::backend::Backend for LocalBackend {
 
                 // Update resource record and database
                 db.resources
-                    .insert(uid, 0, &self.resource_id(uid), None)
+                    .insert(uid, &self.calendar_id, &self.resource_id(uid), None)
                     .await
                     .map_err(|e| BackendError::from(format!("{e}")))?;
-                db.upsert_event(uid, &event, 0)
+                db.upsert_event(uid, &event, &self.calendar_id)
                     .await
                     .map_err(|e| BackendError::from(format!("{e}")))?;
 
@@ -421,10 +428,10 @@ impl crate::backend::Backend for LocalBackend {
 
                 // Update resource record and database
                 db.resources
-                    .insert(uid, 0, &self.resource_id(uid), None)
+                    .insert(uid, &self.calendar_id, &self.resource_id(uid), None)
                     .await
                     .map_err(|e| BackendError::from(format!("{e}")))?;
-                db.upsert_todo(uid, &todo, 0)
+                db.upsert_todo(uid, &todo, &self.calendar_id)
                     .await
                     .map_err(|e| BackendError::from(format!("{e}")))?;
 
@@ -529,8 +536,8 @@ impl crate::backend::Backend for LocalBackend {
         Ok(fs::try_exists(&path).await?)
     }
 
-    fn backend_kind(&self) -> u8 {
-        0 // BackendKind::Local
+    fn calendar_id(&self) -> &str {
+        &self.calendar_id
     }
 
     async fn sync_cache(&self) -> Result<SyncResult, BackendError> {
@@ -566,6 +573,13 @@ pub async fn parse_ics(path: &Path) -> Result<ICalendar<String>, Box<dyn Error>>
 }
 
 pub async fn write_ics(path: &Path, calendar: &ICalendar<String>) -> Result<(), String> {
+    // Ensure parent directory exists
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .await
+            .map_err(|e| format!("Failed to create calendar directory: {e}"))?;
+    }
+
     let ics_content = aimcal_ical::formatter::format(calendar)
         .map_err(|e| format!("Failed to format calendar: {e}"))?;
 
@@ -670,14 +684,14 @@ mod tests {
     #[test]
     fn local_backend_new_creates_backend() {
         let calendar_path = PathBuf::from("/tmp/calendar");
-        let backend = LocalBackend::new(calendar_path.clone());
+        let backend = LocalBackend::new(calendar_path.clone(), "default".to_string());
 
         assert_eq!(backend.calendar_path, calendar_path);
     }
 
     #[test]
     fn local_backend_file_path_constructs_correct_path() {
-        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"));
+        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"), "default".to_string());
         let path = backend.file_path("test-uid");
 
         assert_eq!(path, PathBuf::from("/tmp/calendar/test-uid.ics"));
@@ -685,22 +699,22 @@ mod tests {
 
     #[test]
     fn local_backend_resource_id_constructs_file_url() {
-        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"));
+        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"), "default".to_string());
         let resource_id = backend.resource_id("test-uid");
 
         assert_eq!(resource_id, "file:///tmp/calendar/test-uid.ics");
     }
 
     #[test]
-    fn local_backend_backend_kind_returns_zero() {
-        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"));
-        assert_eq!(backend.backend_kind(), 0);
+    fn local_backend_calendar_id_returns_default() {
+        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"), "default".to_string());
+        assert_eq!(backend.calendar_id(), "default");
     }
 
     #[tokio::test]
     async fn local_backend_uid_exists_checks_file_existence() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         // Create a test file
         let test_file = backend.file_path("existing-uid");
@@ -718,7 +732,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_create_event_writes_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-event-uid";
         let event = create_test_vevent(uid, "Test Event");
@@ -753,7 +767,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_create_todo_writes_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-todo-uid";
         let todo = create_test_vtodo(uid, "Test Todo");
@@ -788,7 +802,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_get_event_reads_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-event-get";
         let event = create_test_vevent(uid, "Get Test Event");
@@ -809,7 +823,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_get_todo_reads_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-todo-get";
         let todo = create_test_vtodo(uid, "Get Test Todo");
@@ -830,7 +844,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_update_event_modifies_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-event-update";
         let event = create_test_vevent(uid, "Original Summary");
@@ -862,7 +876,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_update_todo_modifies_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-todo-update";
         let todo = create_test_vtodo(uid, "Original Summary");
@@ -894,7 +908,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_delete_event_removes_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-event-delete";
         let event = create_test_vevent(uid, "Delete Test Event");
@@ -914,7 +928,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_delete_todo_removes_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-todo-delete";
         let todo = create_test_vtodo(uid, "Delete Test Todo");
@@ -934,7 +948,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_list_events_scans_directory() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         // Create multiple event files
         let first_event = create_test_vevent("event-1", "Event 1");
@@ -961,7 +975,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_list_todos_scans_directory() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf());
+        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         // Create multiple todo files
         let first_todo = create_test_vtodo("todo-1", "Todo 1");
@@ -985,7 +999,10 @@ mod tests {
     #[tokio::test]
     async fn local_backend_list_handles_nonexistent_directory() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().join("nonexistent").clone());
+        let backend = LocalBackend::new(
+            temp_dir.path().join("nonexistent").clone(),
+            "default".to_string(),
+        );
 
         // List should return empty vec, not error
         let events = backend.list_events().await.unwrap();

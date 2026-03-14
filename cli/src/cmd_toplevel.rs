@@ -59,6 +59,7 @@ impl CmdDashboard {
             let conds = EventConditions {
                 startable: Some(anchor.clone()),
                 cutoff: Some(anchor.clone()),
+                calendar_id: None,
             };
             let events = aim.list_events(&conds, &pager).await?;
             if !events.is_empty() {
@@ -107,6 +108,7 @@ impl CmdDashboard {
         let conds = TodoConditions {
             status: Some(TodoStatus::NeedsAction),
             due: Some(DateTimeAnchor::InDays(i64::from(days))),
+            calendar_id: None,
         };
         CmdTodoList::list(aim, &conds, OutputFormat::Table, false).await?;
         Ok(())

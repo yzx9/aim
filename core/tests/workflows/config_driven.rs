@@ -11,12 +11,13 @@
 use std::path::PathBuf;
 
 use aimcal_core::{
-    Aim, BackendConfig, Config, DateTimeAnchor, Id, LooseDateTime, Pager, Priority, SortOrder,
-    Todo, TodoConditions, TodoDraft, TodoSort, TodoStatus,
+    Aim, BackendConfig, CalendarConfig, CalendarEntry, Config, DateTimeAnchor, Event,
+    EventConditions, Id, LooseDateTime, Pager, Priority, SortOrder, Todo, TodoConditions,
+    TodoDraft, TodoSort, TodoStatus,
 };
-use jiff::Zoned;
+use jiff::{Zoned, civil::date, tz::TimeZone};
 
-use crate::common::{TestConfigBuilder, setup_temp_dirs, test_todo_draft};
+use crate::common::{TestConfigBuilder, setup_temp_dirs, test_event_draft, test_todo_draft};
 
 #[tokio::test]
 async fn config_path_expansion_relative_paths() {
@@ -65,6 +66,8 @@ async fn config_default_due_applied() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -79,6 +82,7 @@ async fn config_default_due_applied() {
 
     // Act - create todo without due date
     let todo_draft = TodoDraft {
+        calendar_id: None,
         summary: "Task without due".to_string(),
         description: None,
         due: None,
@@ -118,6 +122,8 @@ async fn config_default_priority_applied() {
             default_priority_none_fist: false,
             config_dir: None,
             dev_mode: false,
+            calendars: Vec::new(),
+            default_calendar: "default".to_string(),
         };
         let aim = Aim::new(config).await.unwrap();
 
@@ -146,6 +152,8 @@ async fn config_priority_sorting_behavior() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim_none_first = Aim::new(config_none_first).await.unwrap();
 
@@ -167,6 +175,7 @@ async fn config_priority_sorting_behavior() {
     let todos = aim_none_first
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -196,6 +205,8 @@ async fn config_priority_sorting_behavior() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim_some_first = Aim::new(config_some_first).await.unwrap();
 
@@ -212,6 +223,7 @@ async fn config_priority_sorting_behavior() {
     let todos2 = aim_some_first
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -244,6 +256,8 @@ async fn config_timezone_handling() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -262,6 +276,311 @@ async fn config_timezone_handling() {
     assert!(retrieved1.due().is_some());
 }
 
+fn multi_local_config(
+    state_dir: PathBuf,
+    calendars: Vec<CalendarEntry>,
+    default_calendar: &str,
+) -> Config {
+    Config {
+        backend: BackendConfig::Local {
+            calendar_path: None,
+        },
+        calendar_path: None,
+        state_dir: Some(state_dir),
+        default_due: None,
+        default_priority: Priority::None,
+        default_priority_none_fist: false,
+        calendars,
+        default_calendar: default_calendar.to_string(),
+    }
+}
+
+#[tokio::test]
+async fn multi_calendar_uses_configured_default_calendar() {
+    let root = tempfile::tempdir().unwrap();
+    let state_dir = root.path().join("state");
+    let personal_dir = root.path().join("personal");
+    let work_dir = root.path().join("work");
+
+    let config = multi_local_config(
+        state_dir,
+        vec![
+            CalendarEntry {
+                id: "work".to_string(),
+                name: "Work".to_string(),
+                config: CalendarConfig::Local {
+                    calendar_path: Some(work_dir.to_string_lossy().to_string()),
+                },
+                priority: 0,
+                enabled: true,
+            },
+            CalendarEntry {
+                id: "personal".to_string(),
+                name: "Personal".to_string(),
+                config: CalendarConfig::Local {
+                    calendar_path: Some(personal_dir.to_string_lossy().to_string()),
+                },
+                priority: 1,
+                enabled: true,
+            },
+        ],
+        "personal",
+    );
+    let aim = Aim::new(config).await.unwrap();
+
+    aim.new_todo(test_todo_draft("Default calendar todo"))
+        .await
+        .unwrap();
+
+    let personal_todos = aim
+        .list_todos(
+            &TodoConditions {
+                status: None,
+                due: None,
+                calendar_id: Some("personal".to_string()),
+            },
+            &[],
+            &Pager {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+    let all_todos = aim
+        .list_todos(
+            &TodoConditions {
+                status: None,
+                due: None,
+                calendar_id: None,
+            },
+            &[],
+            &Pager {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+    let work_todos = aim
+        .list_todos(
+            &TodoConditions {
+                status: None,
+                due: None,
+                calendar_id: Some("work".to_string()),
+            },
+            &[],
+            &Pager {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        personal_todos.len(),
+        1,
+        "personal={}, work={}, total={}",
+        personal_todos.len(),
+        work_todos.len(),
+        all_todos.len()
+    );
+    assert!(work_todos.is_empty());
+}
+
+#[tokio::test]
+async fn multi_calendar_missing_config_disables_calendar_without_deleting_data() {
+    let root = tempfile::tempdir().unwrap();
+    let state_dir = root.path().join("state");
+    let personal_dir = root.path().join("personal");
+    let work_dir = root.path().join("work");
+
+    let config = multi_local_config(
+        state_dir.clone(),
+        vec![
+            CalendarEntry {
+                id: "personal".to_string(),
+                name: "Personal".to_string(),
+                config: CalendarConfig::Local {
+                    calendar_path: Some(personal_dir.to_string_lossy().to_string()),
+                },
+                priority: 0,
+                enabled: true,
+            },
+            CalendarEntry {
+                id: "work".to_string(),
+                name: "Work".to_string(),
+                config: CalendarConfig::Local {
+                    calendar_path: Some(work_dir.to_string_lossy().to_string()),
+                },
+                priority: 1,
+                enabled: true,
+            },
+        ],
+        "personal",
+    );
+    let aim = Aim::new(config).await.unwrap();
+
+    let mut personal = test_todo_draft("Visible");
+    personal.calendar_id = Some("personal".to_string());
+    aim.new_todo(personal).await.unwrap();
+
+    let mut work = test_todo_draft("Hidden");
+    work.calendar_id = Some("work".to_string());
+    aim.new_todo(work).await.unwrap();
+    aim.close().await.unwrap();
+
+    let config = multi_local_config(
+        state_dir,
+        vec![CalendarEntry {
+            id: "personal".to_string(),
+            name: "Personal".to_string(),
+            config: CalendarConfig::Local {
+                calendar_path: Some(personal_dir.to_string_lossy().to_string()),
+            },
+            priority: 0,
+            enabled: true,
+        }],
+        "personal",
+    );
+    let aim = Aim::new(config).await.unwrap();
+
+    let visible = aim
+        .list_todos(
+            &TodoConditions {
+                status: None,
+                due: None,
+                calendar_id: None,
+            },
+            &[],
+            &Pager {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+    let hidden = aim
+        .list_todos(
+            &TodoConditions {
+                status: None,
+                due: None,
+                calendar_id: Some("work".to_string()),
+            },
+            &[],
+            &Pager {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+    let calendars = aim.list_calendars().await.unwrap();
+
+    assert_eq!(visible.len(), 1);
+    assert_eq!(visible[0].summary(), "Visible");
+    assert!(hidden.is_empty());
+    assert_eq!(aim.startup_notices().len(), 1);
+    assert!(
+        aim.startup_notices()[0].contains("work"),
+        "notice should mention disabled calendar: {:?}",
+        aim.startup_notices()
+    );
+    assert!(
+        calendars
+            .iter()
+            .any(|calendar| calendar.id == "work" && !calendar.enabled),
+        "work calendar should remain in DB but be disabled"
+    );
+}
+
+#[tokio::test]
+async fn multi_calendar_event_listing_orders_by_calendar_priority() {
+    let root = tempfile::tempdir().unwrap();
+    let state_dir = root.path().join("state");
+    let personal_dir = root.path().join("personal");
+    let work_dir = root.path().join("work");
+
+    let config = multi_local_config(
+        state_dir,
+        vec![
+            CalendarEntry {
+                id: "personal".to_string(),
+                name: "Personal".to_string(),
+                config: CalendarConfig::Local {
+                    calendar_path: Some(personal_dir.to_string_lossy().to_string()),
+                },
+                priority: 1,
+                enabled: true,
+            },
+            CalendarEntry {
+                id: "work".to_string(),
+                name: "Work".to_string(),
+                config: CalendarConfig::Local {
+                    calendar_path: Some(work_dir.to_string_lossy().to_string()),
+                },
+                priority: 0,
+                enabled: true,
+            },
+        ],
+        "personal",
+    );
+    let aim = Aim::new(config).await.unwrap();
+
+    let mut personal = test_event_draft("Personal");
+    personal.calendar_id = Some("personal".to_string());
+    personal.start = Some(LooseDateTime::Local(
+        date(2025, 1, 1)
+            .at(9, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap(),
+    ));
+    personal.end = Some(LooseDateTime::Local(
+        date(2025, 1, 1)
+            .at(10, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap(),
+    ));
+    aim.new_event(personal).await.unwrap();
+
+    let mut work = test_event_draft("Work");
+    work.calendar_id = Some("work".to_string());
+    work.start = Some(LooseDateTime::Local(
+        date(2025, 1, 1)
+            .at(12, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap(),
+    ));
+    work.end = Some(LooseDateTime::Local(
+        date(2025, 1, 1)
+            .at(13, 0, 0, 0)
+            .to_zoned(TimeZone::UTC)
+            .unwrap(),
+    ));
+    aim.new_event(work).await.unwrap();
+
+    let events = aim
+        .list_events(
+            &EventConditions {
+                startable: None,
+                cutoff: None,
+                calendar_id: None,
+            },
+            &Pager {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].summary(), "Work");
+    assert_eq!(events[1].summary(), "Personal");
+}
+
 #[tokio::test]
 async fn config_mixed_defaults_integration() {
     // Arrange - config with multiple defaults
@@ -277,6 +596,8 @@ async fn config_mixed_defaults_integration() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -292,6 +613,7 @@ async fn config_mixed_defaults_integration() {
     // Act - create multiple todos using defaults
     for i in 1..=5 {
         let draft = TodoDraft {
+            calendar_id: None,
             summary: format!("Task {i}"),
             description: None,
             due: None,
@@ -311,6 +633,7 @@ async fn config_mixed_defaults_integration() {
     let todos = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -340,6 +663,8 @@ async fn config_persistence_across_restarts() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // First instance - create todos
@@ -386,6 +711,8 @@ async fn config_default_draft_consistency() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -425,6 +752,8 @@ async fn config_event_defaults() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -469,6 +798,8 @@ async fn config_datetime_anchor_variations() {
             default_priority_none_fist: false,
             config_dir: None,
             dev_mode: false,
+            calendars: Vec::new(),
+            default_calendar: "default".to_string(),
         };
         let aim = Aim::new(config).await.unwrap();
 

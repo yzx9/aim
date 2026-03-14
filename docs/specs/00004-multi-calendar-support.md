@@ -4,13 +4,32 @@
 
 Support multiple independent calendars, each with its own configuration (local, WebDAV, etc.). Events/todos belong to exactly one calendar, and queries aggregate results from all enabled calendars by default.
 
+## Current Status
+
+As of 2026-03-19, the core multi-calendar data model is implemented:
+
+- `calendars`, `events.calendar_id`, `todos.calendar_id`, and `resources(uid, calendar_id)` exist in the database
+- `[[calendars]]` and `default_calendar` are supported in config
+- Item creation, update, and listing are calendar-aware
+- Default aggregated queries exclude disabled calendars and sort by calendar priority
+- CLI support exists for `aim calendar list`
+- CLI support exists for `--calendar` on `event new|list` and `todo new|list`
+
+Still pending relative to the design below:
+
+- `aim calendar add`
+- `aim calendar remove`
+- `aim calendar default`
+- Showing calendar metadata in event/todo output by default
+- Broader CalDAV multi-calendar integration coverage in tests
+
 ## Design Principles
 
 1. **One-to-one mapping**: Each event/todo belongs to exactly one calendar
 2. **Independent calendars**: Each calendar has unique ID, name, configuration, and priority
 3. **Aggregated views**: Default queries show items from all enabled calendars
 4. **Priority ordering**: Calendar priority determines conflict resolution (lower number = higher priority)
-5. **Enable/disable**: Calendars can be disabled without deletion
+5. **Config-driven activation**: Calendars are enabled or disabled through configuration without deleting stored data
 
 ## Architecture
 
@@ -48,7 +67,6 @@ Support multiple independent calendars, each with its own configuration (local, 
 - `kind` (TEXT): Backend type (local, caldav, etc.)
 - `priority` (INTEGER): Conflict resolution order
 - `enabled` (INTEGER): Enable/disable flag
-- `config` (TEXT): Calendar-specific configuration (JSON)
 - `created_at`, `updated_at`: Timestamps
 
 **Modified tables**:
@@ -122,8 +140,8 @@ aim new event "Meeting" --calendar work   # Create in work calendar
 **Disabled calendars**:
 
 ```
-aim calendar disable archive    # Items hidden from queries
-aim calendar enable archive     # Items shown again
+# Remove `archive` from config or set `enabled = false`
+# Items are hidden from default queries, but data is retained
 ```
 
 ### 4. Calendar Management
@@ -134,9 +152,13 @@ New commands:
 aim calendar list              # List all calendars
 aim calendar add               # Add new calendar
 aim calendar remove <id>       # Remove calendar
-aim calendar enable <id>       # Enable calendar
-aim calendar disable <id>      # Disable calendar
 aim calendar default <id>      # Set default calendar
+```
+
+Current implementation:
+
+```bash
+aim calendar list
 ```
 
 ## Data Flow
@@ -151,13 +173,13 @@ aim calendar default <id>      # Set default calendar
    - `events`/`todos` table with `calendar_id`
    - `resources` table maps `(uid, calendar_id)` to backend resource
 
-3. Sync to backend (if enabled):
+3. Sync to backend (if enabled in config):
    - Local: Write ICS file to configured path
    - CalDAV: PUT to server URL (future)
 
 ### Listing items
 
-1. Fetch all enabled calendars (ordered by priority)
+1. Fetch all calendars enabled in config (ordered by priority)
 2. For each calendar:
    - Query events/todos where `calendar_id = <id>`
    - Include in result set
@@ -213,7 +235,7 @@ aim calendar default <id>      # Set default calendar
 
 ### Why enable/disable instead of delete?
 
-**Choice**: Soft disable with `enabled` flag
+**Choice**: Soft disable with `enabled` flag controlled by config reconciliation
 
 **Rationale**:
 
@@ -293,17 +315,26 @@ priority = 1  # Secondary, synced to cloud
 ### Phase 4: CLI
 
 - Add `aim calendar` management commands
+  Status: complete for `aim calendar list`
 - Add `--calendar` filter to list/create commands
+  Status: complete for `event new|list` and `todo new|list`
 - Update output to show calendar information
+  Status: pending
 - Add calendar-specific tests
+  Status: partially complete
 
 ### Phase 5: Testing
 
 - Test multi-calendar setup
+  Status: complete
 - Test priority ordering
+  Status: complete
 - Test enable/disable
+  Status: complete
 - Test backward compatibility
+  Status: existing legacy coverage remains in place
 - Update documentation
+  Status: in progress
 
 ## Benefits
 

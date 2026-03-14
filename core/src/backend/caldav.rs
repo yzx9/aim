@@ -36,8 +36,8 @@ pub struct CaldavBackend {
     calendar_href: Href,
     /// The database for local cache.
     db: Db,
-    /// Backend kind identifier (always 1 for `CalDAV`).
-    backend_kind: u8,
+    /// The calendar identifier in the database.
+    calendar_id: String,
 }
 
 impl CaldavBackend {
@@ -46,14 +46,19 @@ impl CaldavBackend {
     /// # Errors
     ///
     /// Returns an error if client initialization fails.
-    pub fn new(config: CalDavConfig, calendar_href: String, db: Db) -> Result<Self, BackendError> {
+    pub fn new(
+        config: CalDavConfig,
+        calendar_href: String,
+        db: Db,
+        calendar_id: String,
+    ) -> Result<Self, BackendError> {
         let client = CalDavClient::new(config)?;
 
         Ok(Self {
             client,
             calendar_href: Href::new(calendar_href),
             db,
-            backend_kind: 1, // CalDav
+            calendar_id,
         })
     }
 
@@ -121,7 +126,7 @@ impl CaldavBackend {
         &self,
         uid: &str,
     ) -> Result<Option<(String, CaldavMetadata)>, BackendError> {
-        let record = self.db.resources.get(uid, self.backend_kind).await?;
+        let record = self.db.resources.get(uid, &self.calendar_id).await?;
 
         match record {
             Some(rec) => {
@@ -157,7 +162,7 @@ impl Backend for CaldavBackend {
         let metadata_json = serde_json::to_string(&metadata)?;
         self.db
             .resources
-            .insert(uid, self.backend_kind, href.as_str(), Some(&metadata_json))
+            .insert(uid, &self.calendar_id, href.as_str(), Some(&metadata_json))
             .await?;
 
         Ok(href.as_str().to_string())
@@ -211,7 +216,7 @@ impl Backend for CaldavBackend {
         let metadata_json = serde_json::to_string(&new_metadata)?;
         self.db
             .resources
-            .insert(uid, self.backend_kind, &href, Some(&metadata_json))
+            .insert(uid, &self.calendar_id, &href, Some(&metadata_json))
             .await?;
 
         Ok(event)
@@ -229,7 +234,7 @@ impl Backend for CaldavBackend {
             .delete_event(&Href::new(href.clone()), &etag)
             .await?;
 
-        self.db.resources.delete(uid, self.backend_kind).await?;
+        self.db.resources.delete(uid, &self.calendar_id).await?;
 
         Ok(())
     }
@@ -248,7 +253,7 @@ impl Backend for CaldavBackend {
         let metadata_json = serde_json::to_string(&metadata)?;
         self.db
             .resources
-            .insert(uid, self.backend_kind, href.as_str(), Some(&metadata_json))
+            .insert(uid, &self.calendar_id, href.as_str(), Some(&metadata_json))
             .await?;
 
         Ok(href.as_str().to_string())
@@ -302,7 +307,7 @@ impl Backend for CaldavBackend {
         let metadata_json = serde_json::to_string(&new_metadata)?;
         self.db
             .resources
-            .insert(uid, self.backend_kind, &href, Some(&metadata_json))
+            .insert(uid, &self.calendar_id, &href, Some(&metadata_json))
             .await?;
 
         Ok(todo)
@@ -320,7 +325,7 @@ impl Backend for CaldavBackend {
             .delete_todo(&Href::new(href.clone()), &etag)
             .await?;
 
-        self.db.resources.delete(uid, self.backend_kind).await?;
+        self.db.resources.delete(uid, &self.calendar_id).await?;
 
         Ok(())
     }
@@ -407,8 +412,8 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    fn backend_kind(&self) -> u8 {
-        self.backend_kind
+    fn calendar_id(&self) -> &str {
+        &self.calendar_id
     }
 
     // #[instrument]
@@ -442,7 +447,7 @@ impl Backend for CaldavBackend {
                             let metadata_json = serde_json::to_string(&metadata)?;
                             self.db
                                 .resources
-                                .insert(&uid, self.backend_kind, &href, Some(&metadata_json))
+                                .insert(&uid, &self.calendar_id, &href, Some(&metadata_json))
                                 .await?;
                             updated += 1;
                         }
@@ -456,7 +461,7 @@ impl Backend for CaldavBackend {
                         let metadata_json = serde_json::to_string(&metadata)?;
                         self.db
                             .resources
-                            .insert(&uid, self.backend_kind, &href, Some(&metadata_json))
+                            .insert(&uid, &self.calendar_id, &href, Some(&metadata_json))
                             .await?;
                         created += 1;
                     }
@@ -469,7 +474,7 @@ impl Backend for CaldavBackend {
                     let metadata_json = serde_json::to_string(&metadata)?;
                     self.db
                         .resources
-                        .insert(&uid, self.backend_kind, &href, Some(&metadata_json))
+                        .insert(&uid, &self.calendar_id, &href, Some(&metadata_json))
                         .await?;
                     created += 1;
                 }
@@ -501,7 +506,7 @@ impl Backend for CaldavBackend {
                             let metadata_json = serde_json::to_string(&metadata)?;
                             self.db
                                 .resources
-                                .insert(&uid, self.backend_kind, &href, Some(&metadata_json))
+                                .insert(&uid, &self.calendar_id, &href, Some(&metadata_json))
                                 .await?;
                             updated += 1;
                         }
@@ -514,7 +519,7 @@ impl Backend for CaldavBackend {
                         let metadata_json = serde_json::to_string(&metadata)?;
                         self.db
                             .resources
-                            .insert(&uid, self.backend_kind, &href, Some(&metadata_json))
+                            .insert(&uid, &self.calendar_id, &href, Some(&metadata_json))
                             .await?;
                         created += 1;
                     }
@@ -527,7 +532,7 @@ impl Backend for CaldavBackend {
                     let metadata_json = serde_json::to_string(&metadata)?;
                     self.db
                         .resources
-                        .insert(&uid, self.backend_kind, &href, Some(&metadata_json))
+                        .insert(&uid, &self.calendar_id, &href, Some(&metadata_json))
                         .await?;
                     created += 1;
                 }
@@ -777,10 +782,10 @@ mod tests {
     }
 
     #[test]
-    fn backend_kind_is_one() {
-        // The backend kind for CaldavBackend is always 1
+    fn calendar_id_returns_default() {
+        // The calendar id for CaldavBackend is always "default"
         // This is verified by integration tests
-        assert_eq!(1, 1);
+        assert_eq!("default", "default");
     }
 
     #[tokio::test]
@@ -808,10 +813,15 @@ mod tests {
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(config, "/dav/calendars/user/".to_string(), db)
-            .expect("Failed to create CaldavBackend");
+        let backend = CaldavBackend::new(
+            config,
+            "/dav/calendars/user/".to_string(),
+            db,
+            "default".to_string(),
+        )
+        .expect("Failed to create CaldavBackend");
 
-        assert_eq!(backend.backend_kind(), 1);
+        assert_eq!(backend.calendar_id(), "default");
         assert_eq!(backend.calendar_href.as_str(), "/dav/calendars/user/");
     }
 
@@ -894,8 +904,13 @@ mod tests {
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(config, "/dav/calendars/user/default/".to_string(), db)
-            .expect("Failed to create CaldavBackend");
+        let backend = CaldavBackend::new(
+            config,
+            "/dav/calendars/user/default/".to_string(),
+            db,
+            "default".to_string(),
+        )
+        .expect("Failed to create CaldavBackend");
 
         let href = backend.generate_href("test-uid");
         assert_eq!(href.as_str(), "/dav/calendars/user/default/test-uid.ics");
@@ -923,8 +938,13 @@ mod tests {
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(config, "/dav/calendars/default/".to_string(), db.clone())
-            .expect("Failed to create CaldavBackend");
+        let backend = CaldavBackend::new(
+            config,
+            "/dav/calendars/default/".to_string(),
+            db.clone(),
+            "default".to_string(),
+        )
+        .expect("Failed to create CaldavBackend");
 
         // Insert a resource record
         let metadata = CaldavMetadata {
@@ -935,7 +955,7 @@ mod tests {
         db.resources
             .insert(
                 "existing-uid",
-                1,
+                "default",
                 "/dav/calendars/default/existing-uid.ics",
                 Some(&metadata_json),
             )
@@ -1021,8 +1041,13 @@ END:VCALENDAR\r\n";
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(config, "/dav/calendars/default/".to_string(), db)
-            .expect("Failed to create CaldavBackend");
+        let backend = CaldavBackend::new(
+            config,
+            "/dav/calendars/default/".to_string(),
+            db,
+            "default".to_string(),
+        )
+        .expect("Failed to create CaldavBackend");
 
         let result = backend.sync_cache().await.expect("Failed to sync cache");
 
@@ -1096,8 +1121,13 @@ END:VCALENDAR\r\n";
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(config, "/dav/calendars/default/".to_string(), db.clone())
-            .expect("Failed to create CaldavBackend");
+        let backend = CaldavBackend::new(
+            config,
+            "/dav/calendars/default/".to_string(),
+            db.clone(),
+            "default".to_string(),
+        )
+        .expect("Failed to create CaldavBackend");
 
         // Insert existing resource with old ETag
         let metadata = CaldavMetadata {
@@ -1108,7 +1138,7 @@ END:VCALENDAR\r\n";
         db.resources
             .insert(
                 "test-event-2",
-                1,
+                "default",
                 "/dav/calendars/default/test-event-2.ics",
                 Some(&metadata_json),
             )

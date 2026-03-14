@@ -28,6 +28,8 @@ async fn aim_new_event_creates_file_and_database_entry() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -65,6 +67,8 @@ async fn aim_get_event_resolves_short_id() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -98,6 +102,8 @@ async fn aim_update_event_modifies_file_and_database() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -140,6 +146,8 @@ async fn aim_list_events_returns_all_events() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -153,6 +161,7 @@ async fn aim_list_events_returns_all_events() {
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -189,6 +198,8 @@ async fn aim_list_events_with_pagination() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -202,6 +213,7 @@ async fn aim_list_events_with_pagination() {
     let page1 = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -217,6 +229,7 @@ async fn aim_list_events_with_pagination() {
     let page2 = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -232,6 +245,7 @@ async fn aim_list_events_with_pagination() {
     let page3 = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -260,12 +274,15 @@ async fn aim_count_events_returns_correct_count() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
     // Initially no events
     let count = aim
         .count_events(&EventConditions {
+            calendar_id: None,
             startable: None,
             cutoff: None,
         })
@@ -282,6 +299,7 @@ async fn aim_count_events_returns_correct_count() {
     // Count should match
     let count = aim
         .count_events(&EventConditions {
+            calendar_id: None,
             startable: None,
             cutoff: None,
         })
@@ -305,6 +323,8 @@ async fn aim_new_event_assigns_sequential_short_ids() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -338,6 +358,8 @@ async fn aim_update_event_clears_optional_fields() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -380,6 +402,8 @@ async fn aim_get_event_returns_error_for_nonexistent() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -403,6 +427,8 @@ async fn aim_update_event_returns_error_for_nonexistent() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -432,6 +458,8 @@ async fn aim_event_status_updates_correctly() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -473,6 +501,8 @@ async fn aim_event_with_custom_datetimes() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -506,6 +536,8 @@ async fn aim_flush_short_ids_removes_mappings() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -537,7 +569,7 @@ async fn aim_update_db_only_event_without_calendar_path_succeeds() {
 
     // Config WITHOUT calendar_path - creates DB-only events
     let config = Config {
-        calendar_path: None, // No calendar path - DB-only mode
+        calendar_path: None,
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -545,6 +577,8 @@ async fn aim_update_db_only_event_without_calendar_path_succeeds() {
         config_dir: None,
         dev_mode: false,
         backend: BackendConfig::default(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -594,6 +628,8 @@ async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
         config_dir: None,
         dev_mode: false,
         backend: BackendConfig::default(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim_no_calendar = Aim::new(config_no_calendar).await.unwrap();
 
@@ -609,6 +645,8 @@ async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
         default_priority: Priority::None,
         default_priority_none_fist: false,
         config_dir: None,
@@ -655,6 +693,8 @@ async fn aim_update_db_only_event_status_updates_correctly() {
         config_dir: None,
         dev_mode: false,
         backend: BackendConfig::default(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 

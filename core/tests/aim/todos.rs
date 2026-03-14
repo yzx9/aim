@@ -28,6 +28,8 @@ async fn aim_new_todo_creates_file_and_database_entry() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -65,6 +67,8 @@ async fn aim_get_todo_resolves_short_id() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -98,6 +102,8 @@ async fn aim_update_todo_modifies_file_and_database() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -137,6 +143,8 @@ async fn aim_list_todos_returns_all_todos() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -150,6 +158,7 @@ async fn aim_list_todos_returns_all_todos() {
     let todos = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -187,6 +196,8 @@ async fn aim_list_todos_with_pagination() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -200,6 +211,7 @@ async fn aim_list_todos_with_pagination() {
     let page1 = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -216,6 +228,7 @@ async fn aim_list_todos_with_pagination() {
     let page2 = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -232,6 +245,7 @@ async fn aim_list_todos_with_pagination() {
     let page3 = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -261,12 +275,15 @@ async fn aim_count_todos_returns_correct_count() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
     // Initially no todos
     let count = aim
         .count_todos(&TodoConditions {
+            calendar_id: None,
             status: None,
             due: None,
         })
@@ -283,6 +300,7 @@ async fn aim_count_todos_returns_correct_count() {
     // Count should match
     let count = aim
         .count_todos(&TodoConditions {
+            calendar_id: None,
             status: None,
             due: None,
         })
@@ -306,6 +324,8 @@ async fn aim_default_todo_draft_uses_config_defaults() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -330,6 +350,8 @@ async fn aim_update_todo_clears_optional_fields() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -369,6 +391,8 @@ async fn aim_update_todo_status_to_completed_sets_completed_timestamp() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -411,6 +435,8 @@ async fn aim_update_todo_status_from_completed_clears_completed_timestamp() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -459,6 +485,8 @@ async fn aim_list_todos_with_status_filter() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -480,6 +508,7 @@ async fn aim_list_todos_with_status_filter() {
 
     // Filter by NeedsAction status
     let conds = TodoConditions {
+        calendar_id: None,
         status: Some(TodoStatus::NeedsAction),
         due: None,
     };
@@ -513,6 +542,8 @@ async fn aim_list_todos_with_priority_sort() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -534,6 +565,7 @@ async fn aim_list_todos_with_priority_sort() {
     let todos = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -568,6 +600,8 @@ async fn aim_get_todo_returns_error_for_nonexistent() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -591,6 +625,8 @@ async fn aim_update_todo_returns_error_for_nonexistent() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -613,7 +649,7 @@ async fn aim_update_db_only_todo_without_calendar_path_succeeds() {
 
     // Config WITHOUT calendar_path - creates DB-only todos
     let config = Config {
-        calendar_path: None, // No calendar path - DB-only mode
+        calendar_path: None,
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
         default_priority: Priority::None,
@@ -621,6 +657,8 @@ async fn aim_update_db_only_todo_without_calendar_path_succeeds() {
         config_dir: None,
         dev_mode: false,
         backend: BackendConfig::default(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -667,6 +705,8 @@ async fn aim_update_db_only_todo_with_calendar_path_creates_ics_file() {
         config_dir: None,
         dev_mode: false,
         backend: BackendConfig::default(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim_no_calendar = Aim::new(config_no_calendar).await.unwrap();
 
@@ -682,6 +722,8 @@ async fn aim_update_db_only_todo_with_calendar_path_creates_ics_file() {
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
         default_priority: Priority::None,
         default_priority_none_fist: false,
         config_dir: None,
@@ -725,6 +767,8 @@ async fn aim_update_db_only_todo_status_to_completed_sets_timestamp() {
         config_dir: None,
         dev_mode: false,
         backend: BackendConfig::default(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 

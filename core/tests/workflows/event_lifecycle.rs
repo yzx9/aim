@@ -34,6 +34,8 @@ async fn event_lifecycle_create_flow() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Team Meeting");
@@ -78,6 +80,8 @@ async fn event_lifecycle_update_flow() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Original Title");
@@ -126,6 +130,8 @@ async fn event_lifecycle_external_modification_detected() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("External Test");
@@ -172,6 +178,8 @@ async fn event_lifecycle_status_transitions() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Status Test");
@@ -231,6 +239,8 @@ async fn event_lifecycle_batch_operations() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -246,6 +256,7 @@ async fn event_lifecycle_batch_operations() {
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -269,6 +280,7 @@ async fn event_lifecycle_batch_operations() {
     let page1 = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -284,6 +296,7 @@ async fn event_lifecycle_batch_operations() {
     let page2 = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -299,6 +312,7 @@ async fn event_lifecycle_batch_operations() {
     let page3 = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -347,6 +361,8 @@ END:VCALENDAR
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -354,6 +370,7 @@ END:VCALENDAR
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -388,6 +405,8 @@ async fn event_lifecycle_rebuild_from_files() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // Create initial Aim instance and events
@@ -409,6 +428,7 @@ async fn event_lifecycle_rebuild_from_files() {
     let events = aim2
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -451,6 +471,8 @@ async fn event_lifecycle_with_custom_datetimes() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
