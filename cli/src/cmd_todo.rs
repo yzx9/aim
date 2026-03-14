@@ -442,6 +442,7 @@ impl CmdTodoList {
             conds: TodoConditions {
                 status: Some(TodoStatus::NeedsAction),
                 due: None,
+                calendar_id: None,
             },
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),

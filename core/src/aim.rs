@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt;
 
@@ -10,12 +11,62 @@ use tokio::fs;
 use uuid::Uuid;
 
 use crate::backend::{Backend, CaldavBackend, LocalBackend, SyncResult};
-use crate::db::Db;
+use crate::config::CalendarConfig;
+use crate::db::{Db, calendars::CalendarRecord};
 use crate::short_id::ShortIds;
 use crate::{
     BackendConfig, Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo,
     TodoConditions, TodoDraft, TodoPatch, TodoSort,
 };
+
+/// Detailed information for a single calendar.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CalendarDetails {
+    /// Unique calendar identifier.
+    pub id: String,
+    /// Display name.
+    pub name: String,
+    /// Backend kind.
+    pub kind: String,
+    /// Lower numbers sort first.
+    pub priority: i32,
+    /// Whether the calendar is enabled.
+    pub enabled: bool,
+    /// Whether this calendar is used by default for new items.
+    pub is_default: bool,
+    /// Creation timestamp.
+    pub created_at: String,
+    /// Last update timestamp.
+    pub updated_at: String,
+    /// Backend-specific configuration details, when available from config.
+    pub backend: Option<CalendarBackendDetails>,
+}
+
+/// Backend-specific details for a calendar.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum CalendarBackendDetails {
+    /// Local filesystem-backed calendar details.
+    Local {
+        /// Path to the local calendar directory, if configured.
+        calendar_path: Option<String>,
+    },
+    /// CalDAV-backed calendar details.
+    Caldav {
+        /// Base URL of the `CalDAV` server.
+        base_url: String,
+        /// Calendar home path on the server.
+        calendar_home: String,
+        /// Href of the calendar collection on the server.
+        calendar_href: String,
+        /// Authentication method kind.
+        auth_method: String,
+        /// Request timeout in seconds.
+        timeout_secs: u64,
+        /// User agent used for HTTP requests.
+        user_agent: String,
+    },
+}
 
 /// AIM calendar application core.
 pub struct Aim {
@@ -23,7 +74,15 @@ pub struct Aim {
     config: Config,
     db: Db,
     short_ids: ShortIds,
-    backend: Box<dyn Backend>,
+    backends: HashMap<String, Box<dyn Backend>>,
+    default_calendar: String,
+    startup_notices: Vec<String>,
+}
+
+struct InitializedCalendars {
+    backends: HashMap<String, Box<dyn Backend>>,
+    default_calendar: String,
+    startup_notices: Vec<String>,
 }
 
 impl fmt::Debug for Aim {
@@ -33,40 +92,66 @@ impl fmt::Debug for Aim {
             .field("config", &self.config)
             .field("db", &self.db)
             .field("short_ids", &self.short_ids)
-            .field("backend", &"Box<dyn Backend>")
+            .field("backends", &self.backends.len())
+            .field("default_calendar", &self.default_calendar)
+            .field("startup_notices", &self.startup_notices)
             .finish()
     }
 }
 
 impl Aim {
-    /// Creates a new AIM instance with the given configuration.
-    ///
-    /// # Errors
-    /// If initialization fails.
-    pub async fn new(mut config: Config) -> Result<Self, Box<dyn Error>> {
-        let now = Zoned::now();
+    fn calendar_backend_details(config: &CalendarConfig) -> CalendarBackendDetails {
+        match config {
+            CalendarConfig::Local { calendar_path } => CalendarBackendDetails::Local {
+                calendar_path: calendar_path.clone(),
+            },
+            CalendarConfig::Caldav {
+                base_url,
+                calendar_home,
+                calendar_href,
+                auth,
+                timeout_secs,
+                user_agent,
+            } => CalendarBackendDetails::Caldav {
+                base_url: base_url.clone(),
+                calendar_home: calendar_home.clone(),
+                calendar_href: calendar_href.clone(),
+                auth_method: match auth {
+                    crate::AuthMethod::None => "none".to_string(),
+                    crate::AuthMethod::Basic { .. } => "basic".to_string(),
+                    crate::AuthMethod::Bearer { .. } => "bearer".to_string(),
+                },
+                timeout_secs: *timeout_secs,
+                user_agent: user_agent.clone(),
+            },
+        }
+    }
 
-        config.normalize()?;
-        prepare(&config).await?;
-
-        let db = initialize_db(&config).await?;
-        let short_ids = ShortIds::new(db.clone());
-
-        // Create backend based on configuration
-        let backend: Box<dyn Backend> = match &config.backend {
-            BackendConfig::Local { calendar_path } => {
+    /// Create a backend from a calendar config.
+    fn create_backend(
+        calendar_id: String,
+        config: &CalendarConfig,
+        db: &Db,
+        state_dir: Option<&std::path::Path>,
+    ) -> Result<Box<dyn Backend>, Box<dyn Error>> {
+        match config {
+            CalendarConfig::Local { calendar_path } => {
                 let calendar_path = calendar_path.as_ref().map_or_else(
                     || {
-                        config.state_dir.as_ref().map_or_else(
+                        state_dir.map_or_else(
                             || std::path::PathBuf::from("calendar"),
                             |p| p.join("calendar"),
                         )
                     },
                     std::path::PathBuf::from,
                 );
-                Box::new(LocalBackend::with_db(calendar_path, db.clone()))
+                Ok(Box::new(LocalBackend::with_db(
+                    calendar_path,
+                    db.clone(),
+                    calendar_id,
+                )))
             }
-            BackendConfig::Caldav {
+            CalendarConfig::Caldav {
                 base_url,
                 calendar_home,
                 calendar_href,
@@ -81,25 +166,216 @@ impl Aim {
                     timeout_secs: *timeout_secs,
                     user_agent: user_agent.clone(),
                 };
-                Box::new(
-                    CaldavBackend::new(caldav_config, calendar_href.clone(), db.clone())
-                        .map_err(|e| format!("Failed to create CalDAV backend: {e}"))?,
+                let backend = CaldavBackend::new(
+                    caldav_config,
+                    calendar_href.clone(),
+                    db.clone(),
+                    calendar_id,
                 )
+                .map_err(|e| format!("Failed to create CalDAV backend: {e}"))?;
+                Ok(Box::new(backend))
             }
+        }
+    }
+
+    /// Get a backend by calendar ID.
+    fn get_backend(&self, calendar_id: &str) -> Result<&dyn Backend, Box<dyn Error>> {
+        self.backends
+            .get(calendar_id)
+            .map(Box::as_ref)
+            .ok_or_else(|| format!("Backend not found for calendar: {calendar_id}").into())
+    }
+
+    /// Creates a new AIM instance with the given configuration.
+    ///
+    /// # Errors
+    /// If initialization fails.
+    pub async fn new(mut config: Config) -> Result<Self, Box<dyn Error>> {
+        let now = Zoned::now();
+
+        config.normalize()?;
+        prepare(&config).await?;
+
+        let db = initialize_db(&config).await?;
+        let short_ids = ShortIds::new(db.clone());
+
+        // Handle legacy vs multi-calendar format
+        let InitializedCalendars {
+            backends,
+            default_calendar,
+            startup_notices,
+        } = if config.is_legacy_format() {
+            Self::initialize_legacy_calendar(&config, &db).await?
+        } else {
+            Self::initialize_multi_calendars(&config, &db).await?
         };
 
-        // Sync backend with local cache
-        backend
-            .sync_cache()
-            .await
-            .map_err(|e| format!("Failed to sync backend cache: {e}"))?;
+        // Sync all backends with local cache
+        for (calendar_id, backend) in &backends {
+            backend.sync_cache().await.map_err(|e| {
+                format!("Failed to sync backend cache for calendar '{calendar_id}': {e}")
+            })?;
+        }
 
         Ok(Self {
             now,
             config,
             db,
             short_ids,
-            backend,
+            backends,
+            default_calendar,
+            startup_notices,
+        })
+    }
+
+    async fn initialize_legacy_calendar(
+        config: &Config,
+        db: &Db,
+    ) -> Result<InitializedCalendars, Box<dyn Error>> {
+        let default_calendar_id = "default".to_string();
+        let calendar_config = match &config.backend {
+            BackendConfig::Local { calendar_path } => {
+                let path = calendar_path.clone().or_else(|| {
+                    config
+                        .calendar_path
+                        .as_ref()
+                        .map(|p| p.to_string_lossy().to_string())
+                });
+                CalendarConfig::Local {
+                    calendar_path: path,
+                }
+            }
+            BackendConfig::Caldav {
+                base_url,
+                calendar_home,
+                calendar_href,
+                auth,
+                timeout_secs,
+                user_agent,
+            } => CalendarConfig::Caldav {
+                base_url: base_url.clone(),
+                calendar_home: calendar_home.clone(),
+                calendar_href: calendar_href.clone(),
+                auth: auth.clone(),
+                timeout_secs: *timeout_secs,
+                user_agent: user_agent.clone(),
+            },
+        };
+        let backend = Self::create_backend(
+            default_calendar_id.clone(),
+            &calendar_config,
+            db,
+            config.state_dir.as_deref(),
+        )?;
+
+        let calendar_kind = match &config.backend {
+            BackendConfig::Local { .. } => "local",
+            BackendConfig::Caldav { .. } => "caldav",
+        };
+        let calendar = CalendarRecord::new(
+            default_calendar_id.clone(),
+            "Default".to_string(),
+            calendar_kind.to_string(),
+            0,
+            true,
+        );
+        db.calendars.upsert(calendar).await?;
+
+        let mut backends = HashMap::new();
+        backends.insert(default_calendar_id.clone(), backend);
+
+        Ok(InitializedCalendars {
+            backends,
+            default_calendar: default_calendar_id,
+            startup_notices: Vec::new(),
+        })
+    }
+
+    async fn initialize_multi_calendars(
+        config: &Config,
+        db: &Db,
+    ) -> Result<InitializedCalendars, Box<dyn Error>> {
+        if config.calendars.is_empty() {
+            return Err("No calendars configured".into());
+        }
+
+        let existing = db.calendars.list().await?;
+        let configured_ids: HashSet<_> = config
+            .calendars
+            .iter()
+            .map(|calendar| &calendar.id)
+            .collect();
+        let mut auto_disabled = Vec::new();
+        for calendar in existing {
+            if configured_ids.contains(&calendar.id) || !calendar.enabled {
+                continue;
+            }
+
+            db.calendars.set_enabled(&calendar.id, false).await?;
+            auto_disabled.push(calendar.id);
+        }
+
+        let mut effective = Vec::with_capacity(config.calendars.len());
+        for calendar in &config.calendars {
+            let calendar_kind = match &calendar.config {
+                CalendarConfig::Local { .. } => "local",
+                CalendarConfig::Caldav { .. } => "caldav",
+            };
+            let record = CalendarRecord::new(
+                calendar.id.clone(),
+                calendar.name.clone(),
+                calendar_kind.to_string(),
+                calendar.priority,
+                calendar.enabled,
+            );
+            db.calendars.upsert(record).await?;
+            effective.push((calendar, calendar.enabled));
+        }
+
+        let mut backends = HashMap::new();
+        for (calendar, enabled) in &effective {
+            if !enabled {
+                continue;
+            }
+
+            let backend = Self::create_backend(
+                calendar.id.clone(),
+                &calendar.config,
+                db,
+                config.state_dir.as_deref(),
+            )?;
+            backends.insert(calendar.id.clone(), backend);
+        }
+
+        if backends.is_empty() {
+            return Err("No enabled calendars found in configuration".into());
+        }
+
+        let default_calendar = if backends.contains_key(&config.default_calendar) {
+            config.default_calendar.clone()
+        } else {
+            config
+                .calendars
+                .iter()
+                .filter(|calendar| backends.contains_key(&calendar.id))
+                .min_by_key(|calendar| calendar.priority)
+                .map(|calendar| calendar.id.clone())
+                .ok_or("No enabled calendars found in configuration")?
+        };
+
+        let startup_notices = if auto_disabled.is_empty() {
+            Vec::new()
+        } else {
+            vec![format!(
+                "Disabled calendar(s) not present in config: {}. Existing data was kept.",
+                auto_disabled.join(", ")
+            )]
+        };
+
+        Ok(InitializedCalendars {
+            backends,
+            default_calendar,
+            startup_notices,
         })
     }
 
@@ -144,20 +420,24 @@ impl Aim {
         let uid = self.generate_uid(Kind::Event).await?;
         let event = draft.resolve(&self.now).into_ics(&uid);
 
+        // Resolve calendar: use draft.calendar_id or fall back to default
+        let calendar_id = draft
+            .calendar_id
+            .as_deref()
+            .unwrap_or(&self.default_calendar);
+        let backend = self.get_backend(calendar_id)?;
+
         // Create event in backend
-        let resource_id = self
-            .backend
+        let resource_id = backend
             .create_event(&uid, &event)
             .await
             .map_err(|e| format!("Failed to create event in backend: {e}"))?;
 
         // Store in database with resource mapping
-        self.db
-            .upsert_event(&uid, &event, self.backend.backend_kind())
-            .await?;
+        self.db.upsert_event(&uid, &event, calendar_id).await?;
         self.db
             .resources
-            .insert(&uid, self.backend.backend_kind(), &resource_id, None)
+            .insert(&uid, calendar_id, &resource_id, None)
             .await?;
 
         let event = self.short_ids.event(event).await?;
@@ -178,16 +458,20 @@ impl Aim {
             return Err("Event not found".into());
         };
 
+        // Get calendar_id from event record
+        let event_record = self.db.events.get(&uid).await?.ok_or("Event not found")?;
+        let backend = self.get_backend(&event_record.calendar_id)?;
+        let calendar_id = backend.calendar_id();
+
         // Update event through backend
-        let updated_event = self
-            .backend
+        let updated_event = backend
             .update_event(&uid, &patch)
             .await
             .map_err(|e| format!("Failed to update event in backend: {e}"))?;
 
         // Update database
         self.db
-            .upsert_event(&uid, &updated_event, self.backend.backend_kind())
+            .upsert_event(&uid, &updated_event, calendar_id)
             .await?;
 
         let event_with_id = self.short_ids.event(updated_event).await?;
@@ -259,20 +543,24 @@ impl Aim {
         let uid = self.generate_uid(Kind::Todo).await?;
         let todo = draft.resolve(&self.config, &self.now).into_ics(&uid);
 
+        // Resolve calendar: use draft.calendar_id or fall back to default
+        let calendar_id = draft
+            .calendar_id
+            .as_deref()
+            .unwrap_or(&self.default_calendar);
+        let backend = self.get_backend(calendar_id)?;
+
         // Create todo in backend
-        let resource_id = self
-            .backend
+        let resource_id = backend
             .create_todo(&uid, &todo)
             .await
             .map_err(|e| format!("Failed to create todo in backend: {e}"))?;
 
         // Store in database with resource mapping
-        self.db
-            .upsert_todo(&uid, &todo, self.backend.backend_kind())
-            .await?;
+        self.db.upsert_todo(&uid, &todo, calendar_id).await?;
         self.db
             .resources
-            .insert(&uid, self.backend.backend_kind(), &resource_id, None)
+            .insert(&uid, calendar_id, &resource_id, None)
             .await?;
 
         let todo_with_id = self.short_ids.todo(todo).await?;
@@ -293,16 +581,20 @@ impl Aim {
             return Err("Todo not found".into());
         };
 
+        // Get calendar_id from todo record
+        let todo_record = self.db.todos.get(&uid).await?.ok_or("Todo not found")?;
+        let backend = self.get_backend(&todo_record.calendar_id)?;
+        let calendar_id = backend.calendar_id();
+
         // Update todo through backend
-        let updated_todo = self
-            .backend
+        let updated_todo = backend
             .update_todo(&uid, &patch)
             .await
             .map_err(|e| format!("Failed to update todo in backend: {e}"))?;
 
         // Update database
         self.db
-            .upsert_todo(&uid, &updated_todo, self.backend.backend_kind())
+            .upsert_todo(&uid, &updated_todo, calendar_id)
             .await?;
 
         let todo = self.short_ids.todo(updated_todo).await?;
@@ -348,6 +640,52 @@ impl Aim {
         Ok(self.db.todos.count(&conds).await?)
     }
 
+    /// List known calendars ordered by priority.
+    ///
+    /// # Errors
+    /// If database access fails.
+    pub async fn list_calendars(&self) -> Result<Vec<CalendarRecord>, Box<dyn Error>> {
+        Ok(self.db.calendars.list().await?)
+    }
+
+    /// Get detailed information for a single calendar.
+    ///
+    /// # Errors
+    /// If the calendar is not found or database access fails.
+    pub async fn get_calendar_details(&self, id: &str) -> Result<CalendarDetails, Box<dyn Error>> {
+        let record = self
+            .db
+            .calendars
+            .get(id)
+            .await?
+            .ok_or_else(|| format!("Calendar not found: {id}"))?;
+
+        let backend = self
+            .config
+            .calendars
+            .iter()
+            .find(|calendar| calendar.id == record.id)
+            .map(|calendar| Self::calendar_backend_details(&calendar.config));
+
+        Ok(CalendarDetails {
+            id: record.id.clone(),
+            name: record.name.clone(),
+            kind: record.kind.clone(),
+            priority: record.priority,
+            enabled: record.enabled,
+            is_default: self.default_calendar == record.id,
+            created_at: record.created_at.clone(),
+            updated_at: record.updated_at.clone(),
+            backend,
+        })
+    }
+
+    /// Startup notices produced while reconciling config and database state.
+    #[must_use]
+    pub fn startup_notices(&self) -> &[String] {
+        &self.startup_notices
+    }
+
     /// Flush the short IDs to remove all entries.
     ///
     /// # Errors
@@ -361,10 +699,28 @@ impl Aim {
     /// # Errors
     /// If synchronization fails.
     pub async fn sync(&self) -> Result<SyncResult, Box<dyn Error>> {
-        self.backend
-            .sync_cache()
-            .await
-            .map_err(|e| format!("Failed to sync: {e}").into())
+        let mut created = 0;
+        let mut updated = 0;
+        let mut deleted = 0;
+
+        for (calendar_id, backend) in &self.backends {
+            match backend.sync_cache().await {
+                Ok(result) => {
+                    created += result.created;
+                    updated += result.updated;
+                    deleted += result.deleted;
+                }
+                Err(e) => {
+                    return Err(format!("Failed to sync calendar '{calendar_id}': {e}").into());
+                }
+            }
+        }
+
+        Ok(SyncResult {
+            created,
+            updated,
+            deleted,
+        })
     }
 
     /// Close the AIM instance, saving any changes to the database.

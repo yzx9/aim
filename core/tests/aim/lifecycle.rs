@@ -50,6 +50,8 @@ END:VCALENDAR\r
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -71,6 +73,7 @@ END:VCALENDAR\r
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -102,6 +105,8 @@ async fn aim_new_creates_empty_state_without_calendar_files() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -109,6 +114,7 @@ async fn aim_new_creates_empty_state_without_calendar_files() {
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -137,6 +143,8 @@ async fn aim_now_returns_initial_time() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -164,6 +172,8 @@ async fn aim_refresh_now_updates_current_time() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let mut aim = Aim::new(config).await.unwrap();
 
@@ -197,6 +207,8 @@ async fn aim_close_cleans_up_database() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -256,6 +268,8 @@ async fn aim_default_event_draft_creates_draft_with_now() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -289,6 +303,8 @@ async fn aim_default_todo_draft_includes_config_defaults() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -345,6 +361,8 @@ END:VCALENDAR\r
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -352,6 +370,7 @@ END:VCALENDAR\r
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -406,6 +425,8 @@ END:VCALENDAR\r
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -413,6 +434,7 @@ END:VCALENDAR\r
     let events = aim
         .list_events(
             &EventConditions {
+                calendar_id: None,
                 startable: None,
                 cutoff: None,
             },
@@ -426,6 +448,7 @@ END:VCALENDAR\r
     let todos = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },

@@ -71,6 +71,8 @@ impl Event for VEvent<String> {
 /// Darft for an event, used for creating new events.
 #[derive(Debug, Clone)]
 pub struct EventDraft {
+    /// The calendar ID to create the event in. Uses default calendar if None.
+    pub calendar_id: Option<String>,
     /// The description of the event, if available.
     pub description: Option<String>,
     /// The start date and time of the event, if available.
@@ -105,6 +107,7 @@ impl EventDraft {
         };
 
         Self {
+            calendar_id: None,
             description: None,
             start: Some(start.clone().into()),
             end: Some((start.checked_add(1.hours()).unwrap()).into()),
@@ -374,6 +377,8 @@ pub struct EventConditions {
     pub startable: Option<DateTimeAnchor>,
     /// The cutoff date and time, events ending after this will be excluded.
     pub cutoff: Option<DateTimeAnchor>,
+    /// The calendar ID to filter events by
+    pub calendar_id: Option<String>,
 }
 
 impl EventConditions {
@@ -389,6 +394,7 @@ impl EventConditions {
                 .as_ref()
                 .map(|w| w.resolve_at_start_of_day(now))
                 .transpose()?,
+            calendar_id: self.calendar_id.clone(),
         })
     }
 }
@@ -399,6 +405,8 @@ pub struct ResolvedEventConditions {
     pub start_before: Option<Zoned>,
     /// The date and time after which the event must end
     pub end_after: Option<Zoned>,
+    /// The calendar ID to filter events by
+    pub calendar_id: Option<String>,
 }
 
 #[cfg(test)]
@@ -410,6 +418,7 @@ mod tests {
     /// Helper function to create a test `EventDraft` with minimal fields
     fn test_event_draft() -> EventDraft {
         EventDraft {
+            calendar_id: None,
             description: None,
             start: None,
             end: None,
@@ -689,6 +698,7 @@ mod tests {
         );
 
         let draft = EventDraft {
+            calendar_id: None,
             summary: "Test Event".to_string(),
             description: Some("Test Description".to_string()),
             start: Some(dt_start),

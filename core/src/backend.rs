@@ -165,11 +165,10 @@ pub trait Backend: Send + Sync {
     /// Returns an error if the check cannot be performed.
     async fn uid_exists(&self, uid: &str) -> Result<bool, BackendError>;
 
-    /// Returns the backend kind identifier.
+    /// Returns the calendar identifier for this backend.
     ///
-    /// This should be a unique number identifying the backend type.
-    /// Use values from `BackendKind` converted to `u8`.
-    fn backend_kind(&self) -> u8;
+    /// This identifies which calendar in the database items from this backend belong to.
+    fn calendar_id(&self) -> &str;
 
     /// Synchronizes the backend with the local cache (database).
     ///

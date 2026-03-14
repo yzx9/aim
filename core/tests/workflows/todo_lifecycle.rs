@@ -30,11 +30,14 @@ async fn todo_lifecycle_create_with_config_defaults() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
     // Act - create todo without explicit due/priority
     let draft = TodoDraft {
+        calendar_id: None,
         summary: "Task with defaults".to_string(),
         description: None,
         due: None,
@@ -68,6 +71,8 @@ async fn todo_lifecycle_status_evolution() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_todo_draft("Workflow Task");
@@ -126,6 +131,8 @@ async fn todo_lifecycle_priority_handling() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -167,6 +174,8 @@ async fn todo_lifecycle_sorting() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -174,6 +183,7 @@ async fn todo_lifecycle_sorting() {
     let priorities = [Priority::P5, Priority::P2, Priority::P9, Priority::None];
     for (i, priority) in priorities.iter().enumerate() {
         let draft = TodoDraft {
+            calendar_id: None,
             summary: format!("Task {i}"),
             description: None,
             due: None,
@@ -192,6 +202,7 @@ async fn todo_lifecycle_sorting() {
     let todos = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -221,6 +232,7 @@ async fn todo_lifecycle_sorting() {
     let todos_desc = aim
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },
@@ -255,6 +267,8 @@ async fn todo_lifecycle_filtering() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -269,6 +283,7 @@ async fn todo_lifecycle_filtering() {
 
     for (status, summary) in drafts {
         let draft = TodoDraft {
+            calendar_id: None,
             summary: summary.to_string(),
             description: None,
             due: None,
@@ -281,6 +296,7 @@ async fn todo_lifecycle_filtering() {
 
     // Act & Assert - filter by status
     let conds_needs = TodoConditions {
+        calendar_id: None,
         status: Some(TodoStatus::NeedsAction),
         due: None,
     };
@@ -302,6 +318,7 @@ async fn todo_lifecycle_filtering() {
 
     // Act & Assert - filter by completed status
     let conds_completed = TodoConditions {
+        calendar_id: None,
         status: Some(TodoStatus::Completed),
         due: None,
     };
@@ -321,6 +338,7 @@ async fn todo_lifecycle_filtering() {
 
     // Act & Assert - no filter returns all
     let conds_all = TodoConditions {
+        calendar_id: None,
         status: None,
         due: None,
     };
@@ -353,6 +371,8 @@ async fn todo_lifecycle_batch_operations() {
         default_priority_none_fist: true,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -371,6 +391,7 @@ async fn todo_lifecycle_batch_operations() {
     // Assert - verify all created
     let count = aim
         .count_todos(&TodoConditions {
+            calendar_id: None,
             status: None,
             due: None,
         })
@@ -389,6 +410,7 @@ async fn todo_lifecycle_batch_operations() {
 
     // Assert - verify all updated
     let conds = TodoConditions {
+        calendar_id: None,
         status: Some(TodoStatus::Completed),
         due: None,
     };
@@ -426,12 +448,15 @@ async fn todo_lifecycle_percent_complete_validation() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
     // Act - create with valid percent complete values
     for percent in [0u8, 50u8, 100u8] {
         let draft = TodoDraft {
+            calendar_id: None,
             summary: format!("Task {percent}%"),
             description: None,
             due: None,
@@ -454,6 +479,7 @@ async fn todo_lifecycle_percent_complete_validation() {
 
     // Test: create todo without percent_complete, then update it
     let draft = TodoDraft {
+        calendar_id: None,
         summary: "Progressive Task".to_string(),
         description: None,
         due: None,
@@ -516,11 +542,14 @@ async fn todo_lifecycle_metadata_updates() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
     // Create todo with all fields
     let original_draft = TodoDraft {
+        calendar_id: None,
         summary: "Original Summary".to_string(),
         description: Some("Original Description".to_string()),
         due: None,
@@ -595,6 +624,8 @@ async fn todo_lifecycle_with_due_dates() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -635,6 +666,8 @@ async fn todo_lifecycle_rebuild_from_files() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
     };
 
     // Create initial todos
@@ -657,6 +690,7 @@ async fn todo_lifecycle_rebuild_from_files() {
     let todos = aim2
         .list_todos(
             &TodoConditions {
+                calendar_id: None,
                 status: None,
                 due: None,
             },

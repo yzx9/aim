@@ -23,21 +23,22 @@ impl Todos {
 
     pub async fn upsert(&self, todo: &TodoRecord) -> Result<(), sqlx::Error> {
         const SQL: &str = "\
-INSERT INTO todos (uid, completed, description, percent, priority, status, summary, due, backend_kind)
+INSERT INTO todos (uid, calendar_id, completed, description, percent, priority, status, summary, due)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uid) DO UPDATE SET
+    calendar_id  = excluded.calendar_id,
     completed    = excluded.completed,
     description  = excluded.description,
     percent      = excluded.percent,
     priority     = excluded.priority,
     status       = excluded.status,
     summary      = excluded.summary,
-    due          = excluded.due,
-    backend_kind = excluded.backend_kind;
+    due          = excluded.due;
 ";
 
         sqlx::query(SQL)
             .bind(&todo.uid)
+            .bind(&todo.calendar_id)
             .bind(&todo.completed)
             .bind(&todo.description)
             .bind(todo.percent)
@@ -45,7 +46,6 @@ ON CONFLICT(uid) DO UPDATE SET
             .bind(&todo.status)
             .bind(&todo.summary)
             .bind(&todo.due)
-            .bind(todo.backend_kind)
             .execute(&self.pool)
             .await?;
 
@@ -54,7 +54,7 @@ ON CONFLICT(uid) DO UPDATE SET
 
     pub async fn get(&self, uid: &str) -> Result<Option<TodoRecord>, sqlx::Error> {
         const SQL: &str = "\
-SELECT uid, completed, description, percent, priority, status, summary, due, backend_kind
+SELECT uid, calendar_id, completed, description, percent, priority, status, summary, due
 FROM todos
 WHERE uid = ?;
 ";
@@ -72,24 +72,27 @@ WHERE uid = ?;
         pager: &Pager,
     ) -> Result<Vec<TodoRecord>, sqlx::Error> {
         let mut sql = "\
-SELECT uid, completed, description, percent, priority, status, summary, due, backend_kind
-FROM todos
+SELECT t.uid, t.calendar_id, t.completed, t.description, t.percent,
+       t.priority AS priority, t.status, t.summary, t.due
+FROM todos AS t
+JOIN calendars AS c ON c.id = t.calendar_id
 "
         .to_string();
         sql += &Self::build_where(conds);
 
+        sql += "ORDER BY c.priority ASC";
         if !sort.is_empty() {
-            sql += "ORDER BY ";
+            sql += ", ";
             for (i, s) in sort.iter().enumerate() {
                 match s {
                     ResolvedTodoSort::Due(order) => {
-                        sql += "due ";
+                        sql += "t.due ";
                         sql += order.sql_keyword();
                     }
                     ResolvedTodoSort::Priority { order, none_first } => {
                         sql += match none_first {
-                            true => "priority ",
-                            false => "((priority + 9) % 10) ",
+                            true => "t.priority ",
+                            false => "((t.priority + 9) % 10) ",
                         };
                         sql += order.sql_keyword();
                     }
@@ -103,12 +106,7 @@ FROM todos
         sql += " LIMIT ? OFFSET ?;";
 
         let mut executable = sqlx::query_as(&sql);
-        if let Some(status) = &conds.status {
-            executable = executable.bind(AsRef::<str>::as_ref(status));
-        }
-        if let Some(ref due) = conds.due {
-            executable = executable.bind(format_dt(due));
-        }
+        executable = Self::bind_conditions(conds, executable);
 
         executable
             .bind(pager.limit)
@@ -118,7 +116,8 @@ FROM todos
     }
 
     pub async fn count(&self, conds: &ResolvedTodoConditions) -> Result<i64, sqlx::Error> {
-        let mut sql = "SELECT COUNT(*) FROM todos".to_string();
+        let mut sql = "SELECT COUNT(*) FROM todos AS t JOIN calendars AS c ON c.id = t.calendar_id"
+            .to_string();
         sql += &Self::build_where(conds);
         sql += ";";
 
@@ -129,19 +128,18 @@ FROM todos
     }
 
     fn build_where(conds: &ResolvedTodoConditions) -> String {
-        let mut where_clauses = Vec::new();
+        let mut where_clauses = vec!["c.enabled = 1"];
         if conds.status.is_some() {
             where_clauses.push("status = ?");
         }
         if conds.due.is_some() {
             where_clauses.push("due <= ?");
         }
-
-        if where_clauses.is_empty() {
-            String::new()
-        } else {
-            format!(" WHERE {} ", where_clauses.join(" AND "))
+        if conds.calendar_id.is_some() {
+            where_clauses.push("t.calendar_id = ?");
         }
+
+        format!(" WHERE {} ", where_clauses.join(" AND "))
     }
 
     fn bind_conditions<'a, O>(
@@ -155,6 +153,9 @@ FROM todos
         if let Some(ref due) = conds.due {
             query = query.bind(format_dt(due));
         }
+        if let Some(ref calendar_id) = conds.calendar_id {
+            query = query.bind(calendar_id);
+        }
         query
     }
 }
@@ -162,6 +163,8 @@ FROM todos
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TodoRecord {
     uid: String,
+    /// Calendar ID for this todo.
+    pub calendar_id: String,
     completed: String,
     description: String,
     percent: Option<u8>,
@@ -169,13 +172,13 @@ pub struct TodoRecord {
     status: String,
     summary: String,
     due: String,
-    backend_kind: u8,
 }
 
 impl TodoRecord {
-    pub fn from_todo(uid: &str, todo: &impl Todo, backend_kind: u8) -> Self {
+    pub fn from_todo(uid: &str, todo: &impl Todo, calendar_id: &str) -> Self {
         Self {
             uid: uid.to_string(),
+            calendar_id: calendar_id.to_string(),
             summary: todo.summary().to_string(),
             description: todo.description().unwrap_or_default().to_string(),
             due: todo.due().map(|a| a.format_stable()).unwrap_or_default(),
@@ -186,13 +189,12 @@ impl TodoRecord {
             percent: todo.percent_complete(),
             priority: todo.priority().into(),
             status: todo.status().to_string(),
-            backend_kind,
         }
     }
 
     #[allow(dead_code)]
-    pub fn backend_kind(&self) -> u8 {
-        self.backend_kind
+    pub fn calendar_id(&self) -> &str {
+        &self.calendar_id
     }
 }
 
@@ -260,7 +262,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let todo = test_todo("todo-1", "Test Todo");
-        let record = TodoRecord::from_todo("todo-1", &todo, 0);
+        let record = TodoRecord::from_todo("todo-1", &todo, "default");
 
         // Act
         db.todos
@@ -284,7 +286,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let todo = test_todo("todo-1", "Original Summary");
-        let record = TodoRecord::from_todo("todo-1", &todo, 0);
+        let record = TodoRecord::from_todo("todo-1", &todo, "default");
         db.todos
             .upsert(&record)
             .await
@@ -292,7 +294,7 @@ mod tests {
 
         // Act
         let updated_todo = test_todo("todo-1", "Updated Summary");
-        let updated_record = TodoRecord::from_todo("todo-1", &updated_todo, 0);
+        let updated_record = TodoRecord::from_todo("todo-1", &updated_todo, "default");
         db.todos
             .upsert(&updated_record)
             .await
@@ -314,7 +316,7 @@ mod tests {
         // Arrange
         let db = setup_test_db().await;
         let todo = test_todo("todo-1", "Test Todo");
-        let record = TodoRecord::from_todo("todo-1", &todo, 0);
+        let record = TodoRecord::from_todo("todo-1", &todo, "default");
         db.todos
             .upsert(&record)
             .await
@@ -351,7 +353,7 @@ mod tests {
 
         // Test with None
         let todo1 = test_todo("todo-1", "Test None");
-        let record1 = TodoRecord::from_todo("todo-1", &todo1, 0);
+        let record1 = TodoRecord::from_todo("todo-1", &todo1, "default");
         db.todos
             .upsert(&record1)
             .await
@@ -359,7 +361,7 @@ mod tests {
 
         // Test with 0
         let todo2 = test_todo("todo-2", "Test 0").with_percent_complete(0);
-        let record2 = TodoRecord::from_todo("todo-2", &todo2, 0);
+        let record2 = TodoRecord::from_todo("todo-2", &todo2, "default");
         db.todos
             .upsert(&record2)
             .await
@@ -367,7 +369,7 @@ mod tests {
 
         // Test with 100
         let todo3 = test_todo("todo-3", "Test 100").with_percent_complete(100);
-        let record3 = TodoRecord::from_todo("todo-3", &todo3, 0);
+        let record3 = TodoRecord::from_todo("todo-3", &todo3, "default");
         db.todos
             .upsert(&record3)
             .await
@@ -418,7 +420,7 @@ mod tests {
         {
             let uid = format!("todo-{}", i + 1);
             let todo = test_todo(&uid, "Test Todo").with_priority(*priority);
-            let record = TodoRecord::from_todo(&uid, &todo, 0);
+            let record = TodoRecord::from_todo(&uid, &todo, "default");
             db.todos
                 .upsert(&record)
                 .await
@@ -440,12 +442,12 @@ mod tests {
         let db = setup_test_db().await;
         let todo1 = test_todo("todo-1", "Todo 1");
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, "default"))
             .await
             .unwrap();
         let todo2 = test_todo("todo-2", "Todo 2");
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, "default"))
             .await
             .unwrap();
 
@@ -453,6 +455,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: None,
+            calendar_id: None,
         };
         let sort = vec![];
         let pager = Pager {
@@ -473,13 +476,17 @@ mod tests {
         let todo_needs_action =
             test_todo("todo-1", "Needs Action").with_status(TodoStatus::NeedsAction);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo_needs_action, 0))
+            .upsert(&TodoRecord::from_todo(
+                "todo-1",
+                &todo_needs_action,
+                "default",
+            ))
             .await
             .unwrap();
 
         let todo_completed = test_todo("todo-2", "Completed").with_status(TodoStatus::Completed);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo_completed, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_completed, "default"))
             .await
             .unwrap();
 
@@ -487,6 +494,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: Some(TodoStatus::NeedsAction),
             due: None,
+            calendar_id: None,
         };
         let sort = vec![];
         let pager = Pager {
@@ -517,7 +525,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo_before, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_before, "default"))
             .await
             .unwrap();
 
@@ -528,7 +536,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo_after, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_after, "default"))
             .await
             .unwrap();
 
@@ -536,6 +544,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: Some(cutoff),
+            calendar_id: None,
         };
         let sort = vec![];
         let pager = Pager {
@@ -568,7 +577,7 @@ mod tests {
                     .unwrap(),
             ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo_matching, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_matching, "default"))
             .await
             .unwrap();
 
@@ -581,7 +590,11 @@ mod tests {
                     .unwrap(),
             ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo_wrong_status, 0))
+            .upsert(&TodoRecord::from_todo(
+                "todo-2",
+                &todo_wrong_status,
+                "default",
+            ))
             .await
             .unwrap();
 
@@ -589,6 +602,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: Some(TodoStatus::NeedsAction),
             due: Some(cutoff),
+            calendar_id: None,
         };
         let sort = vec![];
         let pager = Pager {
@@ -614,7 +628,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, "default"))
             .await
             .unwrap();
 
@@ -625,7 +639,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, "default"))
             .await
             .unwrap();
 
@@ -636,7 +650,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-3", &todo3, 0))
+            .upsert(&TodoRecord::from_todo("todo-3", &todo3, "default"))
             .await
             .unwrap();
 
@@ -644,6 +658,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: None,
+            calendar_id: None,
         };
         let sort = vec![ResolvedTodoSort::Due(crate::SortOrder::Asc)];
         let pager = Pager {
@@ -671,7 +686,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, "default"))
             .await
             .unwrap();
 
@@ -682,7 +697,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, "default"))
             .await
             .unwrap();
 
@@ -693,7 +708,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-3", &todo3, 0))
+            .upsert(&TodoRecord::from_todo("todo-3", &todo3, "default"))
             .await
             .unwrap();
 
@@ -701,6 +716,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: None,
+            calendar_id: None,
         };
         let sort = vec![ResolvedTodoSort::Due(crate::SortOrder::Desc)];
         let pager = Pager {
@@ -723,19 +739,19 @@ mod tests {
         let db = setup_test_db().await;
         let todo1 = test_todo("todo-1", "None Priority").with_priority(Priority::None);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, "default"))
             .await
             .unwrap();
 
         let todo2 = test_todo("todo-2", "High Priority").with_priority(Priority::P2);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, "default"))
             .await
             .unwrap();
 
         let todo3 = test_todo("todo-3", "Low Priority").with_priority(Priority::P8);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-3", &todo3, 0))
+            .upsert(&TodoRecord::from_todo("todo-3", &todo3, "default"))
             .await
             .unwrap();
 
@@ -743,6 +759,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: None,
+            calendar_id: None,
         };
         let sort = vec![ResolvedTodoSort::Priority {
             order: crate::SortOrder::Asc,
@@ -768,19 +785,19 @@ mod tests {
         let db = setup_test_db().await;
         let todo1 = test_todo("todo-1", "None Priority").with_priority(Priority::None);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo1, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, "default"))
             .await
             .unwrap();
 
         let todo2 = test_todo("todo-2", "High Priority").with_priority(Priority::P2);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo2, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, "default"))
             .await
             .unwrap();
 
         let todo3 = test_todo("todo-3", "Low Priority").with_priority(Priority::P8);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-3", &todo3, 0))
+            .upsert(&TodoRecord::from_todo("todo-3", &todo3, "default"))
             .await
             .unwrap();
 
@@ -788,6 +805,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: None,
+            calendar_id: None,
         };
         let sort = vec![ResolvedTodoSort::Priority {
             order: crate::SortOrder::Asc,
@@ -813,7 +831,11 @@ mod tests {
         for i in 1..=5 {
             let todo = test_todo(&format!("todo-{i}"), &format!("Todo {i}"));
             db.todos
-                .upsert(&TodoRecord::from_todo(&format!("todo-{i}"), &todo, 0))
+                .upsert(&TodoRecord::from_todo(
+                    &format!("todo-{i}"),
+                    &todo,
+                    "default",
+                ))
                 .await
                 .unwrap();
         }
@@ -822,6 +844,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: None,
+            calendar_id: None,
         };
         let sort = vec![];
         let pager = Pager {
@@ -841,7 +864,11 @@ mod tests {
         for i in 1..=5 {
             let todo = test_todo(&format!("todo-{i}"), &format!("Todo {i}"));
             db.todos
-                .upsert(&TodoRecord::from_todo(&format!("todo-{i}"), &todo, 0))
+                .upsert(&TodoRecord::from_todo(
+                    &format!("todo-{i}"),
+                    &todo,
+                    "default",
+                ))
                 .await
                 .unwrap();
         }
@@ -850,6 +877,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: None,
+            calendar_id: None,
         };
         let sort = vec![];
         let pager = Pager {
@@ -869,7 +897,11 @@ mod tests {
         for i in 1..=5 {
             let todo = test_todo(&format!("todo-{i}"), &format!("Todo {i}"));
             db.todos
-                .upsert(&TodoRecord::from_todo(&format!("todo-{i}"), &todo, 0))
+                .upsert(&TodoRecord::from_todo(
+                    &format!("todo-{i}"),
+                    &todo,
+                    "default",
+                ))
                 .await
                 .unwrap();
         }
@@ -878,6 +910,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: None,
+            calendar_id: None,
         };
         let count = db.todos.count(&conds).await.unwrap();
 
@@ -892,13 +925,17 @@ mod tests {
         let todo_needs_action =
             test_todo("todo-1", "Needs Action").with_status(TodoStatus::NeedsAction);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo_needs_action, 0))
+            .upsert(&TodoRecord::from_todo(
+                "todo-1",
+                &todo_needs_action,
+                "default",
+            ))
             .await
             .unwrap();
 
         let todo_completed = test_todo("todo-2", "Completed").with_status(TodoStatus::Completed);
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo_completed, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_completed, "default"))
             .await
             .unwrap();
 
@@ -906,6 +943,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: Some(TodoStatus::NeedsAction),
             due: None,
+            calendar_id: None,
         };
         let count = db.todos.count(&conds).await.unwrap();
 
@@ -929,7 +967,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo_before, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_before, "default"))
             .await
             .unwrap();
 
@@ -940,7 +978,7 @@ mod tests {
                 .unwrap(),
         ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo_after, 0))
+            .upsert(&TodoRecord::from_todo("todo-2", &todo_after, "default"))
             .await
             .unwrap();
 
@@ -948,6 +986,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: None,
             due: Some(cutoff),
+            calendar_id: None,
         };
         let count = db.todos.count(&conds).await.unwrap();
 
@@ -973,7 +1012,7 @@ mod tests {
                     .unwrap(),
             ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-1", &todo_matching, 0))
+            .upsert(&TodoRecord::from_todo("todo-1", &todo_matching, "default"))
             .await
             .unwrap();
 
@@ -986,7 +1025,11 @@ mod tests {
                     .unwrap(),
             ));
         db.todos
-            .upsert(&TodoRecord::from_todo("todo-2", &todo_wrong_status, 0))
+            .upsert(&TodoRecord::from_todo(
+                "todo-2",
+                &todo_wrong_status,
+                "default",
+            ))
             .await
             .unwrap();
 
@@ -994,6 +1037,7 @@ mod tests {
         let conds = ResolvedTodoConditions {
             status: Some(TodoStatus::NeedsAction),
             due: Some(cutoff),
+            calendar_id: None,
         };
         let count = db.todos.count(&conds).await.unwrap();
 

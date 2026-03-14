@@ -17,6 +17,7 @@ fn priority_default_is_none() {
 #[test]
 fn todo_draft_priority_can_be_none() {
     let draft = TodoDraft {
+        calendar_id: None,
         description: None,
         due: None,
         percent_complete: None,
@@ -32,6 +33,7 @@ fn todo_draft_priority_can_be_none() {
 fn todo_draft_priority_can_be_set() {
     for priority in [Priority::None, Priority::P1, Priority::P5, Priority::P9] {
         let draft = TodoDraft {
+            calendar_id: None,
             description: None,
             due: None,
             percent_complete: None,

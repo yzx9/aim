@@ -93,6 +93,8 @@ impl Todo for VTodo<String> {
 /// Darft for a todo item, used for creating new todos.
 #[derive(Debug)]
 pub struct TodoDraft {
+    /// The calendar ID to create the todo in. Uses default calendar if None.
+    pub calendar_id: Option<String>,
     /// The description of the todo item, if available.
     pub description: Option<String>,
     /// The due date and time of the todo item, if available.
@@ -111,6 +113,7 @@ impl TodoDraft {
     /// Creates a new empty patch.
     pub(crate) fn default(config: &Config, now: &Zoned) -> Result<Self, String> {
         Ok(Self {
+            calendar_id: None,
             description: None,
             due: config
                 .default_due
@@ -398,6 +401,9 @@ pub struct TodoConditions {
 
     /// The priority of the todo item to filter by, if any.
     pub due: Option<DateTimeAnchor>,
+
+    /// The calendar ID to filter todos by
+    pub calendar_id: Option<String>,
 }
 
 impl TodoConditions {
@@ -409,6 +415,7 @@ impl TodoConditions {
                 .as_ref()
                 .map(|a| a.resolve_at_end_of_day(now))
                 .transpose()?,
+            calendar_id: self.calendar_id.clone(),
         })
     }
 }
@@ -417,6 +424,8 @@ impl TodoConditions {
 pub struct ResolvedTodoConditions {
     pub status: Option<TodoStatus>,
     pub due: Option<Zoned>,
+    /// The calendar ID to filter todos by
+    pub calendar_id: Option<String>,
 }
 
 /// The default sort key for todo items, which is by due date.
@@ -455,4 +464,3 @@ pub enum ResolvedTodoSort {
     Due(SortOrder),
     Priority { order: SortOrder, none_first: bool },
 }
-

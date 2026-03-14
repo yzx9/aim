@@ -73,6 +73,7 @@ impl TodoStore {
 
     pub fn submit_draft(self, aim: &Aim) -> Result<TodoDraft, Box<dyn Error>> {
         Ok(TodoDraft {
+            calendar_id: None,
             description: self.dirty.description.then_some(self.data.description),
             due: parse_datetime(&aim.now(), &self.data.due)?,
             percent_complete: self

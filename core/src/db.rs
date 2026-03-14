@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod calendars;
 mod events;
 mod resources;
 mod short_ids;
@@ -18,6 +19,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 
+use crate::db::calendars::Calendars;
 use crate::db::events::{EventRecord, Events};
 use crate::db::resources::Resources;
 use crate::db::short_ids::ShortIds;
@@ -35,6 +37,7 @@ pub struct Db {
     pub todos: Todos,
     pub short_ids: ShortIds,
     pub resources: Resources,
+    pub calendars: Calendars,
 }
 
 impl Db {
@@ -78,12 +81,14 @@ impl Db {
         let todos = Todos::new(pool.clone());
         let short_ids = ShortIds::new(pool.clone());
         let resources = Resources::new(pool.clone());
+        let calendars = Calendars::new(pool.clone());
         Ok(Db {
             pool,
             events,
             todos,
             short_ids,
             resources,
+            calendars,
         })
     }
 
@@ -91,9 +96,9 @@ impl Db {
         &self,
         uid: &str,
         event: &impl Event,
-        backend_kind: u8,
+        calendar_id: &str,
     ) -> Result<(), Box<dyn Error>> {
-        let record = EventRecord::from_event(uid, event, backend_kind);
+        let record = EventRecord::from_event(uid, event, calendar_id);
         self.events
             .upsert(record)
             .await
@@ -104,9 +109,9 @@ impl Db {
         &self,
         uid: &str,
         todo: &impl Todo,
-        backend_kind: u8,
+        calendar_id: &str,
     ) -> Result<(), Box<dyn Error>> {
-        let record = TodoRecord::from_todo(uid, todo, backend_kind);
+        let record = TodoRecord::from_todo(uid, todo, calendar_id);
         self.todos
             .upsert(&record)
             .await
