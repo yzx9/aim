@@ -257,6 +257,32 @@ impl TodoArgs {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct CalendarArgs {
+    monopolize: bool,
+}
+
+impl CalendarArgs {
+    pub const fn new(monopolize: bool) -> Self {
+        Self { monopolize }
+    }
+
+    pub fn calendar(self) -> Arg {
+        arg!(--calendar <ID>)
+            .help(self.monopolize(&"Calendar ID"))
+            .required(false)
+    }
+
+    pub fn get_calendar(matches: &ArgMatches) -> Option<String> {
+        matches.get_one("calendar").cloned()
+    }
+
+    fn monopolize(self, help: &impl ToString) -> String {
+        let _ = self.monopolize;
+        help.to_string()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum EventOrTodoStatus {
     Event(EventStatus),
     Todo(TodoStatus),

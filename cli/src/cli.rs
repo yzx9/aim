@@ -11,6 +11,7 @@ use futures::{FutureExt, future::BoxFuture};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, Registry, prelude::*};
 
+use crate::cmd_calendar::{CmdCalendarList, CmdCalendarShow};
 use crate::cmd_event::{
     CmdEventDelay, CmdEventEdit, CmdEventList, CmdEventNew, CmdEventReschedule,
 };
@@ -98,6 +99,14 @@ Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
             .subcommand(CmdDelay::command())
             .subcommand(CmdReschedule::command())
             .subcommand(
+                Command::new("calendar")
+                    .about("Manage calendars")
+                    .arg_required_else_help(true)
+                    .subcommand_required(true)
+                    .subcommand(CmdCalendarList::command())
+                    .subcommand(CmdCalendarShow::command()),
+            )
+            .subcommand(
                 Command::new("event")
                     .alias("e")
                     .about("Manage your event list")
@@ -159,9 +168,9 @@ Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
     /// If an error occurs while parsing the arguments
     pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
         use Commands::{
-            Dashboard, Delay, Edit, EventDelay, EventEdit, EventList, EventNew, EventReschedule,
-            Flush, GenerateCompletion, New, Reschedule, TodoCancel, TodoDelay, TodoDone, TodoEdit,
-            TodoList, TodoNew, TodoReschedule, TodoUndo,
+            CalendarList, CalendarShow, Dashboard, Delay, Edit, EventDelay, EventEdit, EventList,
+            EventNew, EventReschedule, Flush, GenerateCompletion, New, Reschedule, TodoCancel,
+            TodoDelay, TodoDone, TodoEdit, TodoList, TodoNew, TodoReschedule, TodoUndo,
         };
         let command = match matches.subcommand() {
             Some((CmdDashboard::NAME, matches)) => Dashboard(CmdDashboard::from(matches)),
@@ -170,6 +179,15 @@ Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
             Some((CmdDelay::NAME, matches)) => Delay(CmdDelay::from(matches)),
             Some((CmdReschedule::NAME, matches)) => Reschedule(CmdReschedule::from(matches)),
             Some((CmdFlush::NAME, matches)) => Flush(CmdFlush::from(matches)),
+            Some(("calendar", matches)) => match matches.subcommand() {
+                Some((CmdCalendarList::NAME, matches)) => {
+                    CalendarList(CmdCalendarList::from(matches))
+                }
+                Some((CmdCalendarShow::NAME, matches)) => {
+                    CalendarShow(CmdCalendarShow::from(matches))
+                }
+                _ => unreachable!(),
+            },
             Some(("event", matches)) => match matches.subcommand() {
                 Some((CmdEventNew::NAME, matches)) => EventNew(CmdEventNew::from(matches)),
                 Some((CmdEventEdit::NAME, matches)) => EventEdit(CmdEventEdit::from(matches)),
@@ -217,6 +235,12 @@ Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
 /// The commands available in the CLI
 #[derive(Debug, Clone)]
 pub enum Commands {
+    /// List calendars
+    CalendarList(CmdCalendarList),
+
+    /// Show detailed calendar information
+    CalendarShow(CmdCalendarShow),
+
     /// Show the dashboard
     Dashboard(CmdDashboard),
 
@@ -287,12 +311,15 @@ impl Commands {
     #[tracing::instrument(skip_all, fields(trace_id = %uuid::Uuid::new_v4()))]
     pub async fn run(self, config: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         use Commands::{
-            Dashboard, Delay, Edit, EventDelay, EventEdit, EventList, EventNew, EventReschedule,
-            Flush, GenerateCompletion, New, Reschedule, TodoCancel, TodoDelay, TodoDone, TodoEdit,
-            TodoList, TodoNew, TodoReschedule, TodoUndo,
+            CalendarList, CalendarShow, Dashboard, Delay, Edit, EventDelay, EventEdit,
+            EventList, EventNew, EventReschedule, Flush, GenerateCompletion, New, Reschedule,
+            TodoCancel, TodoDelay, TodoDone, TodoEdit, TodoList, TodoNew, TodoReschedule,
+            TodoUndo,
         };
         tracing::info!(?self, "running command");
         match self {
+            CalendarList(a)    => Self::run_with(config, |x| a.run(x).boxed()).await,
+            CalendarShow(a)    => Self::run_with(config, |x| a.run(x).boxed()).await,
             Dashboard(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             New(a)             => Self::run_with(config, |x| a.run(x).boxed()).await,
             Edit(a)            => Self::run_with(config, |x| a.run(x).boxed()).await,
@@ -325,6 +352,9 @@ impl Commands {
 
         tracing::debug!("instantiating...");
         let mut aim = Aim::new(core_config).await?;
+        for notice in aim.startup_notices() {
+            println!("Note: {notice}");
+        }
 
         tracing::debug!("running command...");
         f(&mut aim).await?;
@@ -400,6 +430,8 @@ mod tests {
             "event",
             "new",
             "a new event",
+            "--calendar",
+            "work",
             "--start",
             "2025-01-01 10:00",
             "--end",
@@ -595,6 +627,33 @@ mod tests {
         match cli.command {
             Commands::TodoList(cmd) => assert_eq!(cmd.output_format, OutputFormat::Json),
             _ => panic!("Expected TodoList command"),
+        }
+    }
+
+    #[test]
+    fn parses_calendar_list_command() {
+        let args = ["test", "calendar", "list", "--output-format", "json"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        assert!(matches!(cli.command, Commands::CalendarList(_)));
+    }
+
+    #[test]
+    fn parses_calendar_show_command() {
+        let args = [
+            "test",
+            "calendar",
+            "show",
+            "work",
+            "--output-format",
+            "json",
+        ];
+        let cli = Cli::try_parse_from(args).unwrap();
+        match cli.command {
+            Commands::CalendarShow(cmd) => {
+                assert_eq!(cmd.id, "work");
+                assert_eq!(cmd.output_format, OutputFormat::Json);
+            }
+            _ => panic!("Expected CalendarShow command"),
         }
     }
 
