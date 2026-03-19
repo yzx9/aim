@@ -255,6 +255,20 @@ fn scan_one_content_line<'src>(
     // Track line start span
     let line_start = first_token.1;
 
+    if matches!(first_token.0, Token::Error) {
+        let error_token = tokens.next()?;
+        return Some(ContentLine {
+            name: Segments::default(),
+            parameters: Vec::new(),
+            value: Segments::default(),
+            span: error_token.1,
+            error: Some(ContentLineError::MalformedLine {
+                span: error_token.1,
+                message: invalid_token_message(src, error_token.1),
+            }),
+        });
+    }
+
     // Check if this is an empty line (just newline)
     if matches!(first_token.0, Token::Newline) {
         let newline = tokens.next()?;
@@ -343,7 +357,20 @@ fn parse_content_line_structure<'src>(
     };
 
     // Parse value (everything until newline)
-    let (value, value_end) = parse_value(tokens);
+    let (value, value_end, invalid_span) = parse_value(tokens);
+
+    if let Some(span) = invalid_span {
+        return ContentLine {
+            name,
+            parameters,
+            value,
+            span: Span::new(line_start.start, span.end),
+            error: Some(ContentLineError::MalformedLine {
+                span,
+                message: invalid_token_message(src, span),
+            }),
+        };
+    }
 
     // Expect and consume newline
     match tokens.next() {
@@ -560,7 +587,7 @@ fn parse_parameter_value<'src>(
 /// Returns ([`Segments`], `usize`) - value segments and end position.
 fn parse_value<'src>(
     tokens: &mut Peekable<impl Iterator<Item = SpannedToken<'src>>>,
-) -> (Segments<'src>, usize) {
+) -> (Segments<'src>, usize, Option<Span>) {
     let mut segments = Vec::new();
     let mut end = 0;
 
@@ -568,6 +595,17 @@ fn parse_value<'src>(
     while let Some(token) = tokens.peek() {
         if matches!(token.0, Token::Newline) {
             break;
+        }
+        if matches!(token.0, Token::Error) {
+            return (
+                if segments.is_empty() {
+                    Segments::default()
+                } else {
+                    Segments::new(segments)
+                },
+                end,
+                Some(token.1),
+            );
         }
 
         let token = tokens.next().unwrap();
@@ -580,10 +618,10 @@ fn parse_value<'src>(
     }
 
     if segments.is_empty() {
-        return (Segments::default(), 0);
+        return (Segments::default(), 0, None);
     }
 
-    (Segments::new(segments), end)
+    (Segments::new(segments), end, None)
 }
 
 /// Get the current end position from token iterator.
@@ -612,6 +650,24 @@ fn token_to_text(token: Token<'_>) -> &str {
         Token::Equal => "=",
         Token::DQuote => "\"",
         _ => "",
+    }
+}
+
+fn invalid_token_message(src: &str, span: Span) -> String {
+    match src.get(span.into_range()) {
+        Some("\n") => {
+            "invalid line ending: found LF without preceding CR; iCalendar requires CRLF (\\r\\n)"
+                .to_string()
+        }
+        Some("\r") => {
+            "invalid line ending: found CR without following LF; iCalendar requires CRLF (\\r\\n)"
+                .to_string()
+        }
+        Some(invalid) => format!(
+            "invalid token in content line: {:?}",
+            invalid.escape_debug().to_string()
+        ),
+        None => "invalid token in content line".to_string(),
     }
 }
 
@@ -931,5 +987,47 @@ END:VCALENDAR\r\n";
                 .as_ref(),
             "value3"
         );
+    }
+
+    #[test]
+    fn scanner_reports_bare_lf_line_endings() {
+        let src = "BEGIN:VCALENDAR\nEND:VCALENDAR\n";
+        let result = test_scan(src);
+
+        assert!(result.has_errors);
+        let error = result
+            .lines
+            .iter()
+            .find_map(|line| match &line.error {
+                Some(ContentLineError::MalformedLine { message, .. })
+                    if message.contains("LF without preceding CR") =>
+                {
+                    Some(message)
+                }
+                _ => None,
+            })
+            .expect("Expected bare LF line-ending error");
+        assert!(error.contains("CRLF"));
+    }
+
+    #[test]
+    fn scanner_reports_bare_cr_line_endings() {
+        let src = "BEGIN:VCALENDAR\rEND:VCALENDAR\r";
+        let result = test_scan(src);
+
+        assert!(result.has_errors);
+        let error = result
+            .lines
+            .iter()
+            .find_map(|line| match &line.error {
+                Some(ContentLineError::MalformedLine { message, .. })
+                    if message.contains("CR without following LF") =>
+                {
+                    Some(message)
+                }
+                _ => None,
+            })
+            .expect("Expected bare CR line-ending error");
+        assert!(error.contains("CRLF"));
     }
 }

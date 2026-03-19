@@ -231,6 +231,20 @@ END:VCALENDAR\r
 }
 
 #[test]
+fn syntax_reports_bare_lf_line_endings() {
+    let src = "BEGIN:VCALENDAR\nEND:VCALENDAR\n";
+    let err = syntax_analysis(src).expect_err("Expected bare LF input to fail");
+    let rendered = err
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(rendered.contains("LF without preceding CR"));
+    assert!(rendered.contains("CRLF"));
+}
+
+#[test]
 fn syntax_property_with_unicode() {
     let src = "\
 BEGIN:VEVENT\r
