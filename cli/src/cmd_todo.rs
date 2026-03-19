@@ -11,7 +11,7 @@ use aimcal_core::{
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 
-use crate::arg::{CommonArgs, EventOrTodoArgs, TodoArgs};
+use crate::arg::{CalendarArgs, CommonArgs, EventOrTodoArgs, TodoArgs};
 use crate::prompt::{prompt_time, prompt_time_opt};
 use crate::todo_formatter::{TodoColumn, TodoFormatter};
 use crate::tui;
@@ -19,6 +19,7 @@ use crate::util::{OutputFormat, parse_datetime};
 
 #[derive(Debug, Clone)]
 pub struct CmdTodoNew {
+    pub calendar_id: Option<String>,
     pub description: Option<String>,
     pub due: Option<String>,
     pub percent_complete: Option<u8>,
@@ -40,6 +41,7 @@ impl CmdTodoNew {
             .about("Add a new todo")
             // fields
             .arg(args.summary(true))
+            .arg(CalendarArgs::new(true).calendar())
             .arg(todo_args.due())
             .arg(args.description())
             .arg(todo_args.percent_complete())
@@ -52,6 +54,7 @@ impl CmdTodoNew {
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
+            calendar_id: CalendarArgs::get_calendar(matches),
             description: EventOrTodoArgs::get_description(matches),
             due: TodoArgs::get_due(matches),
             percent_complete: TodoArgs::get_percent_complete(matches),
@@ -77,6 +80,8 @@ impl CmdTodoNew {
         if let Some(desc) = self.description {
             draft.description = Some(desc);
         }
+
+        draft.calendar_id = self.calendar_id;
 
         if let Some(due) = &self.due {
             draft.due = parse_datetime(&now, due)?;
@@ -433,6 +438,7 @@ impl CmdTodoList {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("List todos")
+            .arg(CalendarArgs::new(true).calendar())
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -442,7 +448,7 @@ impl CmdTodoList {
             conds: TodoConditions {
                 status: Some(TodoStatus::NeedsAction),
                 due: None,
-                calendar_id: None,
+                calendar_id: CalendarArgs::get_calendar(matches),
             },
             output_format: CommonArgs::get_output_format(matches),
             verbose: CommonArgs::get_verbose(matches),
@@ -516,6 +522,8 @@ mod tests {
         let args = [
             "new",
             "Another summary",
+            "--calendar",
+            "work",
             "--description",
             "A description",
             "--due",
@@ -534,6 +542,7 @@ mod tests {
         let parsed = CmdTodoNew::from(&matches);
 
         assert_eq!(parsed.description, Some("A description".to_string()));
+        assert_eq!(parsed.calendar_id, Some("work".to_string()));
         assert_eq!(parsed.due, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.percent_complete, Some(66));
         assert_eq!(parsed.priority, Some(Priority::P1));
@@ -730,10 +739,18 @@ mod tests {
 
     #[test]
     fn parses_todo_list_command() {
-        let args = ["list", "--output-format", "json", "--verbose"];
+        let args = [
+            "list",
+            "--calendar",
+            "work",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
         let matches = CmdTodoList::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoList::from(&matches);
 
+        assert_eq!(parsed.conds.calendar_id, Some("work".to_string()));
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }

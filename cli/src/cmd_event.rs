@@ -11,6 +11,7 @@ use aimcal_core::{
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 
+use crate::arg::CalendarArgs;
 use crate::arg::{CommonArgs, EventArgs, EventOrTodoArgs};
 use crate::event_formatter::{EventColumn, EventFormatter};
 use crate::prompt::prompt_time;
@@ -19,6 +20,7 @@ use crate::util::{OutputFormat, parse_datetime, parse_datetime_range};
 
 #[derive(Debug, Clone)]
 pub struct CmdEventNew {
+    pub calendar_id: Option<String>,
     pub description: Option<String>,
     pub end: Option<String>,
     pub start: Option<String>,
@@ -38,6 +40,7 @@ impl CmdEventNew {
             .alias("add")
             .about("Add a new event")
             .arg(args.summary(true))
+            .arg(CalendarArgs::new(true).calendar())
             .arg(event_args.start())
             .arg(event_args.end())
             .arg(args.description())
@@ -48,6 +51,7 @@ impl CmdEventNew {
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
+            calendar_id: CalendarArgs::get_calendar(matches),
             description: EventOrTodoArgs::get_description(matches),
             start: EventArgs::get_start(matches),
             end: EventArgs::get_end(matches),
@@ -86,6 +90,8 @@ impl CmdEventNew {
         if let Some(description) = self.description {
             draft.description = Some(description);
         }
+
+        draft.calendar_id = self.calendar_id;
 
         if let Some(status) = self.status {
             draft.status = status;
@@ -424,6 +430,7 @@ impl CmdEventList {
     pub fn command() -> Command {
         Command::new(Self::NAME)
             .about("List events")
+            .arg(CalendarArgs::new(true).calendar())
             .arg(CommonArgs::output_format())
             .arg(CommonArgs::verbose())
     }
@@ -432,6 +439,7 @@ impl CmdEventList {
         Self {
             conds: EventConditions {
                 startable: Some(DateTimeAnchor::today()),
+                calendar_id: CalendarArgs::get_calendar(matches),
                 ..Default::default()
             },
             output_format: CommonArgs::get_output_format(matches),
@@ -500,6 +508,8 @@ mod tests {
         let args = [
             "new",
             "Another summary",
+            "--calendar",
+            "work",
             "--description",
             "A description",
             "--start",
@@ -516,6 +526,7 @@ mod tests {
         let parsed = CmdEventNew::from(&matches);
 
         assert_eq!(parsed.description, Some("A description".to_string()));
+        assert_eq!(parsed.calendar_id, Some("work".to_string()));
         assert_eq!(parsed.end, Some("2025-01-01 14:00:00".to_string()));
         assert_eq!(parsed.start, Some("2025-01-01 12:00:00".to_string()));
         assert_eq!(parsed.status, Some(EventStatus::Tentative));
@@ -637,10 +648,18 @@ mod tests {
 
     #[test]
     fn parses_event_list_command() {
-        let args = ["list", "--output-format", "json", "--verbose"];
+        let args = [
+            "list",
+            "--calendar",
+            "work",
+            "--output-format",
+            "json",
+            "--verbose",
+        ];
         let matches = CmdEventList::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventList::from(&matches);
 
+        assert_eq!(parsed.conds.calendar_id, Some("work".to_string()));
         assert_eq!(parsed.output_format, OutputFormat::Json);
         assert!(parsed.verbose);
     }

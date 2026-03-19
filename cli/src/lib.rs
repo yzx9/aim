@@ -21,6 +21,7 @@
 
 mod arg;
 mod cli;
+mod cmd_calendar;
 mod cmd_event;
 mod cmd_generate_completion;
 mod cmd_todo;
