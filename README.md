@@ -150,7 +150,7 @@ See `cli/config.example.toml` in the repository for a sample configuration file.
 
 ### Development Setup
 
-For local development, `.envrc` file sets `AIM_CONFIG` to point to `cli/config.dev.toml`, which uses isolated development directories (`.dev-calendar/` and `.dev-state/`) to keep your work separate from your actual calendar data.
+For local development, `.envrc` file sets `AIM_CONFIG` to point to `cli/config.dev.toml`, which uses isolated development directories under `.dev/` (`.dev/calendar/` and `.dev/state/`) to keep your work separate from your actual calendar data.
 
 If using Nix without direnv, the development environment is automatically configured with the same `cli/config.dev.toml`.
 
@@ -159,10 +159,10 @@ If using Nix without direnv, the development environment is automatically config
 To quickly populate your development calendar with all example files:
 
 ```bash
-just init-examples
+just init-dev
 ```
 
-This command copies all example files to `.dev-calendar/` directory, which will be automatically loaded on the first `aim` run.
+This command copies all example files to `.dev/calendar/` directory, which will be automatically loaded on the first `aim` run.
 
 ### Example iCalendar Files
 

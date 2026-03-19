@@ -45,16 +45,16 @@ A complex calendar with multiple components demonstrating:
 To quickly populate your development calendar with all example files:
 
 ```bash
-just init-examples
+just init-dev
 ```
 
 This command:
-- Creates `.dev-calendar/` directory if it doesn't exist
-- Copies all example files (`.ics`) to `.dev-calendar/`
-- Creates a marker file `.dev-calendar/.dev-marker` to track initialization
-- Is idempotent - safe to run multiple times
+- Recreates `.dev/calendar/` from the example files
+- Copies all example files (`.ics`) to `.dev/calendar/`
+- Creates a marker file `.dev/calendar/.dev-marker` to track initialization
+- Prompts before deleting an existing `.dev/` directory
 
-After running `just init-examples`, the first `aim` command will automatically load all examples into the development database.
+After running `just init-dev`, the first `aim` command will automatically load all examples into the development database.
 
 ### Load with AIM
 
@@ -88,8 +88,8 @@ cargo test -p aimcal-ical
 AIM_CONFIG=cli/config.dev.toml cargo run -- event list
 
 # Create a test calendar directory
-mkdir -p .dev-calendar
-cp examples/*.ics .dev-calendar/
+mkdir -p .dev/calendar
+cp examples/*.ics .dev/calendar/
 ```
 
 ## iCalendar (RFC 5545) Resources

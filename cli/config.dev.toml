@@ -3,10 +3,10 @@
 
 [core]
 # Use a calendar directory in the repository for development
-calendar_path = ".dev-calendar"
+calendar_path = ".dev/calendar"
 
 # Store state in a local directory
-state_dir = ".dev-state"
+state_dir = ".dev/state"
 
 # Default due time for new tasks
 default_due = "1d"
