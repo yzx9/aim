@@ -12,6 +12,6 @@ SUMMARY:Team Standup
 DESCRIPTION:Weekly team sync meeting to discuss project progress and blockers
 LOCATION:Conference Room A
 STATUS:CONFIRMED
-ORGANIZER:CN=John Doe:mailto:john.doe@example.com
+ORGANIZER;CN=John Doe:mailto:john.doe@example.com
 END:VEVENT
 END:VCALENDAR
