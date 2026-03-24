@@ -23,6 +23,8 @@ Before committing, always run:
 
 1. `cargo fmt` - Format code
 2. `just lint` - Run linter
+3. For user-facing changes (new features, bug fixes, breaking changes), update the changelog
+   using the `/changelog` skill first
 
 ## Commit Message Format
 
