@@ -2,11 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{error::Error, path::PathBuf, str::FromStr};
+use std::{
+    error::Error,
+    io::{IsTerminal, stdin, stdout},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use tokio::fs;
 
 use aimcal_core::{APP_NAME, Config as CoreConfig};
+
+use crate::prompt::{DevModeChoice, prompt_dev_mode_choice};
 
 const AIM_CONFIG_ENV: &str = "AIM_CONFIG";
 const AIM_DEV_ENV: &str = "AIM_DEV";
@@ -16,12 +23,22 @@ const AIM_DEV_VALID_FALSE: &[&str] = &["0", "false", "no"];
 
 #[tracing::instrument]
 pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config), Box<dyn Error>> {
+    let dev_mode_strategy = resolve_dev_mode_strategy()?;
+
     let path = if let Some(path) = path {
         path
+    } else if should_use_aim_config_env(dev_mode_strategy) {
+        PathBuf::from(std::env::var(AIM_CONFIG_ENV)?)
+    } else if matches!(dev_mode_strategy, DevModeStrategy::ForcedNormal) {
+        let config = get_config_dir()?.join(format!("{APP_NAME}/config.toml"));
+        if !config.exists() {
+            return Err(format!("No config found at: {}", config.display()).into());
+        }
+        config
     } else if let Ok(env_path) = std::env::var(AIM_CONFIG_ENV) {
         PathBuf::from(env_path)
     } else {
-        if let Some(true) = is_dev_mode() {
+        if matches!(effective_dev_mode(dev_mode_strategy), Some(true)) {
             return Err(format!(
                 "Development environment detected ({AIM_DEV_ENV} is set): config must be explicitly specified via --config or {AIM_CONFIG_ENV} environment variable",
             ).into());
@@ -39,6 +56,13 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config),
         .map_err(|e| format!("Failed to read config file at {}: {}", path.display(), e))?
         .parse::<ConfigRaw>()
         .map(|a| (a.core, Config {}))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DevModeStrategy {
+    Environment,
+    ForcedNormal,
+    ForcedDev,
 }
 
 /// Configuration for the Aim application.
@@ -91,6 +115,41 @@ fn is_dev_mode() -> Option<bool> {
     }
 }
 
+fn resolve_dev_mode_strategy() -> Result<DevModeStrategy, Box<dyn Error>> {
+    if cfg!(debug_assertions) || std::env::var_os(AIM_DEV_ENV).is_none() {
+        return Ok(DevModeStrategy::Environment);
+    }
+
+    if !stdin().is_terminal() || !stdout().is_terminal() {
+        return Ok(DevModeStrategy::Environment);
+    }
+
+    match prompt_dev_mode_choice()? {
+        DevModeChoice::Exit => {
+            Err("Aborted because AIM_DEV was detected in the environment".into())
+        }
+        DevModeChoice::Normal => Ok(DevModeStrategy::ForcedNormal),
+        DevModeChoice::Dev => Ok(DevModeStrategy::ForcedDev),
+    }
+}
+
+fn effective_dev_mode(strategy: DevModeStrategy) -> Option<bool> {
+    match strategy {
+        DevModeStrategy::Environment => is_dev_mode(),
+        DevModeStrategy::ForcedNormal => Some(false),
+        DevModeStrategy::ForcedDev => Some(true),
+    }
+}
+
+fn should_use_aim_config_env(strategy: DevModeStrategy) -> bool {
+    match strategy {
+        DevModeStrategy::Environment | DevModeStrategy::ForcedDev => {
+            std::env::var(AIM_CONFIG_ENV).is_ok()
+        }
+        DevModeStrategy::ForcedNormal => false,
+    }
+}
+
 #[cfg(test)]
 #[allow(unsafe_code)]
 mod tests {
@@ -104,6 +163,24 @@ mod tests {
 
     fn env_lock() -> &'static Mutex<()> {
         ENV_LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn forced_normal_disables_aim_config_env() {
+        assert!(!should_use_aim_config_env(DevModeStrategy::ForcedNormal));
+    }
+
+    #[test]
+    fn forced_dev_enables_dev_mode() {
+        assert_eq!(effective_dev_mode(DevModeStrategy::ForcedDev), Some(true));
+    }
+
+    #[test]
+    fn forced_normal_disables_dev_mode() {
+        assert_eq!(
+            effective_dev_mode(DevModeStrategy::ForcedNormal),
+            Some(false)
+        );
     }
 
     #[tokio::test]

@@ -5,7 +5,7 @@
 use std::str::FromStr;
 
 use aimcal_core::DateTimeAnchor;
-use cliclack::{input, intro, note, outro};
+use cliclack::{input, intro, note, outro, select};
 
 const TIME_NOTE: &str = "\
 • Relative time: 10s, 10m, 2h, 3d
@@ -13,6 +13,13 @@ const TIME_NOTE: &str = "\
 • Date:          2025-01-15
 • DateTime:      2025-01-15 14:30
 • Keywords:      now, today, tomorrow, yesterday";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DevModeChoice {
+    Exit,
+    Normal,
+    Dev,
+}
 
 pub fn prompt_time() -> Result<DateTimeAnchor, Box<dyn std::error::Error>> {
     intro("Time Anchor Input")?;
@@ -57,4 +64,35 @@ pub fn prompt_time_opt() -> Result<Option<DateTimeAnchor>, Box<dyn std::error::E
             Err(e.into())
         }
     }
+}
+
+pub fn prompt_dev_mode_choice() -> Result<DevModeChoice, Box<dyn std::error::Error>> {
+    intro("AIM_DEV Detected")?;
+    note(
+        "Environment selection:",
+        "Release build detected AIM_DEV in the environment.\nNormal environment ignores AIM_DEV and AIM_CONFIG for this run.",
+    )?;
+
+    let choice = select("Choose how to continue:")
+        .item(DevModeChoice::Exit, "Exit", "Abort this run")
+        .item(
+            DevModeChoice::Normal,
+            "Normal environment",
+            "Use the standard config discovery flow",
+        )
+        .item(
+            DevModeChoice::Dev,
+            "DEV mode",
+            "Keep using the development environment variables",
+        )
+        .initial_value(DevModeChoice::Normal)
+        .interact()?;
+
+    match choice {
+        DevModeChoice::Exit => outro("Canceled")?,
+        DevModeChoice::Normal => outro("Using normal environment")?,
+        DevModeChoice::Dev => outro("Using DEV mode")?,
+    }
+
+    Ok(choice)
 }

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `calendar_path` is configured (preparatory for multi-backend support)
   - core: New database migration (20260131235400_ics_optional) to migrate from path-based to
     resource-based storage
+- cli: In release builds, prompt for Exit, Normal environment, or DEV mode when `AIM_DEV` is detected
 - ical: `VJournal` field `rdate` renamed to `rdates` and `ex_date` renamed to `ex_dates` for consistency
 - ical: `DateTime` refactored from enum to struct wrapping new `DateTimeValue` enum
 - ical: `ValueTime::new()` now returns `Result<Self, String>` instead of `Self` for proper validation
