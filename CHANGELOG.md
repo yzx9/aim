@@ -40,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- cli: Fade overdue todo due dates from deep red to light red across 24h, 48h, 72h, and 72h+
+  thresholds
 - cli: Fix `delay` command showing old date after update (#98)
 - core: Delay year parsing in `DateTimeAnchor` for month-day format to make parsing pure and
   deterministic with proper month-day validation

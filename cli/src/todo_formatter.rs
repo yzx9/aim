@@ -6,7 +6,7 @@ use std::{borrow::Cow, fmt};
 
 use aimcal_core::{LooseDateTime, Priority, RangePosition, Todo, TodoStatus};
 use colored::Color;
-use jiff::Zoned;
+use jiff::{SignedDuration, Zoned};
 
 use crate::table::{PaddingDirection, Table, TableColumn, TableStyleBasic, TableStyleJson};
 use crate::util::{OutputFormat, format_datetime};
@@ -151,16 +151,56 @@ fn get_color_due(todo: &impl Todo, now: &Zoned) -> Option<Color> {
 }
 
 fn get_color_due_impl(due: &LooseDateTime, now: &Zoned) -> Option<Color> {
-    const COLOR_LONG_OVERDUE: Option<Color> = Some(Color::Red);
-    const COLOR_OVERDUE: Option<Color> = Some(Color::BrightRed);
+    const COLOR_OVERDUE_LT_24H: Option<Color> = Some(Color::TrueColor {
+        r: 251,
+        g: 32,
+        b: 55,
+    });
+    const COLOR_OVERDUE_LT_48H: Option<Color> = Some(Color::TrueColor {
+        r: 255,
+        g: 100,
+        b: 104,
+    });
+    const COLOR_OVERDUE_LT_72H: Option<Color> = Some(Color::TrueColor {
+        r: 255,
+        g: 162,
+        b: 162,
+    });
+    const COLOR_OVERDUE_GT_72H: Option<Color> = Some(Color::TrueColor {
+        r: 255,
+        g: 201,
+        b: 201,
+    });
     const COLOR_COMING: Option<Color> = Some(Color::Yellow);
 
+    let now_dt = now.datetime();
+    let due_dt = due.with_end_of_day();
     let same_day = due.date() == now.date();
-    match LooseDateTime::position_in_range(&now.datetime(), &None, &Some(due.clone())) {
+
+    match LooseDateTime::position_in_range(&now_dt, &None, &Some(due.clone())) {
         RangePosition::InRange if same_day => COLOR_COMING, // not due && due in today
         RangePosition::InRange => None,                     // not due
-        RangePosition::After if same_day => COLOR_OVERDUE,  // overdue && due in today
-        RangePosition::After => COLOR_LONG_OVERDUE,         // overdue
+        RangePosition::After => {
+            let overdue_lt_24h = due_dt
+                .checked_add(SignedDuration::from_hours(24))
+                .is_ok_and(|boundary| now_dt < boundary);
+            let overdue_lt_48h = due_dt
+                .checked_add(SignedDuration::from_hours(48))
+                .is_ok_and(|boundary| now_dt < boundary);
+            let overdue_lt_72h = due_dt
+                .checked_add(SignedDuration::from_hours(72))
+                .is_ok_and(|boundary| now_dt < boundary);
+
+            if overdue_lt_24h {
+                COLOR_OVERDUE_LT_24H
+            } else if overdue_lt_48h {
+                COLOR_OVERDUE_LT_48H
+            } else if overdue_lt_72h {
+                COLOR_OVERDUE_LT_72H
+            } else {
+                COLOR_OVERDUE_GT_72H
+            }
+        }
         pos => {
             tracing::error!(?due, now = ?now, ?pos, "Invalid state when computing due date color.");
             None
@@ -231,31 +271,17 @@ mod tests {
         let due_time = time(12, 0, 0, 0);
         let due = LooseDateTime::Floating(DateTime::from_parts(due_date, due_time));
 
-        for (title, year, month, day, hour, minute, second, expected) in [
-            ("Overdue yesterday", 2025, 8, 6, 10, 0, 0, Some(Color::Red)),
-            (
-                "Today before due time",
-                2025,
-                8,
-                5,
-                12,
-                0,
-                0,
-                Some(Color::Yellow),
-            ),
-            (
-                "Today after due time",
-                2025,
-                8,
-                5,
-                14,
-                0,
-                0,
-                Some(Color::BrightRed),
-            ),
-            ("Overdue by one day", 2025, 8, 6, 12, 0, 0, Some(Color::Red)),
-            ("Future date", 2025, 8, 4, 10, 0, 0, None),
-        ] {
+        #[rustfmt::skip]
+        let cases = [
+            ("Today before due time", 2025, 8, 5, 12,  0, 0, Some(Color::Yellow)),
+            ("Today after due time",  2025, 8, 5, 14,  0, 0, Some(Color::TrueColor { r: 251, g: 32, b: 55, })),
+            ("Overdue by 23h59m",     2025, 8, 6, 11, 59, 0, Some(Color::TrueColor { r: 251, g: 32, b: 55, })),
+            ("Overdue by 24h",        2025, 8, 6, 12,  0, 0, Some(Color::TrueColor { r: 255, g: 100, b: 104, })),
+            ("Overdue by 48h",        2025, 8, 7, 12,  0, 0, Some(Color::TrueColor { r: 255, g: 162, b: 162, })),
+            ("Overdue by 72h",        2025, 8, 8, 12,  0, 0, Some(Color::TrueColor { r: 255, g: 201, b: 201, })),
+            ("Future date",           2025, 8, 4, 10,  0, 0, None),
+        ];
+        for (title, year, month, day, hour, minute, second, expected) in cases {
             let date = date(year, month, day);
             let time = time(hour, minute, second, 0);
             let now = DateTime::from_parts(date, time)
