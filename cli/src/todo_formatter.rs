@@ -261,13 +261,14 @@ mod tests {
         #[rustfmt::skip]
         let cases = [
             ("Today before due time", 2025, 8, 5, 12,  0, 0, Some(Color::Yellow)),
-            ("Today after due time",  2025, 8, 5, 14,  0, 0, Some(Color::TrueColor { r: 251, g: 32, b: 55, })),
-            ("Overdue by 23h59m",     2025, 8, 6, 11, 59, 0, Some(Color::TrueColor { r: 251, g: 32, b: 55, })),
-            ("Overdue by 24h",        2025, 8, 6, 12,  0, 0, Some(Color::TrueColor { r: 255, g: 100, b: 104, })),
-            ("Overdue by 48h",        2025, 8, 7, 12,  0, 0, Some(Color::TrueColor { r: 255, g: 162, b: 162, })),
-            ("Overdue by 72h",        2025, 8, 8, 12,  0, 0, Some(Color::TrueColor { r: 255, g: 201, b: 201, })),
+            ("Today after due time",  2025, 8, 5, 14,  0, 0, Some(Color::TrueColor { r: 255, g: 162, b: 162 })),
+            ("Overdue by 23h59m",     2025, 8, 6, 11, 59, 0, Some(Color::TrueColor { r: 255, g: 162, b: 162 })),
+            ("Overdue by 24h",        2025, 8, 6, 12,  0, 0, Some(Color::TrueColor { r: 251, g: 43, b: 55 })),
+            ("Overdue by 48h",        2025, 8, 7, 12,  0, 0, Some(Color::TrueColor { r: 193, g: 2, b: 7 })),
+            ("Overdue by 72h",        2025, 8, 8, 12,  0, 0, Some(Color::TrueColor { r: 130, g: 24, b: 26 })),
             ("Future date",           2025, 8, 4, 10,  0, 0, None),
         ];
+
         for (title, year, month, day, hour, minute, second, expected) in cases {
             let date = date(year, month, day);
             let time = time(hour, minute, second, 0);
