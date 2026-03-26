@@ -151,35 +151,22 @@ fn get_color_due(todo: &impl Todo, now: &Zoned) -> Option<Color> {
 }
 
 fn get_color_due_impl(due: &LooseDateTime, now: &Zoned) -> Option<Color> {
-    const COLOR_OVERDUE_LT_24H: Option<Color> = Some(Color::TrueColor {
-        r: 251,
-        g: 32,
-        b: 55,
-    });
-    const COLOR_OVERDUE_LT_48H: Option<Color> = Some(Color::TrueColor {
-        r: 255,
-        g: 100,
-        b: 104,
-    });
-    const COLOR_OVERDUE_LT_72H: Option<Color> = Some(Color::TrueColor {
-        r: 255,
-        g: 162,
-        b: 162,
-    });
-    const COLOR_OVERDUE_GT_72H: Option<Color> = Some(Color::TrueColor {
-        r: 255,
-        g: 201,
-        b: 201,
-    });
-    const COLOR_COMING: Option<Color> = Some(Color::Yellow);
+    #[rustfmt::skip]
+    const COLOR_OVERDUE_LT_24H: Color = Color::TrueColor { r: 255, g: 162, b: 162 };
+    #[rustfmt::skip]
+    const COLOR_OVERDUE_LT_48H: Color = Color::TrueColor { r: 251, g: 43, b: 55 };
+    const COLOR_OVERDUE_LT_72H: Color = Color::TrueColor { r: 193, g: 2, b: 7 };
+    #[rustfmt::skip]
+    const COLOR_OVERDUE_GT_72H: Color = Color::TrueColor { r: 130, g: 24, b: 26 };
+    const COLOR_COMING: Color = Color::Yellow;
 
     let now_dt = now.datetime();
     let due_dt = due.with_end_of_day();
     let same_day = due.date() == now.date();
 
     match LooseDateTime::position_in_range(&now_dt, &None, &Some(due.clone())) {
-        RangePosition::InRange if same_day => COLOR_COMING, // not due && due in today
-        RangePosition::InRange => None,                     // not due
+        RangePosition::InRange if same_day => Some(COLOR_COMING), // not due && due in today
+        RangePosition::InRange => None,                           // not due
         RangePosition::After => {
             let overdue_lt_24h = due_dt
                 .checked_add(SignedDuration::from_hours(24))
@@ -192,13 +179,13 @@ fn get_color_due_impl(due: &LooseDateTime, now: &Zoned) -> Option<Color> {
                 .is_ok_and(|boundary| now_dt < boundary);
 
             if overdue_lt_24h {
-                COLOR_OVERDUE_LT_24H
+                Some(COLOR_OVERDUE_LT_24H)
             } else if overdue_lt_48h {
-                COLOR_OVERDUE_LT_48H
+                Some(COLOR_OVERDUE_LT_48H)
             } else if overdue_lt_72h {
-                COLOR_OVERDUE_LT_72H
+                Some(COLOR_OVERDUE_LT_72H)
             } else {
-                COLOR_OVERDUE_GT_72H
+                Some(COLOR_OVERDUE_GT_72H)
             }
         }
         pos => {
