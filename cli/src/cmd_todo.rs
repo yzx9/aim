@@ -466,12 +466,13 @@ impl CmdTodoList {
         let pager = (LIMIT, 0).into();
         let sort = vec![
             TodoSort::Priority {
-                order: SortOrder::Desc,
+                order: SortOrder::Asc,
                 none_first: None,
             },
-            TodoSort::Due(SortOrder::Desc),
+            TodoSort::Due(SortOrder::Asc),
         ];
-        let todos = aim.list_todos(conds, &sort, &pager).await?;
+        let mut todos = aim.list_todos(conds, &sort, &pager).await?;
+        todos.reverse();
         if todos.len() >= LIMIT as usize {
             let total = aim.count_todos(conds).await?;
             if total > LIMIT {

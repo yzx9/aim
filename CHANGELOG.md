@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- cli: Todo list now queries in ascending order and reverses for display, so bottom-priority
+  items receive lower short IDs for easier CLI access
 - core: Preparatory infrastructure for multi-backend architecture with unified resources table
   to support local ICS, CalDAV, and other backends
   - core: Config `calendar_path` is now optional - AIM can operate in DB-only mode without
