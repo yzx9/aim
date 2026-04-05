@@ -1,6 +1,6 @@
 ---
 name: git-commit
-description: Create a git commit with proper message
+description: Create a git commit with proper message instead of manually running git commands
 ---
 
 # Git Commit
