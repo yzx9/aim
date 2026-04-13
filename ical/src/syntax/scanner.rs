@@ -39,6 +39,7 @@ use std::fmt;
 use std::iter::Peekable;
 
 use crate::string_storage::{Segments, Span};
+use crate::syntax::ParseOptions;
 use crate::syntax::lexer::{SpannedToken, Token};
 
 /// A scanned iCalendar content line.
@@ -135,6 +136,15 @@ pub enum ContentLineError {
         /// Description of the issue
         message: String,
     },
+
+    /// Bare LF line ending (without preceding CR).
+    ///
+    /// RFC 5545 requires CRLF line endings. This error is only reported
+    /// when [`ParseOptions::strict_line_endings`] is `true`.
+    BareLineEnding {
+        /// Span of the bare LF character
+        span: Span,
+    },
 }
 
 impl fmt::Display for ContentLineError {
@@ -152,6 +162,9 @@ impl fmt::Display for ContentLineError {
                 write!(f, "{msg}")
             }
             ContentLineError::MalformedLine { message, .. } => write!(f, "{message}"),
+            ContentLineError::BareLineEnding { .. } => {
+                write!(f, "bare LF line ending; iCalendar requires CRLF (\\r\\n)")
+            }
         }
     }
 }
@@ -222,13 +235,14 @@ pub struct ScanResult<'src> {
 pub fn scan_content_lines<'src>(
     src: &'src str,
     tokens: impl IntoIterator<Item = SpannedToken<'src>>,
+    options: ParseOptions,
 ) -> ScanResult<'src> {
     let mut token_iter = tokens.into_iter().peekable();
     let mut lines = Vec::new();
     let mut has_errors = false;
 
     while token_iter.peek().is_some() {
-        match scan_one_content_line(src, &mut token_iter) {
+        match scan_one_content_line(src, &mut token_iter, options) {
             Some(line) => {
                 if line.error.is_some() {
                     has_errors = true;
@@ -248,6 +262,7 @@ pub fn scan_content_lines<'src>(
 fn scan_one_content_line<'src>(
     src: &'src str,
     tokens: &mut Peekable<impl Iterator<Item = SpannedToken<'src>>>,
+    options: ParseOptions,
 ) -> Option<ContentLine<'src>> {
     // Peek at first token to determine if we have content
     let first_token = *tokens.peek()?;
@@ -270,19 +285,25 @@ fn scan_one_content_line<'src>(
     }
 
     // Check if this is an empty line (just newline)
-    if matches!(first_token.0, Token::Newline) {
-        let newline = tokens.next()?;
+    if matches!(first_token.0, Token::Newline(_)) {
+        let Some(SpannedToken(token, span)) = tokens.next() else {
+            unreachable!()
+        };
+
+        // Check for bare LF in strict mode
+        let bare_lf_error = check_bare_line_ending(token, span, options);
+
         return Some(ContentLine {
             name: Segments::default(),
             parameters: Vec::new(),
             value: Segments::default(),
-            span: newline.1,
-            error: Some(ContentLineError::EmptyLine { span: newline.1 }),
+            span,
+            error: bare_lf_error.or(Some(ContentLineError::EmptyLine { span })),
         });
     }
 
     // Parse: name [;param]* : value \r\n
-    let result = parse_content_line_structure(src, tokens, line_start);
+    let result = parse_content_line_structure(src, tokens, line_start, options);
 
     Some(result)
 }
@@ -292,6 +313,7 @@ fn parse_content_line_structure<'src>(
     src: &'src str,
     tokens: &mut Peekable<impl Iterator<Item = SpannedToken<'src>>>,
     line_start: Span,
+    options: ParseOptions,
 ) -> ContentLine<'src> {
     // Parse name (sequence of Word tokens)
     let (name, _name_span) = parse_property_name(tokens);
@@ -374,15 +396,18 @@ fn parse_content_line_structure<'src>(
 
     // Expect and consume newline
     match tokens.next() {
-        Some(SpannedToken(Token::Newline, newline_span)) => {
+        Some(SpannedToken(Token::Newline(nl), newline_span)) => {
             let line_end = newline_span.end;
+
+            // Check for bare LF in strict mode
+            let bare_lf_error = check_bare_line_ending(Token::Newline(nl), newline_span, options);
 
             ContentLine {
                 name,
                 parameters,
                 value,
                 span: Span::new(line_start.start, line_end),
-                error: None,
+                error: bare_lf_error,
             }
         }
         // Missing newline - still return content line with what we have
@@ -556,7 +581,11 @@ fn parse_parameter_value<'src>(
         // Collect until separator (semicolon, colon, comma, equals, newline)
         while let Some(token) = tokens.peek() {
             match token.0 {
-                Token::Semicolon | Token::Colon | Token::Comma | Token::Equal | Token::Newline => {
+                Token::Semicolon
+                | Token::Colon
+                | Token::Comma
+                | Token::Equal
+                | Token::Newline(_) => {
                     break;
                 }
                 _ => {
@@ -593,7 +622,7 @@ fn parse_value<'src>(
 
     // Collect all tokens until newline
     while let Some(token) = tokens.peek() {
-        if matches!(token.0, Token::Newline) {
+        if matches!(token.0, Token::Newline(_)) {
             break;
         }
         if matches!(token.0, Token::Error) {
@@ -634,7 +663,7 @@ fn get_current_end<'a>(tokens: &mut Peekable<impl Iterator<Item = SpannedToken<'
 /// This is used in error recovery to avoid infinite loops when errors occur.
 fn consume_until_newline<'a>(tokens: &mut Peekable<impl Iterator<Item = SpannedToken<'a>>>) {
     for SpannedToken(token, _) in tokens.by_ref() {
-        if matches!(token, Token::Newline) {
+        if matches!(token, Token::Newline(_)) {
             break;
         }
     }
@@ -655,10 +684,6 @@ fn token_to_text(token: Token<'_>) -> &str {
 
 fn invalid_token_message(src: &str, span: Span) -> String {
     match src.get(span.into_range()) {
-        Some("\n") => {
-            "invalid line ending: found LF without preceding CR; iCalendar requires CRLF (\\r\\n)"
-                .to_string()
-        }
         Some("\r") => {
             "invalid line ending: found CR without following LF; iCalendar requires CRLF (\\r\\n)"
                 .to_string()
@@ -668,6 +693,30 @@ fn invalid_token_message(src: &str, span: Span) -> String {
             invalid.escape_debug().to_string()
         ),
         None => "invalid token in content line".to_string(),
+    }
+}
+
+/// Check whether a newline token corresponds to a bare LF (not CRLF).
+///
+/// Returns `Some(ContentLineError::BareLineEnding)` if strict mode is on and
+/// the newline slice is `"\n"` instead of `"\r\n"`.
+fn check_bare_line_ending(
+    token: Token<'_>,
+    span: Span,
+    options: ParseOptions,
+) -> Option<ContentLineError> {
+    match token {
+        Token::Newline("\r\n") => None, // valid CRLF
+        Token::Newline(_) if options.strict_line_endings => {
+            Some(ContentLineError::BareLineEnding { span })
+        }
+        Token::Newline(_) => None,
+        t => Some(ContentLineError::MalformedLine {
+            span,
+            message: format!(
+                "invalid line ending: expected CRLF (\\r\\n) or LF (\\n), found {t:?}",
+            ),
+        }),
     }
 }
 
@@ -684,6 +733,10 @@ mod tests {
     use crate::syntax::lexer::{SpannedToken, Token};
 
     fn test_scan(src: &str) -> ScanResult<'_> {
+        test_scan_with_options(src, ParseOptions::default())
+    }
+
+    fn test_scan_with_options(src: &str, options: ParseOptions) -> ScanResult<'_> {
         let tokens: Vec<_> = Token::lexer(src)
             .spanned()
             .map(|(tok, span)| {
@@ -697,7 +750,7 @@ mod tests {
                 }
             })
             .collect();
-        scan_content_lines(src, tokens)
+        scan_content_lines(src, tokens, options)
     }
 
     fn component_name<'src>(line: &ContentLine<'src>) -> Option<Cow<'src, str>> {
@@ -990,24 +1043,21 @@ END:VCALENDAR\r\n";
     }
 
     #[test]
-    fn scanner_reports_bare_lf_line_endings() {
-        let src = "BEGIN:VCALENDAR\nEND:VCALENDAR\n";
+    fn scanner_accepts_lf_line_endings() {
+        let src = "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR\n";
         let result = test_scan(src);
 
-        assert!(result.has_errors);
-        let error = result
-            .lines
-            .iter()
-            .find_map(|line| match &line.error {
-                Some(ContentLineError::MalformedLine { message, .. })
-                    if message.contains("LF without preceding CR") =>
-                {
-                    Some(message)
-                }
-                _ => None,
-            })
-            .expect("Expected bare LF line-ending error");
-        assert!(error.contains("CRLF"));
+        assert!(!result.has_errors);
+        assert_eq!(result.lines.len(), 3);
+
+        assert!(result.lines[0].name.eq_str_ignore_ascii_case("BEGIN"));
+        assert_eq!(result.lines[0].value.resolve().as_ref(), "VCALENDAR");
+
+        assert_eq!(result.lines[1].name.to_owned(), "VERSION");
+        assert_eq!(result.lines[1].value.to_owned(), "2.0");
+
+        assert!(result.lines[2].name.eq_str_ignore_ascii_case("END"));
+        assert_eq!(result.lines[2].value.resolve().as_ref(), "VCALENDAR");
     }
 
     #[test]
@@ -1029,5 +1079,79 @@ END:VCALENDAR\r\n";
             })
             .expect("Expected bare CR line-ending error");
         assert!(error.contains("CRLF"));
+    }
+
+    #[test]
+    fn scanner_handles_lf_line_folding() {
+        // LF followed by space/tab should be treated as line folding (same as CRLF).
+        // The logos lexer skips the entire \n<space> sequence, so the leading space
+        // on the continuation line is consumed.
+        let src = "DESCRIPTION:This is a long description that is\n folded across two lines\n";
+        let result = test_scan(src);
+
+        assert!(!result.has_errors);
+        assert_eq!(result.lines.len(), 1);
+        assert_eq!(result.lines[0].name.to_owned(), "DESCRIPTION");
+        // The folded content should be merged (note: the leading space is consumed by logos)
+        assert_eq!(
+            result.lines[0].value.resolve().as_ref(),
+            "This is a long description that isfolded across two lines"
+        );
+    }
+
+    #[test]
+    fn scanner_handles_mixed_crlf_and_lf() {
+        // Mixed line endings should both be accepted
+        let src = "BEGIN:VCALENDAR\r\nVERSION:2.0\nEND:VCALENDAR\r\n";
+        let result = test_scan(src);
+
+        assert!(!result.has_errors);
+        assert_eq!(result.lines.len(), 3);
+    }
+
+    #[test]
+    fn scanner_strict_mode_rejects_bare_lf() {
+        let src = "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR\n";
+        let opts = ParseOptions::new().strict_line_endings(true);
+        let result = test_scan_with_options(src, opts);
+
+        assert!(result.has_errors);
+        // All three lines use bare LF, so all three should have errors
+        let bare_lf_errors: Vec<_> = result
+            .lines
+            .iter()
+            .filter(|line| matches!(&line.error, Some(ContentLineError::BareLineEnding { .. })))
+            .collect();
+        assert!(
+            !bare_lf_errors.is_empty(),
+            "Expected bare LF errors in strict mode"
+        );
+    }
+
+    #[test]
+    fn scanner_strict_mode_accepts_crlf() {
+        let src = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n";
+        let opts = ParseOptions::new().strict_line_endings(true);
+        let result = test_scan_with_options(src, opts);
+
+        assert!(!result.has_errors);
+        assert_eq!(result.lines.len(), 3);
+    }
+
+    #[test]
+    fn scanner_strict_mode_reports_mixed_endings() {
+        let src = "BEGIN:VCALENDAR\r\nVERSION:2.0\nEND:VCALENDAR\r\n";
+        let opts = ParseOptions::new().strict_line_endings(true);
+        let result = test_scan_with_options(src, opts);
+
+        assert!(result.has_errors);
+        // Only the VERSION line uses bare LF
+        let bare_lf_errors: Vec<_> = result
+            .lines
+            .iter()
+            .filter(|line| matches!(&line.error, Some(ContentLineError::BareLineEnding { .. })))
+            .collect();
+        assert_eq!(bare_lf_errors.len(), 1);
+        assert_eq!(bare_lf_errors[0].name.to_owned(), "VERSION");
     }
 }

@@ -39,7 +39,7 @@ impl<'a, T, C: TableColumn<T>, S: TableStyle<'a, T, C>> Display for Table<'a, T,
         write!(f, "{}", self.style.table_starting(&columns))?;
         for (i, (cells, data)) in table.into_iter().zip(self.data).enumerate() {
             write!(f, "{}", self.style.row_starting(data))?;
-            for (j, (col, cell)) in columns.iter().zip(cells.into_iter()).enumerate() {
+            for (j, (col, cell)) in columns.iter().zip(cells).enumerate() {
                 write!(f, "{}", self.style.cell_stylize(data, col, cell))?;
 
                 if j < columns.len() - 1 {

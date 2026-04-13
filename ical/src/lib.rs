@@ -46,7 +46,7 @@ pub use crate::parameter::{
     AlarmTriggerRelationship, CalendarUserType, Encoding, FreeBusyType, Parameter, ParameterKind,
     ParticipationRole, ParticipationStatus, RecurrenceIdRange, RelationshipType, ValueType,
 };
-pub use crate::parser::{ParseError, parse};
+pub use crate::parser::{ParseError, parse, parse_with_options};
 pub use crate::property::{
     Action, ActionValue, Attachment, AttachmentValue, Attendee, CalendarScale, CalendarScaleValue,
     Categories, Classification, ClassificationValue, Comment, Completed, Contact, Created, Date,
@@ -63,6 +63,7 @@ pub use crate::semantic::{
     TodoStatus, TodoStatusValue, VAlarm, VEvent, VFreeBusy, VJournal, VTimeZone, VTodo,
 };
 pub use crate::string_storage::{Segments, StringStorage};
+pub use crate::syntax::ParseOptions;
 pub use crate::value::{
     RecurrenceFrequency, Value, ValueDate, ValueDateTime, ValueDuration, ValuePeriod,
     ValueRecurrenceRule, ValueText, ValueTime, ValueUtcOffset, WeekDay, WeekDayNum,

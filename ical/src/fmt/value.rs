@@ -41,7 +41,7 @@ pub fn write_value<S: StringStorage>(
             } else {
                 KW_BOOLEAN_FALSE
             };
-            write!(f, "{v}",)
+            write!(f, "{v}")
         }
         Value::Date { values, .. } => {
             for (i, date) in values.iter().enumerate() {

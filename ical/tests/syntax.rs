@@ -7,7 +7,9 @@
 //! These tests validate the syntax parser's behavior on realistic iCalendar content
 //! and edge cases.
 
-use aimcal_ical::syntax::{RawComponent, syntax_analysis};
+use aimcal_ical::syntax::{
+    ParseOptions, RawComponent, syntax_analysis, syntax_analysis_with_options,
+};
 
 /// Test helper to parse and get the first component
 fn parse_first_component(src: &str) -> RawComponent<'_> {
@@ -231,17 +233,17 @@ END:VCALENDAR\r
 }
 
 #[test]
-fn syntax_reports_bare_lf_line_endings() {
+fn syntax_reports_bare_lf_line_endings_in_strict_mode() {
     let src = "BEGIN:VCALENDAR\nEND:VCALENDAR\n";
-    let err = syntax_analysis(src).expect_err("Expected bare LF input to fail");
+    let opts = ParseOptions::new().strict_line_endings(true);
+    let err = syntax_analysis_with_options(src, opts).expect_err("Expected bare LF input to fail");
     let rendered = err
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(rendered.contains("LF without preceding CR"));
-    assert!(rendered.contains("CRLF"));
+    assert!(rendered.contains("bare LF"));
 }
 
 #[test]
