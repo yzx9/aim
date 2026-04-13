@@ -571,6 +571,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let runtime = tokio::runtime::Runtime::new()?;
 
     let result = runtime.block_on(async {
+        // Auto-discover server capabilities for all commands except Discover
+        // (which does its own discovery)
+        if !matches!(cli.command, Commands::Discover) {
+            client
+                .discover()
+                .await
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+        }
+
         match cli.command {
             Commands::Discover => cmd_discover(&client)
                 .await
