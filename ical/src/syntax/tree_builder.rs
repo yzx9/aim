@@ -301,6 +301,7 @@ mod tests {
     use logos::Logos;
 
     use crate::string_storage::Span;
+    use crate::syntax::ParseOptions;
     use crate::syntax::lexer::{SpannedToken, Token};
     use crate::syntax::scanner::scan_content_lines;
 
@@ -322,7 +323,7 @@ mod tests {
             .collect();
 
         // Import scan_content_lines from scanner module
-        let scan_result = scan_content_lines(src, tokens);
+        let scan_result = scan_content_lines(src, tokens, ParseOptions::default());
 
         build_tree(&scan_result.lines)
     }
@@ -545,6 +546,7 @@ END:VCALENDAR\r\n";
 
     #[test]
     fn tree_builder_ignores_error_lines() {
+        use crate::syntax::ParseOptions;
         use crate::syntax::scanner::scan_content_lines;
 
         let src = "BEGIN:VCALENDAR\r\n\
@@ -565,7 +567,7 @@ END:VCALENDAR\r\n";
                 }
             })
             .collect();
-        let scan_result = scan_content_lines(src, tokens);
+        let scan_result = scan_content_lines(src, tokens, ParseOptions::default());
 
         // Second line should have an error (missing colon)
         assert!(scan_result.lines[1].error.is_some());

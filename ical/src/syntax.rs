@@ -42,6 +42,64 @@ pub use tree_builder::{
 
 use std::fmt;
 
+/// Options for controlling syntax analysis behavior.
+///
+/// # Example
+///
+/// ```rust
+/// use aimcal_ical::syntax::{ParseOptions, syntax_analysis};
+///
+/// let src = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n";
+///
+/// // Default options (lenient): bare LF is accepted
+/// let components = syntax_analysis(src).unwrap();
+///
+/// // Strict options: bare LF (without preceding CR) is rejected
+/// let opts = ParseOptions::new().strict_line_endings(true);
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct ParseOptions {
+    /// When `true`, bare LF (without preceding CR) is reported as an error.
+    ///
+    /// RFC 5545 specifies CRLF (`\r\n`) as the line ending, but many real-world
+    /// iCalendar files use bare LF (`\n`). Default is `false` for compatibility.
+    pub strict_line_endings: bool,
+}
+
+impl Default for ParseOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ParseOptions {
+    /// Create new parse options with default (lenient) settings.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            strict_line_endings: false, // Default to lenient line ending handling
+        }
+    }
+
+    /// Create new parse options with strict settings.
+    #[must_use]
+    pub const fn strict() -> Self {
+        Self {
+            strict_line_endings: true,
+        }
+    }
+
+    /// Set whether to enforce strict CRLF line endings.
+    ///
+    /// When `true`, bare LF (without preceding CR) will be reported as a
+    /// scanning error. Default is `false`.
+    #[must_use]
+    pub const fn strict_line_endings(mut self, strict: bool) -> Self {
+        self.strict_line_endings = strict;
+        self
+    }
+}
+
 /// Parse raw iCalendar components from source text
 ///
 /// This function performs tokenization, scanning, and tree building to produce
@@ -69,14 +127,38 @@ use std::fmt;
 ///
 /// ## Errors
 /// If there are parsing errors, a vector of errors will be returned.
-pub fn syntax_analysis<'src>(
+pub fn syntax_analysis(src: &str) -> Result<Vec<RawComponent<'_>>, Vec<SyntaxError<'_>>> {
+    syntax_analysis_with_options(src, ParseOptions::default())
+}
+
+/// Parse raw iCalendar components from source text with custom options
+///
+/// This function performs tokenization, scanning, and tree building to produce
+/// a hierarchical component tree, using the provided [`ParseOptions`].
+///
+/// # Arguments
+///
+/// * `src` - The iCalendar source text
+/// * `options` - Parse options controlling analysis behavior
+///
+/// # Returns
+///
+/// A result containing either:
+/// - `Ok(Vec<SyntaxComponent>)` - Parsed components
+/// - `Err(Vec<SyntaxError>)` - Syntax errors
+///
+/// # Errors
+///
+/// Returns a vector of [`SyntaxError`] if tokenization, scanning, or tree building fails.
+pub fn syntax_analysis_with_options<'src>(
     src: &'src str,
+    options: ParseOptions,
 ) -> Result<Vec<RawComponent<'src>>, Vec<SyntaxError<'src>>> {
     // Tokenize
     let tokens = tokenize(src);
 
     // Scan tokens into content lines
-    let scan_result = scan_content_lines(src, tokens);
+    let scan_result = scan_content_lines(src, tokens, options);
 
     // Collect scanning errors
     let mut errors: Vec<SyntaxError<'src>> = Vec::new();
@@ -142,6 +224,49 @@ mod tests {
     use super::*;
 
     #[test]
+    fn parses_component_with_lf_endings() {
+        // Default (lenient): bare LF should be accepted
+        let src = "\
+BEGIN:VCALENDAR\n\
+VERSION:2.0\n\
+END:VCALENDAR\n\
+";
+        let result = syntax_analysis(src);
+        assert!(result.is_ok(), "Parse failed: {:?}", result.err());
+        let components = result.unwrap();
+        assert_eq!(components.len(), 1);
+        assert_eq!(components[0].name.resolve().as_ref(), "VCALENDAR");
+    }
+
+    #[test]
+    fn strict_mode_rejects_bare_lf() {
+        let src = "\
+BEGIN:VCALENDAR\n\
+END:VCALENDAR\n\
+";
+        let opts = ParseOptions::new().strict_line_endings(true);
+        let result = syntax_analysis_with_options(src, opts);
+        assert!(result.is_err());
+        let errs = result.unwrap_err();
+        assert!(!errs.is_empty());
+        assert!(errs.iter().any(|e| e.to_string().contains("bare LF")));
+    }
+
+    #[test]
+    fn strict_mode_accepts_crlf() {
+        let src = "\
+BEGIN:VCALENDAR\r\n\
+VERSION:2.0\r\n\
+END:VCALENDAR\r\n\
+";
+        let opts = ParseOptions::new().strict_line_endings(true);
+        let result = syntax_analysis_with_options(src, opts);
+        assert!(result.is_ok(), "Parse failed: {:?}", result.err());
+        let components = result.unwrap();
+        assert_eq!(components.len(), 1);
+    }
+
+    #[test]
     fn parses_component() {
         // Test with the new scanner + tree builder pipeline
         let src = "\
@@ -188,7 +313,7 @@ END:VEVENT\r\n\
     fn parses_property() {
         let src = "SUMMARY:Hello World!\r\n";
         let tokens = tokenize(src);
-        let scan_result = scan_content_lines(src, tokens);
+        let scan_result = scan_content_lines(src, tokens, ParseOptions::default());
 
         assert_eq!(scan_result.lines.len(), 1);
         let line = &scan_result.lines[0];
@@ -199,7 +324,7 @@ END:VEVENT\r\n\
         // Test with parameters
         let src = "DTSTART;TZID=America/New_York:20251113\r\n T100000\r\n";
         let tokens = tokenize(src);
-        let scan_result = scan_content_lines(src, tokens);
+        let scan_result = scan_content_lines(src, tokens, ParseOptions::default());
 
         assert_eq!(scan_result.lines.len(), 1);
         let line = &scan_result.lines[0];
@@ -217,7 +342,7 @@ END:VEVENT\r\n\
     fn parses_parameter() {
         let src = "TZID=America/New_York";
         let tokens = tokenize(src);
-        let scan_result = scan_content_lines(src, tokens);
+        let scan_result = scan_content_lines(src, tokens, ParseOptions::default());
 
         assert_eq!(scan_result.lines.len(), 1);
         let line = &scan_result.lines[0];

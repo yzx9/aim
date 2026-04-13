@@ -24,7 +24,7 @@ pub fn tokenize(src: &str) -> impl IntoIterator<Item = SpannedToken<'_>> {
 
 /// Token emitted by the iCalendar lexer
 #[derive(PartialEq, Eq, Clone, Copy, Logos)]
-#[logos(skip r#"\r\n[ \t]"#)] // skip folding
+#[logos(skip r#"\r?\n[ \t]"#)] // skip folding (CRLF or LF followed by space/tab)
 pub enum Token<'a> {
     /// Double Quote ("), decimal codepoint 22
     #[token(r#"""#)]
@@ -50,9 +50,13 @@ pub enum Token<'a> {
     #[regex(r#"[\t !#$%&'()*+./<>?@\[\\\]\^`\{|\}~]+"#)]
     Symbol(&'a str),
 
-    /// Carriage Return (\r, decimal codepoint 13) followed by Line Feed (\n, decimal codepoint 10)
+    /// Line ending: CRLF (\r\n) or bare LF (\n).
+    ///
+    /// While RFC 5545 specifies CRLF as the line ending, many real-world
+    /// iCalendar files use bare LF. Both are accepted for compatibility.
     #[token("\r\n")]
-    Newline,
+    #[token("\n")]
+    Newline(&'a str),
 
     /// ASCII word characters: 0-9, A-Z, a-z, underscore
     #[regex("[0-9A-Za-z_-]+")]
@@ -76,7 +80,7 @@ impl Display for Token<'_> {
             Self::Semicolon => write!(f, "Semicolon"),
             Self::Equal => write!(f, "Equal"),
             Self::Symbol(s) => write!(f, "Symbol({s})"),
-            Self::Newline => write!(f, "Newline"),
+            Self::Newline(s) => write!(f, "Newline({s})"),
             Self::Word(s) => write!(f, "Word({s})"),
             Self::UnicodeText(s) => write!(f, "UnicodeText({s})"),
             Self::Error => write!(f, "Error"),
@@ -132,8 +136,9 @@ mod tests {
             };
         }
 
-        // Control characters (0x00-0x08, 0x0A-0x1F, 0x7F) are not explicitly tokenized
+        // Control characters (0x00-0x08, 0x0B-0x1F, 0x7F) are not explicitly tokenized
         // They will be matched as Error tokens
+        // Note: 0x0A (LF) is handled as Token::Newline, 0x0D (CR) is handled as part of CRLF
         // Symbol now matches multiple consecutive characters
         test_ascii_range!(test_ascii_chars_09_09, 0x09..=0x09, Symbol, false);
         test_ascii_range!(test_ascii_chars_20_21, 0x20..=0x21, Symbol, false);
@@ -196,10 +201,50 @@ mod tests {
             Word("WORD1"),
             Word("WORD2"),
             Word("WORD3"),
-            Newline,
+            Newline("\r\n"),
             Word("WORD4"),
         ];
         assert_tokenize(src, &expected);
+    }
+
+    #[test]
+    fn handles_lf_line_folding() {
+        // Line folding with bare LF (LF + space/tab) should also be skipped
+        let src = "WORD1\n WORD2\n\tWORD3\nWORD4";
+        let expected = [
+            Word("WORD1"),
+            Word("WORD2"),
+            Word("WORD3"),
+            Newline("\n"),
+            Word("WORD4"),
+        ];
+        assert_tokenize(src, &expected);
+    }
+
+    #[test]
+    fn tokenizes_lf_line_endings() {
+        // Multiple consecutive LF sequences should produce Newline tokens
+        let tokens = tokenize_with_errors("WORD1\n\nWORD2");
+        assert_eq!(
+            tokens,
+            vec![Word("WORD1"), Newline("\n"), Newline("\n"), Word("WORD2")]
+        );
+    }
+
+    #[test]
+    fn tokenizes_mixed_crlf_and_lf() {
+        // Mixed CRLF and LF line endings should both produce Newline tokens
+        let tokens = tokenize_with_errors("WORD1\r\nWORD2\nWORD3");
+        assert_eq!(
+            tokens,
+            vec![
+                Word("WORD1"),
+                Newline("\r\n"),
+                Word("WORD2"),
+                Newline("\n"),
+                Word("WORD3")
+            ]
+        );
     }
 
     #[test]
@@ -256,7 +301,7 @@ mod tests {
     #[test]
     fn tokenizes_control_chars_as_error() {
         // Control characters (except HTAB) should produce Error tokens
-        // CONTROL = %x00-08 / %x0A-1F / %x7F
+        // CONTROL = %x00-08 / %x0B-1F / %x7F
 
         // Test NULL (0x00)
         let tokens = tokenize_with_errors("\x00");
@@ -266,9 +311,9 @@ mod tests {
         let tokens = tokenize_with_errors("\x07");
         assert_eq!(tokens, vec![Error]);
 
-        // Test Line Feed alone (0x0A) - not part of CRLF
+        // Test Line Feed (0x0A) - now accepted as Newline
         let tokens = tokenize_with_errors("\n");
-        assert_eq!(tokens, vec![Error]);
+        assert_eq!(tokens, vec![Newline("\n")]);
 
         // Test Escape (0x1B)
         let tokens = tokenize_with_errors("\x1B");
@@ -294,10 +339,10 @@ mod tests {
     }
 
     #[test]
-    fn tokenizes_lf_without_cr_as_error() {
-        // LF without preceding CR should be an error
+    fn tokenizes_lf_without_cr_as_newline() {
+        // LF without preceding CR should be accepted as Newline
         let tokens = tokenize_with_errors("WORD1\nWORD2");
-        assert_eq!(tokens, vec![Word("WORD1"), Error, Word("WORD2")]);
+        assert_eq!(tokens, vec![Word("WORD1"), Newline("\n"), Word("WORD2")]);
     }
 
     #[test]
@@ -314,14 +359,22 @@ mod tests {
     fn tokenizes_valid_crlf_sequence() {
         // Valid CRLF sequence should produce Newline token
         let tokens = tokenize_with_errors("WORD1\r\nWORD2");
-        assert_eq!(tokens, vec![Word("WORD1"), Newline, Word("WORD2")]);
+        assert_eq!(tokens, vec![Word("WORD1"), Newline("\r\n"), Word("WORD2")]);
     }
 
     #[test]
     fn tokenizes_multiple_crlf_sequences() {
         // Multiple consecutive CRLF sequences
         let tokens = tokenize_with_errors("WORD1\r\n\r\nWORD2");
-        assert_eq!(tokens, vec![Word("WORD1"), Newline, Newline, Word("WORD2")]);
+        assert_eq!(
+            tokens,
+            vec![
+                Word("WORD1"),
+                Newline("\r\n"),
+                Newline("\r\n"),
+                Word("WORD2")
+            ]
+        );
     }
 
     #[test]

@@ -4,7 +4,7 @@
 
 use crate::semantic::{ICalendar, SemanticError, semantic_analysis, validate_tzids};
 use crate::string_storage::Segments;
-use crate::syntax::SyntaxError;
+use crate::syntax::{ParseOptions, SyntaxError};
 use crate::typed::{TypedError, typed_analysis};
 
 /// Parse an iCalendar component from source code
@@ -60,8 +60,37 @@ use crate::typed::{TypedError, typed_analysis};
 /// }
 /// ```
 pub fn parse(src: &'_ str) -> Result<Vec<ICalendar<Segments<'_>>>, Vec<ParseError<'_>>> {
+    parse_with_options(src, ParseOptions::default())
+}
+
+/// Parse an iCalendar component from source code with custom options
+///
+/// This function performs all four phases of iCalendar parsing:
+/// 1. Lexical analysis
+/// 2. Syntax analysis
+/// 3. Typed analysis
+/// 4. Semantic analysis
+///
+/// The `options` parameter controls syntax-level behavior such as strict
+/// CRLF line ending enforcement.
+///
+/// ## Examples
+///
+/// ```ignore
+/// # use aimcal_ical::parser::{parse_with_options, ParseOptions};
+/// let opts = ParseOptions::new().strict_line_endings(true);
+/// let calendars = parse_with_options(ical_src, opts).unwrap();
+/// ```
+///
+/// # Errors
+///
+/// Returns a vector of [`ParseError`] if any phase of parsing fails.
+pub fn parse_with_options(
+    src: &str,
+    options: ParseOptions,
+) -> Result<Vec<ICalendar<Segments<'_>>>, Vec<ParseError<'_>>> {
     // Syntax analysis (includes tokenization, scanning, and tree building)
-    let syntax_components = crate::syntax::syntax_analysis(src)
+    let syntax_components = crate::syntax::syntax_analysis_with_options(src, options)
         .map_err(|errs| errs.into_iter().map(ParseError::Syntax).collect::<Vec<_>>())?;
 
     let typed_components = typed_analysis(syntax_components)
