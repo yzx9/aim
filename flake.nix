@@ -108,30 +108,39 @@
           env = {
             RUST_LOG = "info";
 
-            # Set up default config to be development config
-            AIM_CONFIG = toString ./. + "/cli/config.dev.toml";
-
             # Enforce explicit config specification in development
             AIM_DEV = "1";
+            AIM_CONFIG = toString ./. + "/cli/config.dev.toml";
+
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           };
 
-          packages = with pkgs; [
-            # rust toolchain
-            cargo
-            rustc
-            rustfmt
-            clippy
-            rust-analyzer
+          packages =
+            with pkgs;
+            [
+              # rust toolchain
+              cargo
+              rustc
+              rustfmt
+              clippy
+              rust-analyzer
 
-            # cargo tools
-            cargo-audit
-            cargo-release
-            cargo-outdated
+              # cargo tools
+              cargo-audit
+              cargo-release
+              cargo-outdated
 
-            # misc
-            just
-            sqlx-cli
-          ];
+              # misc
+              just
+              sqlx-cli
+            ]
+            ++ lib.optionals stdenv.hostPlatform.isLinux [
+              pkg-config
+              openssl
+            ]
+            ++ lib.optionals (!stdenv.cc.isClang) [
+              libclang
+            ];
         };
 
         packages = {
