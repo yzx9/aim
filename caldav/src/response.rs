@@ -129,10 +129,10 @@ impl MultiStatusResponse {
                                     {
                                         break;
                                     }
-                                    Event::Start(ref e) | Event::Empty(ref e) => {
-                                        if e.name().local_name().into_inner() == b"calendar" {
-                                            current_props.is_calendar = true;
-                                        }
+                                    Event::Start(ref e) | Event::Empty(ref e)
+                                        if e.name().local_name().into_inner() == b"calendar" =>
+                                    {
+                                        current_props.is_calendar = true;
                                     }
                                     Event::Eof => {
                                         return Err(CalDavError::Xml("Unexpected EOF".to_string()));

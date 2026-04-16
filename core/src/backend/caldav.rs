@@ -139,6 +139,23 @@ impl CaldavBackend {
             None => Ok(None),
         }
     }
+
+    /// Gets the resource record for a UID from the database.
+    ///
+    /// Unlike [`get_resource`], this returns `None` for records with missing
+    /// or invalid metadata instead of returning an error, treating them as
+    /// new resources during sync.
+    async fn get_resource_or_none(
+        &self,
+        uid: &str,
+    ) -> Result<Option<(String, CaldavMetadata)>, BackendError> {
+        let record = self.db.resources.get(uid, &self.calendar_id).await?;
+
+        match record {
+            Some(rec) => Ok(rec.metadata_json().map(|m| (rec.resource_id, m))),
+            None => Ok(None),
+        }
+    }
 }
 
 #[async_trait]
@@ -418,6 +435,9 @@ impl Backend for CaldavBackend {
 
     // #[instrument]
     async fn sync_cache(&self) -> Result<SyncResult, BackendError> {
+        // Ensure capabilities are discovered before querying
+        self.client.discover().await?;
+
         let mut created = 0;
         let mut updated = 0;
         let deleted = 0;
@@ -435,7 +455,9 @@ impl Backend for CaldavBackend {
                 let href = resource.href.as_str().to_string();
                 let etag_str = Self::etag_to_string(&resource.etag);
 
-                if let Some((existing_href, existing_metadata)) = self.get_resource(&uid).await? {
+                if let Some((existing_href, existing_metadata)) =
+                    self.get_resource_or_none(&uid).await?
+                {
                     if existing_href == href {
                         // Same resource - check if ETag changed
                         if existing_metadata.etag != etag_str {
@@ -494,7 +516,9 @@ impl Backend for CaldavBackend {
                 let href = resource.href.as_str().to_string();
                 let etag_str = Self::etag_to_string(&resource.etag);
 
-                if let Some((existing_href, existing_metadata)) = self.get_resource(&uid).await? {
+                if let Some((existing_href, existing_metadata)) =
+                    self.get_resource_or_none(&uid).await?
+                {
                     if existing_href == href {
                         // Same resource - check if ETag changed
                         if existing_metadata.etag != etag_str {
