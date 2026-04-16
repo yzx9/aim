@@ -35,6 +35,20 @@ pub struct Config {
     /// If true, items with no priority will be listed first.
     #[serde(default)]
     pub default_priority_none_fist: bool,
+
+    /// Parent directory of the config file.
+    ///
+    /// Set by the CLI layer after parsing. Used by `normalize()` to resolve
+    /// relative paths against the config file location rather than the CWD.
+    #[serde(skip)]
+    pub config_dir: Option<PathBuf>,
+
+    /// Whether development mode is active.
+    ///
+    /// When true, `normalize()` enforces explicit `state_dir` configuration
+    /// to prevent accidental use of the system default state directory.
+    #[serde(skip)]
+    pub dev_mode: bool,
 }
 
 impl Config {
@@ -44,30 +58,39 @@ impl Config {
     /// If path normalization fails.
     #[tracing::instrument(skip(self))]
     pub fn normalize(&mut self) -> Result<(), Box<dyn Error>> {
+        let config_parent = self.config_dir.as_deref();
+
         // Normalize calendar path if set
         if let Some(ref calendar_path) = self.calendar_path {
-            self.calendar_path = Some(expand_path(calendar_path)?);
+            self.calendar_path = Some(expand_path(calendar_path, config_parent)?);
         }
 
         // Normalize state directory
-        match &self.state_dir {
-            Some(a) => {
-                let state_dir = expand_path(a)
-                    .map_err(|e| format!("Failed to expand state directory path: {e}"))?;
-                self.state_dir = Some(state_dir);
+        if let Some(a) = &self.state_dir {
+            let state_dir = expand_path(a, config_parent)
+                .map_err(|e| format!("Failed to expand state directory path: {e}"))?;
+            self.state_dir = Some(state_dir);
+        } else {
+            if self.dev_mode {
+                return Err(
+                    "Development mode requires state_dir to be explicitly configured".into(),
+                );
             }
-            None => match get_state_dir() {
+            match get_state_dir() {
                 Ok(a) => self.state_dir = Some(a.join(APP_NAME)),
                 Err(err) => tracing::warn!(err, "failed to get state directory"),
-            },
+            }
         }
 
         Ok(())
     }
 }
 
-/// Handle tilde (~) and environment variables in the path
-fn expand_path(path: &Path) -> Result<PathBuf, Box<dyn Error>> {
+/// Handle tilde (~) and environment variables in the path.
+///
+/// Relative paths that don't match any special prefix are resolved against
+/// `config_parent` when provided, or returned as-is otherwise.
+fn expand_path(path: &Path, config_parent: Option<&Path>) -> Result<PathBuf, Box<dyn Error>> {
     if path.is_absolute() {
         return Ok(path.to_owned());
     }
@@ -98,7 +121,10 @@ fn expand_path(path: &Path) -> Result<PathBuf, Box<dyn Error>> {
         }
     }
 
-    Ok(path.into())
+    match config_parent {
+        Some(parent) => Ok(parent.join(path)),
+        None => Ok(path.into()),
+    }
 }
 
 fn get_home_dir() -> Result<PathBuf, Box<dyn Error>> {
@@ -168,7 +194,7 @@ default_priority_none_fist = true
             &[r"~", r"%UserProfile%"]
         };
         for prefix in home_prefixes {
-            let result = expand_path(&PathBuf::from(format!("{prefix}/Documents"))).unwrap();
+            let result = expand_path(&PathBuf::from(format!("{prefix}/Documents")), None).unwrap();
             assert_eq!(result, home.join("Documents"));
             assert!(result.is_absolute());
         }
@@ -183,7 +209,8 @@ default_priority_none_fist = true
             &[r"%LOCALAPPDATA%"]
         };
         for prefix in config_prefixes {
-            let result = expand_path(&PathBuf::from(format!("{prefix}/config.toml"))).unwrap();
+            let result =
+                expand_path(&PathBuf::from(format!("{prefix}/config.toml")), None).unwrap();
             assert_eq!(result, config_dir.join("config.toml"));
             assert!(result.is_absolute());
         }
@@ -192,15 +219,24 @@ default_priority_none_fist = true
     #[test]
     fn preserves_absolute_path() {
         let absolute_path = PathBuf::from("/etc/passwd");
-        let result = expand_path(&absolute_path).unwrap();
+        let result = expand_path(&absolute_path, None).unwrap();
         assert_eq!(result, absolute_path);
     }
 
     #[test]
-    fn preserves_relative_path() {
+    fn preserves_relative_path_without_config_parent() {
         let relative_path = PathBuf::from("relative/path/to/file");
-        let result = expand_path(&relative_path).unwrap();
+        let result = expand_path(&relative_path, None).unwrap();
         assert_eq!(result, relative_path);
+    }
+
+    #[test]
+    fn resolves_relative_path_against_config_parent() {
+        let relative_path = PathBuf::from("relative/path/to/file");
+        let config_parent = PathBuf::from("/etc/aim");
+
+        let result = expand_path(&relative_path, Some(&config_parent)).unwrap();
+        assert_eq!(result, PathBuf::from("/etc/aim/relative/path/to/file"));
     }
 
     #[test]

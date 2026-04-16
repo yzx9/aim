@@ -60,6 +60,8 @@ async fn config_default_due_applied() {
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -108,6 +110,8 @@ async fn config_default_priority_applied() {
             default_due: None,
             default_priority,
             default_priority_none_fist: false,
+            config_dir: None,
+            dev_mode: false,
         };
         let aim = Aim::new(config).await.unwrap();
 
@@ -131,6 +135,8 @@ async fn config_priority_sorting_behavior() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim_none_first = Aim::new(config_none_first).await.unwrap();
 
@@ -176,6 +182,8 @@ async fn config_priority_sorting_behavior() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim_some_first = Aim::new(config_some_first).await.unwrap();
 
@@ -219,6 +227,8 @@ async fn config_timezone_handling() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -247,6 +257,8 @@ async fn config_mixed_defaults_integration() {
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P3,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -305,6 +317,8 @@ async fn config_persistence_across_restarts() {
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P5,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // First instance - create todos
@@ -346,6 +360,8 @@ async fn config_default_draft_consistency() {
         default_due: Some(DateTimeAnchor::InDays(1)),
         default_priority: Priority::P2,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -380,6 +396,8 @@ async fn config_event_defaults() {
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P5,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -419,6 +437,8 @@ async fn config_datetime_anchor_variations() {
             default_due: Some(anchor.clone()),
             default_priority: Priority::None,
             default_priority_none_fist: false,
+            config_dir: None,
+            dev_mode: false,
         };
         let aim = Aim::new(config).await.unwrap();
 

@@ -23,6 +23,8 @@ async fn aim_new_event_creates_file_and_database_entry() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -55,6 +57,8 @@ async fn aim_get_event_resolves_short_id() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -83,6 +87,8 @@ async fn aim_update_event_modifies_file_and_database() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -120,6 +126,8 @@ async fn aim_list_events_returns_all_events() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -164,6 +172,8 @@ async fn aim_list_events_with_pagination() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -230,6 +240,8 @@ async fn aim_count_events_returns_correct_count() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -270,6 +282,8 @@ async fn aim_new_event_assigns_sequential_short_ids() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -298,6 +312,8 @@ async fn aim_update_event_clears_optional_fields() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -335,6 +351,8 @@ async fn aim_get_event_returns_error_for_nonexistent() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -353,6 +371,8 @@ async fn aim_update_event_returns_error_for_nonexistent() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -377,6 +397,8 @@ async fn aim_event_status_updates_correctly() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -413,6 +435,8 @@ async fn aim_event_with_custom_datetimes() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -441,6 +465,8 @@ async fn aim_flush_short_ids_removes_mappings() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -477,6 +503,8 @@ async fn aim_update_db_only_event_without_calendar_path_succeeds() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -523,6 +551,8 @@ async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim_no_calendar = Aim::new(config_no_calendar).await.unwrap();
 
@@ -540,6 +570,8 @@ async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config_with_calendar).await.unwrap();
 
@@ -578,6 +610,8 @@ async fn aim_update_db_only_event_status_updates_correctly() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 

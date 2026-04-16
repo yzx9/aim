@@ -33,6 +33,8 @@ pub fn test_config(calendar_path: &str, state_dir: Option<&str>) -> Config {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     }
 }
 
@@ -55,6 +57,8 @@ pub fn test_config_with_due(
         default_due: Some(default_due),
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     }
 }
 
@@ -67,6 +71,8 @@ pub fn test_config_defaults() -> Config {
         default_due: Some(DateTimeAnchor::InDays(1)),
         default_priority: Priority::P5,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     }
 }
 
@@ -255,6 +261,8 @@ impl TestConfigBuilder {
             default_due: self.default_due,
             default_priority: self.default_priority,
             default_priority_none_fist: self.default_priority_none_fist,
+            config_dir: None,
+            dev_mode: false,
         }
     }
 }

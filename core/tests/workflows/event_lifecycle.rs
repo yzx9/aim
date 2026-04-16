@@ -29,6 +29,8 @@ async fn event_lifecycle_create_flow() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Team Meeting");
@@ -68,6 +70,8 @@ async fn event_lifecycle_update_flow() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Original Title");
@@ -111,6 +115,8 @@ async fn event_lifecycle_external_modification_detected() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("External Test");
@@ -152,6 +158,8 @@ async fn event_lifecycle_status_transitions() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Status Test");
@@ -206,6 +214,8 @@ async fn event_lifecycle_batch_operations() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -317,6 +327,8 @@ END:VCALENDAR
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -353,6 +365,8 @@ async fn event_lifecycle_rebuild_from_files() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // Create initial Aim instance and events
@@ -411,6 +425,8 @@ async fn event_lifecycle_with_custom_datetimes() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 

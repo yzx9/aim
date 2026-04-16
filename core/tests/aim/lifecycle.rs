@@ -45,6 +45,8 @@ END:VCALENDAR\r
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -92,6 +94,8 @@ async fn aim_new_creates_empty_state_without_calendar_files() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -122,6 +126,8 @@ async fn aim_now_returns_initial_time() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -144,6 +150,8 @@ async fn aim_refresh_now_updates_current_time() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let mut aim = Aim::new(config).await.unwrap();
 
@@ -172,6 +180,8 @@ async fn aim_close_cleans_up_database() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -226,6 +236,8 @@ async fn aim_default_event_draft_creates_draft_with_now() {
         default_due: Some(DateTimeAnchor::InDays(1)),
         default_priority: Priority::P5,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -254,6 +266,8 @@ async fn aim_default_todo_draft_includes_config_defaults() {
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P2,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -305,6 +319,8 @@ END:VCALENDAR\r
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -361,6 +377,8 @@ END:VCALENDAR\r
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
