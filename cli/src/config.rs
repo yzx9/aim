@@ -55,7 +55,11 @@ pub async fn parse_config(path: Option<PathBuf>) -> Result<(CoreConfig, Config),
         .await
         .map_err(|e| format!("Failed to read config file at {}: {}", path.display(), e))?
         .parse::<ConfigRaw>()
-        .map(|a| (a.core, Config {}))
+        .map(|mut a| {
+            a.core.config_dir = path.parent().map(PathBuf::from);
+            a.core.dev_mode = is_dev_mode().unwrap_or(false);
+            (a.core, Config {})
+        })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

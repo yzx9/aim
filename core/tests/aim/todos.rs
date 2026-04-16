@@ -23,6 +23,8 @@ async fn aim_new_todo_creates_file_and_database_entry() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -55,6 +57,8 @@ async fn aim_get_todo_resolves_short_id() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -83,6 +87,8 @@ async fn aim_update_todo_modifies_file_and_database() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -117,6 +123,8 @@ async fn aim_list_todos_returns_all_todos() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -162,6 +170,8 @@ async fn aim_list_todos_with_pagination() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -231,6 +241,8 @@ async fn aim_count_todos_returns_correct_count() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -271,6 +283,8 @@ async fn aim_default_todo_draft_uses_config_defaults() {
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P2,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -290,6 +304,8 @@ async fn aim_update_todo_clears_optional_fields() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -324,6 +340,8 @@ async fn aim_update_todo_status_to_completed_sets_completed_timestamp() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -361,6 +379,8 @@ async fn aim_update_todo_status_from_completed_clears_completed_timestamp() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -404,6 +424,8 @@ async fn aim_list_todos_with_status_filter() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -453,6 +475,8 @@ async fn aim_list_todos_with_priority_sort() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -503,6 +527,8 @@ async fn aim_get_todo_returns_error_for_nonexistent() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -521,6 +547,8 @@ async fn aim_update_todo_returns_error_for_nonexistent() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -548,6 +576,8 @@ async fn aim_update_db_only_todo_without_calendar_path_succeeds() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -591,6 +621,8 @@ async fn aim_update_db_only_todo_with_calendar_path_creates_ics_file() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim_no_calendar = Aim::new(config_no_calendar).await.unwrap();
 
@@ -608,6 +640,8 @@ async fn aim_update_db_only_todo_with_calendar_path_creates_ics_file() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config_with_calendar).await.unwrap();
 
@@ -643,6 +677,8 @@ async fn aim_update_db_only_todo_status_to_completed_sets_timestamp() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 

@@ -25,6 +25,8 @@ async fn todo_lifecycle_create_with_config_defaults() {
         default_due: Some(DateTimeAnchor::InDays(7)),
         default_priority: Priority::P2,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -58,6 +60,8 @@ async fn todo_lifecycle_status_evolution() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_todo_draft("Workflow Task");
@@ -111,6 +115,8 @@ async fn todo_lifecycle_priority_handling() {
         default_due: None,
         default_priority: Priority::P5,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -147,6 +153,8 @@ async fn todo_lifecycle_sorting() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -230,6 +238,8 @@ async fn todo_lifecycle_filtering() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -323,6 +333,8 @@ async fn todo_lifecycle_batch_operations() {
         default_due: Some(DateTimeAnchor::InDays(1)),
         default_priority: Priority::P5,
         default_priority_none_fist: true,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -391,6 +403,8 @@ async fn todo_lifecycle_percent_complete_validation() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -476,6 +490,8 @@ async fn todo_lifecycle_metadata_updates() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -550,6 +566,8 @@ async fn todo_lifecycle_with_due_dates() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -585,6 +603,8 @@ async fn todo_lifecycle_rebuild_from_files() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // Create initial todos

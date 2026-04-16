@@ -28,6 +28,8 @@ async fn file_sync_external_modification_detected() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config.clone()).await.unwrap();
 
@@ -94,6 +96,8 @@ async fn file_sync_database_rebuild_from_files() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // Create multiple events and todos
@@ -192,6 +196,8 @@ async fn file_sync_add_remove_calendar_files() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
     let aim = Aim::new(config.clone()).await.unwrap();
 
@@ -295,6 +301,8 @@ async fn file_sync_corrupted_file_handling() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // Create valid files
@@ -372,6 +380,8 @@ async fn file_sync_mixed_components_in_single_file() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // Create file with multiple components
@@ -464,6 +474,8 @@ async fn file_sync_empty_directory_handling() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // Act - load empty directory
@@ -512,6 +524,8 @@ async fn file_sync_non_ics_files_ignored() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // Create valid .ics file
@@ -583,6 +597,8 @@ async fn file_sync_persistence_across_restarts() {
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
     };
 
     // First run - create data
