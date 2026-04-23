@@ -8,11 +8,13 @@
 //! must be synchronized, including external modifications, database
 //! rebuilds, and error handling.
 
+use std::collections::HashMap;
+
 use tokio::fs;
 
 use aimcal_core::{
-    Aim, BackendConfig, Config, Event, EventConditions, Id, LooseDateTime, Pager, Priority, Todo,
-    TodoConditions, TodoDraft,
+    Aim, Config, Event, EventConditions, Id, LooseDateTime, Pager, Priority, Todo, TodoConditions,
+    TodoDraft,
 };
 use jiff::{Span, Zoned};
 
@@ -23,9 +25,7 @@ async fn file_sync_external_modification_detected() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -97,9 +97,7 @@ async fn file_sync_database_rebuild_from_files() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -208,9 +206,7 @@ async fn file_sync_add_remove_calendar_files() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -321,9 +317,7 @@ async fn file_sync_corrupted_file_handling() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -406,9 +400,7 @@ async fn file_sync_mixed_components_in_single_file() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -507,9 +499,7 @@ async fn file_sync_empty_directory_handling() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -564,9 +554,7 @@ async fn file_sync_non_ics_files_ignored() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -643,9 +631,7 @@ async fn file_sync_persistence_across_restarts() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,

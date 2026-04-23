@@ -8,6 +8,7 @@
     clippy::missing_panics_doc
 )]
 
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -17,10 +18,21 @@ use aimcal_caldav::AuthMethod;
 /// The name of the AIM application.
 pub const APP_NAME: &str = "aim";
 
-/// Backend configuration for storage.
+fn default_timeout_secs() -> u64 {
+    30
+}
+
+fn default_user_agent() -> String {
+    "aimcal/0.11.0".to_string()
+}
+
+/// Backend definition for shared connection configuration.
+///
+/// Backends define how to connect to a calendar storage. Multiple calendars
+/// can reference the same backend, avoiding duplication of connection details.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(tag = "type")]
-pub enum BackendConfig {
+pub enum BackendDef {
     /// Local ICS file backend.
     #[serde(rename = "local")]
     Local {
@@ -34,55 +46,6 @@ pub enum BackendConfig {
         base_url: String,
         /// Calendar home path on the server.
         calendar_home: String,
-        /// Href of the calendar collection on the server.
-        calendar_href: String,
-        /// Authentication method.
-        auth: AuthMethod,
-        /// Request timeout in seconds.
-        #[serde(default = "default_timeout_secs")]
-        timeout_secs: u64,
-        /// User agent string for HTTP requests.
-        #[serde(default = "default_user_agent")]
-        user_agent: String,
-    },
-}
-
-impl Default for BackendConfig {
-    fn default() -> Self {
-        Self::Local {
-            calendar_path: None,
-        }
-    }
-}
-
-fn default_timeout_secs() -> u64 {
-    30
-}
-
-fn default_user_agent() -> String {
-    "aimcal/0.11.0".to_string()
-}
-
-/// Configuration for a single calendar in the TOML file.
-#[derive(Debug, Clone, serde::Deserialize)]
-#[serde(tag = "kind")]
-pub enum CalendarConfig {
-    /// Local ICS file calendar.
-    #[serde(rename = "local")]
-    Local {
-        /// Path to the calendar directory for ICS files.
-        #[serde(default)]
-        calendar_path: Option<String>,
-    },
-    /// `CalDAV` server calendar.
-    #[serde(rename = "caldav")]
-    Caldav {
-        /// Base URL of the `CalDAV` server.
-        base_url: String,
-        /// Calendar home path on the server.
-        calendar_home: String,
-        /// Href of the calendar collection on the server.
-        calendar_href: String,
         /// Authentication method.
         auth: AuthMethod,
         /// Request timeout in seconds.
@@ -95,15 +58,21 @@ pub enum CalendarConfig {
 }
 
 /// Calendar entry in the TOML configuration.
+///
+/// Each calendar references a backend by ID and provides calendar-specific fields
+/// such as the calendar href (for `CalDAV`) or an optional path override (for local).
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct CalendarEntry {
     /// Unique calendar identifier.
     pub id: String,
     /// Display name for the calendar.
     pub name: String,
-    /// Calendar configuration.
-    #[serde(flatten)]
-    pub config: CalendarConfig,
+    /// Reference to a backend definition in `backends`.
+    pub backend: String,
+    /// Href of the calendar collection on the server (required for caldav backends).
+    pub calendar_href: Option<String>,
+    /// Path to the calendar directory (optional override for local backends).
+    pub calendar_path: Option<String>,
     /// Priority for conflict resolution and display ordering.
     #[serde(default)]
     pub priority: i32,
@@ -158,15 +127,13 @@ pub struct Config {
     #[serde(skip)]
     pub dev_mode: bool,
 
-    /// Backend configuration (deprecated, legacy single-backend).
-    ///
-    /// Deprecated: Use `calendars` array instead.
+    /// Backend definitions — shared connection configurations keyed by name.
     #[serde(default)]
-    pub backend: BackendConfig,
+    pub backends: HashMap<String, BackendDef>,
 
     /// Multi-calendar configuration.
     ///
-    /// If present, overrides `backend` and `calendar_path`.
+    /// If present, each entry references a backend from `backends`.
     #[serde(default)]
     pub calendars: Vec<CalendarEntry>,
 
@@ -213,35 +180,40 @@ impl Config {
         // Normalize calendar paths for multi-calendar configuration
         for i in 0..self.calendars.len() {
             let calendar = self.calendars.get(i).unwrap();
+            let backend_def = self.backends.get(&calendar.backend);
+
+            // Only resolve calendar_path for local backends
+            let calendar_path = if matches!(backend_def, Some(BackendDef::Local { .. }))
+                || calendar.backend == "local"
+            {
+                if let Some(ref path) = calendar.calendar_path {
+                    let p = expand_path(&PathBuf::from(path), None)
+                        .map_err(|e| {
+                            format!("Failed to expand calendar path for {}: {e}", calendar.id)
+                        })?
+                        .to_string_lossy()
+                        .to_string();
+                    Some(p)
+                } else if let Some(ref state_dir) = self.state_dir {
+                    let p = state_dir
+                        .join("calendar")
+                        .join(&calendar.id)
+                        .to_string_lossy()
+                        .to_string();
+                    Some(p)
+                } else {
+                    calendar.calendar_path.clone()
+                }
+            } else {
+                calendar.calendar_path.clone()
+            };
+
             self.calendars[i] = CalendarEntry {
                 id: calendar.id.clone(),
                 name: calendar.name.clone(),
-                config: match &calendar.config {
-                    CalendarConfig::Local { calendar_path, .. } => CalendarConfig::Local {
-                        calendar_path: if let Some(path) = calendar_path {
-                            let p = expand_path(&PathBuf::from(path), None)
-                                .map_err(|e| {
-                                    format!(
-                                        "Failed to expand calendar path for {}: {e}",
-                                        calendar.id
-                                    )
-                                })?
-                                .to_string_lossy()
-                                .to_string();
-                            Some(p)
-                        } else if let Some(ref state_dir) = self.state_dir {
-                            let p = state_dir
-                                .join("calendar")
-                                .join(&calendar.id)
-                                .to_string_lossy()
-                                .to_string();
-                            Some(p)
-                        } else {
-                            calendar_path.clone()
-                        },
-                    },
-                    CalendarConfig::Caldav { .. } => calendar.config.clone(),
-                },
+                backend: calendar.backend.clone(),
+                calendar_href: calendar.calendar_href.clone(),
+                calendar_path,
                 priority: calendar.priority,
                 enabled: calendar.enabled,
             };
@@ -275,23 +247,15 @@ impl Config {
             warning += "Legacy 'calendar_path' is detected.\n";
         }
 
-        if !matches!(
-            &self.backend,
-            BackendConfig::Local {
-                calendar_path: None
-            }
-        ) {
-            warning += "Legacy 'backend' configuration is detected.\n";
-        }
-
         warning +=
             "The multi-calendar feature requires updating to the 'calendars' array format.\n\n";
         warning += "Please update your aim.toml to use the following format:\n\n";
-        warning += "[[core]\n";
+        warning += "[backends.local]\n";
+        warning += "type = \"local\"\n\n";
         warning += "[[calendars]]\n";
         warning += "id = \"default\"\n";
         warning += "name = \"Default\"\n";
-        warning += "kind = \"local\"\n";
+        warning += "backend = \"local\"\n";
         warning += "priority = 0\n";
         warning += "enabled = true\n";
 
@@ -312,13 +276,20 @@ impl Config {
         calendars
     }
 
-    /// Get the configuration for a specific calendar by ID.
+    /// Resolve the backend definition for a calendar entry.
+    ///
+    /// Returns `None` if the calendar is not found or the backend reference is invalid.
     #[must_use]
-    pub fn get_calendar_config(&self, id: &str) -> Option<&CalendarConfig> {
-        self.calendars
-            .iter()
-            .find(|c| c.id == id)
-            .map(|c| &c.config)
+    pub fn resolve_backend(&self, calendar_id: &str) -> Option<(&CalendarEntry, &BackendDef)> {
+        let entry = self.calendars.iter().find(|c| c.id == calendar_id)?;
+        let backend = self.backends.get(&entry.backend)?;
+        Some((entry, backend))
+    }
+
+    /// Get a specific calendar entry by ID.
+    #[must_use]
+    pub fn get_calendar(&self, id: &str) -> Option<&CalendarEntry> {
+        self.calendars.iter().find(|c| c.id == id)
     }
 }
 
@@ -507,10 +478,21 @@ default_priority_none_fist = true
         const TOML: &str = r#"
 default_calendar = "personal"
 
+[backends.mylocal]
+type = "local"
+
+[backends.radicale]
+type = "caldav"
+base_url = "https://caldav.example.com"
+calendar_home = "/dav/calendars/user/"
+auth = { type = "basic", username = "user", password = "pass" }
+timeout_secs = 30
+user_agent = "aimcal/0.11.0"
+
 [[calendars]]
 id = "personal"
 name = "Personal"
-kind = "local"
+backend = "mylocal"
 priority = 0
 enabled = true
 calendar_path = "~/personal"
@@ -518,39 +500,43 @@ calendar_path = "~/personal"
 [[calendars]]
 id = "work"
 name = "Work"
-kind = "caldav"
+backend = "radicale"
 priority = 1
 enabled = true
-base_url = "https://caldav.example.com"
-calendar_home = "/dav/calendars/user/"
 calendar_href = "/dav/calendars/user/work/"
-auth = { type = "basic", username = "user", password = "pass" }
-timeout_secs = 30
-user_agent = "aimcal/0.11.0"
 "#;
 
         let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
         assert_eq!(config.calendars.len(), 2);
+        assert_eq!(config.backends.len(), 2);
 
         assert_eq!(config.calendars[0].id, "personal");
         assert_eq!(config.calendars[0].name, "Personal");
+        assert_eq!(config.calendars[0].backend, "mylocal");
         assert_eq!(config.calendars[0].priority, 0);
         assert!(config.calendars[0].enabled);
-        assert!(matches!(
-            &config.calendars[0].config,
-            CalendarConfig::Local { .. }
-        ));
 
         assert_eq!(config.calendars[1].id, "work");
         assert_eq!(config.calendars[1].name, "Work");
+        assert_eq!(config.calendars[1].backend, "radicale");
+        assert_eq!(
+            config.calendars[1].calendar_href,
+            Some("/dav/calendars/user/work/".to_string())
+        );
         assert_eq!(config.calendars[1].priority, 1);
         assert!(config.calendars[1].enabled);
-        assert!(matches!(
-            &config.calendars[1].config,
-            CalendarConfig::Caldav { .. }
-        ));
 
         assert_eq!(config.default_calendar, "personal");
+
+        // Verify backends
+        assert!(matches!(
+            config.backends.get("mylocal"),
+            Some(BackendDef::Local { .. })
+        ));
+        assert!(matches!(
+            config.backends.get("radicale"),
+            Some(BackendDef::Caldav { .. })
+        ));
     }
 
     #[test]
@@ -567,11 +553,13 @@ state_dir = "state"
     #[test]
     fn is_legacy_format_returns_false_for_multi_calendar() {
         const TOML: &str = r#"
-[core]
+[backends.local]
+type = "local"
+
 [[calendars]]
 id = "personal"
 name = "Personal"
-kind = "local"
+backend = "local"
 "#;
 
         let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
@@ -595,22 +583,25 @@ calendar_path = "calendar"
     #[test]
     fn enabled_calendars_returns_enabled_only() {
         const TOML: &str = r#"
+[backends.local]
+type = "local"
+
 [[calendars]]
 id = "personal"
 name = "Personal"
-kind = "local"
+backend = "local"
 enabled = true
 
 [[calendars]]
 id = "work"
 name = "Work"
-kind = "local"
+backend = "local"
 enabled = false
 
 [[calendars]]
 id = "archive"
 name = "Archive"
-kind = "local"
+backend = "local"
 enabled = true
 priority = 5
 "#;
@@ -628,25 +619,92 @@ priority = 5
     }
 
     #[test]
-    fn get_calendar_config_returns_config_by_id() {
+    fn resolve_backend_returns_entry_and_def() {
         const TOML: &str = r#"
+[backends.radicale]
+type = "caldav"
+base_url = "https://caldav.example.com"
+calendar_home = "/dav/"
+auth = { type = "basic", username = "u", password = "p" }
+
+[[calendars]]
+id = "work"
+name = "Work"
+backend = "radicale"
+calendar_href = "/dav/work/"
+"#;
+
+        let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
+        let (entry, backend) = config.resolve_backend("work").unwrap();
+        assert_eq!(entry.id, "work");
+        assert!(matches!(backend, BackendDef::Caldav { .. }));
+        assert!(config.resolve_backend("nonexistent").is_none());
+    }
+
+    #[test]
+    fn get_calendar_returns_entry_by_id() {
+        const TOML: &str = r#"
+[backends.local]
+type = "local"
+
 [[calendars]]
 id = "personal"
 name = "Personal"
-kind = "local"
+backend = "local"
 calendar_path = "~/personal"
 "#;
 
         let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
-        let personal_config = config.get_calendar_config("personal");
+        let personal = config.get_calendar("personal");
+        assert!(personal.is_some());
+        assert_eq!(
+            personal.unwrap().calendar_path.as_deref(),
+            Some("~/personal")
+        );
 
-        assert!(personal_config.is_some());
+        assert!(config.get_calendar("work").is_none());
+    }
 
-        if let Some(CalendarConfig::Local { calendar_path }) = personal_config {
-            assert!(calendar_path.as_deref() == Some("~/personal"));
+    #[test]
+    fn multiple_calendars_share_backend() {
+        const TOML: &str = r#"
+default_calendar = "home"
+
+[backends.radicale]
+type = "caldav"
+base_url = "https://caldav.example.com/"
+calendar_home = "/user/"
+auth = { type = "basic", username = "u", password = "p" }
+
+[[calendars]]
+id = "home"
+name = "Home"
+backend = "radicale"
+calendar_href = "/user/home/"
+priority = 0
+
+[[calendars]]
+id = "work"
+name = "Work"
+backend = "radicale"
+calendar_href = "/user/work/"
+priority = 1
+
+[[calendars]]
+id = "test"
+name = "Test"
+backend = "radicale"
+calendar_href = "/user/test/"
+priority = 2
+"#;
+
+        let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
+        assert_eq!(config.calendars.len(), 3);
+        assert_eq!(config.backends.len(), 1);
+
+        // All calendars reference the same backend
+        for calendar in &config.calendars {
+            assert_eq!(calendar.backend, "radicale");
         }
-
-        let work_config = config.get_calendar_config("work");
-        assert!(work_config.is_none());
     }
 }

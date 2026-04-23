@@ -7,11 +7,11 @@
 //! This module provides helper functions to create test data including
 //! configurations, drafts, and sample .ics file contents.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use aimcal_core::{
-    BackendConfig, Config, DateTimeAnchor, EventDraft, EventStatus, LooseDateTime, Priority,
-    TodoDraft, TodoStatus,
+    Config, DateTimeAnchor, EventDraft, EventStatus, LooseDateTime, Priority, TodoDraft, TodoStatus,
 };
 
 /// Creates a test configuration with temporary directories.
@@ -29,9 +29,7 @@ use aimcal_core::{
 #[must_use]
 pub fn test_config(calendar_path: &str, state_dir: Option<&str>) -> Config {
     Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(calendar_path.to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(PathBuf::from(calendar_path)),
         state_dir: state_dir.map(PathBuf::from),
         default_due: None,
@@ -58,9 +56,7 @@ pub fn test_config_with_due(
     default_due: DateTimeAnchor,
 ) -> Config {
     Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(calendar_path.to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(PathBuf::from(calendar_path)),
         state_dir: state_dir.map(PathBuf::from),
         default_due: Some(default_due),
@@ -77,9 +73,7 @@ pub fn test_config_with_due(
 #[must_use]
 pub fn test_config_defaults() -> Config {
     Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some("/tmp/test-calendar".to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(PathBuf::from("/tmp/test-calendar")),
         state_dir: Some(PathBuf::from("/tmp/test-state")),
         default_due: Some(DateTimeAnchor::InDays(1)),
@@ -276,9 +270,7 @@ impl TestConfigBuilder {
         );
 
         Config {
-            backend: BackendConfig::Local {
-                calendar_path: Some(calendar_path.to_string_lossy().to_string()),
-            },
+            backends: HashMap::new(),
             calendar_path: Some(calendar_path),
             state_dir: Some(state_dir),
             default_due: self.default_due,
