@@ -59,3 +59,20 @@ init-dev:
   touch .dev/calendar/.dev-marker
   echo "Copied $(ls examples/*.ics 2>/dev/null | wc -l) example files to .dev/calendar/"
   echo "Dev database will be initialized on first 'aim' run"
+
+# Create a git worktree under .worktree/<name> with a new branch
+add-worktree name: && init-dev
+  git worktree add -b {{name}} .worktree/{{name}}
+
+  # Activate direnv for the new worktree if direnv is installed and current directory is allowed
+  # `foundRC.allowed`: 0 -> allowed, 2 -> denied
+  @if command -v direnv >/dev/null 2>&1; then \
+    if direnv status --json \
+      | jq -e --arg p "$(pwd -P)/.envrc" '.state.foundRC.path == $p and .state.foundRC.allowed == 0' >/dev/null; \
+    then \
+      echo "==> current direnv is allowed, propagating to worktree"; \
+      direnv allow .worktree/{{name}}; \
+    else \
+      echo "==> current direnv not allowed (or no .envrc), skip"; \
+    fi; \
+  fi

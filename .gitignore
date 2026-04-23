@@ -15,3 +15,4 @@ target/
 
 # Development
 .dev/
+.worktree/
