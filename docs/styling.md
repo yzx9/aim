@@ -128,8 +128,8 @@ Use standard markers for action items:
 
 ## 4. Git Commit
 
-Use the `/git-commit` skill to create commits following the project's Gitmoji convention.
-See `.agents/skills/git-commit/SKILL.md` for details.
+Use the `/git-commit` skill to create commits following the project's Conventional Commits
+convention. See `.agents/skills/git-commit/SKILL.md` for details.
 
 ## 5. Keep It Simple
 
