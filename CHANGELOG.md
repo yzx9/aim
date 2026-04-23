@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ical: RRule expansion support with `RRuleExt` and `VEventExt` traits for expanding recurrence
   rules according to RFC 5545, including support for DAILY, WEEKLY, MONTHLY, YEARLY frequencies
   with INTERVAL, COUNT, UNTIL, BYMONTH, BYWEEKNO, BYYEARDAY, BYMONTHDAY, BYDAY, BYSETPOS, and WKST
-- core: `BackendKind` enum added to public API for future backend type identification
+- core: `StoreKind` enum added to public API for future store type identification
 - core: Weekday expressions support in `DateTimeAnchor` (e.g., "monday", "next friday", "last tuesday")
   with full names, abbreviations (mon, tue, etc.), and extensible integer offset type
 
@@ -20,12 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cli: Todo list now queries in ascending order and reverses for display, so bottom-priority
   items receive lower short IDs for easier CLI access
-- core: Preparatory infrastructure for multi-backend architecture with unified resources table
-  to support local ICS, CalDAV, and other backends
+- core: Rename backend concept to store for clarity (backend → store)
+- core: Preparatory infrastructure for multi-store architecture with unified resources table
+  to support local ICS, CalDAV, and other stores
   - core: Config `calendar_path` is now optional - AIM can operate in DB-only mode without
     ICS files when not configured
   - core: Events/todos now stored primarily in database with optional ICS file sync when
-    `calendar_path` is configured (preparatory for multi-backend support)
+    `calendar_path` is configured (preparatory for multi-store support)
   - core: New database migration (20260131235400_ics_optional) to migrate from path-based to
     resource-based storage
 - cli: In release builds, prompt for Exit, Normal environment, or DEV mode when `AIM_DEV` is detected

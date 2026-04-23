@@ -13,15 +13,15 @@ use async_trait::async_trait;
 use jiff::Zoned;
 use tokio::fs;
 
-use crate::backend::{BackendError, SyncResult};
 use crate::db::Db;
+use crate::store::{StoreError, SyncResult};
 use crate::{Event, EventPatch, LooseDateTime, Todo, TodoPatch};
 
-/// Convert `Box<dyn Error>` (non-Send+Sync) to `BackendError` by wrapping in a String.
+/// Convert `Box<dyn Error>` (non-Send+Sync) to `StoreError` by wrapping in a String.
 ///
 /// Use this for errors from parsing or database operations that return `Box<dyn Error>`.
 #[allow(clippy::borrowed_box, clippy::needless_pass_by_value)]
-fn into_backend_error(e: Box<dyn Error>) -> BackendError {
+fn into_store_error(e: Box<dyn Error>) -> StoreError {
     format!("{e}").into()
 }
 
@@ -108,12 +108,12 @@ fn reconstruct_todo_from_db<T: Todo>(todo: &T, now: &Zoned) -> aimcal_ical::VTod
     }
 }
 
-/// Local file-based backend for storing events and todos as ICS files.
+/// Local file-based store for storing events and todos as ICS files.
 ///
-/// This backend stores each event/todo as a separate ICS file in the configured
+/// This store stores each event/todo as a separate ICS file in the configured
 /// calendar directory. Resource IDs use the `file://` URL scheme.
 #[derive(Debug, Clone)]
-pub struct LocalBackend {
+pub struct LocalStore {
     /// Path to the calendar directory containing ICS files
     calendar_path: PathBuf,
     /// Database reference for syncing (optional, set when attached to Aim)
@@ -122,8 +122,8 @@ pub struct LocalBackend {
     calendar_id: String,
 }
 
-impl LocalBackend {
-    /// Creates a new `LocalBackend` with the specified calendar path.
+impl LocalStore {
+    /// Creates a new `LocalStore` with the specified calendar path.
     #[must_use]
     pub fn new(calendar_path: PathBuf, calendar_id: String) -> Self {
         Self {
@@ -133,7 +133,7 @@ impl LocalBackend {
         }
     }
 
-    /// Creates a new `LocalBackend` with the specified calendar path and database.
+    /// Creates a new `LocalStore` with the specified calendar path and database.
     #[must_use]
     pub fn with_db(calendar_path: PathBuf, db: Db, calendar_id: String) -> Self {
         Self {
@@ -155,8 +155,8 @@ impl LocalBackend {
 
     /// Scans the calendar directory for .ics files and syncs with the database.
     ///
-    /// This is the implementation of `sync_cache` for the local backend.
-    async fn sync_from_directory(&self, db: &Db) -> Result<SyncResult, BackendError> {
+    /// This is the implementation of `sync_cache` for the local store.
+    async fn sync_from_directory(&self, db: &Db) -> Result<SyncResult, StoreError> {
         let mut created = 0;
 
         // Read directory and process each .ics file
@@ -250,12 +250,12 @@ impl LocalBackend {
 }
 
 #[async_trait]
-impl crate::backend::Backend for LocalBackend {
+impl crate::store::Store for LocalStore {
     async fn create_event(
         &self,
         uid: &str,
         event: &aimcal_ical::VEvent<String>,
-    ) -> Result<String, BackendError> {
+    ) -> Result<String, StoreError> {
         let path = self.file_path(uid);
 
         // Wrap event in an ICalendar
@@ -270,9 +270,9 @@ impl crate::backend::Backend for LocalBackend {
         Ok(self.resource_id(uid))
     }
 
-    async fn get_event(&self, uid: &str) -> Result<aimcal_ical::VEvent<String>, BackendError> {
+    async fn get_event(&self, uid: &str) -> Result<aimcal_ical::VEvent<String>, StoreError> {
         let path = self.file_path(uid);
-        let calendar = parse_ics(&path).await.map_err(into_backend_error)?;
+        let calendar = parse_ics(&path).await.map_err(into_store_error)?;
 
         // Extract the first event component
         for component in calendar.components {
@@ -288,7 +288,7 @@ impl crate::backend::Backend for LocalBackend {
         &self,
         uid: &str,
         patch: &EventPatch,
-    ) -> Result<aimcal_ical::VEvent<String>, BackendError> {
+    ) -> Result<aimcal_ical::VEvent<String>, StoreError> {
         let now = Zoned::now();
 
         // Try to get existing event from file
@@ -313,8 +313,8 @@ impl crate::backend::Backend for LocalBackend {
                     .events
                     .get(uid)
                     .await
-                    .map_err(|e| BackendError::from(format!("{e}")))?
-                    .ok_or_else(|| BackendError::from("Event not found in database"))?;
+                    .map_err(|e| StoreError::from(format!("{e}")))?
+                    .ok_or_else(|| StoreError::from("Event not found in database"))?;
 
                 let mut event = reconstruct_event_from_db(&db_event, &now);
                 patch.resolve(now.clone()).apply_to(&mut event);
@@ -331,10 +331,10 @@ impl crate::backend::Backend for LocalBackend {
                 db.resources
                     .insert(uid, &self.calendar_id, &self.resource_id(uid), None)
                     .await
-                    .map_err(|e| BackendError::from(format!("{e}")))?;
+                    .map_err(|e| StoreError::from(format!("{e}")))?;
                 db.upsert_event(uid, &event, &self.calendar_id)
                     .await
-                    .map_err(|e| BackendError::from(format!("{e}")))?;
+                    .map_err(|e| StoreError::from(format!("{e}")))?;
 
                 Ok(event)
             }
@@ -342,7 +342,7 @@ impl crate::backend::Backend for LocalBackend {
         }
     }
 
-    async fn delete_event(&self, uid: &str) -> Result<(), BackendError> {
+    async fn delete_event(&self, uid: &str) -> Result<(), StoreError> {
         let file_path = self.file_path(uid);
         fs::remove_file(&file_path)
             .await
@@ -354,7 +354,7 @@ impl crate::backend::Backend for LocalBackend {
         &self,
         uid: &str,
         todo: &aimcal_ical::VTodo<String>,
-    ) -> Result<String, BackendError> {
+    ) -> Result<String, StoreError> {
         let path = self.file_path(uid);
 
         // Wrap todo in an ICalendar
@@ -369,9 +369,9 @@ impl crate::backend::Backend for LocalBackend {
         Ok(self.resource_id(uid))
     }
 
-    async fn get_todo(&self, uid: &str) -> Result<aimcal_ical::VTodo<String>, BackendError> {
+    async fn get_todo(&self, uid: &str) -> Result<aimcal_ical::VTodo<String>, StoreError> {
         let path = self.file_path(uid);
-        let calendar = parse_ics(&path).await.map_err(into_backend_error)?;
+        let calendar = parse_ics(&path).await.map_err(into_store_error)?;
 
         // Extract the first todo component
         for component in calendar.components {
@@ -387,7 +387,7 @@ impl crate::backend::Backend for LocalBackend {
         &self,
         uid: &str,
         patch: &TodoPatch,
-    ) -> Result<aimcal_ical::VTodo<String>, BackendError> {
+    ) -> Result<aimcal_ical::VTodo<String>, StoreError> {
         let now = Zoned::now();
 
         // Try to get existing todo from file
@@ -412,8 +412,8 @@ impl crate::backend::Backend for LocalBackend {
                     .todos
                     .get(uid)
                     .await
-                    .map_err(|e| BackendError::from(format!("{e}")))?
-                    .ok_or_else(|| BackendError::from("Todo not found in database"))?;
+                    .map_err(|e| StoreError::from(format!("{e}")))?
+                    .ok_or_else(|| StoreError::from("Todo not found in database"))?;
 
                 let mut todo = reconstruct_todo_from_db(&db_todo, &now);
                 patch.resolve(&now).apply_to(&mut todo);
@@ -430,10 +430,10 @@ impl crate::backend::Backend for LocalBackend {
                 db.resources
                     .insert(uid, &self.calendar_id, &self.resource_id(uid), None)
                     .await
-                    .map_err(|e| BackendError::from(format!("{e}")))?;
+                    .map_err(|e| StoreError::from(format!("{e}")))?;
                 db.upsert_todo(uid, &todo, &self.calendar_id)
                     .await
-                    .map_err(|e| BackendError::from(format!("{e}")))?;
+                    .map_err(|e| StoreError::from(format!("{e}")))?;
 
                 Ok(todo)
             }
@@ -441,7 +441,7 @@ impl crate::backend::Backend for LocalBackend {
         }
     }
 
-    async fn delete_todo(&self, uid: &str) -> Result<(), BackendError> {
+    async fn delete_todo(&self, uid: &str) -> Result<(), StoreError> {
         let file_path = self.file_path(uid);
         fs::remove_file(&file_path)
             .await
@@ -449,9 +449,7 @@ impl crate::backend::Backend for LocalBackend {
         Ok(())
     }
 
-    async fn list_events(
-        &self,
-    ) -> Result<Vec<(String, aimcal_ical::VEvent<String>)>, BackendError> {
+    async fn list_events(&self) -> Result<Vec<(String, aimcal_ical::VEvent<String>)>, StoreError> {
         let mut events = Vec::new();
 
         let mut entries = match fs::read_dir(&self.calendar_path).await {
@@ -469,7 +467,7 @@ impl crate::backend::Backend for LocalBackend {
             let path = entry.path();
             match path.extension() {
                 Some(ext) if ext == "ics" => {
-                    match parse_ics(&path).await.map_err(into_backend_error) {
+                    match parse_ics(&path).await.map_err(into_store_error) {
                         Ok(calendar) => {
                             for component in calendar.components {
                                 if let CalendarComponent::Event(event) = component {
@@ -492,7 +490,7 @@ impl crate::backend::Backend for LocalBackend {
         Ok(events)
     }
 
-    async fn list_todos(&self) -> Result<Vec<(String, aimcal_ical::VTodo<String>)>, BackendError> {
+    async fn list_todos(&self) -> Result<Vec<(String, aimcal_ical::VTodo<String>)>, StoreError> {
         let mut todos = Vec::new();
 
         let mut entries = match fs::read_dir(&self.calendar_path).await {
@@ -508,7 +506,7 @@ impl crate::backend::Backend for LocalBackend {
             let path = entry.path();
             match path.extension() {
                 Some(ext) if ext == "ics" => {
-                    match parse_ics(&path).await.map_err(into_backend_error) {
+                    match parse_ics(&path).await.map_err(into_store_error) {
                         Ok(calendar) => {
                             for component in calendar.components {
                                 if let CalendarComponent::Todo(todo) = component {
@@ -531,7 +529,7 @@ impl crate::backend::Backend for LocalBackend {
         Ok(todos)
     }
 
-    async fn uid_exists(&self, uid: &str) -> Result<bool, BackendError> {
+    async fn uid_exists(&self, uid: &str) -> Result<bool, StoreError> {
         let path = self.file_path(uid);
         Ok(fs::try_exists(&path).await?)
     }
@@ -540,12 +538,12 @@ impl crate::backend::Backend for LocalBackend {
         &self.calendar_id
     }
 
-    async fn sync_cache(&self) -> Result<SyncResult, BackendError> {
-        // For the local backend, we sync from files on disk to the database
+    async fn sync_cache(&self) -> Result<SyncResult, StoreError> {
+        // For the local store, we sync from files on disk to the database
         match &self.db {
             Some(db) => self.sync_from_directory(db).await,
             // If no database is set, just return empty result
-            // This happens when the backend is created directly for testing
+            // This happens when the store is created directly for testing
             None => Ok(SyncResult {
                 created: 0,
                 updated: 0,
@@ -596,7 +594,7 @@ mod tests {
 
     use super::*;
 
-    use crate::backend::Backend;
+    use crate::store::Store;
 
     /// Helper function to create a test `VEvent`.
     fn create_test_vevent(uid: &str, summary: &str) -> aimcal_ical::VEvent<String> {
@@ -684,14 +682,14 @@ mod tests {
     #[test]
     fn local_backend_new_creates_backend() {
         let calendar_path = PathBuf::from("/tmp/calendar");
-        let backend = LocalBackend::new(calendar_path.clone(), "default".to_string());
+        let backend = LocalStore::new(calendar_path.clone(), "default".to_string());
 
         assert_eq!(backend.calendar_path, calendar_path);
     }
 
     #[test]
     fn local_backend_file_path_constructs_correct_path() {
-        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"), "default".to_string());
+        let backend = LocalStore::new(PathBuf::from("/tmp/calendar"), "default".to_string());
         let path = backend.file_path("test-uid");
 
         assert_eq!(path, PathBuf::from("/tmp/calendar/test-uid.ics"));
@@ -699,7 +697,7 @@ mod tests {
 
     #[test]
     fn local_backend_resource_id_constructs_file_url() {
-        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"), "default".to_string());
+        let backend = LocalStore::new(PathBuf::from("/tmp/calendar"), "default".to_string());
         let resource_id = backend.resource_id("test-uid");
 
         assert_eq!(resource_id, "file:///tmp/calendar/test-uid.ics");
@@ -707,14 +705,14 @@ mod tests {
 
     #[test]
     fn local_backend_calendar_id_returns_default() {
-        let backend = LocalBackend::new(PathBuf::from("/tmp/calendar"), "default".to_string());
+        let backend = LocalStore::new(PathBuf::from("/tmp/calendar"), "default".to_string());
         assert_eq!(backend.calendar_id(), "default");
     }
 
     #[tokio::test]
     async fn local_backend_uid_exists_checks_file_existence() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         // Create a test file
         let test_file = backend.file_path("existing-uid");
@@ -732,7 +730,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_create_event_writes_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-event-uid";
         let event = create_test_vevent(uid, "Test Event");
@@ -767,7 +765,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_create_todo_writes_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-todo-uid";
         let todo = create_test_vtodo(uid, "Test Todo");
@@ -802,7 +800,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_get_event_reads_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-event-get";
         let event = create_test_vevent(uid, "Get Test Event");
@@ -823,7 +821,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_get_todo_reads_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-todo-get";
         let todo = create_test_vtodo(uid, "Get Test Todo");
@@ -844,7 +842,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_update_event_modifies_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-event-update";
         let event = create_test_vevent(uid, "Original Summary");
@@ -876,7 +874,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_update_todo_modifies_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-todo-update";
         let todo = create_test_vtodo(uid, "Original Summary");
@@ -908,7 +906,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_delete_event_removes_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-event-delete";
         let event = create_test_vevent(uid, "Delete Test Event");
@@ -928,7 +926,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_delete_todo_removes_ics_file() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         let uid = "test-todo-delete";
         let todo = create_test_vtodo(uid, "Delete Test Todo");
@@ -948,7 +946,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_list_events_scans_directory() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         // Create multiple event files
         let first_event = create_test_vevent("event-1", "Event 1");
@@ -975,7 +973,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_list_todos_scans_directory() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(temp_dir.path().to_path_buf(), "default".to_string());
+        let backend = LocalStore::new(temp_dir.path().to_path_buf(), "default".to_string());
 
         // Create multiple todo files
         let first_todo = create_test_vtodo("todo-1", "Todo 1");
@@ -999,7 +997,7 @@ mod tests {
     #[tokio::test]
     async fn local_backend_list_handles_nonexistent_directory() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let backend = LocalBackend::new(
+        let backend = LocalStore::new(
             temp_dir.path().join("nonexistent").clone(),
             "default".to_string(),
         );

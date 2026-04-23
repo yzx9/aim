@@ -20,23 +20,23 @@
 )]
 
 mod aim;
-mod backend;
 mod config;
 mod datetime;
 mod db;
 mod event;
 mod short_id;
+mod store;
 mod todo;
 mod types;
 
-pub use crate::aim::{Aim, CalendarBackendDetails, CalendarDetails};
-pub use crate::backend::{Backend, BackendError, CaldavBackend, LocalBackend, SyncResult};
-pub use crate::config::{APP_NAME, BackendDef, CalendarEntry, Config};
-pub use crate::db::calendars::CalendarRecord; // TODO: don't export this directly
+pub use crate::aim::{Aim, CalendarDetails, CalendarStoreDetails};
+pub use crate::config::{APP_NAME, CalendarEntry, Config, StoreDef};
+pub use crate::db::calendars::CalendarRecord;
+pub use crate::store::{CaldavStore, LocalStore, Store, StoreError, SyncResult}; // TODO: don't export this directly
 
 // Re-export AuthMethod for use in config
 pub use crate::datetime::{DateTimeAnchor, LooseDateTime, RangePosition};
 pub use crate::event::{Event, EventConditions, EventDraft, EventPatch, EventStatus};
 pub use crate::todo::{Todo, TodoConditions, TodoDraft, TodoPatch, TodoSort, TodoStatus};
-pub use crate::types::{BackendKind, Id, Kind, Pager, Priority, SortOrder};
+pub use crate::types::{Id, Kind, Pager, Priority, SortOrder, StoreKind};
 pub use aimcal_caldav::AuthMethod;

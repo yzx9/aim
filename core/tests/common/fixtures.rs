@@ -29,7 +29,7 @@ use aimcal_core::{
 #[must_use]
 pub fn test_config(calendar_path: &str, state_dir: Option<&str>) -> Config {
     Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(PathBuf::from(calendar_path)),
         state_dir: state_dir.map(PathBuf::from),
         default_due: None,
@@ -56,7 +56,7 @@ pub fn test_config_with_due(
     default_due: DateTimeAnchor,
 ) -> Config {
     Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(PathBuf::from(calendar_path)),
         state_dir: state_dir.map(PathBuf::from),
         default_due: Some(default_due),
@@ -73,7 +73,7 @@ pub fn test_config_with_due(
 #[must_use]
 pub fn test_config_defaults() -> Config {
     Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(PathBuf::from("/tmp/test-calendar")),
         state_dir: Some(PathBuf::from("/tmp/test-state")),
         default_due: Some(DateTimeAnchor::InDays(1)),
@@ -270,7 +270,7 @@ impl TestConfigBuilder {
         );
 
         Config {
-            backends: HashMap::new(),
+            stores: HashMap::new(),
             calendar_path: Some(calendar_path),
             state_dir: Some(state_dir),
             default_due: self.default_due,
