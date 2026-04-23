@@ -31,7 +31,7 @@ mod types;
 
 pub use crate::aim::{Aim, CalendarBackendDetails, CalendarDetails};
 pub use crate::backend::{Backend, BackendError, CaldavBackend, LocalBackend, SyncResult};
-pub use crate::config::{APP_NAME, BackendConfig, CalendarConfig, CalendarEntry, Config};
+pub use crate::config::{APP_NAME, BackendDef, CalendarEntry, Config};
 pub use crate::db::calendars::CalendarRecord; // TODO: don't export this directly
 
 // Re-export AuthMethod for use in config

@@ -11,12 +11,12 @@ use tokio::fs;
 use uuid::Uuid;
 
 use crate::backend::{Backend, CaldavBackend, LocalBackend, SyncResult};
-use crate::config::CalendarConfig;
+use crate::config::BackendDef;
 use crate::db::{Db, calendars::CalendarRecord};
 use crate::short_id::ShortIds;
 use crate::{
-    BackendConfig, Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo,
-    TodoConditions, TodoDraft, TodoPatch, TodoSort,
+    Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo, TodoConditions,
+    TodoDraft, TodoPatch, TodoSort,
 };
 
 /// Detailed information for a single calendar.
@@ -100,22 +100,24 @@ impl fmt::Debug for Aim {
 }
 
 impl Aim {
-    fn calendar_backend_details(config: &CalendarConfig) -> CalendarBackendDetails {
-        match config {
-            CalendarConfig::Local { calendar_path } => CalendarBackendDetails::Local {
-                calendar_path: calendar_path.clone(),
+    fn calendar_backend_details(
+        entry: &crate::CalendarEntry,
+        backend: &BackendDef,
+    ) -> CalendarBackendDetails {
+        match backend {
+            BackendDef::Local { .. } => CalendarBackendDetails::Local {
+                calendar_path: entry.calendar_path.clone(),
             },
-            CalendarConfig::Caldav {
+            BackendDef::Caldav {
                 base_url,
                 calendar_home,
-                calendar_href,
                 auth,
                 timeout_secs,
                 user_agent,
             } => CalendarBackendDetails::Caldav {
                 base_url: base_url.clone(),
                 calendar_home: calendar_home.clone(),
-                calendar_href: calendar_href.clone(),
+                calendar_href: entry.calendar_href.clone().unwrap_or_default(),
                 auth_method: match auth {
                     crate::AuthMethod::None => "none".to_string(),
                     crate::AuthMethod::Basic { .. } => "basic".to_string(),
@@ -127,16 +129,17 @@ impl Aim {
         }
     }
 
-    /// Create a backend from a calendar config.
+    /// Create a backend from a backend definition and calendar-specific fields.
     fn create_backend(
         calendar_id: String,
-        config: &CalendarConfig,
+        entry: &crate::CalendarEntry,
+        backend_def: &BackendDef,
         db: &Db,
         state_dir: Option<&std::path::Path>,
     ) -> Result<Box<dyn Backend>, Box<dyn Error>> {
-        match config {
-            CalendarConfig::Local { calendar_path } => {
-                let calendar_path = calendar_path.as_ref().map_or_else(
+        match backend_def {
+            BackendDef::Local { .. } => {
+                let calendar_path = entry.calendar_path.as_ref().map_or_else(
                     || {
                         state_dir.map_or_else(
                             || std::path::PathBuf::from("calendar"),
@@ -151,14 +154,18 @@ impl Aim {
                     calendar_id,
                 )))
             }
-            CalendarConfig::Caldav {
+            BackendDef::Caldav {
                 base_url,
                 calendar_home,
-                calendar_href,
                 auth,
                 timeout_secs,
                 user_agent,
             } => {
+                let calendar_href = entry.calendar_href.as_deref().ok_or_else(|| {
+                    format!(
+                        "Calendar '{calendar_id}' references caldav backend but has no calendar_href"
+                    )
+                })?;
                 let caldav_config = aimcal_caldav::CalDavConfig {
                     base_url: base_url.clone(),
                     calendar_home: calendar_home.clone(),
@@ -168,7 +175,7 @@ impl Aim {
                 };
                 let backend = CaldavBackend::new(
                     caldav_config,
-                    calendar_href.clone(),
+                    calendar_href.to_string(),
                     db.clone(),
                     calendar_id,
                 )
@@ -233,49 +240,38 @@ impl Aim {
         db: &Db,
     ) -> Result<InitializedCalendars, Box<dyn Error>> {
         let default_calendar_id = "default".to_string();
-        let calendar_config = match &config.backend {
-            BackendConfig::Local { calendar_path } => {
-                let path = calendar_path.clone().or_else(|| {
-                    config
-                        .calendar_path
-                        .as_ref()
-                        .map(|p| p.to_string_lossy().to_string())
-                });
-                CalendarConfig::Local {
-                    calendar_path: path,
-                }
-            }
-            BackendConfig::Caldav {
-                base_url,
-                calendar_home,
-                calendar_href,
-                auth,
-                timeout_secs,
-                user_agent,
-            } => CalendarConfig::Caldav {
-                base_url: base_url.clone(),
-                calendar_home: calendar_home.clone(),
-                calendar_href: calendar_href.clone(),
-                auth: auth.clone(),
-                timeout_secs: *timeout_secs,
-                user_agent: user_agent.clone(),
-            },
+
+        // Legacy mode: create a local backend using calendar_path or state_dir
+        let calendar_path = config
+            .calendar_path
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string());
+
+        let entry = crate::CalendarEntry {
+            id: default_calendar_id.clone(),
+            name: "Default".to_string(),
+            backend: "local".to_string(),
+            calendar_href: None,
+            calendar_path,
+            priority: 0,
+            enabled: true,
         };
+        let backend_def = BackendDef::Local {
+            calendar_path: None,
+        };
+
         let backend = Self::create_backend(
             default_calendar_id.clone(),
-            &calendar_config,
+            &entry,
+            &backend_def,
             db,
             config.state_dir.as_deref(),
         )?;
 
-        let calendar_kind = match &config.backend {
-            BackendConfig::Local { .. } => "local",
-            BackendConfig::Caldav { .. } => "caldav",
-        };
         let calendar = CalendarRecord::new(
             default_calendar_id.clone(),
             "Default".to_string(),
-            calendar_kind.to_string(),
+            "local".to_string(),
             0,
             true,
         );
@@ -317,9 +313,15 @@ impl Aim {
 
         let mut effective = Vec::with_capacity(config.calendars.len());
         for calendar in &config.calendars {
-            let calendar_kind = match &calendar.config {
-                CalendarConfig::Local { .. } => "local",
-                CalendarConfig::Caldav { .. } => "caldav",
+            let backend_def = config.backends.get(&calendar.backend).ok_or_else(|| {
+                format!(
+                    "Backend '{}' not found for calendar '{}'",
+                    calendar.backend, calendar.id
+                )
+            })?;
+            let calendar_kind = match backend_def {
+                BackendDef::Local { .. } => "local",
+                BackendDef::Caldav { .. } => "caldav",
             };
             let record = CalendarRecord::new(
                 calendar.id.clone(),
@@ -338,9 +340,15 @@ impl Aim {
                 continue;
             }
 
+            let backend_def = config
+                .backends
+                .get(&calendar.backend)
+                .ok_or_else(|| format!("Backend '{}' not found", calendar.backend))?;
+
             let backend = Self::create_backend(
                 calendar.id.clone(),
-                &calendar.config,
+                calendar,
+                backend_def,
                 db,
                 config.state_dir.as_deref(),
             )?;
@@ -665,7 +673,12 @@ impl Aim {
             .calendars
             .iter()
             .find(|calendar| calendar.id == record.id)
-            .map(|calendar| Self::calendar_backend_details(&calendar.config));
+            .and_then(|calendar| {
+                self.config
+                    .backends
+                    .get(&calendar.backend)
+                    .map(|backend_def| Self::calendar_backend_details(calendar, backend_def))
+            });
 
         Ok(CalendarDetails {
             id: record.id.clone(),

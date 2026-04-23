@@ -8,12 +8,13 @@
 //! including path expansion, default values, and cross-platform
 //! path handling.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use aimcal_core::{
-    Aim, BackendConfig, CalendarConfig, CalendarEntry, Config, DateTimeAnchor, Event,
-    EventConditions, Id, LooseDateTime, Pager, Priority, SortOrder, Todo, TodoConditions,
-    TodoDraft, TodoSort, TodoStatus,
+    Aim, BackendDef, CalendarEntry, Config, DateTimeAnchor, Event, EventConditions, Id,
+    LooseDateTime, Pager, Priority, SortOrder, Todo, TodoConditions, TodoDraft, TodoSort,
+    TodoStatus,
 };
 use jiff::{Zoned, civil::date, tz::TimeZone};
 
@@ -56,9 +57,7 @@ async fn config_default_due_applied() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -112,9 +111,7 @@ async fn config_default_priority_applied() {
         (Priority::None, Priority::None),
     ] {
         let config = Config {
-            backend: BackendConfig::Local {
-                calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-            },
+            backends: HashMap::new(),
             calendar_path: Some(temp_dirs.calendar_path.clone()),
             state_dir: Some(temp_dirs.state_dir.clone()),
             default_due: None,
@@ -142,9 +139,7 @@ async fn config_priority_sorting_behavior() {
 
     // Test with none_first = true
     let config_none_first = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -195,9 +190,7 @@ async fn config_priority_sorting_behavior() {
     // Test with none_first = false
     let temp_dirs2 = setup_temp_dirs().await.unwrap();
     let config_some_first = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs2.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs2.calendar_path.clone()),
         state_dir: Some(temp_dirs2.state_dir.clone()),
         default_due: None,
@@ -246,9 +239,7 @@ async fn config_timezone_handling() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -281,15 +272,22 @@ fn multi_local_config(
     calendars: Vec<CalendarEntry>,
     default_calendar: &str,
 ) -> Config {
-    Config {
-        backend: BackendConfig::Local {
+    let mut backends = HashMap::new();
+    backends.insert(
+        "local".to_string(),
+        BackendDef::Local {
             calendar_path: None,
         },
+    );
+    Config {
+        backends,
         calendar_path: None,
         state_dir: Some(state_dir),
         default_due: None,
         default_priority: Priority::None,
         default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
         calendars,
         default_calendar: default_calendar.to_string(),
     }
@@ -308,18 +306,18 @@ async fn multi_calendar_uses_configured_default_calendar() {
             CalendarEntry {
                 id: "work".to_string(),
                 name: "Work".to_string(),
-                config: CalendarConfig::Local {
-                    calendar_path: Some(work_dir.to_string_lossy().to_string()),
-                },
+                backend: "local".to_string(),
+                calendar_href: None,
+                calendar_path: Some(work_dir.to_string_lossy().to_string()),
                 priority: 0,
                 enabled: true,
             },
             CalendarEntry {
                 id: "personal".to_string(),
                 name: "Personal".to_string(),
-                config: CalendarConfig::Local {
-                    calendar_path: Some(personal_dir.to_string_lossy().to_string()),
-                },
+                backend: "local".to_string(),
+                calendar_href: None,
+                calendar_path: Some(personal_dir.to_string_lossy().to_string()),
                 priority: 1,
                 enabled: true,
             },
@@ -402,18 +400,18 @@ async fn multi_calendar_missing_config_disables_calendar_without_deleting_data()
             CalendarEntry {
                 id: "personal".to_string(),
                 name: "Personal".to_string(),
-                config: CalendarConfig::Local {
-                    calendar_path: Some(personal_dir.to_string_lossy().to_string()),
-                },
+                backend: "local".to_string(),
+                calendar_href: None,
+                calendar_path: Some(personal_dir.to_string_lossy().to_string()),
                 priority: 0,
                 enabled: true,
             },
             CalendarEntry {
                 id: "work".to_string(),
                 name: "Work".to_string(),
-                config: CalendarConfig::Local {
-                    calendar_path: Some(work_dir.to_string_lossy().to_string()),
-                },
+                backend: "local".to_string(),
+                calendar_href: None,
+                calendar_path: Some(work_dir.to_string_lossy().to_string()),
                 priority: 1,
                 enabled: true,
             },
@@ -436,9 +434,9 @@ async fn multi_calendar_missing_config_disables_calendar_without_deleting_data()
         vec![CalendarEntry {
             id: "personal".to_string(),
             name: "Personal".to_string(),
-            config: CalendarConfig::Local {
-                calendar_path: Some(personal_dir.to_string_lossy().to_string()),
-            },
+            backend: "local".to_string(),
+            calendar_href: None,
+            calendar_path: Some(personal_dir.to_string_lossy().to_string()),
             priority: 0,
             enabled: true,
         }],
@@ -509,18 +507,18 @@ async fn multi_calendar_event_listing_orders_by_calendar_priority() {
             CalendarEntry {
                 id: "personal".to_string(),
                 name: "Personal".to_string(),
-                config: CalendarConfig::Local {
-                    calendar_path: Some(personal_dir.to_string_lossy().to_string()),
-                },
+                backend: "local".to_string(),
+                calendar_href: None,
+                calendar_path: Some(personal_dir.to_string_lossy().to_string()),
                 priority: 1,
                 enabled: true,
             },
             CalendarEntry {
                 id: "work".to_string(),
                 name: "Work".to_string(),
-                config: CalendarConfig::Local {
-                    calendar_path: Some(work_dir.to_string_lossy().to_string()),
-                },
+                backend: "local".to_string(),
+                calendar_href: None,
+                calendar_path: Some(work_dir.to_string_lossy().to_string()),
                 priority: 0,
                 enabled: true,
             },
@@ -586,9 +584,7 @@ async fn config_mixed_defaults_integration() {
     // Arrange - config with multiple defaults
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -653,9 +649,7 @@ async fn config_persistence_across_restarts() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -701,9 +695,7 @@ async fn config_default_draft_consistency() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(1)),
@@ -742,9 +734,7 @@ async fn config_event_defaults() {
     // Arrange
     let temp_dirs = setup_temp_dirs().await.unwrap();
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -788,9 +778,7 @@ async fn config_datetime_anchor_variations() {
 
     for anchor in anchors {
         let config = Config {
-            backend: BackendConfig::Local {
-                calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-            },
+            backends: HashMap::new(),
             calendar_path: Some(temp_dirs.calendar_path.clone()),
             state_dir: Some(temp_dirs.state_dir.clone()),
             default_due: Some(anchor.clone()),

@@ -6,11 +6,12 @@
 //!
 //! Tests Aim initialization, time management, and cleanup.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use aimcal_core::{
-    Aim, BackendConfig, Config, DateTimeAnchor, Event, EventConditions, EventStatus, Pager,
-    Priority, Todo, TodoConditions,
+    Aim, Config, DateTimeAnchor, Event, EventConditions, EventStatus, Pager, Priority, Todo,
+    TodoConditions,
 };
 use jiff::Zoned;
 
@@ -40,9 +41,7 @@ END:VCALENDAR\r
 
     // Create Aim instance
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -95,9 +94,7 @@ async fn aim_new_creates_empty_state_without_calendar_files() {
 
     // Create Aim instance with empty calendar directory
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -133,9 +130,7 @@ async fn aim_now_returns_initial_time() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -162,9 +157,7 @@ async fn aim_refresh_now_updates_current_time() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -197,9 +190,7 @@ async fn aim_close_cleans_up_database() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -258,9 +249,7 @@ async fn aim_default_event_draft_creates_draft_with_now() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(1)),
@@ -293,9 +282,7 @@ async fn aim_default_todo_draft_includes_config_defaults() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: Some(DateTimeAnchor::InDays(7)),
@@ -351,9 +338,7 @@ END:VCALENDAR\r
     }
 
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -415,9 +400,7 @@ END:VCALENDAR\r
         .unwrap();
 
     let config = Config {
-        backend: BackendConfig::Local {
-            calendar_path: Some(temp_dirs.calendar_path.to_string_lossy().to_string()),
-        },
+        backends: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
