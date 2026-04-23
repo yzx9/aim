@@ -5,7 +5,9 @@ This directory contains example iCalendar (.ics) files to demonstrate various fe
 ## Example Files
 
 ### simple-meeting.ics
+
 A basic one-time meeting event demonstrating:
+
 - Event creation with summary and description
 - Location specification
 - Organizer information
@@ -13,14 +15,18 @@ A basic one-time meeting event demonstrating:
 - Date/time in UTC format
 
 ### recurring-task.ics
+
 A daily recurring event demonstrating:
+
 - RRULE (Recurrence Rule) for daily repetition
 - COUNT parameter to limit occurrences
 - Priority setting
 - Status tracking (TENTATIVE)
 
 ### todo-with-priority.ics
+
 A todo item demonstrating:
+
 - Priority levels (2 = High)
 - Due date and start date
 - Status tracking (NEEDS-ACTION)
@@ -28,7 +34,9 @@ A todo item demonstrating:
 - Categorization
 
 ### multi-event.ics
+
 A complex calendar with multiple components demonstrating:
+
 - Multiple VEVENT components in one calendar
 - Multiple VTODO components
 - Timezone definitions (VTIMEZONE)
@@ -49,6 +57,7 @@ just init-dev
 ```
 
 This command:
+
 - Recreates `.dev/calendar/` from the example files
 - Copies all example files (`.ics`) to `.dev/calendar/`
 - Creates a marker file `.dev/calendar/.dev-marker` to track initialization
@@ -72,6 +81,7 @@ aim new
 ### Import to Calendar Applications
 
 These files can be imported into any iCalendar-compatible application:
+
 - Google Calendar
 - Apple Calendar
 - Microsoft Outlook
@@ -100,6 +110,7 @@ cp examples/*.ics .dev/calendar/
 ## Common Properties Reference
 
 ### Event Properties (VEVENT)
+
 - `DTSTART` - Event start date/time
 - `DTEND` - Event end date/time
 - `SUMMARY` - Event title
@@ -110,6 +121,7 @@ cp examples/*.ics .dev/calendar/
 - `RRULE` - Recurrence rule
 
 ### Todo Properties (VTODO)
+
 - `DTSTART` - Start date/time
 - `DUE` - Due date/time
 - `STATUS` - NEEDS-ACTION, IN-PROCESS, COMPLETED, CANCELLED
@@ -117,6 +129,7 @@ cp examples/*.ics .dev/calendar/
 - `PRIORITY` - 1-9 (1 is highest)
 
 ### Timezone Properties (VTIMEZONE)
+
 - `TZID` - Timezone identifier (e.g., America/New_York)
 - `DAYLIGHT` - Daylight saving time definition
 - `STANDARD` - Standard time definition

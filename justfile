@@ -17,6 +17,7 @@ lint:
 
 fmt:
   cargo fmt
+  prettier --write .
 
 # Release new version without publish
 release version:
