@@ -15,7 +15,7 @@ description: Create a git commit with proper message instead of manually running
 
 Based on the changes above, run the necessary check steps, including formatting and linting.
 Then stage the changes and create a concise, descriptive git commit message following the
-Gitmoji convention.
+Conventional Commits specification.
 
 ## Pre-Commit Checklist
 
@@ -28,32 +28,35 @@ Before committing, always run:
 
 ## Commit Message Format
 
-Follow the [Gitmoji](https://gitmoji.dev/) convention:
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
 ```
-<gitmoji> (<scope>): <description>
+type(scope): description
 ```
 
 Examples:
 
 ```
-✨ (core): Add event recurrence support
-🐛 (cli): Fix crash when parsing invalid dates
-📝 (docs): Update installation instructions
-♻️ (ical): Refactor parser for better error messages
+feat(core): add event recurrence support
+fix(cli): fix crash when parsing invalid dates
+docs: update installation instructions
+refactor(ical): refactor parser for better error messages
 ```
 
-Common gitmojis:
+Common types:
 
-| Gitmoji | Meaning            |
-| ------- | ------------------ |
-| ✨      | New feature        |
-| 🐛      | Bug fix            |
-| 📝      | Documentation      |
-| ♻️      | Refactor           |
-| ✅      | Tests              |
-| 🔧      | Configuration      |
-| ⬆️      | Dependency upgrade |
+| Type     | Meaning               |
+| -------- | --------------------- |
+| feat     | New feature           |
+| fix      | Bug fix               |
+| docs     | Documentation         |
+| refactor | Code refactoring      |
+| test     | Tests                 |
+| chore    | Configuration/tooling |
+| build    | Build/dependencies    |
+| ci       | CI changes            |
+| style    | Formatting/styling    |
+| perf     | Performance           |
 
 ## Notes
 

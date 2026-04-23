@@ -31,8 +31,8 @@ release version:
 
   # Commit changes and create git tag
   git add CHANGELOG.md ./Cargo.toml ./Cargo.lock
-  git commit -m "🔖 Release v{{version}}"
-  git tag -a "v{{version}}" -m "🔖 Release v{{version}}"
+  git commit -m "chore: release v{{version}}"
+  git tag -a "v{{version}}" -m "chore: release v{{version}}"
   echo "Please check and run 'git push origin v{{version}}' to push the tag to trigger CI/CD."
 
 # Add a new migration to the database

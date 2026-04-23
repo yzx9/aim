@@ -143,11 +143,11 @@ just lint
 
 ### 4. Commit Changes
 
-Follow [Gitmoji Commit Standard](https://gitmoji.dev/) for commit messages.
+Follow [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
 
 ```bash
 git add .
-git commit -m "✨ Add new feature"
+git commit -m "feat: add new feature"
 ```
 
 ### 5. Push and Create Pull Request
@@ -212,12 +212,12 @@ For detailed style guidelines, see [docs/styling.md](docs/styling.md).
 
 ### PR Title Format
 
-Use the same Gitmoji format as commit messages:
+Use the same Conventional Commits format as commit messages:
 
 ```
-✨ Brief description of changes
-🐛 Brief description of the bug fix, link the issue if available
-♻️ Brief description of the refactoring
+feat: brief description of changes
+fix: brief description of the bug fix, link the issue if available
+refactor: brief description of the refactoring
 ```
 
 ### PR Description

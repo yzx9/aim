@@ -10,5 +10,5 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "⬆️ "
-      prefix-development: "⬆️ "
+      prefix: "build(deps): "
+      prefix-development: "build(deps-dev): "
