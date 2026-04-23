@@ -5,7 +5,7 @@
 use std::error::Error;
 use std::{borrow::Cow, fmt};
 
-use aimcal_core::{Aim, CalendarBackendDetails, CalendarDetails, CalendarRecord};
+use aimcal_core::{Aim, CalendarDetails, CalendarRecord, CalendarStoreDetails};
 use clap::{ArgMatches, Command, arg};
 
 use crate::arg::CommonArgs;
@@ -153,10 +153,10 @@ impl fmt::Display for CalendarDetailsDisplay<'_> {
         ];
 
         let mut backend_rows: Vec<(&str, Cow<'_, str>)> = Vec::new();
-        if let Some(backend) = &calendar.backend {
+        if let Some(backend) = &calendar.store {
             match backend {
-                CalendarBackendDetails::Local { calendar_path } => {
-                    backend_rows.push(("Backend", "local".into()));
+                CalendarStoreDetails::Local { calendar_path } => {
+                    backend_rows.push(("Store", "local".into()));
                     backend_rows.push((
                         "Calendar Path",
                         calendar_path
@@ -165,7 +165,7 @@ impl fmt::Display for CalendarDetailsDisplay<'_> {
                             .into(),
                     ));
                 }
-                CalendarBackendDetails::Caldav {
+                CalendarStoreDetails::Caldav {
                     base_url,
                     calendar_home,
                     calendar_href,
@@ -173,7 +173,7 @@ impl fmt::Display for CalendarDetailsDisplay<'_> {
                     timeout_secs,
                     user_agent,
                 } => {
-                    backend_rows.push(("Backend", "caldav".into()));
+                    backend_rows.push(("Store", "caldav".into()));
                     backend_rows.push(("Base URL", base_url.as_str().into()));
                     backend_rows.push(("Calendar Home", calendar_home.as_str().into()));
                     backend_rows.push(("Calendar Href", calendar_href.as_str().into()));
@@ -249,7 +249,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calendar_details_table_includes_default_and_backend_fields() {
+    fn calendar_details_table_includes_default_and_store_fields() {
         let calendar = CalendarDetails {
             id: "work".to_string(),
             name: "Work".to_string(),
@@ -259,7 +259,7 @@ mod tests {
             is_default: false,
             created_at: "2026-03-19T10:00:00+08:00".to_string(),
             updated_at: "2026-03-19T10:30:00+08:00".to_string(),
-            backend: Some(CalendarBackendDetails::Caldav {
+            store: Some(CalendarStoreDetails::Caldav {
                 base_url: "https://example.com".to_string(),
                 calendar_home: "/dav/calendars/user/".to_string(),
                 calendar_href: "/dav/calendars/user/work/".to_string(),

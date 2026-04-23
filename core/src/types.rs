@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::num::NonZeroU32;
 
-/// Backend type for events and todos
+/// Store type for events and todos
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum BackendKind {
+pub enum StoreKind {
     /// Local ICS files
     #[default]
     Local,
@@ -19,7 +19,7 @@ pub enum BackendKind {
     // SystemReminder,
 }
 
-impl fmt::Display for BackendKind {
+impl fmt::Display for StoreKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Local => write!(f, "local"),
@@ -29,7 +29,7 @@ impl fmt::Display for BackendKind {
     }
 }
 
-impl AsRef<str> for BackendKind {
+impl AsRef<str> for StoreKind {
     fn as_ref(&self) -> &str {
         match self {
             Self::Local => "local",
@@ -39,25 +39,25 @@ impl AsRef<str> for BackendKind {
     }
 }
 
-impl TryFrom<u8> for BackendKind {
+impl TryFrom<u8> for StoreKind {
     type Error = String;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(BackendKind::Local),
-            1 => Ok(BackendKind::CalDav),
-            // 2 => Ok(BackendKind::SystemReminder),
-            _ => Err(format!("Invalid backend kind value: {value}")),
+            0 => Ok(StoreKind::Local),
+            1 => Ok(StoreKind::CalDav),
+            // 2 => Ok(StoreKind::SystemReminder),
+            _ => Err(format!("Invalid store kind value: {value}")),
         }
     }
 }
 
-impl From<BackendKind> for u8 {
-    fn from(kind: BackendKind) -> Self {
+impl From<StoreKind> for u8 {
+    fn from(kind: StoreKind) -> Self {
         match kind {
-            BackendKind::Local => 0,
-            BackendKind::CalDav => 1,
-            // BackendKind::SystemReminder => 2,
+            StoreKind::Local => 0,
+            StoreKind::CalDav => 1,
+            // StoreKind::SystemReminder => 2,
         }
     }
 }

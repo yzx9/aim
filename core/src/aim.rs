@@ -10,10 +10,10 @@ use jiff::Zoned;
 use tokio::fs;
 use uuid::Uuid;
 
-use crate::backend::{Backend, CaldavBackend, LocalBackend, SyncResult};
-use crate::config::BackendDef;
+use crate::config::StoreDef;
 use crate::db::{Db, calendars::CalendarRecord};
 use crate::short_id::ShortIds;
+use crate::store::{CaldavStore, LocalStore, Store, SyncResult};
 use crate::{
     Config, Event, EventConditions, EventDraft, EventPatch, Id, Kind, Pager, Todo, TodoConditions,
     TodoDraft, TodoPatch, TodoSort,
@@ -26,7 +26,7 @@ pub struct CalendarDetails {
     pub id: String,
     /// Display name.
     pub name: String,
-    /// Backend kind.
+    /// Store kind.
     pub kind: String,
     /// Lower numbers sort first.
     pub priority: i32,
@@ -38,14 +38,14 @@ pub struct CalendarDetails {
     pub created_at: String,
     /// Last update timestamp.
     pub updated_at: String,
-    /// Backend-specific configuration details, when available from config.
-    pub backend: Option<CalendarBackendDetails>,
+    /// Store-specific configuration details, when available from config.
+    pub store: Option<CalendarStoreDetails>,
 }
 
-/// Backend-specific details for a calendar.
+/// Store-specific details for a calendar.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum CalendarBackendDetails {
+pub enum CalendarStoreDetails {
     /// Local filesystem-backed calendar details.
     Local {
         /// Path to the local calendar directory, if configured.
@@ -74,13 +74,13 @@ pub struct Aim {
     config: Config,
     db: Db,
     short_ids: ShortIds,
-    backends: HashMap<String, Box<dyn Backend>>,
+    stores: HashMap<String, Box<dyn Store>>,
     default_calendar: String,
     startup_notices: Vec<String>,
 }
 
-struct InitializedCalendars {
-    backends: HashMap<String, Box<dyn Backend>>,
+struct InitializedStores {
+    stores: HashMap<String, Box<dyn Store>>,
     default_calendar: String,
     startup_notices: Vec<String>,
 }
@@ -92,7 +92,7 @@ impl fmt::Debug for Aim {
             .field("config", &self.config)
             .field("db", &self.db)
             .field("short_ids", &self.short_ids)
-            .field("backends", &self.backends.len())
+            .field("stores", &self.stores.len())
             .field("default_calendar", &self.default_calendar)
             .field("startup_notices", &self.startup_notices)
             .finish()
@@ -100,21 +100,21 @@ impl fmt::Debug for Aim {
 }
 
 impl Aim {
-    fn calendar_backend_details(
+    fn calendar_store_details(
         entry: &crate::CalendarEntry,
-        backend: &BackendDef,
-    ) -> CalendarBackendDetails {
+        backend: &StoreDef,
+    ) -> CalendarStoreDetails {
         match backend {
-            BackendDef::Local { .. } => CalendarBackendDetails::Local {
+            StoreDef::Local { .. } => CalendarStoreDetails::Local {
                 calendar_path: entry.calendar_path.clone(),
             },
-            BackendDef::Caldav {
+            StoreDef::Caldav {
                 base_url,
                 calendar_home,
                 auth,
                 timeout_secs,
                 user_agent,
-            } => CalendarBackendDetails::Caldav {
+            } => CalendarStoreDetails::Caldav {
                 base_url: base_url.clone(),
                 calendar_home: calendar_home.clone(),
                 calendar_href: entry.calendar_href.clone().unwrap_or_default(),
@@ -129,16 +129,16 @@ impl Aim {
         }
     }
 
-    /// Create a backend from a backend definition and calendar-specific fields.
-    fn create_backend(
+    /// Create a store from a store definition and calendar-specific fields.
+    fn create_store(
         calendar_id: String,
         entry: &crate::CalendarEntry,
-        backend_def: &BackendDef,
+        store_def: &StoreDef,
         db: &Db,
         state_dir: Option<&std::path::Path>,
-    ) -> Result<Box<dyn Backend>, Box<dyn Error>> {
-        match backend_def {
-            BackendDef::Local { .. } => {
+    ) -> Result<Box<dyn Store>, Box<dyn Error>> {
+        match store_def {
+            StoreDef::Local { .. } => {
                 let calendar_path = entry.calendar_path.as_ref().map_or_else(
                     || {
                         state_dir.map_or_else(
@@ -148,13 +148,13 @@ impl Aim {
                     },
                     std::path::PathBuf::from,
                 );
-                Ok(Box::new(LocalBackend::with_db(
+                Ok(Box::new(LocalStore::with_db(
                     calendar_path,
                     db.clone(),
                     calendar_id,
                 )))
             }
-            BackendDef::Caldav {
+            StoreDef::Caldav {
                 base_url,
                 calendar_home,
                 auth,
@@ -163,7 +163,7 @@ impl Aim {
             } => {
                 let calendar_href = entry.calendar_href.as_deref().ok_or_else(|| {
                     format!(
-                        "Calendar '{calendar_id}' references caldav backend but has no calendar_href"
+                        "Calendar '{calendar_id}' references caldav store but has no calendar_href"
                     )
                 })?;
                 let caldav_config = aimcal_caldav::CalDavConfig {
@@ -173,24 +173,24 @@ impl Aim {
                     timeout_secs: *timeout_secs,
                     user_agent: user_agent.clone(),
                 };
-                let backend = CaldavBackend::new(
+                let backend = CaldavStore::new(
                     caldav_config,
                     calendar_href.to_string(),
                     db.clone(),
                     calendar_id,
                 )
-                .map_err(|e| format!("Failed to create CalDAV backend: {e}"))?;
+                .map_err(|e| format!("Failed to create CalDAV store: {e}"))?;
                 Ok(Box::new(backend))
             }
         }
     }
 
-    /// Get a backend by calendar ID.
-    fn get_backend(&self, calendar_id: &str) -> Result<&dyn Backend, Box<dyn Error>> {
-        self.backends
+    /// Get a store by calendar ID.
+    fn get_store(&self, calendar_id: &str) -> Result<&dyn Store, Box<dyn Error>> {
+        self.stores
             .get(calendar_id)
             .map(Box::as_ref)
-            .ok_or_else(|| format!("Backend not found for calendar: {calendar_id}").into())
+            .ok_or_else(|| format!("Store not found for calendar: {calendar_id}").into())
     }
 
     /// Creates a new AIM instance with the given configuration.
@@ -207,8 +207,8 @@ impl Aim {
         let short_ids = ShortIds::new(db.clone());
 
         // Handle legacy vs multi-calendar format
-        let InitializedCalendars {
-            backends,
+        let InitializedStores {
+            stores,
             default_calendar,
             startup_notices,
         } = if config.is_legacy_format() {
@@ -217,10 +217,10 @@ impl Aim {
             Self::initialize_multi_calendars(&config, &db).await?
         };
 
-        // Sync all backends with local cache
-        for (calendar_id, backend) in &backends {
+        // Sync all stores with local cache
+        for (calendar_id, backend) in &stores {
             backend.sync_cache().await.map_err(|e| {
-                format!("Failed to sync backend cache for calendar '{calendar_id}': {e}")
+                format!("Failed to sync store cache for calendar '{calendar_id}': {e}")
             })?;
         }
 
@@ -229,7 +229,7 @@ impl Aim {
             config,
             db,
             short_ids,
-            backends,
+            stores,
             default_calendar,
             startup_notices,
         })
@@ -238,10 +238,10 @@ impl Aim {
     async fn initialize_legacy_calendar(
         config: &Config,
         db: &Db,
-    ) -> Result<InitializedCalendars, Box<dyn Error>> {
+    ) -> Result<InitializedStores, Box<dyn Error>> {
         let default_calendar_id = "default".to_string();
 
-        // Legacy mode: create a local backend using calendar_path or state_dir
+        // Legacy mode: create a local store using calendar_path or state_dir
         let calendar_path = config
             .calendar_path
             .as_ref()
@@ -250,20 +250,20 @@ impl Aim {
         let entry = crate::CalendarEntry {
             id: default_calendar_id.clone(),
             name: "Default".to_string(),
-            backend: "local".to_string(),
+            store: "local".to_string(),
             calendar_href: None,
             calendar_path,
             priority: 0,
             enabled: true,
         };
-        let backend_def = BackendDef::Local {
+        let store_def = StoreDef::Local {
             calendar_path: None,
         };
 
-        let backend = Self::create_backend(
+        let backend = Self::create_store(
             default_calendar_id.clone(),
             &entry,
-            &backend_def,
+            &store_def,
             db,
             config.state_dir.as_deref(),
         )?;
@@ -277,11 +277,11 @@ impl Aim {
         );
         db.calendars.upsert(calendar).await?;
 
-        let mut backends = HashMap::new();
-        backends.insert(default_calendar_id.clone(), backend);
+        let mut stores = HashMap::new();
+        stores.insert(default_calendar_id.clone(), backend);
 
-        Ok(InitializedCalendars {
-            backends,
+        Ok(InitializedStores {
+            stores,
             default_calendar: default_calendar_id,
             startup_notices: Vec::new(),
         })
@@ -290,7 +290,7 @@ impl Aim {
     async fn initialize_multi_calendars(
         config: &Config,
         db: &Db,
-    ) -> Result<InitializedCalendars, Box<dyn Error>> {
+    ) -> Result<InitializedStores, Box<dyn Error>> {
         if config.calendars.is_empty() {
             return Err("No calendars configured".into());
         }
@@ -313,15 +313,15 @@ impl Aim {
 
         let mut effective = Vec::with_capacity(config.calendars.len());
         for calendar in &config.calendars {
-            let backend_def = config.backends.get(&calendar.backend).ok_or_else(|| {
+            let store_def = config.stores.get(&calendar.store).ok_or_else(|| {
                 format!(
-                    "Backend '{}' not found for calendar '{}'",
-                    calendar.backend, calendar.id
+                    "Store '{}' not found for calendar '{}'",
+                    calendar.store, calendar.id
                 )
             })?;
-            let calendar_kind = match backend_def {
-                BackendDef::Local { .. } => "local",
-                BackendDef::Caldav { .. } => "caldav",
+            let calendar_kind = match store_def {
+                StoreDef::Local { .. } => "local",
+                StoreDef::Caldav { .. } => "caldav",
             };
             let record = CalendarRecord::new(
                 calendar.id.clone(),
@@ -334,38 +334,38 @@ impl Aim {
             effective.push((calendar, calendar.enabled));
         }
 
-        let mut backends = HashMap::new();
+        let mut stores = HashMap::new();
         for (calendar, enabled) in &effective {
             if !enabled {
                 continue;
             }
 
-            let backend_def = config
-                .backends
-                .get(&calendar.backend)
-                .ok_or_else(|| format!("Backend '{}' not found", calendar.backend))?;
+            let store_def = config
+                .stores
+                .get(&calendar.store)
+                .ok_or_else(|| format!("Store '{}' not found", calendar.store))?;
 
-            let backend = Self::create_backend(
+            let backend = Self::create_store(
                 calendar.id.clone(),
                 calendar,
-                backend_def,
+                store_def,
                 db,
                 config.state_dir.as_deref(),
             )?;
-            backends.insert(calendar.id.clone(), backend);
+            stores.insert(calendar.id.clone(), backend);
         }
 
-        if backends.is_empty() {
+        if stores.is_empty() {
             return Err("No enabled calendars found in configuration".into());
         }
 
-        let default_calendar = if backends.contains_key(&config.default_calendar) {
+        let default_calendar = if stores.contains_key(&config.default_calendar) {
             config.default_calendar.clone()
         } else {
             config
                 .calendars
                 .iter()
-                .filter(|calendar| backends.contains_key(&calendar.id))
+                .filter(|calendar| stores.contains_key(&calendar.id))
                 .min_by_key(|calendar| calendar.priority)
                 .map(|calendar| calendar.id.clone())
                 .ok_or("No enabled calendars found in configuration")?
@@ -380,8 +380,8 @@ impl Aim {
             )]
         };
 
-        Ok(InitializedCalendars {
-            backends,
+        Ok(InitializedStores {
+            stores,
             default_calendar,
             startup_notices,
         })
@@ -433,13 +433,13 @@ impl Aim {
             .calendar_id
             .as_deref()
             .unwrap_or(&self.default_calendar);
-        let backend = self.get_backend(calendar_id)?;
+        let backend = self.get_store(calendar_id)?;
 
-        // Create event in backend
+        // Create event in store
         let resource_id = backend
             .create_event(&uid, &event)
             .await
-            .map_err(|e| format!("Failed to create event in backend: {e}"))?;
+            .map_err(|e| format!("Failed to create event in store: {e}"))?;
 
         // Store in database with resource mapping
         self.db.upsert_event(&uid, &event, calendar_id).await?;
@@ -468,14 +468,14 @@ impl Aim {
 
         // Get calendar_id from event record
         let event_record = self.db.events.get(&uid).await?.ok_or("Event not found")?;
-        let backend = self.get_backend(&event_record.calendar_id)?;
+        let backend = self.get_store(&event_record.calendar_id)?;
         let calendar_id = backend.calendar_id();
 
         // Update event through backend
         let updated_event = backend
             .update_event(&uid, &patch)
             .await
-            .map_err(|e| format!("Failed to update event in backend: {e}"))?;
+            .map_err(|e| format!("Failed to update event in store: {e}"))?;
 
         // Update database
         self.db
@@ -556,13 +556,13 @@ impl Aim {
             .calendar_id
             .as_deref()
             .unwrap_or(&self.default_calendar);
-        let backend = self.get_backend(calendar_id)?;
+        let backend = self.get_store(calendar_id)?;
 
-        // Create todo in backend
+        // Create todo in store
         let resource_id = backend
             .create_todo(&uid, &todo)
             .await
-            .map_err(|e| format!("Failed to create todo in backend: {e}"))?;
+            .map_err(|e| format!("Failed to create todo in store: {e}"))?;
 
         // Store in database with resource mapping
         self.db.upsert_todo(&uid, &todo, calendar_id).await?;
@@ -591,14 +591,14 @@ impl Aim {
 
         // Get calendar_id from todo record
         let todo_record = self.db.todos.get(&uid).await?.ok_or("Todo not found")?;
-        let backend = self.get_backend(&todo_record.calendar_id)?;
+        let backend = self.get_store(&todo_record.calendar_id)?;
         let calendar_id = backend.calendar_id();
 
         // Update todo through backend
         let updated_todo = backend
             .update_todo(&uid, &patch)
             .await
-            .map_err(|e| format!("Failed to update todo in backend: {e}"))?;
+            .map_err(|e| format!("Failed to update todo in store: {e}"))?;
 
         // Update database
         self.db
@@ -675,9 +675,9 @@ impl Aim {
             .find(|calendar| calendar.id == record.id)
             .and_then(|calendar| {
                 self.config
-                    .backends
-                    .get(&calendar.backend)
-                    .map(|backend_def| Self::calendar_backend_details(calendar, backend_def))
+                    .stores
+                    .get(&calendar.store)
+                    .map(|store_def| Self::calendar_store_details(calendar, store_def))
             });
 
         Ok(CalendarDetails {
@@ -689,7 +689,7 @@ impl Aim {
             is_default: self.default_calendar == record.id,
             created_at: record.created_at.clone(),
             updated_at: record.updated_at.clone(),
-            backend,
+            store: backend,
         })
     }
 
@@ -707,7 +707,7 @@ impl Aim {
         self.short_ids.flush().await
     }
 
-    /// Synchronizes the backend with the local cache.
+    /// Synchronizes the store with the local cache.
     ///
     /// # Errors
     /// If synchronization fails.
@@ -716,7 +716,7 @@ impl Aim {
         let mut updated = 0;
         let mut deleted = 0;
 
-        for (calendar_id, backend) in &self.backends {
+        for (calendar_id, backend) in &self.stores {
             match backend.sync_cache().await {
                 Ok(result) => {
                     created += result.created;

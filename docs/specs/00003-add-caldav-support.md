@@ -97,7 +97,7 @@ auth = { username = "user", password = "pass" }
 - Database migration: `backend_kind` column, `resources` table, removed `path` columns
 - Resources table implementation with JSON metadata support
 - ICS support made optional (DB-only mode supported)
-- `BackendKind` enum (Local only, CalDav stub)
+- `StoreKind` enum (Local only, CalDav stub)
 
 ### ❌ Remaining
 

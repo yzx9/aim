@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-//! `CalDAV` backend implementation for storing and synchronizing calendar data.
+//! `CalDAV` store implementation for storing and synchronizing calendar data.
 
 use aimcal_caldav::{CalDavClient, CalDavConfig, CalendarQueryRequest, ETag, Href};
 use aimcal_ical::{ICalendar, VEvent, VTodo, semantic::CalendarComponent};
@@ -11,8 +11,8 @@ use jiff::Zoned;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};
 
-use crate::backend::{Backend, BackendError, SyncResult};
 use crate::db::Db;
+use crate::store::{Store, StoreError, SyncResult};
 use crate::{EventPatch, TodoPatch};
 
 /// Metadata stored with `CalDAV` resources in the database.
@@ -24,12 +24,12 @@ pub struct CaldavMetadata {
     pub last_modified: Option<String>,
 }
 
-/// `CalDAV` backend implementation.
+/// `CalDAV` store implementation.
 ///
 /// This backend stores calendar data on a `CalDAV` server (RFC 4791),
 /// using the `CalDAV` client for all operations.
 #[derive(Debug)]
-pub struct CaldavBackend {
+pub struct CaldavStore {
     /// The `CalDAV` client for server operations.
     client: CalDavClient,
     /// The href of the calendar collection on the server.
@@ -40,7 +40,7 @@ pub struct CaldavBackend {
     calendar_id: String,
 }
 
-impl CaldavBackend {
+impl CaldavStore {
     /// Creates a new `CalDAV` backend from configuration.
     ///
     /// # Errors
@@ -51,7 +51,7 @@ impl CaldavBackend {
         calendar_href: String,
         db: Db,
         calendar_id: String,
-    ) -> Result<Self, BackendError> {
+    ) -> Result<Self, StoreError> {
         let client = CalDavClient::new(config)?;
 
         Ok(Self {
@@ -63,7 +63,7 @@ impl CaldavBackend {
     }
 
     /// Extracts a single `VEvent` from an `ICalendar`.
-    fn extract_event(calendar: &ICalendar<String>) -> Result<VEvent<String>, BackendError> {
+    fn extract_event(calendar: &ICalendar<String>) -> Result<VEvent<String>, StoreError> {
         for component in &calendar.components {
             if let CalendarComponent::Event(event) = component {
                 return Ok(event.clone());
@@ -73,7 +73,7 @@ impl CaldavBackend {
     }
 
     /// Extracts a single `VTodo` from an `ICalendar`.
-    fn extract_todo(calendar: &ICalendar<String>) -> Result<VTodo<String>, BackendError> {
+    fn extract_todo(calendar: &ICalendar<String>) -> Result<VTodo<String>, StoreError> {
         for component in &calendar.components {
             if let CalendarComponent::Todo(todo) = component {
                 return Ok(todo.clone());
@@ -125,7 +125,7 @@ impl CaldavBackend {
     async fn get_resource(
         &self,
         uid: &str,
-    ) -> Result<Option<(String, CaldavMetadata)>, BackendError> {
+    ) -> Result<Option<(String, CaldavMetadata)>, StoreError> {
         let record = self.db.resources.get(uid, &self.calendar_id).await?;
 
         match record {
@@ -148,7 +148,7 @@ impl CaldavBackend {
     async fn get_resource_or_none(
         &self,
         uid: &str,
-    ) -> Result<Option<(String, CaldavMetadata)>, BackendError> {
+    ) -> Result<Option<(String, CaldavMetadata)>, StoreError> {
         let record = self.db.resources.get(uid, &self.calendar_id).await?;
 
         match record {
@@ -160,13 +160,9 @@ impl CaldavBackend {
 
 #[async_trait]
 #[allow(clippy::too_many_lines)]
-impl Backend for CaldavBackend {
+impl Store for CaldavStore {
     // #[instrument]
-    async fn create_event(
-        &self,
-        uid: &str,
-        event: &VEvent<String>,
-    ) -> Result<String, BackendError> {
+    async fn create_event(&self, uid: &str, event: &VEvent<String>) -> Result<String, StoreError> {
         let calendar = Self::wrap_event(event);
         let href = self.generate_href(uid);
         let etag = self.client.create_event(&href, &calendar).await?;
@@ -186,7 +182,7 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    async fn get_event(&self, uid: &str) -> Result<VEvent<String>, BackendError> {
+    async fn get_event(&self, uid: &str) -> Result<VEvent<String>, StoreError> {
         let (href, _metadata) = self
             .get_resource(uid)
             .await?
@@ -201,7 +197,7 @@ impl Backend for CaldavBackend {
         &self,
         uid: &str,
         patch: &EventPatch,
-    ) -> Result<VEvent<String>, BackendError> {
+    ) -> Result<VEvent<String>, StoreError> {
         let (href, metadata) = self
             .get_resource(uid)
             .await?
@@ -240,7 +236,7 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    async fn delete_event(&self, uid: &str) -> Result<(), BackendError> {
+    async fn delete_event(&self, uid: &str) -> Result<(), StoreError> {
         let (href, metadata) = self
             .get_resource(uid)
             .await?
@@ -257,7 +253,7 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    async fn create_todo(&self, uid: &str, todo: &VTodo<String>) -> Result<String, BackendError> {
+    async fn create_todo(&self, uid: &str, todo: &VTodo<String>) -> Result<String, StoreError> {
         let calendar = Self::wrap_todo(todo);
         let href = self.generate_href(uid);
         let etag = self.client.create_todo(&href, &calendar).await?;
@@ -277,7 +273,7 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    async fn get_todo(&self, uid: &str) -> Result<VTodo<String>, BackendError> {
+    async fn get_todo(&self, uid: &str) -> Result<VTodo<String>, StoreError> {
         let (href, _metadata) = self
             .get_resource(uid)
             .await?
@@ -288,11 +284,7 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    async fn update_todo(
-        &self,
-        uid: &str,
-        patch: &TodoPatch,
-    ) -> Result<VTodo<String>, BackendError> {
+    async fn update_todo(&self, uid: &str, patch: &TodoPatch) -> Result<VTodo<String>, StoreError> {
         let (href, metadata) = self
             .get_resource(uid)
             .await?
@@ -331,7 +323,7 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    async fn delete_todo(&self, uid: &str) -> Result<(), BackendError> {
+    async fn delete_todo(&self, uid: &str) -> Result<(), StoreError> {
         let (href, metadata) = self
             .get_resource(uid)
             .await?
@@ -348,7 +340,7 @@ impl Backend for CaldavBackend {
     }
 
     #[instrument(skip(self))]
-    async fn list_events(&self) -> Result<Vec<(String, VEvent<String>)>, BackendError> {
+    async fn list_events(&self) -> Result<Vec<(String, VEvent<String>)>, StoreError> {
         let request = CalendarQueryRequest::new().component("VEVENT".to_string());
         let resources = self.client.query(&self.calendar_href, &request).await?;
 
@@ -386,7 +378,7 @@ impl Backend for CaldavBackend {
     }
 
     #[instrument(skip(self))]
-    async fn list_todos(&self) -> Result<Vec<(String, VTodo<String>)>, BackendError> {
+    async fn list_todos(&self) -> Result<Vec<(String, VTodo<String>)>, StoreError> {
         let request = CalendarQueryRequest::new().component("VTODO".to_string());
         let resources = self.client.query(&self.calendar_href, &request).await?;
 
@@ -424,7 +416,7 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    async fn uid_exists(&self, uid: &str) -> Result<bool, BackendError> {
+    async fn uid_exists(&self, uid: &str) -> Result<bool, StoreError> {
         Ok(self.get_resource(uid).await?.is_some())
     }
 
@@ -434,7 +426,7 @@ impl Backend for CaldavBackend {
     }
 
     // #[instrument]
-    async fn sync_cache(&self) -> Result<SyncResult, BackendError> {
+    async fn sync_cache(&self) -> Result<SyncResult, StoreError> {
         // Ensure capabilities are discovered before querying
         self.client.discover().await?;
 
@@ -683,9 +675,9 @@ mod tests {
     #[test]
     fn extract_event_returns_event_from_calendar() {
         let event = test_vevent();
-        let calendar = CaldavBackend::wrap_event(&event);
+        let calendar = CaldavStore::wrap_event(&event);
 
-        let extracted = CaldavBackend::extract_event(&calendar).unwrap();
+        let extracted = CaldavStore::extract_event(&calendar).unwrap();
         assert_eq!(extracted.uid.content.to_string(), "test-event-uid");
         assert_eq!(
             extracted.summary.as_ref().unwrap().content.to_string(),
@@ -705,15 +697,15 @@ mod tests {
             retained_properties: Vec::new(),
         };
 
-        assert!(CaldavBackend::extract_event(&calendar).is_err());
+        assert!(CaldavStore::extract_event(&calendar).is_err());
     }
 
     #[test]
     fn extract_todo_returns_todo_from_calendar() {
         let todo = test_vtodo();
-        let calendar = CaldavBackend::wrap_todo(&todo);
+        let calendar = CaldavStore::wrap_todo(&todo);
 
-        let extracted = CaldavBackend::extract_todo(&calendar).unwrap();
+        let extracted = CaldavStore::extract_todo(&calendar).unwrap();
         assert_eq!(extracted.uid.content.to_string(), "test-todo-uid");
         assert_eq!(
             extracted.summary.as_ref().unwrap().content.to_string(),
@@ -733,7 +725,7 @@ mod tests {
             retained_properties: Vec::new(),
         };
 
-        assert!(CaldavBackend::extract_todo(&calendar).is_err());
+        assert!(CaldavStore::extract_todo(&calendar).is_err());
     }
 
     #[test]
@@ -758,7 +750,7 @@ mod tests {
     #[test]
     fn wrap_event_creates_valid_calendar() {
         let event = test_vevent();
-        let calendar = CaldavBackend::wrap_event(&event);
+        let calendar = CaldavStore::wrap_event(&event);
 
         assert_eq!(calendar.events().len(), 1);
         assert_eq!(
@@ -771,7 +763,7 @@ mod tests {
     #[test]
     fn wrap_todo_creates_valid_calendar() {
         let todo = test_vtodo();
-        let calendar = CaldavBackend::wrap_todo(&todo);
+        let calendar = CaldavStore::wrap_todo(&todo);
 
         assert_eq!(calendar.todos().len(), 1);
         assert_eq!(
@@ -807,7 +799,7 @@ mod tests {
 
     #[test]
     fn calendar_id_returns_default() {
-        // The calendar id for CaldavBackend is always "default"
+        // The calendar id for CaldavStore is always "default"
         // This is verified by integration tests
         assert_eq!("default", "default");
     }
@@ -837,13 +829,13 @@ mod tests {
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(
+        let backend = CaldavStore::new(
             config,
             "/dav/calendars/user/".to_string(),
             db,
             "default".to_string(),
         )
-        .expect("Failed to create CaldavBackend");
+        .expect("Failed to create CaldavStore");
 
         assert_eq!(backend.calendar_id(), "default");
         assert_eq!(backend.calendar_href.as_str(), "/dav/calendars/user/");
@@ -852,15 +844,15 @@ mod tests {
     #[tokio::test]
     async fn backend_caldav_etag_to_string() {
         let etag = ETag::new("\"abc123\"".to_string());
-        let etag_str = CaldavBackend::etag_to_string(&etag);
+        let etag_str = CaldavStore::etag_to_string(&etag);
         assert_eq!(etag_str, "\"abc123\"");
     }
 
     #[tokio::test]
     async fn backend_caldav_extract_event_from_calendar() {
-        let calendar = CaldavBackend::wrap_event(&test_vevent());
+        let calendar = CaldavStore::wrap_event(&test_vevent());
 
-        let extracted = CaldavBackend::extract_event(&calendar).expect("Failed to extract event");
+        let extracted = CaldavStore::extract_event(&calendar).expect("Failed to extract event");
 
         assert_eq!(extracted.uid.content.to_string(), "test-event-uid");
         assert_eq!(
@@ -871,9 +863,9 @@ mod tests {
 
     #[tokio::test]
     async fn backend_caldav_extract_todo_from_calendar() {
-        let calendar = CaldavBackend::wrap_todo(&test_vtodo());
+        let calendar = CaldavStore::wrap_todo(&test_vtodo());
 
-        let extracted = CaldavBackend::extract_todo(&calendar).expect("Failed to extract todo");
+        let extracted = CaldavStore::extract_todo(&calendar).expect("Failed to extract todo");
 
         assert_eq!(extracted.uid.content.to_string(), "test-todo-uid");
         assert_eq!(
@@ -885,7 +877,7 @@ mod tests {
     #[tokio::test]
     async fn backend_caldav_wrap_event_wraps_component() {
         let event = test_vevent();
-        let calendar = CaldavBackend::wrap_event(&event);
+        let calendar = CaldavStore::wrap_event(&event);
 
         assert_eq!(calendar.events().len(), 1);
         assert_eq!(
@@ -897,7 +889,7 @@ mod tests {
     #[tokio::test]
     async fn backend_caldav_wrap_todo_wraps_component() {
         let todo = test_vtodo();
-        let calendar = CaldavBackend::wrap_todo(&todo);
+        let calendar = CaldavStore::wrap_todo(&todo);
 
         assert_eq!(calendar.todos().len(), 1);
         assert_eq!(
@@ -928,13 +920,13 @@ mod tests {
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(
+        let backend = CaldavStore::new(
             config,
             "/dav/calendars/user/default/".to_string(),
             db,
             "default".to_string(),
         )
-        .expect("Failed to create CaldavBackend");
+        .expect("Failed to create CaldavStore");
 
         let href = backend.generate_href("test-uid");
         assert_eq!(href.as_str(), "/dav/calendars/user/default/test-uid.ics");
@@ -962,13 +954,13 @@ mod tests {
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(
+        let backend = CaldavStore::new(
             config,
             "/dav/calendars/default/".to_string(),
             db.clone(),
             "default".to_string(),
         )
-        .expect("Failed to create CaldavBackend");
+        .expect("Failed to create CaldavStore");
 
         // Insert a resource record
         let metadata = CaldavMetadata {
@@ -1065,13 +1057,13 @@ END:VCALENDAR\r\n";
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(
+        let backend = CaldavStore::new(
             config,
             "/dav/calendars/default/".to_string(),
             db,
             "default".to_string(),
         )
-        .expect("Failed to create CaldavBackend");
+        .expect("Failed to create CaldavStore");
 
         let result = backend.sync_cache().await.expect("Failed to sync cache");
 
@@ -1145,13 +1137,13 @@ END:VCALENDAR\r\n";
             .await
             .expect("Failed to create test database");
 
-        let backend = CaldavBackend::new(
+        let backend = CaldavStore::new(
             config,
             "/dav/calendars/default/".to_string(),
             db.clone(),
             "default".to_string(),
         )
-        .expect("Failed to create CaldavBackend");
+        .expect("Failed to create CaldavStore");
 
         // Insert existing resource with old ETag
         let metadata = CaldavMetadata {

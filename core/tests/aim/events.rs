@@ -20,7 +20,7 @@ async fn aim_new_event_creates_file_and_database_entry() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -57,7 +57,7 @@ async fn aim_get_event_resolves_short_id() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -90,7 +90,7 @@ async fn aim_update_event_modifies_file_and_database() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -132,7 +132,7 @@ async fn aim_list_events_returns_all_events() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -182,7 +182,7 @@ async fn aim_list_events_with_pagination() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -256,7 +256,7 @@ async fn aim_count_events_returns_correct_count() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -303,7 +303,7 @@ async fn aim_new_event_assigns_sequential_short_ids() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -336,7 +336,7 @@ async fn aim_update_event_clears_optional_fields() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -378,7 +378,7 @@ async fn aim_get_event_returns_error_for_nonexistent() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -401,7 +401,7 @@ async fn aim_update_event_returns_error_for_nonexistent() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -430,7 +430,7 @@ async fn aim_event_status_updates_correctly() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -471,7 +471,7 @@ async fn aim_event_with_custom_datetimes() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -504,7 +504,7 @@ async fn aim_flush_short_ids_removes_mappings() {
     let temp_dirs = setup_temp_dirs().await.unwrap();
 
     let config = Config {
-        backends: HashMap::new(),
+        stores: HashMap::new(),
         calendar_path: Some(temp_dirs.calendar_path.clone()),
         state_dir: Some(temp_dirs.state_dir.clone()),
         default_due: None,
@@ -552,4 +552,147 @@ async fn aim_update_db_only_event_without_calendar_path_succeeds() {
         default_priority_none_fist: false,
         config_dir: None,
         dev_mode: false,
-        backends: HashMap::new(),
+        stores: HashMap::new(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
+    };
+    let aim = Aim::new(config).await.unwrap();
+
+    // Create event (DB-only, no ICS file)
+    let draft = test_event_draft("DB-only Event");
+    let event = aim.new_event(draft).await.unwrap();
+    let uid = event.uid().as_ref().to_string();
+
+    // Verify no ICS file was created
+    let expected_path = temp_dirs.calendar_path.join(format!("{uid}.ics"));
+    assert!(
+        !expected_path.exists(),
+        "No .ics file should be created for DB-only event"
+    );
+
+    // Update the event - should succeed without ICS file
+    let patch = EventPatch {
+        summary: Some("Updated DB-only Event".to_string()),
+        status: Some(EventStatus::Cancelled),
+        ..Default::default()
+    };
+    let updated = aim
+        .update_event(&Id::Uid(uid.clone()), patch)
+        .await
+        .unwrap();
+
+    assert_eq!(updated.summary().as_ref(), "Updated DB-only Event");
+    assert_eq!(updated.status(), Some(EventStatus::Cancelled));
+
+    // Verify update persisted to database
+    let retrieved = aim.get_event(&Id::Uid(uid)).await.unwrap();
+    assert_eq!(retrieved.summary().as_ref(), "Updated DB-only Event");
+    assert_eq!(retrieved.status(), Some(EventStatus::Cancelled));
+}
+
+#[tokio::test]
+async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
+    let temp_dirs = setup_temp_dirs().await.unwrap();
+
+    // First, create a DB-only event without calendar_path
+    let config_no_calendar = Config {
+        calendar_path: None,
+        state_dir: Some(temp_dirs.state_dir.clone()),
+        default_due: None,
+        default_priority: Priority::None,
+        default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
+        stores: HashMap::new(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
+    };
+    let aim_no_calendar = Aim::new(config_no_calendar).await.unwrap();
+
+    let draft = test_event_draft("Event to Migrate");
+    let event = aim_no_calendar.new_event(draft).await.unwrap();
+    let uid = event.uid().as_ref().to_string();
+
+    // Close the first instance
+    aim_no_calendar.close().await.unwrap();
+
+    // Now open with calendar_path configured
+    let config_with_calendar = Config {
+        calendar_path: Some(temp_dirs.calendar_path.clone()),
+        state_dir: Some(temp_dirs.state_dir.clone()),
+        default_due: None,
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
+        default_priority: Priority::None,
+        default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
+        stores: HashMap::new(),
+    };
+    let aim = Aim::new(config_with_calendar).await.unwrap();
+
+    // Update the event - should create ICS file
+    let patch = EventPatch {
+        summary: Some("Migrated Event".to_string()),
+        ..Default::default()
+    };
+    let updated = aim
+        .update_event(&Id::Uid(uid.clone()), patch)
+        .await
+        .unwrap();
+
+    assert_eq!(updated.summary().as_ref(), "Migrated Event");
+
+    // Verify ICS file was created
+    let expected_path = temp_dirs.calendar_path.join(format!("{uid}.ics"));
+    assert!(
+        expected_path.exists(),
+        "ICS file should be created when updating DB-only event with calendar_path"
+    );
+
+    // Verify resource record was created
+    let retrieved = aim.get_event(&Id::Uid(uid)).await.unwrap();
+    assert_eq!(retrieved.summary().as_ref(), "Migrated Event");
+}
+
+#[tokio::test]
+async fn aim_update_db_only_event_status_updates_correctly() {
+    let temp_dirs = setup_temp_dirs().await.unwrap();
+
+    // Config WITHOUT calendar_path - creates DB-only events
+    let config = Config {
+        calendar_path: None,
+        state_dir: Some(temp_dirs.state_dir.clone()),
+        default_due: None,
+        default_priority: Priority::None,
+        default_priority_none_fist: false,
+        config_dir: None,
+        dev_mode: false,
+        stores: HashMap::new(),
+        calendars: Vec::new(),
+        default_calendar: "default".to_string(),
+    };
+    let aim = Aim::new(config).await.unwrap();
+
+    // Create DB-only event
+    let draft = test_event_draft("DB-only Status Event");
+    let event = aim.new_event(draft).await.unwrap();
+    let uid = event.uid().as_ref().to_string();
+
+    // Update status for DB-only event
+    for status in [
+        EventStatus::Tentative,
+        EventStatus::Confirmed,
+        EventStatus::Cancelled,
+    ] {
+        let patch = EventPatch {
+            status: Some(status),
+            ..Default::default()
+        };
+        let updated = aim
+            .update_event(&Id::Uid(uid.clone()), patch)
+            .await
+            .unwrap();
+        assert_eq!(updated.status(), Some(status));
+    }
+}

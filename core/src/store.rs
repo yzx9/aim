@@ -5,8 +5,8 @@
 pub mod caldav;
 pub mod local;
 
-pub use caldav::CaldavBackend;
-pub use local::LocalBackend;
+pub use caldav::CaldavStore;
+pub use local::LocalStore;
 
 use std::error::Error;
 
@@ -15,8 +15,8 @@ use async_trait::async_trait;
 
 use crate::{EventPatch, TodoPatch};
 
-/// Error type for backend operations that is Send + Sync.
-pub type BackendError = Box<dyn Error + Send + Sync>;
+/// Error type for store operations that is Send + Sync.
+pub type StoreError = Box<dyn Error + Send + Sync>;
 
 /// Result of a backend synchronization operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,13 +29,13 @@ pub struct SyncResult {
     pub deleted: usize,
 }
 
-/// Backend trait for storing and synchronizing events and todos.
+/// Store trait for storing and synchronizing events and todos.
 ///
 /// This trait abstracts different storage backends (local ICS files, `CalDAV` servers, etc.)
 /// providing a unified interface for CRUD operations on calendar items.
 #[async_trait]
-pub trait Backend: Send + Sync {
-    /// Creates a new event in the backend.
+pub trait Store: Send + Sync {
+    /// Creates a new event in the store.
     ///
     /// # Arguments
     ///
@@ -44,11 +44,10 @@ pub trait Backend: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns an error if the event cannot be created in the backend.
-    async fn create_event(&self, uid: &str, event: &VEvent<String>)
-    -> Result<String, BackendError>;
+    /// Returns an error if the event cannot be created in the store.
+    async fn create_event(&self, uid: &str, event: &VEvent<String>) -> Result<String, StoreError>;
 
-    /// Retrieves an event from the backend by UID.
+    /// Retrieves an event from the store by UID.
     ///
     /// # Arguments
     ///
@@ -57,9 +56,9 @@ pub trait Backend: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the event is not found or cannot be retrieved.
-    async fn get_event(&self, uid: &str) -> Result<VEvent<String>, BackendError>;
+    async fn get_event(&self, uid: &str) -> Result<VEvent<String>, StoreError>;
 
-    /// Updates an existing event in the backend.
+    /// Updates an existing event in the store.
     ///
     /// # Arguments
     ///
@@ -73,9 +72,9 @@ pub trait Backend: Send + Sync {
         &self,
         uid: &str,
         patch: &EventPatch,
-    ) -> Result<VEvent<String>, BackendError>;
+    ) -> Result<VEvent<String>, StoreError>;
 
-    /// Deletes an event from the backend.
+    /// Deletes an event from the store.
     ///
     /// # Arguments
     ///
@@ -84,9 +83,9 @@ pub trait Backend: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the event is not found or cannot be deleted.
-    async fn delete_event(&self, uid: &str) -> Result<(), BackendError>;
+    async fn delete_event(&self, uid: &str) -> Result<(), StoreError>;
 
-    /// Creates a new todo in the backend.
+    /// Creates a new todo in the store.
     ///
     /// # Arguments
     ///
@@ -95,10 +94,10 @@ pub trait Backend: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns an error if the todo cannot be created in the backend.
-    async fn create_todo(&self, uid: &str, todo: &VTodo<String>) -> Result<String, BackendError>;
+    /// Returns an error if the todo cannot be created in the store.
+    async fn create_todo(&self, uid: &str, todo: &VTodo<String>) -> Result<String, StoreError>;
 
-    /// Retrieves a todo from the backend by UID.
+    /// Retrieves a todo from the store by UID.
     ///
     /// # Arguments
     ///
@@ -107,9 +106,9 @@ pub trait Backend: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the todo is not found or cannot be retrieved.
-    async fn get_todo(&self, uid: &str) -> Result<VTodo<String>, BackendError>;
+    async fn get_todo(&self, uid: &str) -> Result<VTodo<String>, StoreError>;
 
-    /// Updates an existing todo in the backend.
+    /// Updates an existing todo in the store.
     ///
     /// # Arguments
     ///
@@ -119,13 +118,9 @@ pub trait Backend: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the todo is not found or cannot be updated.
-    async fn update_todo(
-        &self,
-        uid: &str,
-        patch: &TodoPatch,
-    ) -> Result<VTodo<String>, BackendError>;
+    async fn update_todo(&self, uid: &str, patch: &TodoPatch) -> Result<VTodo<String>, StoreError>;
 
-    /// Deletes a todo from the backend.
+    /// Deletes a todo from the store.
     ///
     /// # Arguments
     ///
@@ -134,23 +129,23 @@ pub trait Backend: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the todo is not found or cannot be deleted.
-    async fn delete_todo(&self, uid: &str) -> Result<(), BackendError>;
+    async fn delete_todo(&self, uid: &str) -> Result<(), StoreError>;
 
-    /// Lists all events in the backend.
+    /// Lists all events in the store.
     ///
     /// # Errors
     ///
     /// Returns an error if the events cannot be listed.
-    async fn list_events(&self) -> Result<Vec<(String, VEvent<String>)>, BackendError>;
+    async fn list_events(&self) -> Result<Vec<(String, VEvent<String>)>, StoreError>;
 
-    /// Lists all todos in the backend.
+    /// Lists all todos in the store.
     ///
     /// # Errors
     ///
     /// Returns an error if the todos cannot be listed.
-    async fn list_todos(&self) -> Result<Vec<(String, VTodo<String>)>, BackendError>;
+    async fn list_todos(&self) -> Result<Vec<(String, VTodo<String>)>, StoreError>;
 
-    /// Checks if a UID exists in the backend.
+    /// Checks if a UID exists in the store.
     ///
     /// # Arguments
     ///
@@ -163,16 +158,16 @@ pub trait Backend: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the check cannot be performed.
-    async fn uid_exists(&self, uid: &str) -> Result<bool, BackendError>;
+    async fn uid_exists(&self, uid: &str) -> Result<bool, StoreError>;
 
-    /// Returns the calendar identifier for this backend.
+    /// Returns the calendar identifier for this store.
     ///
-    /// This identifies which calendar in the database items from this backend belong to.
+    /// This identifies which calendar in the database items from this store belong to.
     fn calendar_id(&self) -> &str;
 
-    /// Synchronizes the backend with the local cache (database).
+    /// Synchronizes the store with the local cache (database).
     ///
-    /// This operation scans the backend for changes and updates the local
+    /// This operation scans the store for changes and updates the local
     /// database accordingly.
     ///
     /// # Returns
@@ -182,5 +177,5 @@ pub trait Backend: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if synchronization fails.
-    async fn sync_cache(&self) -> Result<SyncResult, BackendError>;
+    async fn sync_cache(&self) -> Result<SyncResult, StoreError>;
 }
