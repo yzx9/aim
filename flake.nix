@@ -133,6 +133,8 @@
               # misc
               just
               sqlx-cli
+              prettier
+              nixfmt
             ]
             ++ lib.optionals stdenv.hostPlatform.isLinux [
               pkg-config

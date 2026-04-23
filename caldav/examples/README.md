@@ -90,18 +90,21 @@ Configuration can be provided via four methods (in priority order):
 The CLI automatically loads environment files from your working directory:
 
 **`.env`** - Base configuration (example, can be committed):
+
 ```bash
 AIM_CALDAV_SERVER=https://caldav.example.com
 AIM_CALDAV_USERNAME=default_user
 ```
 
 **`.env.local`** - Local overrides (never commit, contains secrets):
+
 ```bash
 AIM_CALDAV_USERNAME=your_actual_username
 AIM_CALDAV_PASSWORD=your_actual_password
 ```
 
 **Recommended setup** (from workspace root):
+
 ```bash
 cd /Users/yzx9/git/aim
 
