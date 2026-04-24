@@ -145,6 +145,12 @@ LIMIT 1;
         Ok(row.0)
     }
 
+    pub async fn delete(&self, uid: &str) -> Result<(), sqlx::Error> {
+        const SQL: &str = "DELETE FROM todos WHERE uid = ?;";
+        sqlx::query(SQL).bind(uid).execute(&self.pool).await?;
+        Ok(())
+    }
+
     fn build_where(conds: &ResolvedTodoConditions) -> String {
         let mut where_clauses = vec!["c.enabled = 1"];
         if conds.status.is_some() {

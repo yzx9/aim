@@ -117,6 +117,12 @@ LIMIT 1;
         Ok(row.0)
     }
 
+    pub async fn delete(&self, uid: &str) -> Result<(), sqlx::Error> {
+        const SQL: &str = "DELETE FROM events WHERE uid = ?;";
+        sqlx::query(SQL).bind(uid).execute(&self.pool).await?;
+        Ok(())
+    }
+
     fn build_where(conds: &ResolvedEventConditions) -> String {
         let mut where_clauses = vec!["calendars.enabled = 1"];
         if conds.start_before.is_some() {

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -153,11 +154,45 @@ impl LocalStore {
         format!("file://{}", self.file_path(uid).display())
     }
 
+    /// Removes stale database entries whose files no longer exist on disk.
+    async fn remove_stale_entries(
+        &self,
+        db: &Db,
+        disk_uids: &HashSet<String>,
+    ) -> Result<usize, StoreError> {
+        let db_uids = db
+            .resources
+            .list_uids_by_calendar(&self.calendar_id)
+            .await
+            .map_err(|e| StoreError::from(format!("Failed to list resources: {e}")))?;
+
+        let mut deleted = 0;
+        for uid in &db_uids {
+            if !disk_uids.contains(uid) {
+                if let Err(e) = db.events.delete(uid).await {
+                    tracing::warn!(uid = %uid, err = %e, "failed to delete stale event");
+                }
+                if let Err(e) = db.todos.delete(uid).await {
+                    tracing::warn!(uid = %uid, err = %e, "failed to delete stale todo");
+                }
+                if let Err(e) = db.resources.delete(uid, &self.calendar_id).await {
+                    tracing::warn!(uid = %uid, err = %e, "failed to delete stale resource");
+                }
+                deleted += 1;
+            }
+        }
+
+        Ok(deleted)
+    }
+
     /// Scans the calendar directory for .ics files and syncs with the database.
     ///
     /// This is the implementation of `sync_cache` for the local store.
     async fn sync_from_directory(&self, db: &Db) -> Result<SyncResult, StoreError> {
         let mut created = 0;
+
+        // Track UIDs found on disk
+        let mut disk_uids: HashSet<String> = HashSet::new();
 
         // Read directory and process each .ics file
         let mut entries = match fs::read_dir(&self.calendar_path).await {
@@ -208,6 +243,7 @@ impl LocalStore {
                                     tracing::error!(path = %path.display(), uid = %uid, err = %e, "failed to insert resource");
                                     continue;
                                 }
+                                disk_uids.insert(uid);
                                 created += 1;
                             }
                             CalendarComponent::Todo(todo) => {
@@ -226,6 +262,7 @@ impl LocalStore {
                                     tracing::error!(path = %path.display(), uid = %uid, err = %e, "failed to insert resource");
                                     continue;
                                 }
+                                disk_uids.insert(uid);
                                 created += 1;
                             }
                             _ => {
@@ -241,10 +278,18 @@ impl LocalStore {
             }
         }
 
+        // Remove stale DB entries whose files no longer exist on disk.
+        // TODO: should we use db or store as golden source here? If we use db as golden source, we
+        // might end up deleting files that were just created on disk but haven't been synced yet.
+        // If we use disk as golden source, we might end up keeping stale entries in the db if files
+        // were deleted outside of Aim. For now, we'll use disk as golden source since it's more
+        // likely to reflect the user's intent.
+        let deleted = self.remove_stale_entries(db, &disk_uids).await?;
+
         Ok(SyncResult {
             created,
             updated: 0,
-            deleted: 0, // Local backend doesn't track deletions
+            deleted,
         })
     }
 }
