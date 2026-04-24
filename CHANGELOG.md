@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cli: `aim calendar list` command to display configured calendars
 - cli: `--calendar` filter on `event new|list` and `todo new|list` commands with full names,
   abbreviations (mon, tue, etc.), and extensible integer offset type
+- cli: Duplicate detection in `event new` and `todo new` — prompts to update the existing
+  item or create a new one when an item with the same summary is found
 - core: Multi-calendar support
   - Added `[[calendars]]` configuration array supporting local and CalDAV stores, calendar
     priority ordering, enable/disable toggle, and aggregated queries
@@ -20,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `StoreKind` enum added to public API operations (read, create, update, delete, sync)
   - `calendars` database table and migration with `calendar_id` on events, todos, and resources
 - core: Weekday expressions support in `DateTimeAnchor` (e.g., "monday", "next friday", "last tuesday")
+  with full names, abbreviations (mon, tue, etc.), and extensible integer offset type
+- core: `find_latest_event_by_summary()` and `find_latest_todo_by_summary()` lookup methods
+- core: `From<EventDraft> for EventPatch` and `From<TodoDraft> for TodoPatch` conversions
 - ical: RRule expansion support with `RRuleExt` and `VEventExt` traits for expanding recurrence
   rules according to RFC 5545, including support for DAILY, WEEKLY, MONTHLY, YEARLY frequencies
   with INTERVAL, COUNT, UNTIL, BYMONTH, BYWEEKNO, BYYEARDAY, BYMONTHDAY, BYDAY, BYSETPOS, and WKST

@@ -115,6 +115,24 @@ JOIN calendars AS c ON c.id = t.calendar_id
             .await
     }
 
+    pub async fn find_latest_by_summary(
+        &self,
+        summary: &str,
+    ) -> Result<Option<TodoRecord>, sqlx::Error> {
+        const SQL: &str = "\
+SELECT t.uid, t.completed, t.description, t.percent, t.priority, t.status, t.summary, t.due, t.backend_kind
+FROM todos t
+JOIN short_ids si ON t.uid = si.uid
+WHERE si.kind = 'todo' AND t.summary = ?
+ORDER BY si.short_id DESC
+LIMIT 1;
+";
+        sqlx::query_as(SQL)
+            .bind(summary)
+            .fetch_optional(&self.pool)
+            .await
+    }
+
     pub async fn count(&self, conds: &ResolvedTodoConditions) -> Result<i64, sqlx::Error> {
         let mut sql = "SELECT COUNT(*) FROM todos AS t JOIN calendars AS c ON c.id = t.calendar_id"
             .to_string();

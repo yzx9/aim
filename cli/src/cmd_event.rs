@@ -14,7 +14,7 @@ use colored::Colorize;
 use crate::arg::CalendarArgs;
 use crate::arg::{CommonArgs, EventArgs, EventOrTodoArgs};
 use crate::event_formatter::{EventColumn, EventFormatter};
-use crate::prompt::prompt_time;
+use crate::prompt::{DuplicateChoice, is_terminal, prompt_duplicate_choice, prompt_time};
 use crate::tui;
 use crate::util::{OutputFormat, parse_datetime, parse_datetime_range};
 
@@ -120,6 +120,28 @@ impl CmdEventNew {
         output_format: OutputFormat,
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
+        // Duplicate detection: check for existing events with same summary
+        if !draft.summary.is_empty() && is_terminal() {
+            let uid = match aim.find_latest_event_by_summary(&draft.summary).await? {
+                Some(existing) => {
+                    let existing_id = existing
+                        .short_id()
+                        .map_or_else(|| existing.uid().into_owned(), |id| id.get().to_string());
+                    let choice = prompt_duplicate_choice("Event", &existing_id, &draft.summary)?;
+                    match choice {
+                        DuplicateChoice::UpdateExisting => Some(existing.uid().into_owned()),
+                        DuplicateChoice::CreateNew => None,
+                    }
+                }
+                None => None,
+            };
+            if let Some(uid) = uid {
+                let event = aim.update_event(&Id::Uid(uid), draft.into()).await?;
+                print_events(aim, &[event], output_format, verbose);
+                return Ok(());
+            }
+        }
+
         let event = aim.new_event(draft).await?;
         print_events(aim, &[event], output_format, verbose);
         Ok(())

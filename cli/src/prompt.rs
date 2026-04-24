@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use std::io::IsTerminal;
 use std::str::FromStr;
 
 use aimcal_core::DateTimeAnchor;
@@ -92,6 +93,50 @@ pub fn prompt_dev_mode_choice() -> Result<DevModeChoice, Box<dyn std::error::Err
         DevModeChoice::Exit => outro("Canceled")?,
         DevModeChoice::Normal => outro("Using normal environment")?,
         DevModeChoice::Dev => outro("Using DEV mode")?,
+    }
+
+    Ok(choice)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DuplicateChoice {
+    UpdateExisting,
+    CreateNew,
+}
+
+/// Check if stdout is a terminal (interactive mode).
+pub fn is_terminal() -> bool {
+    std::io::stdout().is_terminal()
+}
+
+pub fn prompt_duplicate_choice(
+    item_kind: &str,
+    existing_id: &str,
+    summary: &str,
+) -> Result<DuplicateChoice, Box<dyn std::error::Error>> {
+    intro("Similar item found")?;
+    note(
+        "An item with the same summary already exists:",
+        format!("{item_kind} #{existing_id}: {summary}"),
+    )?;
+
+    let choice = select("What would you like to do?")
+        .item(
+            DuplicateChoice::UpdateExisting,
+            "Update existing",
+            "Apply the new fields to the existing item",
+        )
+        .item(
+            DuplicateChoice::CreateNew,
+            "Create new",
+            "Create a separate item anyway",
+        )
+        .initial_value(DuplicateChoice::UpdateExisting)
+        .interact()?;
+
+    match choice {
+        DuplicateChoice::UpdateExisting => outro("Updating existing item")?,
+        DuplicateChoice::CreateNew => outro("Creating new item")?,
     }
 
     Ok(choice)

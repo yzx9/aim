@@ -252,6 +252,18 @@ impl EventPatch {
     }
 }
 
+impl From<EventDraft> for EventPatch {
+    fn from(draft: EventDraft) -> EventPatch {
+        EventPatch {
+            description: draft.description.map(Some),
+            start: draft.start.map(Some),
+            end: draft.end.map(Some),
+            status: Some(draft.status),
+            summary: Some(draft.summary),
+        }
+    }
+}
+
 /// Patch for an event, allowing partial updates.
 #[derive(Debug, Default, Clone)]
 #[expect(clippy::option_option)]
