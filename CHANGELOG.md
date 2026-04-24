@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- cli: Restore terminal cursor on Ctrl+C exit during prompts
 - cli: Fade overdue todo due dates from deep red to light red across 24h, 48h, 72h, and 72h+
   thresholds
 - cli: Fix `delay` command showing old date after update (#98)

@@ -31,6 +31,11 @@ use crate::config::parse_config;
 pub async fn run() -> Result<(), Box<dyn Error>> {
     init_tracing()?;
 
+    // Prevent Ctrl+C from killing the process during interactive prompts (cliclack).
+    // Without this handler, the `console` crate's internal `raise(SIGINT)` terminates
+    // the process before cliclack can restore the cursor. See fadeevab/cliclack#84.
+    ctrlc::set_handler(move || {})?;
+
     let err = match Cli::parse() {
         Ok(cli) => match cli.run().await {
             Ok(()) => return Ok(()),
