@@ -70,6 +70,20 @@ WHERE uid = ? AND calendar_id = ?;
 
         Ok(())
     }
+
+    pub async fn list_uids_by_calendar(
+        &self,
+        calendar_id: &str,
+    ) -> Result<Vec<String>, sqlx::Error> {
+        const SQL: &str = "SELECT uid FROM resources WHERE calendar_id = ?;";
+
+        let rows: Vec<(String,)> = sqlx::query_as(SQL)
+            .bind(calendar_id)
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(rows.into_iter().map(|r| r.0).collect())
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]

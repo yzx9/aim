@@ -63,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - cli: Fix `delay` command showing old date after update (#98)
 - core: Delay year parsing in `DateTimeAnchor` for month-day format to make parsing pure and
   deterministic with proper month-day validation
+- core: Local store sync now removes stale DB entries (events, todos, resources) whose
+  files no longer exist on disk
 - ical: TZID validation now correctly supports VTIMEZONE components per RFC 5545 Section 3.2.19 (#97)
 
 ## [0.11.0] - 2026-01-18
