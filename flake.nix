@@ -110,10 +110,13 @@
 
             # Enforce explicit config specification in development
             AIM_DEV = "1";
-            AIM_CONFIG = toString ./. + "/cli/config.dev.toml";
 
             LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           };
+
+          shellHook = ''
+            export AIM_CONFIG="$PWD/cli/config.dev.toml"
+          '';
 
           packages =
             with pkgs;
