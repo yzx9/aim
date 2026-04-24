@@ -417,6 +417,21 @@ impl Aim {
         }
     }
 
+    /// Find the latest event matching the given summary.
+    ///
+    /// # Errors
+    /// If database access fails.
+    pub async fn find_latest_event_by_summary(
+        &self,
+        summary: &str,
+    ) -> Result<Option<impl Event + 'static>, Box<dyn Error>> {
+        let Some(event) = self.db.events.find_latest_by_summary(summary).await? else {
+            return Ok(None);
+        };
+        let event = self.short_ids.event(event).await?;
+        Ok(Some(event))
+    }
+
     /// Add a new event from the given draft.
     ///
     /// # Errors
@@ -541,6 +556,21 @@ impl Aim {
     /// If date/time resolution fails.
     pub fn default_todo_draft(&self) -> Result<TodoDraft, String> {
         TodoDraft::default(&self.config, &self.now)
+    }
+
+    /// Find the latest todo matching the given summary.
+    ///
+    /// # Errors
+    /// If database access fails.
+    pub async fn find_latest_todo_by_summary(
+        &self,
+        summary: &str,
+    ) -> Result<Option<impl Todo + 'static>, Box<dyn Error>> {
+        let Some(todo) = self.db.todos.find_latest_by_summary(summary).await? else {
+            return Ok(None);
+        };
+        let todo = self.short_ids.todo(todo).await?;
+        Ok(Some(todo))
     }
 
     /// Add a new todo from the given draft.

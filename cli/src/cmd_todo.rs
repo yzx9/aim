@@ -12,7 +12,9 @@ use clap::{ArgMatches, Command};
 use colored::Colorize;
 
 use crate::arg::{CalendarArgs, CommonArgs, EventOrTodoArgs, TodoArgs};
-use crate::prompt::{prompt_time, prompt_time_opt};
+use crate::prompt::{
+    DuplicateChoice, is_terminal, prompt_duplicate_choice, prompt_time, prompt_time_opt,
+};
 use crate::todo_formatter::{TodoColumn, TodoFormatter};
 use crate::tui;
 use crate::util::{OutputFormat, parse_datetime};
@@ -122,6 +124,28 @@ impl CmdTodoNew {
         output_format: OutputFormat,
         verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
+        // Duplicate detection: check for existing todos with same summary
+        if !draft.summary.is_empty() && is_terminal() {
+            let uid = match aim.find_latest_todo_by_summary(&draft.summary).await? {
+                Some(existing) => {
+                    let existing_id = existing
+                        .short_id()
+                        .map_or_else(|| existing.uid().into_owned(), |id| id.get().to_string());
+                    let choice = prompt_duplicate_choice("Todo", &existing_id, &draft.summary)?;
+                    match choice {
+                        DuplicateChoice::UpdateExisting => Some(existing.uid().into_owned()),
+                        DuplicateChoice::CreateNew => None,
+                    }
+                }
+                None => None,
+            };
+            if let Some(uid) = uid {
+                let todo = aim.update_todo(&Id::Uid(uid), draft.into()).await?;
+                print_todos(aim, &[todo], output_format, verbose);
+                return Ok(());
+            }
+        }
+
         let todo = aim.new_todo(draft).await?;
         print_todos(aim, &[todo], output_format, verbose);
         Ok(())

@@ -255,6 +255,19 @@ impl TodoPatch {
     }
 }
 
+impl From<TodoDraft> for TodoPatch {
+    fn from(draft: TodoDraft) -> TodoPatch {
+        TodoPatch {
+            description: draft.description.map(Some),
+            due: draft.due.map(Some),
+            percent_complete: draft.percent_complete.map(Some),
+            priority: draft.priority,
+            status: Some(draft.status),
+            summary: Some(draft.summary),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 #[expect(clippy::option_option)]
 pub struct ResolvedTodoPatch<'a> {

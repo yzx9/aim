@@ -85,6 +85,24 @@ JOIN calendars ON calendars.id = events.calendar_id
             .await
     }
 
+    pub async fn find_latest_by_summary(
+        &self,
+        summary: &str,
+    ) -> Result<Option<EventRecord>, sqlx::Error> {
+        const SQL: &str = "\
+SELECT e.uid, e.summary, e.description, e.status, e.start, e.end, e.backend_kind
+FROM events e
+JOIN short_ids si ON e.uid = si.uid
+WHERE si.kind = 'event' AND e.summary = ?
+ORDER BY si.short_id DESC
+LIMIT 1;
+";
+        sqlx::query_as(SQL)
+            .bind(summary)
+            .fetch_optional(&self.pool)
+            .await
+    }
+
     pub async fn count(&self, conds: &ResolvedEventConditions) -> Result<i64, sqlx::Error> {
         let mut sql =
             "SELECT COUNT(*) FROM events JOIN calendars ON calendars.id = events.calendar_id"
