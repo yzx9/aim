@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "aimcal"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "aimcal-cli",
  "tokio",
@@ -21,7 +21,7 @@ dependencies = [
 
 [[package]]
 name = "aimcal-caldav"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "aimcal-ical",
  "clap",
@@ -41,7 +41,7 @@ dependencies = [
 
 [[package]]
 name = "aimcal-cli"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "aimcal-core",
  "clap",
@@ -70,7 +70,7 @@ dependencies = [
 
 [[package]]
 name = "aimcal-core"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "aimcal-caldav",
  "aimcal-ical",
@@ -95,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "aimcal-ical"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "ariadne",
  "chumsky",
