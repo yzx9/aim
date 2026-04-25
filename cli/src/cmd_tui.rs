@@ -35,7 +35,6 @@ pub struct CmdNew {
 
     // options
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdNew {
@@ -60,7 +59,6 @@ impl CmdNew {
             // options
             .arg(args.kind())
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -78,7 +76,6 @@ impl CmdNew {
             priority: TodoArgs::get_priority(matches),
 
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -101,8 +98,7 @@ impl CmdNew {
                 if !CmdEventNew::need_tui(&self.summary, &self.start) {
                     tracing::info!("creating new event");
                     let draft = self.draft_event(aim)?;
-                    return CmdEventNew::new_event(aim, draft, self.output_format, self.verbose)
-                        .await;
+                    return CmdEventNew::new_event(aim, draft, self.output_format).await;
                 }
             }
             Some(Kind::Todo) => {
@@ -116,8 +112,7 @@ impl CmdNew {
                 if !CmdTodoNew::need_tui(&self.summary) {
                     tracing::info!("creating new todo");
                     let draft = self.draft_todo(aim)?;
-                    return CmdTodoNew::new_todo(aim, draft, self.output_format, self.verbose)
-                        .await;
+                    return CmdTodoNew::new_todo(aim, draft, self.output_format).await;
                 }
             }
             None => { /* do nothing */ }
@@ -188,11 +183,11 @@ impl CmdNew {
         match draft {
             Some(EventOrTodoDraft::Event(draft)) => {
                 tracing::info!("creating new event");
-                CmdEventNew::new_event(aim, draft, self.output_format, self.verbose).await
+                CmdEventNew::new_event(aim, draft, self.output_format).await
             }
             Some(EventOrTodoDraft::Todo(draft)) => {
                 tracing::info!("creating new todo");
-                CmdTodoNew::new_todo(aim, draft, self.output_format, self.verbose).await
+                CmdTodoNew::new_todo(aim, draft, self.output_format).await
             }
             None => {
                 tracing::info!("user cancel the drafting");
@@ -322,7 +317,6 @@ pub struct CmdEdit {
 
     // options
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdEdit {
@@ -346,7 +340,6 @@ impl CmdEdit {
             .arg(todo_args.priority())
             // options
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -365,7 +358,6 @@ impl CmdEdit {
             priority: TodoArgs::get_priority(matches),
 
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -418,13 +410,13 @@ impl CmdEdit {
         match kind {
             Kind::Event => {
                 tracing::info!("editing event using TUI");
-                CmdEventEdit::new_tui(self.id, self.output_format, self.verbose)
+                CmdEventEdit::new_tui(self.id, self.output_format)
                     .run(aim)
                     .await
             }
             Kind::Todo => {
                 tracing::info!("editing todo using TUI");
-                CmdTodoEdit::new_tui(self.id, self.output_format, self.verbose)
+                CmdTodoEdit::new_tui(self.id, self.output_format)
                     .run(aim)
                     .await
             }
@@ -448,7 +440,6 @@ impl CmdEdit {
                     summary: self.summary,
 
                     output_format: self.output_format,
-                    verbose: self.verbose,
                 }
                 .run(aim)
                 .await
@@ -468,7 +459,6 @@ impl CmdEdit {
                     summary: self.summary,
 
                     output_format: self.output_format,
-                    verbose: self.verbose,
                 }
                 .run(aim)
                 .await

@@ -75,7 +75,6 @@ pub enum TodoColumn {
     Status,
     Summary,
     Uid,
-    UidLegacy,
 }
 
 #[derive(Debug, Clone)]
@@ -93,7 +92,7 @@ impl<T: Todo> TableColumn<T> for ColumnMeta<'_> {
             TodoColumn::ShortId => "Short ID",
             TodoColumn::Status => "Status",
             TodoColumn::Summary => "Summary",
-            TodoColumn::Uid | TodoColumn::UidLegacy => "UID",
+            TodoColumn::Uid => "UID",
         }
         .into()
     }
@@ -107,7 +106,6 @@ impl<T: Todo> TableColumn<T> for ColumnMeta<'_> {
             TodoColumn::Status => format_status(data),
             TodoColumn::Summary => format_summary(data),
             TodoColumn::Uid => format_uid(data),
-            TodoColumn::UidLegacy => format_uid_legacy(data),
         }
     }
 
@@ -239,10 +237,6 @@ fn format_short_id(todo: &impl Todo) -> Cow<'_, str> {
 
 fn format_uid(todo: &impl Todo) -> Cow<'_, str> {
     todo.uid()
-}
-
-fn format_uid_legacy(todo: &impl Todo) -> Cow<'_, str> {
-    format!("#{}", todo.uid()).into()
 }
 
 #[cfg(test)]

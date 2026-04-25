@@ -14,14 +14,6 @@ use crate::util::OutputFormat;
 pub struct CommonArgs;
 
 impl CommonArgs {
-    pub fn verbose() -> Arg {
-        arg!(-v --verbose "[DEPRECATED] Show more detailed information").hide(true)
-    }
-
-    pub fn get_verbose(matches: &ArgMatches) -> bool {
-        matches.get_flag("verbose")
-    }
-
     pub fn output_format() -> Arg {
         arg!(--"output-format" <FORMAT> "Output format")
             .value_parser(value_parser!(OutputFormat))

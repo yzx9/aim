@@ -74,7 +74,6 @@ pub enum EventColumn {
     Summary,
     TimeSpan { date: Date },
     Uid,
-    UidLegacy,
 }
 
 #[derive(Debug, Clone)]
@@ -91,7 +90,7 @@ impl<E: Event> TableColumn<E> for ColumnMeta<'_> {
             EventColumn::ShortId => "Short ID",
             EventColumn::Summary => "Summary",
             EventColumn::TimeSpan { date: _ } => "Time",
-            EventColumn::Uid | EventColumn::UidLegacy => "UID",
+            EventColumn::Uid => "UID",
         }
         .into()
     }
@@ -104,7 +103,6 @@ impl<E: Event> TableColumn<E> for ColumnMeta<'_> {
             EventColumn::Summary => format_summary(data),
             EventColumn::TimeSpan { date } => format_time_span(data, *date),
             EventColumn::Uid => format_uid(data),
-            EventColumn::UidLegacy => format_uid_legacy(data),
         }
     }
 
@@ -256,8 +254,4 @@ fn get_color_time_span(event: &impl Event, now: &Zoned) -> Option<Color> {
 
 fn format_uid(event: &impl Event) -> Cow<'_, str> {
     event.uid()
-}
-
-fn format_uid_legacy(event: &impl Event) -> Cow<'_, str> {
-    format!("#{}", event.uid()).into()
 }

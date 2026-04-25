@@ -10,7 +10,7 @@ use aimcal_core::{
 use clap::{ArgMatches, Command};
 use colored::Colorize;
 
-use crate::arg::{CommonArgs, EventOrTodoArgs};
+use crate::arg::EventOrTodoArgs;
 use crate::cmd_event::{CmdEventDelay, CmdEventReschedule};
 use crate::cmd_todo::{CmdTodoDelay, CmdTodoList, CmdTodoReschedule};
 use crate::event_formatter::{EventColumn, EventFormatter};
@@ -110,7 +110,7 @@ impl CmdDashboard {
             due: Some(DateTimeAnchor::InDays(i64::from(days))),
             calendar_id: None,
         };
-        CmdTodoList::list(aim, &conds, OutputFormat::Table, false).await?;
+        CmdTodoList::list(aim, &conds, OutputFormat::Table).await?;
         Ok(())
     }
 }
@@ -119,7 +119,6 @@ impl CmdDashboard {
 pub struct CmdDelay {
     pub ids: Vec<Id>,
     pub time: Option<DateTimeAnchor>,
-    pub verbose: bool,
 }
 
 impl CmdDelay {
@@ -131,14 +130,12 @@ impl CmdDelay {
             .about("Delay event or todo's time by a specified time based on original time")
             .arg(args.ids())
             .arg(args.time("delay"))
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             ids: EventOrTodoArgs::get_ids(matches),
             time: EventOrTodoArgs::get_time(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -149,7 +146,6 @@ impl CmdDelay {
                 ids: event_ids,
                 time: self.time,
                 output_format: OutputFormat::Table,
-                verbose: self.verbose,
             }
             .run(aim)
             .await
@@ -158,7 +154,6 @@ impl CmdDelay {
                 ids: todo_ids,
                 time: self.time,
                 output_format: OutputFormat::Table,
-                verbose: self.verbose,
             }
             .run(aim)
             .await
@@ -186,7 +181,6 @@ impl CmdDelay {
             ids: event_ids,
             time: Some(time.clone()),
             output_format: OutputFormat::Table,
-            verbose: self.verbose,
         }
         .run(aim)
         .await?;
@@ -198,7 +192,6 @@ impl CmdDelay {
             ids: todo_ids,
             time: Some(time),
             output_format: OutputFormat::Table,
-            verbose: self.verbose,
         }
         .run(aim)
         .await?;
@@ -211,7 +204,6 @@ impl CmdDelay {
 pub struct CmdReschedule {
     pub ids: Vec<Id>,
     pub time: Option<DateTimeAnchor>,
-    pub verbose: bool,
 }
 
 impl CmdReschedule {
@@ -223,14 +215,12 @@ impl CmdReschedule {
             .about("Reschedule event or todo's time by a specified time based on current time")
             .arg(args.ids())
             .arg(args.time("delay"))
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
         Self {
             ids: EventOrTodoArgs::get_ids(matches),
             time: EventOrTodoArgs::get_time(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -241,7 +231,6 @@ impl CmdReschedule {
                 ids: event_ids,
                 time: self.time,
                 output_format: OutputFormat::Table,
-                verbose: self.verbose,
             }
             .run(aim)
             .await
@@ -250,7 +239,6 @@ impl CmdReschedule {
                 ids: todo_ids,
                 time: self.time,
                 output_format: OutputFormat::Table,
-                verbose: self.verbose,
             }
             .run(aim)
             .await
@@ -277,7 +265,6 @@ impl CmdReschedule {
             ids: event_ids,
             time: Some(time.clone()),
             output_format: OutputFormat::Table,
-            verbose: self.verbose,
         }
         .run(aim)
         .await?;
@@ -289,7 +276,6 @@ impl CmdReschedule {
             ids: todo_ids,
             time: Some(time),
             output_format: OutputFormat::Table,
-            verbose: self.verbose,
         }
         .run(aim)
         .await?;
@@ -351,7 +337,7 @@ mod tests {
 
     #[test]
     fn parses_delay_command() {
-        let args = ["delay", "a", "b", "c", "--time", "1d", "--verbose"];
+        let args = ["delay", "a", "b", "c", "--time", "1d"];
         let matches = CmdEventDelay::command().try_get_matches_from(args).unwrap();
         let parsed = CmdDelay::from(&matches);
 
@@ -362,12 +348,11 @@ mod tests {
         ];
         assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
-        assert!(parsed.verbose);
     }
 
     #[test]
     fn parses_reschedule_command() {
-        let args = ["reschedule", "a", "b", "c", "--time", "1h", "--verbose"];
+        let args = ["reschedule", "a", "b", "c", "--time", "1h"];
         let matches = CmdReschedule::command().try_get_matches_from(args).unwrap();
         let parsed = CmdReschedule::from(&matches);
 
@@ -378,7 +363,6 @@ mod tests {
         ];
         assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.time, Some(DateTimeAnchor::Relative(60 * 60)));
-        assert!(parsed.verbose);
     }
 
     #[test]

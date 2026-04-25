@@ -28,7 +28,6 @@ pub struct CmdEventNew {
     pub summary: Option<String>,
 
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdEventNew {
@@ -46,7 +45,6 @@ impl CmdEventNew {
             .arg(args.description())
             .arg(event_args.status())
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -59,7 +57,6 @@ impl CmdEventNew {
             summary: EventOrTodoArgs::get_summary(matches),
 
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -111,14 +108,13 @@ impl CmdEventNew {
         }
 
         // Create the event
-        Self::new_event(aim, draft, self.output_format, self.verbose).await
+        Self::new_event(aim, draft, self.output_format).await
     }
 
     pub async fn new_event(
         aim: &mut Aim,
         draft: EventDraft,
         output_format: OutputFormat,
-        verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         // Duplicate detection: check for existing events with same summary
         if !draft.summary.is_empty() && is_terminal() {
@@ -137,13 +133,13 @@ impl CmdEventNew {
             };
             if let Some(uid) = uid {
                 let event = aim.update_event(&Id::Uid(uid), draft.into()).await?;
-                print_events(aim, &[event], output_format, verbose);
+                print_events(aim, &[event], output_format);
                 return Ok(());
             }
         }
 
         let event = aim.new_event(draft).await?;
-        print_events(aim, &[event], output_format, verbose);
+        print_events(aim, &[event], output_format);
         Ok(())
     }
 
@@ -168,7 +164,6 @@ pub struct CmdEventEdit {
     pub summary: Option<String>,
 
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdEventEdit {
@@ -185,7 +180,6 @@ impl CmdEventEdit {
             .arg(args.description())
             .arg(event_args.status())
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -198,11 +192,10 @@ impl CmdEventEdit {
             summary: EventOrTodoArgs::get_summary(matches),
 
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
-    pub fn new_tui(id: Id, output_format: OutputFormat, verbose: bool) -> Self {
+    pub fn new_tui(id: Id, output_format: OutputFormat) -> Self {
         Self {
             id,
             description: None,
@@ -212,7 +205,6 @@ impl CmdEventEdit {
             summary: None,
 
             output_format,
-            verbose,
         }
     }
 
@@ -251,7 +243,7 @@ impl CmdEventEdit {
 
         // Update the event
         let event = aim.update_event(&self.id, patch).await?;
-        print_events(aim, &[event], self.output_format, self.verbose);
+        print_events(aim, &[event], self.output_format);
         Ok(())
     }
 
@@ -270,7 +262,6 @@ pub struct CmdEventDelay {
     pub ids: Vec<Id>,
     pub time: Option<DateTimeAnchor>,
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdEventDelay {
@@ -283,7 +274,6 @@ impl CmdEventDelay {
             .arg(args.ids())
             .arg(args.time("delay"))
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -291,7 +281,6 @@ impl CmdEventDelay {
             ids: EventOrTodoArgs::get_ids(matches),
             time: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -340,7 +329,7 @@ impl CmdEventDelay {
             let event = aim.update_event(id, patch).await?;
             events.push(event);
         }
-        print_events(aim, &events, self.output_format, self.verbose);
+        print_events(aim, &events, self.output_format);
         Ok(())
     }
 }
@@ -350,7 +339,6 @@ pub struct CmdEventReschedule {
     pub ids: Vec<Id>,
     pub time: Option<DateTimeAnchor>,
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdEventReschedule {
@@ -363,7 +351,6 @@ impl CmdEventReschedule {
             .arg(args.ids())
             .arg(args.time("reschedule"))
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -371,7 +358,6 @@ impl CmdEventReschedule {
             ids: EventOrTodoArgs::get_ids(matches),
             time: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -434,7 +420,7 @@ impl CmdEventReschedule {
             let event = aim.update_event(id, patch).await?;
             events.push(event);
         }
-        print_events(aim, &events, self.output_format, self.verbose);
+        print_events(aim, &events, self.output_format);
         Ok(())
     }
 }
@@ -443,7 +429,6 @@ impl CmdEventReschedule {
 pub struct CmdEventList {
     pub conds: EventConditions,
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdEventList {
@@ -454,7 +439,6 @@ impl CmdEventList {
             .about("List events")
             .arg(CalendarArgs::new(true).calendar())
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -465,13 +449,12 @@ impl CmdEventList {
                 ..Default::default()
             },
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "listing events...");
-        Self::list(aim, &self.conds, self.output_format, self.verbose).await
+        Self::list(aim, &self.conds, self.output_format).await
     }
 
     /// List events with the given conditions and output format.
@@ -480,7 +463,6 @@ impl CmdEventList {
         aim: &Aim,
         conds: &EventConditions,
         output_format: OutputFormat,
-        verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         const LIMIT: i64 = 128;
 
@@ -497,7 +479,7 @@ impl CmdEventList {
             return Ok(());
         }
 
-        print_events(aim, &events, output_format, verbose);
+        print_events(aim, &events, output_format);
         Ok(())
     }
 }
@@ -509,13 +491,11 @@ const fn args() -> (EventOrTodoArgs, EventArgs) {
     )
 }
 
-// TODO: remove `verbose` in v0.12.0
-fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat, verbose: bool) {
-    use EventColumn::{DateTimeSpan, Id, ShortId, Summary, Uid, UidLegacy};
-    let columns = match (output_format, verbose) {
-        (_, true) => vec![Id, UidLegacy, DateTimeSpan, Summary],
-        (OutputFormat::Table, false) => vec![Id, DateTimeSpan, Summary],
-        (OutputFormat::Json, false) => vec![Uid, ShortId, DateTimeSpan, Summary],
+fn print_events(aim: &Aim, events: &[impl Event], output_format: OutputFormat) {
+    use EventColumn::{DateTimeSpan, Id, ShortId, Summary, Uid};
+    let columns = match output_format {
+        OutputFormat::Table => vec![Id, DateTimeSpan, Summary],
+        OutputFormat::Json => vec![Uid, ShortId, DateTimeSpan, Summary],
     };
     let formatter = EventFormatter::new(aim.now(), columns, output_format);
     println!("{}", formatter.format(events));
@@ -542,7 +522,6 @@ mod tests {
             "tentative",
             "--output-format",
             "json",
-            "--verbose",
         ];
         let matches = CmdEventNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventNew::from(&matches);
@@ -556,7 +535,6 @@ mod tests {
 
         assert!(!parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
@@ -585,7 +563,6 @@ mod tests {
             "Another summary",
             "--output-format",
             "json",
-            "--verbose",
         ];
         let matches = CmdEventEdit::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventEdit::from(&matches);
@@ -599,7 +576,6 @@ mod tests {
 
         assert!(!parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
@@ -623,7 +599,6 @@ mod tests {
             "1d",
             "--output-format",
             "json",
-            "--verbose",
         ];
         let matches = CmdEventDelay::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventDelay::from(&matches);
@@ -636,7 +611,6 @@ mod tests {
         assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
@@ -650,7 +624,6 @@ mod tests {
             "1d",
             "--output-format",
             "json",
-            "--verbose",
         ];
         let matches = CmdEventReschedule::command()
             .try_get_matches_from(args)
@@ -665,24 +638,15 @@ mod tests {
         assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
     fn parses_event_list_command() {
-        let args = [
-            "list",
-            "--calendar",
-            "work",
-            "--output-format",
-            "json",
-            "--verbose",
-        ];
+        let args = ["list", "--calendar", "work", "--output-format", "json"];
         let matches = CmdEventList::command().try_get_matches_from(args).unwrap();
         let parsed = CmdEventList::from(&matches);
 
         assert_eq!(parsed.conds.calendar_id, Some("work".to_string()));
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 }

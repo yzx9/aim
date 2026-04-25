@@ -30,7 +30,6 @@ pub struct CmdTodoNew {
     pub summary: Option<String>,
 
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdTodoNew {
@@ -51,7 +50,6 @@ impl CmdTodoNew {
             .arg(todo_args.status())
             // options
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -65,7 +63,6 @@ impl CmdTodoNew {
             summary: EventOrTodoArgs::get_summary(matches),
 
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -115,14 +112,13 @@ impl CmdTodoNew {
         }
 
         // Create the todo
-        Self::new_todo(aim, draft, self.output_format, self.verbose).await
+        Self::new_todo(aim, draft, self.output_format).await
     }
 
     pub async fn new_todo(
         aim: &mut Aim,
         draft: TodoDraft,
         output_format: OutputFormat,
-        verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         // Duplicate detection: check for existing todos with same summary
         if !draft.summary.is_empty() && is_terminal() {
@@ -141,13 +137,13 @@ impl CmdTodoNew {
             };
             if let Some(uid) = uid {
                 let todo = aim.update_todo(&Id::Uid(uid), draft.into()).await?;
-                print_todos(aim, &[todo], output_format, verbose);
+                print_todos(aim, &[todo], output_format);
                 return Ok(());
             }
         }
 
         let todo = aim.new_todo(draft).await?;
-        print_todos(aim, &[todo], output_format, verbose);
+        print_todos(aim, &[todo], output_format);
         Ok(())
     }
 
@@ -173,7 +169,6 @@ pub struct CmdTodoEdit {
     pub summary: Option<String>,
 
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdTodoEdit {
@@ -191,7 +186,6 @@ impl CmdTodoEdit {
             .arg(todo_args.priority())
             .arg(todo_args.status())
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -205,11 +199,10 @@ impl CmdTodoEdit {
             summary: EventOrTodoArgs::get_summary(matches),
 
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
-    pub fn new_tui(id: Id, output_format: OutputFormat, verbose: bool) -> Self {
+    pub fn new_tui(id: Id, output_format: OutputFormat) -> Self {
         Self {
             id,
             description: None,
@@ -220,7 +213,6 @@ impl CmdTodoEdit {
             summary: None,
 
             output_format,
-            verbose,
         }
     }
 
@@ -255,7 +247,7 @@ impl CmdTodoEdit {
 
         // If no fields to edit, do nothing
         let todo = aim.update_todo(&self.id, patch).await?;
-        print_todos(aim, &[todo], self.output_format, self.verbose);
+        print_todos(aim, &[todo], self.output_format);
         Ok(())
     }
 
@@ -276,7 +268,6 @@ macro_rules! cmd_status {
         pub struct $cmd {
             pub ids: Vec<Id>,
             pub output_format: OutputFormat,
-            pub verbose: bool,
         }
 
         impl $cmd {
@@ -288,14 +279,12 @@ macro_rules! cmd_status {
                     .about(concat!("Mark a todo as ", $desc))
                     .arg(args.ids())
                     .arg(CommonArgs::output_format())
-                    .arg(CommonArgs::verbose())
             }
 
             pub fn from(matches: &ArgMatches) -> Self {
                 Self {
                     ids: EventOrTodoArgs::get_ids(matches),
                     output_format: CommonArgs::get_output_format(matches),
-                    verbose: CommonArgs::get_verbose(matches),
                 }
             }
 
@@ -310,7 +299,7 @@ macro_rules! cmd_status {
                     let todo = aim.update_todo(&id, patch).await?;
                     todos.push(todo);
                 }
-                print_todos(aim, &todos, self.output_format, self.verbose);
+                print_todos(aim, &todos, self.output_format);
                 Ok(())
             }
         }
@@ -326,7 +315,6 @@ pub struct CmdTodoDelay {
     pub ids: Vec<Id>,
     pub time: Option<DateTimeAnchor>,
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdTodoDelay {
@@ -339,7 +327,6 @@ impl CmdTodoDelay {
             .arg(args.ids())
             .arg(args.time("delay"))
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -347,7 +334,6 @@ impl CmdTodoDelay {
             ids: EventOrTodoArgs::get_ids(matches),
             time: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -380,7 +366,7 @@ impl CmdTodoDelay {
             let todo = aim.update_todo(id, patch).await?;
             todos.push(todo);
         }
-        print_todos(aim, &todos, self.output_format, self.verbose);
+        print_todos(aim, &todos, self.output_format);
         Ok(())
     }
 }
@@ -390,7 +376,6 @@ pub struct CmdTodoReschedule {
     pub ids: Vec<Id>,
     pub time: Option<DateTimeAnchor>,
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdTodoReschedule {
@@ -403,7 +388,6 @@ impl CmdTodoReschedule {
             .arg(args.ids())
             .arg(args.time("reschedule"))
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -411,7 +395,6 @@ impl CmdTodoReschedule {
             ids: EventOrTodoArgs::get_ids(matches),
             time: EventOrTodoArgs::get_time(matches),
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
@@ -444,7 +427,7 @@ impl CmdTodoReschedule {
             let todo = aim.update_todo(id, patch).await?;
             todos.push(todo);
         }
-        print_todos(aim, &todos, self.output_format, self.verbose);
+        print_todos(aim, &todos, self.output_format);
         Ok(())
     }
 }
@@ -453,7 +436,6 @@ impl CmdTodoReschedule {
 pub struct CmdTodoList {
     pub conds: TodoConditions,
     pub output_format: OutputFormat,
-    pub verbose: bool,
 }
 
 impl CmdTodoList {
@@ -464,7 +446,6 @@ impl CmdTodoList {
             .about("List todos")
             .arg(CalendarArgs::new(true).calendar())
             .arg(CommonArgs::output_format())
-            .arg(CommonArgs::verbose())
     }
 
     pub fn from(matches: &ArgMatches) -> Self {
@@ -475,13 +456,12 @@ impl CmdTodoList {
                 calendar_id: CalendarArgs::get_calendar(matches),
             },
             output_format: CommonArgs::get_output_format(matches),
-            verbose: CommonArgs::get_verbose(matches),
         }
     }
 
     pub async fn run(self, aim: &Aim) -> Result<(), Box<dyn Error>> {
         tracing::debug!(?self, "listing todos...");
-        Self::list(aim, &self.conds, self.output_format, self.verbose).await?;
+        Self::list(aim, &self.conds, self.output_format).await?;
         Ok(())
     }
 
@@ -490,7 +470,6 @@ impl CmdTodoList {
         aim: &Aim,
         conds: &TodoConditions,
         output_format: OutputFormat,
-        verbose: bool,
     ) -> Result<(), Box<dyn Error>> {
         const LIMIT: i64 = 128;
 
@@ -514,7 +493,7 @@ impl CmdTodoList {
             println!("{}", "No todos found".italic());
         }
 
-        print_todos(aim, &todos, output_format, verbose);
+        print_todos(aim, &todos, output_format);
         Ok(())
     }
 }
@@ -523,13 +502,11 @@ const fn args() -> (EventOrTodoArgs, TodoArgs) {
     (EventOrTodoArgs::new(Some(Kind::Todo)), TodoArgs::new(true))
 }
 
-// TODO: remove `verbose` in v0.12.0
-fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: OutputFormat, verbose: bool) {
-    use TodoColumn::{Due, Id, Priority, ShortId, Status, Summary, Uid, UidLegacy};
-    let columns = match (output_format, verbose) {
-        (_, true) => vec![Status, Id, UidLegacy, Priority, Due, Summary],
-        (OutputFormat::Table, false) => vec![Status, Id, Priority, Due, Summary],
-        (OutputFormat::Json, false) => vec![Uid, ShortId, Status, Priority, Due, Summary],
+fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: OutputFormat) {
+    use TodoColumn::{Due, Id, Priority, ShortId, Status, Summary, Uid};
+    let columns = match output_format {
+        OutputFormat::Table => vec![Status, Id, Priority, Due, Summary],
+        OutputFormat::Json => vec![Uid, ShortId, Status, Priority, Due, Summary],
     };
     let formatter = TodoFormatter::new(aim.now(), columns, output_format);
     println!("{}", formatter.format(todos));
@@ -560,7 +537,6 @@ mod tests {
             "completed",
             "--output-format",
             "json",
-            "--verbose",
         ];
         let matches = CmdTodoNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoNew::from(&matches);
@@ -575,18 +551,16 @@ mod tests {
 
         assert!(!parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
     fn parses_todo_new_command_with_tui_mode() {
-        let args = ["new", "--output-format", "json", "--verbose"];
+        let args = ["new", "--output-format", "json"];
         let matches = CmdTodoNew::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoNew::from(&matches);
 
         assert!(parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
@@ -608,7 +582,6 @@ mod tests {
             "Another summary",
             "--output-format",
             "json",
-            "--verbose",
         ];
         let matches = CmdTodoEdit::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoEdit::from(&matches);
@@ -623,45 +596,34 @@ mod tests {
 
         assert!(!parsed.tui());
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
     fn parses_todo_edit_command_with_tui_mode() {
         let cmd = CmdTodoEdit::command();
         let matches = cmd
-            .try_get_matches_from(["edit", "test_id", "--output-format", "json", "--verbose"])
+            .try_get_matches_from(["edit", "test_id", "--output-format", "json"])
             .unwrap();
         let parsed = CmdTodoEdit::from(&matches);
 
         assert!(parsed.tui());
         assert_eq!(parsed.id, Id::ShortIdOrUid("test_id".to_string()));
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
     fn parses_todo_done_command() {
-        let args = ["done", "abc", "--output-format", "json", "--verbose"];
+        let args = ["done", "abc", "--output-format", "json"];
         let matches = CmdTodoDone::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoDone::from(&matches);
 
         assert_eq!(parsed.ids, vec![Id::ShortIdOrUid("abc".to_string())]);
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
     fn parses_todo_done_command_with_multiple_ids() {
-        let args = [
-            "done",
-            "a",
-            "b",
-            "c",
-            "--output-format",
-            "json",
-            "--verbose",
-        ];
+        let args = ["done", "a", "b", "c", "--output-format", "json"];
         let matches = CmdTodoDone::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoDone::from(&matches);
 
@@ -672,7 +634,6 @@ mod tests {
         ];
         assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
@@ -716,7 +677,6 @@ mod tests {
             "1d",
             "--output-format",
             "json",
-            "--verbose",
         ];
         let matches = CmdTodoDelay::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoDelay::from(&matches);
@@ -729,7 +689,6 @@ mod tests {
         assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
@@ -743,7 +702,6 @@ mod tests {
             "1d",
             "--output-format",
             "json",
-            "--verbose",
         ];
         let matches = CmdTodoReschedule::command()
             .try_get_matches_from(args)
@@ -758,24 +716,15 @@ mod tests {
         assert_eq!(parsed.ids, expected_ids);
         assert_eq!(parsed.time, Some(DateTimeAnchor::InDays(1)));
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 
     #[test]
     fn parses_todo_list_command() {
-        let args = [
-            "list",
-            "--calendar",
-            "work",
-            "--output-format",
-            "json",
-            "--verbose",
-        ];
+        let args = ["list", "--calendar", "work", "--output-format", "json"];
         let matches = CmdTodoList::command().try_get_matches_from(args).unwrap();
         let parsed = CmdTodoList::from(&matches);
 
         assert_eq!(parsed.conds.calendar_id, Some("work".to_string()));
         assert_eq!(parsed.output_format, OutputFormat::Json);
-        assert!(parsed.verbose);
     }
 }
