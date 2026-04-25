@@ -5,7 +5,7 @@ default-members = ["cli"]
 
 [workspace.package]
 authors = ["Zexin Yuan <aim@yzx9.xyz>"]
-version = "0.12.0"
+version = "0.12.1"
 edition = "2024"
 
 description = "AIM - Analyze. Interact. Manage Your Time, with calendar support"
@@ -19,12 +19,12 @@ repository = "https://github.com/yzx9/aim"
 readme = "./README.md"
 
 [workspace.dependencies]
-aimcal-core = { version = "0.12.0", path = "core", default-features = false, features = [
+aimcal-core = { version = "0.12.1", path = "core", default-features = false, features = [
   "clap",
 ] }
-aimcal-cli = { version = "0.12.0", path = "cli", default-features = false }
-aimcal-ical = { version = "0.12.0", path = "ical" }
-aimcal-caldav = { version = "0.12.0", path = "caldav" }
+aimcal-cli = { version = "0.12.1", path = "cli", default-features = false }
+aimcal-ical = { version = "0.12.1", path = "ical" }
+aimcal-caldav = { version = "0.12.1", path = "caldav" }
 tracing = "0.1.44"
 
 [profile.release]
