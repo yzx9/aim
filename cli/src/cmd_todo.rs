@@ -5,8 +5,8 @@
 use std::error::Error;
 
 use aimcal_core::{
-    Aim, DateTimeAnchor, Id, Kind, Priority, SortOrder, Todo, TodoConditions, TodoDraft, TodoPatch,
-    TodoSort, TodoStatus,
+    Aim, DateTimeAnchor, Id, Kind, Pager, Priority, SortOrder, Todo, TodoConditions, TodoDraft,
+    TodoPatch, TodoSort, TodoStatus,
 };
 use clap::{ArgMatches, Command};
 use colored::Colorize;
@@ -510,6 +510,115 @@ fn print_todos(aim: &Aim, todos: &[impl Todo], output_format: OutputFormat) {
     };
     let formatter = TodoFormatter::new(aim.now(), columns, output_format);
     println!("{}", formatter.format(todos));
+}
+
+// ---------------------------------------------------------------------------
+// Board command
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy)]
+pub struct CmdTodoBoard;
+
+impl CmdTodoBoard {
+    pub const NAME: &str = "board";
+
+    pub fn command() -> Command {
+        Command::new(Self::NAME).about("Display an interactive Kanban board")
+    }
+
+    pub fn from(_matches: &ArgMatches) -> Self {
+        Self
+    }
+
+    pub async fn run(self, aim: &mut Aim) -> Result<(), Box<dyn Error>> {
+        use crate::tui::board::build_move_patch;
+        use crate::tui::{BoardAction, run_board};
+
+        tracing::debug!("launching board...");
+
+        let mut cursor_snap = None;
+        let mut state = load_board_state(aim).await?;
+
+        loop {
+            if let Some(snap) = cursor_snap.take() {
+                state.restore_cursor(snap);
+            }
+
+            let returned_state = run_board(aim, state)?;
+
+            match returned_state.pending_action {
+                Some(BoardAction::Quit) | None => break,
+
+                Some(BoardAction::Refresh) => {
+                    cursor_snap = Some(returned_state.save_cursor());
+                    state = load_board_state(aim).await?;
+                }
+
+                Some(BoardAction::Move {
+                    ref card_id,
+                    target_status,
+                }) => {
+                    cursor_snap = Some(returned_state.save_cursor());
+                    let pre_move_state = returned_state.clone();
+
+                    let patch = build_move_patch(target_status);
+                    let move_outcome: Result<(), String> = {
+                        let r = aim.update_todo(card_id, patch).await;
+                        match r {
+                            Ok(_) => Ok(()),
+                            Err(e) => Err(format!("{e}")),
+                        }
+                    };
+                    match move_outcome {
+                        Ok(()) => {
+                            state = load_board_state(aim).await?;
+                        }
+                        Err(error_msg) => {
+                            // Rollback to pre-move state with error
+                            state = pre_move_state;
+                            state.error_message = Some(error_msg);
+                            state.error_timestamp = Some(std::time::Instant::now());
+                            state.pending_action = None;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[expect(clippy::cast_possible_truncation)]
+async fn load_board_state(aim: &Aim) -> Result<tui::BoardState, Box<dyn Error>> {
+    use crate::tui::board::COLUMN_DEFS;
+    use crate::tui::{BoardState, card_data_from_todo};
+
+    const PAGE_LIMIT: i64 = 500;
+    let mut groups = Vec::with_capacity(4);
+    let mut truncation_warning = false;
+
+    for &(status, _name) in &COLUMN_DEFS {
+        let conds = TodoConditions {
+            status: Some(status),
+            due: None,
+            calendar_id: None,
+        };
+        let sort = vec![TodoSort::Due(SortOrder::Asc)];
+        let pager = Pager {
+            limit: PAGE_LIMIT,
+            offset: 0,
+        };
+        let todos = aim.list_todos(&conds, &sort, &pager).await?;
+        if todos.len() >= PAGE_LIMIT as usize {
+            truncation_warning = true;
+        }
+        let cards: Vec<_> = todos.iter().map(card_data_from_todo).collect();
+        groups.push((status, cards));
+    }
+
+    let now = aim.now();
+    Ok(BoardState::new(&groups, now, truncation_warning))
 }
 
 #[cfg(test)]
