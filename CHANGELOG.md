@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- core: Correct SELECT columns in `find_latest_by_summary` queries for events and todos
+
 ## [0.12.1] - 2026-04-25
 
 ## [0.12.0] - 2026-04-25

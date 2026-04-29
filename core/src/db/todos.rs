@@ -120,7 +120,7 @@ JOIN calendars AS c ON c.id = t.calendar_id
         summary: &str,
     ) -> Result<Option<TodoRecord>, sqlx::Error> {
         const SQL: &str = "\
-SELECT t.uid, t.completed, t.description, t.percent, t.priority, t.status, t.summary, t.due, t.backend_kind
+SELECT t.uid, t.calendar_id, t.completed, t.description, t.percent, t.priority, t.status, t.summary, t.due
 FROM todos t
 JOIN short_ids si ON t.uid = si.uid
 WHERE si.kind = 'todo' AND t.summary = ?
@@ -1016,6 +1016,89 @@ mod tests {
 
         // Assert
         assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn todos_find_latest_by_summary_returns_matching_todo() {
+        // Arrange
+        let db = setup_test_db().await;
+        let todo = test_todo("todo-1", "Test Todo");
+        db.todos
+            .upsert(&TodoRecord::from_todo("todo-1", &todo, "default"))
+            .await
+            .unwrap();
+        db.short_ids
+            .get_or_assign_short_id("todo-1", crate::Kind::Todo)
+            .await
+            .unwrap();
+
+        // Act
+        let result = db.todos.find_latest_by_summary("Test Todo").await.unwrap();
+
+        // Assert
+        assert!(result.is_some());
+        let found = result.unwrap();
+        assert_eq!(found.uid(), "todo-1");
+        assert_eq!(found.summary(), "Test Todo");
+        assert_eq!(found.calendar_id(), "default");
+    }
+
+    #[tokio::test]
+    async fn todos_find_latest_by_summary_returns_none_for_no_match() {
+        // Arrange
+        let db = setup_test_db().await;
+        let todo = test_todo("todo-1", "Test Todo");
+        db.todos
+            .upsert(&TodoRecord::from_todo("todo-1", &todo, "default"))
+            .await
+            .unwrap();
+        db.short_ids
+            .get_or_assign_short_id("todo-1", crate::Kind::Todo)
+            .await
+            .unwrap();
+
+        // Act
+        let result = db
+            .todos
+            .find_latest_by_summary("Nonexistent Todo")
+            .await
+            .unwrap();
+
+        // Assert
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn todos_find_latest_by_summary_returns_highest_short_id() {
+        // Arrange
+        let db = setup_test_db().await;
+
+        let todo1 = test_todo("todo-1", "Buy milk");
+        db.todos
+            .upsert(&TodoRecord::from_todo("todo-1", &todo1, "default"))
+            .await
+            .unwrap();
+        db.short_ids
+            .get_or_assign_short_id("todo-1", crate::Kind::Todo)
+            .await
+            .unwrap();
+
+        let todo2 = test_todo("todo-2", "Buy milk");
+        db.todos
+            .upsert(&TodoRecord::from_todo("todo-2", &todo2, "default"))
+            .await
+            .unwrap();
+        db.short_ids
+            .get_or_assign_short_id("todo-2", crate::Kind::Todo)
+            .await
+            .unwrap();
+
+        // Act
+        let result = db.todos.find_latest_by_summary("Buy milk").await.unwrap();
+
+        // Assert - should return todo-2 (higher short_id)
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().uid(), "todo-2");
     }
 
     #[tokio::test]

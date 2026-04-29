@@ -90,7 +90,7 @@ JOIN calendars ON calendars.id = events.calendar_id
         summary: &str,
     ) -> Result<Option<EventRecord>, sqlx::Error> {
         const SQL: &str = "\
-SELECT e.uid, e.summary, e.description, e.status, e.start, e.end, e.backend_kind
+SELECT e.uid, e.calendar_id, e.summary, e.description, e.status, e.start, e.end
 FROM events e
 JOIN short_ids si ON e.uid = si.uid
 WHERE si.kind = 'event' AND e.summary = ?
@@ -764,6 +764,93 @@ mod tests {
 
         // Assert
         assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn events_find_latest_by_summary_returns_matching_event() {
+        // Arrange
+        let db = setup_test_db().await;
+        let event = test_event("event-1", "Test Event");
+        db.events
+            .upsert(EventRecord::from_event("event-1", &event, "default"))
+            .await
+            .unwrap();
+        db.short_ids
+            .get_or_assign_short_id("event-1", crate::Kind::Event)
+            .await
+            .unwrap();
+
+        // Act
+        let result = db
+            .events
+            .find_latest_by_summary("Test Event")
+            .await
+            .unwrap();
+
+        // Assert
+        assert!(result.is_some());
+        let found = result.unwrap();
+        assert_eq!(found.uid(), "event-1");
+        assert_eq!(found.summary(), "Test Event");
+        assert_eq!(found.calendar_id(), "default");
+    }
+
+    #[tokio::test]
+    async fn events_find_latest_by_summary_returns_none_for_no_match() {
+        // Arrange
+        let db = setup_test_db().await;
+        let event = test_event("event-1", "Test Event");
+        db.events
+            .upsert(EventRecord::from_event("event-1", &event, "default"))
+            .await
+            .unwrap();
+        db.short_ids
+            .get_or_assign_short_id("event-1", crate::Kind::Event)
+            .await
+            .unwrap();
+
+        // Act
+        let result = db
+            .events
+            .find_latest_by_summary("Nonexistent Event")
+            .await
+            .unwrap();
+
+        // Assert
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn events_find_latest_by_summary_returns_highest_short_id() {
+        // Arrange
+        let db = setup_test_db().await;
+
+        let event1 = test_event("event-1", "Meeting");
+        db.events
+            .upsert(EventRecord::from_event("event-1", &event1, "default"))
+            .await
+            .unwrap();
+        db.short_ids
+            .get_or_assign_short_id("event-1", crate::Kind::Event)
+            .await
+            .unwrap();
+
+        let event2 = test_event("event-2", "Meeting");
+        db.events
+            .upsert(EventRecord::from_event("event-2", &event2, "default"))
+            .await
+            .unwrap();
+        db.short_ids
+            .get_or_assign_short_id("event-2", crate::Kind::Event)
+            .await
+            .unwrap();
+
+        // Act
+        let result = db.events.find_latest_by_summary("Meeting").await.unwrap();
+
+        // Assert - should return event-2 (higher short_id)
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().uid(), "event-2");
     }
 
     #[tokio::test]
