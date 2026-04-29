@@ -32,8 +32,10 @@
           lib,
           stdenv,
           rustPlatform,
-          sqlite,
           installShellFiles,
+          pkg-config,
+          sqlite,
+          openssl,
           testers,
         }:
 
@@ -66,10 +68,16 @@
           nativeBuildInputs = [
             rustPlatform.bindgenHook
             installShellFiles
+          ]
+          ++ lib.optionals stdenv.hostPlatform.isLinux [
+            pkg-config
           ];
 
           buildInputs = [
             sqlite
+          ]
+          ++ lib.optionals stdenv.hostPlatform.isLinux [
+            openssl
           ];
 
           postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
