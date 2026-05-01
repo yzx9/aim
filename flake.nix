@@ -135,14 +135,13 @@
               rustfmt
               clippy
               rust-analyzer
-
-              # cargo tools
               cargo-audit
               cargo-release
               cargo-outdated
 
               # misc
               just
+              jq
               sqlx-cli
               prettier
               nixfmt

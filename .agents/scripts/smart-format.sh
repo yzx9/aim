@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # SPDX-FileCopyrightText: 2026 Zexin Yuan <aim@yzx9.xyz>
 #
