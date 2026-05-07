@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cli: Prompt for due time when creating a todo without `--due`
 
+### Changed
+
+- cli: Show past events in gray in dashboard; only color events for today
+
 ### Fixed
 
 - core: Correct SELECT columns in `find_latest_by_summary` queries for events and todos

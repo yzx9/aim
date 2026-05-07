@@ -184,12 +184,16 @@ fn format_datetime_span(event: &impl Event) -> Cow<'_, str> {
 fn get_color_datetime_span(event: &impl Event, now: &Zoned) -> Option<Color> {
     const COLOR_CURRENT: Option<Color> = Some(Color::Yellow);
     const COLOR_TODAY_LATE: Option<Color> = Some(Color::Green);
+    const COLOR_PAST: Option<Color> = Some(Color::BrightBlack);
 
-    let start = event.start()?; // If no start time, no color
+    let start = event.start()?;
+    if start.date() != now.date() {
+        return None;
+    }
     match LooseDateTime::position_in_range(&now.datetime(), &Some(start), &event.end()) {
         RangePosition::Before => COLOR_TODAY_LATE,
         RangePosition::InRange => COLOR_CURRENT,
-        RangePosition::After => None,
+        RangePosition::After => COLOR_PAST,
         RangePosition::InvalidRange => {
             tracing::warn!(uid = &*event.uid(), "invalid range for event");
             None
