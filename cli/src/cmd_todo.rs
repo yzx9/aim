@@ -109,6 +109,12 @@ impl CmdTodoNew {
                 return Ok(());
             };
             draft = draft_tui;
+        } else if draft.due.is_none() {
+            // Prompt for due time when not provided via CLI args
+            let due = prompt_time_opt()?;
+            if let Some(due_anchor) = due {
+                draft.due = Some(due_anchor.resolve_since_zoned(&aim.now())?);
+            }
         }
 
         // Create the todo

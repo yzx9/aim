@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- cli: Prompt for due time when creating a todo without `--due`
+
 ### Fixed
 
 - core: Correct SELECT columns in `find_latest_by_summary` queries for events and todos
