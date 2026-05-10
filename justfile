@@ -44,6 +44,6 @@ migrate-add name:
 init-dev:
   scripts/init-dev.sh
 
-# Create a git worktree under .worktree/<name> with a new branch (always at repo root)
+# Create a git worktree under .worktrees/<name> with a new branch (always at repo root)
 add-worktree name:
   scripts/add-worktree.sh {{name}}

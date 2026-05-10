@@ -15,5 +15,5 @@ target/
 
 # Development
 .dev/
-.worktree/
+.worktrees/
 .gstack/
