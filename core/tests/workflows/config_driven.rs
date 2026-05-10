@@ -66,6 +66,7 @@ async fn config_default_due_applied() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -120,6 +121,7 @@ async fn config_default_priority_applied() {
             dev_mode: false,
             calendars: Vec::new(),
             default_calendar: "default".to_string(),
+            secrets_files: vec![],
         };
         let aim = Aim::new(config).await.unwrap();
 
@@ -148,6 +150,7 @@ async fn config_priority_sorting_behavior() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim_none_first = Aim::new(config_none_first).await.unwrap();
 
@@ -199,6 +202,7 @@ async fn config_priority_sorting_behavior() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim_some_first = Aim::new(config_some_first).await.unwrap();
 
@@ -248,6 +252,7 @@ async fn config_timezone_handling() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -289,6 +294,7 @@ fn multi_local_config(
         dev_mode: false,
         calendars,
         default_calendar: default_calendar.to_string(),
+        secrets_files: vec![],
     }
 }
 
@@ -593,6 +599,7 @@ async fn config_mixed_defaults_integration() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -658,6 +665,7 @@ async fn config_persistence_across_restarts() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // First instance - create todos
@@ -704,6 +712,7 @@ async fn config_default_draft_consistency() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -743,6 +752,7 @@ async fn config_event_defaults() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -787,6 +797,7 @@ async fn config_datetime_anchor_variations() {
             dev_mode: false,
             calendars: Vec::new(),
             default_calendar: "default".to_string(),
+            secrets_files: vec![],
         };
         let aim = Aim::new(config).await.unwrap();
 

@@ -51,6 +51,7 @@ END:VCALENDAR\r
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -104,6 +105,7 @@ async fn aim_new_creates_empty_state_without_calendar_files() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -140,6 +142,7 @@ async fn aim_now_returns_initial_time() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -167,6 +170,7 @@ async fn aim_refresh_now_updates_current_time() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let mut aim = Aim::new(config).await.unwrap();
 
@@ -200,6 +204,7 @@ async fn aim_close_cleans_up_database() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -259,6 +264,7 @@ async fn aim_default_event_draft_creates_draft_with_now() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -292,6 +298,7 @@ async fn aim_default_todo_draft_includes_config_defaults() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -348,6 +355,7 @@ END:VCALENDAR\r
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -410,6 +418,7 @@ END:VCALENDAR\r
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 

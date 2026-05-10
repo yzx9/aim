@@ -32,6 +32,7 @@ async fn todo_lifecycle_create_with_config_defaults() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -71,6 +72,7 @@ async fn todo_lifecycle_status_evolution() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_todo_draft("Workflow Task");
@@ -129,6 +131,7 @@ async fn todo_lifecycle_priority_handling() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -170,6 +173,7 @@ async fn todo_lifecycle_sorting() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -261,6 +265,7 @@ async fn todo_lifecycle_filtering() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -363,6 +368,7 @@ async fn todo_lifecycle_batch_operations() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -438,6 +444,7 @@ async fn todo_lifecycle_percent_complete_validation() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -530,6 +537,7 @@ async fn todo_lifecycle_metadata_updates() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -610,6 +618,7 @@ async fn todo_lifecycle_with_due_dates() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -650,6 +659,7 @@ async fn todo_lifecycle_rebuild_from_files() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // Create initial todos

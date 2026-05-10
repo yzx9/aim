@@ -30,6 +30,7 @@ async fn aim_new_event_creates_file_and_database_entry() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -67,6 +68,7 @@ async fn aim_get_event_resolves_short_id() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -100,6 +102,7 @@ async fn aim_update_event_modifies_file_and_database() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -142,6 +145,7 @@ async fn aim_list_events_returns_all_events() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -192,6 +196,7 @@ async fn aim_list_events_with_pagination() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -266,6 +271,7 @@ async fn aim_count_events_returns_correct_count() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -313,6 +319,7 @@ async fn aim_new_event_assigns_sequential_short_ids() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -346,6 +353,7 @@ async fn aim_update_event_clears_optional_fields() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -388,6 +396,7 @@ async fn aim_get_event_returns_error_for_nonexistent() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -411,6 +420,7 @@ async fn aim_update_event_returns_error_for_nonexistent() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -440,6 +450,7 @@ async fn aim_event_status_updates_correctly() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -481,6 +492,7 @@ async fn aim_event_with_custom_datetimes() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -514,6 +526,7 @@ async fn aim_flush_short_ids_removes_mappings() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -555,6 +568,7 @@ async fn aim_update_db_only_event_without_calendar_path_succeeds() {
         stores: HashMap::new(),
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -606,6 +620,7 @@ async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
         stores: HashMap::new(),
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim_no_calendar = Aim::new(config_no_calendar).await.unwrap();
 
@@ -628,6 +643,7 @@ async fn aim_update_db_only_event_with_calendar_path_creates_ics_file() {
         config_dir: None,
         dev_mode: false,
         stores: HashMap::new(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config_with_calendar).await.unwrap();
 
@@ -671,6 +687,7 @@ async fn aim_update_db_only_event_status_updates_correctly() {
         stores: HashMap::new(),
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 

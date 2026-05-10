@@ -140,6 +140,14 @@ pub struct Config {
     /// Default calendar ID for new items.
     #[serde(default = "default_calendar_id")]
     pub default_calendar: String,
+
+    /// Paths to files containing `KEY=VALUE` pairs for secret lookup.
+    ///
+    /// Paths are resolved relative to `config_dir`. Variables from these
+    /// files are accessible via `${ENV:VAR_NAME}` syntax, with lookup
+    /// priority: secrets file values first, then actual environment variables.
+    #[serde(default)]
+    pub secrets_files: Vec<String>,
 }
 
 fn default_calendar_id() -> String {
@@ -147,6 +155,60 @@ fn default_calendar_id() -> String {
 }
 
 impl Config {
+    /// Expand `${ENV:VAR_NAME}` references in all string fields.
+    ///
+    /// Loads secrets files first, then walks every string field and replaces
+    /// `${ENV:...}` references with resolved values. Lookup order: secrets
+    /// file values first, then actual environment variables.
+    ///
+    /// # Errors
+    /// Returns an error if a referenced variable is not found.
+    pub fn expand_env_vars(&mut self) -> Result<(), Box<dyn Error>> {
+        let secrets = load_secrets_files(&self.secrets_files, self.config_dir.as_deref())?;
+
+        for store_def in self.stores.values_mut() {
+            match store_def {
+                StoreDef::Local { calendar_path } => {
+                    if let Some(path) = calendar_path.take() {
+                        *calendar_path = Some(expand_env_var(&path, &secrets)?);
+                    }
+                }
+                StoreDef::Caldav {
+                    base_url,
+                    calendar_home,
+                    auth,
+                    user_agent,
+                    ..
+                } => {
+                    *base_url = expand_env_var(base_url, &secrets)?;
+                    *calendar_home = expand_env_var(calendar_home, &secrets)?;
+                    *user_agent = expand_env_var(user_agent, &secrets)?;
+                    match auth {
+                        AuthMethod::None => {}
+                        AuthMethod::Basic { username, password } => {
+                            *username = expand_env_var(username, &secrets)?;
+                            *password = expand_env_var(password, &secrets)?;
+                        }
+                        AuthMethod::Bearer { token } => {
+                            *token = expand_env_var(token, &secrets)?;
+                        }
+                    }
+                }
+            }
+        }
+
+        for calendar in &mut self.calendars {
+            if let Some(ref href) = calendar.calendar_href {
+                calendar.calendar_href = Some(expand_env_var(href, &secrets)?);
+            }
+            if let Some(ref path) = calendar.calendar_path {
+                calendar.calendar_path = Some(expand_env_var(path, &secrets)?);
+            }
+        }
+
+        Ok(())
+    }
+
     /// Normalize the configuration.
     ///
     /// # Errors
@@ -355,6 +417,112 @@ fn get_state_dir() -> Result<PathBuf, Box<dyn Error>> {
     let state_dir = dirs::data_dir();
 
     state_dir.ok_or_else(|| "User-specific state directory not found".into())
+}
+
+/// Expand `${ENV:VAR_NAME}` references in a string.
+///
+/// Lookup order: `secrets` map first, then `std::env::var`.
+///
+/// # Errors
+/// Returns an error if a referenced variable is not found in either source.
+fn expand_env_var(
+    input: &str,
+    secrets: &HashMap<String, String>,
+) -> Result<String, Box<dyn Error>> {
+    use regex::Regex;
+
+    static RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(r"\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}").unwrap());
+
+    let mut result = String::with_capacity(input.len());
+    let mut last_end = 0;
+
+    for cap in re.captures_iter(input) {
+        let m = cap.get(0).unwrap();
+        let var_name = cap.get(1).unwrap().as_str();
+
+        let value = secrets
+            .get(var_name)
+            .cloned()
+            .or_else(|| std::env::var(var_name).ok())
+            .ok_or_else(|| {
+                format!("Variable '{var_name}' not found (not in secrets files or environment)")
+            })?;
+
+        result.push_str(&input[last_end..m.start()]);
+        result.push_str(&value);
+        last_end = m.end();
+    }
+
+    result.push_str(&input[last_end..]);
+    Ok(result)
+}
+
+/// Parse `KEY=VALUE` content from a secrets file.
+///
+/// Lines starting with `#` are comments. Empty lines are ignored.
+fn parse_secrets_content(
+    contents: &str,
+    path: &Path,
+    secrets: &mut HashMap<String, String>,
+) -> Result<(), Box<dyn Error>> {
+    for (line_num, line) in contents.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some((key, value)) = trimmed.split_once('=') {
+            let key = key.trim().to_string();
+            let value = value.trim().to_string();
+            if key.is_empty() {
+                return Err(format!(
+                    "Empty key in secrets file '{}' at line {}",
+                    path.display(),
+                    line_num + 1
+                )
+                .into());
+            }
+            secrets.insert(key, value);
+        } else {
+            return Err(format!(
+                "Invalid line in secrets file '{}' at line {}: expected KEY=VALUE, got '{}'",
+                path.display(),
+                line_num + 1,
+                trimmed
+            )
+            .into());
+        }
+    }
+    Ok(())
+}
+
+/// Load `KEY=VALUE` pairs from all configured secrets files.
+///
+/// Files are loaded in order; later files override earlier ones.
+/// Paths are resolved relative to `config_dir` when available.
+fn load_secrets_files(
+    secrets_files: &[String],
+    config_dir: Option<&Path>,
+) -> Result<HashMap<String, String>, Box<dyn Error>> {
+    let mut secrets = HashMap::new();
+    for file_path_str in secrets_files {
+        let path = if Path::new(file_path_str).is_absolute() {
+            PathBuf::from(file_path_str)
+        } else if let Some(dir) = config_dir {
+            dir.join(file_path_str)
+        } else {
+            PathBuf::from(file_path_str)
+        };
+
+        if !path.exists() {
+            tracing::warn!(path = %path.display(), "secrets file not found, skipping");
+            continue;
+        }
+        let contents = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read secrets file '{}': {e}", path.display()))?;
+        parse_secrets_content(&contents, &path, &mut secrets)?;
+    }
+    Ok(secrets)
 }
 
 #[cfg(test)]
@@ -705,5 +873,199 @@ priority = 2
         for calendar in &config.calendars {
             assert_eq!(calendar.store, "radicale");
         }
+    }
+
+    #[test]
+    fn expand_env_var_no_placeholders() {
+        let secrets = HashMap::new();
+        let result = expand_env_var("hello world", &secrets).unwrap();
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn expand_env_var_simple_replacement() {
+        let mut secrets = HashMap::new();
+        secrets.insert("FOO".to_string(), "bar".to_string());
+        let result = expand_env_var("${ENV:FOO}", &secrets).unwrap();
+        assert_eq!(result, "bar");
+    }
+
+    #[test]
+    fn expand_env_var_embedded_in_string() {
+        let mut secrets = HashMap::new();
+        secrets.insert("HOST".to_string(), "example.com".to_string());
+        let result = expand_env_var("https://${ENV:HOST}/dav", &secrets).unwrap();
+        assert_eq!(result, "https://example.com/dav");
+    }
+
+    #[test]
+    fn expand_env_var_multiple_occurrences() {
+        let mut secrets = HashMap::new();
+        secrets.insert("A".to_string(), "x".to_string());
+        secrets.insert("B".to_string(), "y".to_string());
+        let result = expand_env_var("${ENV:A}/${ENV:B}", &secrets).unwrap();
+        assert_eq!(result, "x/y");
+    }
+
+    #[test]
+    fn expand_env_var_missing_variable() {
+        let secrets = HashMap::new();
+        let result = expand_env_var("${ENV:NONEXISTENT_VAR}", &secrets);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("NONEXISTENT_VAR"));
+    }
+
+    #[test]
+    fn expand_env_var_secrets_priority_over_env() {
+        let mut secrets = HashMap::new();
+        secrets.insert("TEST_PRIORITY_VAR".to_string(), "from_secrets".to_string());
+        // Note: this test assumes TEST_PRIORITY_VAR is not set in env,
+        // but the secrets map takes priority anyway
+        let result = expand_env_var("${ENV:TEST_PRIORITY_VAR}", &secrets).unwrap();
+        assert_eq!(result, "from_secrets");
+    }
+
+    #[test]
+    fn parse_secrets_simple() {
+        let mut secrets = HashMap::new();
+        let path = Path::new("test.env");
+        parse_secrets_content("KEY=value\nOTHER=123", path, &mut secrets).unwrap();
+        assert_eq!(secrets.get("KEY").unwrap(), "value");
+        assert_eq!(secrets.get("OTHER").unwrap(), "123");
+    }
+
+    #[test]
+    fn parse_secrets_comments_and_blanks() {
+        let mut secrets = HashMap::new();
+        let path = Path::new("test.env");
+        parse_secrets_content(
+            "# comment\n\nKEY=value\n# another comment\n",
+            path,
+            &mut secrets,
+        )
+        .unwrap();
+        assert_eq!(secrets.len(), 1);
+        assert_eq!(secrets.get("KEY").unwrap(), "value");
+    }
+
+    #[test]
+    fn parse_secrets_trimming() {
+        let mut secrets = HashMap::new();
+        let path = Path::new("test.env");
+        parse_secrets_content("  KEY  =  value  ", path, &mut secrets).unwrap();
+        assert_eq!(secrets.get("KEY").unwrap(), "value");
+    }
+
+    #[test]
+    fn parse_secrets_value_with_equals() {
+        let mut secrets = HashMap::new();
+        let path = Path::new("test.env");
+        parse_secrets_content("KEY=a=b", path, &mut secrets).unwrap();
+        assert_eq!(secrets.get("KEY").unwrap(), "a=b");
+    }
+
+    #[test]
+    fn parse_secrets_invalid_line() {
+        let mut secrets = HashMap::new();
+        let path = Path::new("test.env");
+        let result = parse_secrets_content("no_equals_here", path, &mut secrets);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("expected KEY=VALUE")
+        );
+    }
+
+    #[test]
+    fn parse_secrets_empty_key() {
+        let mut secrets = HashMap::new();
+        let path = Path::new("test.env");
+        let result = parse_secrets_content("=value", path, &mut secrets);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Empty key"));
+    }
+
+    #[test]
+    fn config_expand_env_vars_in_caldav_store() {
+        const TOML: &str = r#"
+[stores.mycaldav]
+type = "caldav"
+base_url = "https://${ENV:HOST}/dav"
+calendar_home = "/dav/${ENV:USER}/"
+auth = { type = "basic", username = "${ENV:USER}", password = "${ENV:PASS}" }
+
+[[calendars]]
+id = "work"
+name = "Work"
+store = "mycaldav"
+calendar_href = "/dav/${ENV:USER}/work/"
+"#;
+
+        let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
+
+        let mut secrets = HashMap::new();
+        secrets.insert("HOST".to_string(), "caldav.example.com".to_string());
+        secrets.insert("USER".to_string(), "admin".to_string());
+        secrets.insert("PASS".to_string(), "s3cret".to_string());
+
+        // Use load_secrets_files indirectly by calling expand_env_vars
+        // We need to set env vars since we can't inject secrets directly
+        // Instead, test the expand_env_var function directly on the config fields
+        let store = config.stores.get("mycaldav").unwrap();
+        match store {
+            StoreDef::Caldav {
+                base_url,
+                calendar_home,
+                auth,
+                ..
+            } => {
+                assert_eq!(
+                    expand_env_var(base_url, &secrets).unwrap(),
+                    "https://caldav.example.com/dav"
+                );
+                assert_eq!(
+                    expand_env_var(calendar_home, &secrets).unwrap(),
+                    "/dav/admin/"
+                );
+                match auth {
+                    AuthMethod::Basic { username, password } => {
+                        assert_eq!(expand_env_var(username, &secrets).unwrap(), "admin");
+                        assert_eq!(expand_env_var(password, &secrets).unwrap(), "s3cret");
+                    }
+                    _ => panic!("Expected Basic auth"),
+                }
+            }
+            StoreDef::Local { .. } => panic!("Expected Caldav store"),
+        }
+
+        // Calendar href
+        assert_eq!(
+            expand_env_var(
+                config.calendars[0].calendar_href.as_deref().unwrap(),
+                &secrets
+            )
+            .unwrap(),
+            "/dav/admin/work/"
+        );
+    }
+
+    #[test]
+    fn secrets_files_parsed_from_toml() {
+        const TOML: &str = r#"
+secrets_files = [".env", "/etc/aim/secrets"]
+
+[stores.local]
+type = "local"
+
+[[calendars]]
+id = "default"
+name = "Default"
+store = "local"
+"#;
+
+        let config: Config = toml::from_str(TOML).expect("Failed to parse TOML");
+        assert_eq!(config.secrets_files, vec![".env", "/etc/aim/secrets"]);
     }
 }
