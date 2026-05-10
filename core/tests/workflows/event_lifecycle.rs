@@ -36,6 +36,7 @@ async fn event_lifecycle_create_flow() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Team Meeting");
@@ -80,6 +81,7 @@ async fn event_lifecycle_update_flow() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Original Title");
@@ -128,6 +130,7 @@ async fn event_lifecycle_external_modification_detected() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("External Test");
@@ -174,6 +177,7 @@ async fn event_lifecycle_status_transitions() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
     let draft = test_event_draft("Status Test");
@@ -233,6 +237,7 @@ async fn event_lifecycle_batch_operations() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -353,6 +358,7 @@ END:VCALENDAR
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 
@@ -395,6 +401,7 @@ async fn event_lifecycle_rebuild_from_files() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // Create initial Aim instance and events
@@ -459,6 +466,7 @@ async fn event_lifecycle_with_custom_datetimes() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config).await.unwrap();
 

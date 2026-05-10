@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - cli: Prompt for due time when creating a todo without `--due`
+- core: `secrets_files` config option and `${ENV:VAR_NAME}` syntax for
+  referencing secrets in config values
 
 ### Changed
 

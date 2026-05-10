@@ -17,3 +17,18 @@ calendar_path = "calendar"
 
 # If true, items with no priority will be listed first (optional, default: false)
 # default_priority_none_fist = true
+
+# Paths to files containing KEY=VALUE pairs for secret lookup (optional).
+# Variables from these files are available via ${ENV:VAR_NAME} syntax.
+# Paths are resolved relative to this config file's location.
+# secrets_files = [".env", "/etc/aim/secrets"]
+
+# Environment variables can be referenced in any string field using ${ENV:VAR_NAME}.
+# Lookup order: secrets file values first, then actual environment variables.
+#
+# Example:
+#   [stores.mycaldav]
+#   type = "caldav"
+#   base_url = "https://${ENV:CALDAV_HOST}/dav"
+#   calendar_home = "/dav/${ENV:CALDAV_USER}/"
+#   auth = { type = "basic", username = "${ENV:CALDAV_USER}", password = "${ENV:CALDAV_PASSWORD}" }

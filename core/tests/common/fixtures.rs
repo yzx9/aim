@@ -39,6 +39,7 @@ pub fn test_config(calendar_path: &str, state_dir: Option<&str>) -> Config {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     }
 }
 
@@ -66,6 +67,7 @@ pub fn test_config_with_due(
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     }
 }
 
@@ -83,6 +85,7 @@ pub fn test_config_defaults() -> Config {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     }
 }
 
@@ -280,6 +283,7 @@ impl TestConfigBuilder {
             dev_mode: false,
             calendars: Vec::new(),
             default_calendar: "default".to_string(),
+            secrets_files: vec![],
         }
     }
 }

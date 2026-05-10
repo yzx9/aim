@@ -200,6 +200,7 @@ impl Aim {
     pub async fn new(mut config: Config) -> Result<Self, Box<dyn Error>> {
         let now = Zoned::now();
 
+        config.expand_env_vars()?;
         config.normalize()?;
         prepare(&config).await?;
 

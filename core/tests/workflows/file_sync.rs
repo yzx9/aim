@@ -35,6 +35,7 @@ async fn file_sync_external_modification_detected() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config.clone()).await.unwrap();
 
@@ -107,6 +108,7 @@ async fn file_sync_database_rebuild_from_files() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // Create multiple events and todos
@@ -216,6 +218,7 @@ async fn file_sync_add_remove_calendar_files() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
     let aim = Aim::new(config.clone()).await.unwrap();
 
@@ -327,6 +330,7 @@ async fn file_sync_corrupted_file_handling() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // Create valid files
@@ -410,6 +414,7 @@ async fn file_sync_mixed_components_in_single_file() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // Create file with multiple components
@@ -509,6 +514,7 @@ async fn file_sync_empty_directory_handling() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // Act - load empty directory
@@ -564,6 +570,7 @@ async fn file_sync_non_ics_files_ignored() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // Create valid .ics file
@@ -641,6 +648,7 @@ async fn file_sync_persistence_across_restarts() {
         dev_mode: false,
         calendars: Vec::new(),
         default_calendar: "default".to_string(),
+        secrets_files: vec![],
     };
 
     // First run - create data
