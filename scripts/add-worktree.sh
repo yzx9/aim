@@ -32,3 +32,6 @@ fi
 
 # Initialize development calendar in the new worktree
 cd "$worktree" && just init-dev
+
+echo "Worktree '$name' created at '$worktree', you can start working on it:"
+echo "  cd $worktree"
