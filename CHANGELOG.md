@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- ical: Bump chumsky from 0.12.0 to 0.13.0, replacing `Container` trait with `FromIterator`
+  for `SpanCollector`
 - cli: Show past events in gray in dashboard; only color events for today
 
 ### Fixed

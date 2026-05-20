@@ -8,7 +8,6 @@ use std::borrow::Cow;
 use std::fmt;
 
 use chumsky::Parser;
-use chumsky::container::Container;
 use chumsky::extra::ParserExtra;
 use chumsky::prelude::*;
 
@@ -363,18 +362,18 @@ impl SpanCollector {
     }
 }
 
-impl Container<SimpleSpan> for SpanCollector {
-    fn with_capacity(n: usize) -> Self {
-        Self(Vec::with_capacity(n))
-    }
-
-    fn push(&mut self, span: SimpleSpan) {
-        match self.0.last_mut() {
-            Some(last) if last.end() == span.start() => {
-                *last = SimpleSpan::new((), last.start()..span.end());
+impl FromIterator<SimpleSpan> for SpanCollector {
+    fn from_iter<I: IntoIterator<Item = SimpleSpan>>(iter: I) -> Self {
+        let mut spans: Vec<SimpleSpan> = Vec::new();
+        for span in iter {
+            match spans.last_mut() {
+                Some(last) if last.end() == span.start() => {
+                    *last = SimpleSpan::new((), last.start()..span.end());
+                }
+                _ => spans.push(span),
             }
-            _ => self.0.push(span),
         }
+        Self(spans)
     }
 }
 
