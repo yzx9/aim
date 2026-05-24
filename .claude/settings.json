@@ -1,4 +1,16 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(cargo test:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo check:*)",
+      "Bash(just test:*)",
+      "Bash(just lint:*)",
+      "Skill(frontend-design)",
+      "Skill(git-commit)",
+      "WebFetch(domain:crates.io)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
