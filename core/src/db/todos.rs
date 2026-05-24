@@ -105,7 +105,7 @@ JOIN calendars AS c ON c.id = t.calendar_id
         }
         sql += " LIMIT ? OFFSET ?;";
 
-        let mut executable = sqlx::query_as(&sql);
+        let mut executable = sqlx::query_as(sqlx::AssertSqlSafe(sql));
         executable = Self::bind_conditions(conds, executable);
 
         executable
@@ -139,7 +139,7 @@ LIMIT 1;
         sql += &Self::build_where(conds);
         sql += ";";
 
-        let mut query = sqlx::query_as(&sql);
+        let mut query = sqlx::query_as(sqlx::AssertSqlSafe(sql));
         query = Self::bind_conditions(conds, query);
         let row: (i64,) = query.fetch_one(&self.pool).await?;
         Ok(row.0)
@@ -168,8 +168,8 @@ LIMIT 1;
 
     fn bind_conditions<'a, O>(
         conds: &'a ResolvedTodoConditions,
-        mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
-    ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
+        mut query: QueryAs<'a, Sqlite, O, SqliteArguments>,
+    ) -> QueryAs<'a, Sqlite, O, SqliteArguments> {
         if let Some(status) = &conds.status {
             let status: &str = status.as_ref();
             query = query.bind(status);
