@@ -50,7 +50,7 @@ fn read_migration_file(name: &str) -> String {
 /// Manually applies a single migration by executing its SQL.
 async fn apply_migration(pool: &SqlitePool, migration_name: &str) {
     let up_sql = read_migration_file(&format!("{migration_name}.up.sql"));
-    sqlx::query(&up_sql)
+    sqlx::query(sqlx::AssertSqlSafe(up_sql))
         .execute(pool)
         .await
         .unwrap_or_else(|e| panic!("Failed to apply migration {migration_name}: {e}"));
@@ -59,7 +59,7 @@ async fn apply_migration(pool: &SqlitePool, migration_name: &str) {
 /// Manually applies a single down migration.
 async fn apply_down_migration(pool: &SqlitePool, migration_name: &str) {
     let down_sql = read_migration_file(&format!("{migration_name}.down.sql"));
-    sqlx::query(&down_sql)
+    sqlx::query(sqlx::AssertSqlSafe(down_sql))
         .execute(pool)
         .await
         .unwrap_or_else(|e| panic!("Failed to apply down migration {migration_name}: {e}"));
@@ -80,7 +80,7 @@ async fn get_table_names(pool: &SqlitePool) -> Vec<String> {
 /// Gets the SQL used to create a table (for schema validation).
 async fn get_table_sql(pool: &SqlitePool, table: &str) -> String {
     let sql = format!("SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'");
-    sqlx::query_scalar::<_, Option<String>>(&sql)
+    sqlx::query_scalar::<_, Option<String>>(sqlx::AssertSqlSafe(sql))
         .fetch_one(pool)
         .await
         .unwrap_or_else(|_| panic!("Table {table} not found"))
@@ -99,7 +99,7 @@ struct ColumnInfo {
 /// Gets column information for a table.
 async fn get_table_columns(pool: &SqlitePool, table: &str) -> Vec<ColumnInfo> {
     let sql = format!("PRAGMA table_info({table})");
-    let rows = sqlx::query(&sql)
+    let rows = sqlx::query(sqlx::AssertSqlSafe(sql))
         .fetch_all(pool)
         .await
         .unwrap_or_else(|e| panic!("Failed to get column info for {table}: {e}"));
@@ -157,7 +157,7 @@ async fn assert_no_autoincrement(pool: &SqlitePool, table: &str) {
 /// Gets row count for a table.
 async fn get_row_count(pool: &SqlitePool, table: &str) -> i64 {
     let sql = format!("SELECT COUNT(*) FROM {table}");
-    sqlx::query_scalar(&sql)
+    sqlx::query_scalar(sqlx::AssertSqlSafe(sql))
         .fetch_one(pool)
         .await
         .unwrap_or_else(|e| panic!("Failed to get row count for {table}: {e}"))

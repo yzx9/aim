@@ -75,7 +75,7 @@ JOIN calendars ON calendars.id = events.calendar_id
         sql += &Self::build_where(conds);
         sql += "ORDER BY calendars.priority ASC, start ASC LIMIT ? OFFSET ?;";
 
-        let mut executable = sqlx::query_as(&sql);
+        let mut executable = sqlx::query_as(sqlx::AssertSqlSafe(sql));
         executable = Self::bind_conditions(conds, executable);
 
         executable
@@ -110,7 +110,7 @@ LIMIT 1;
         sql += &Self::build_where(conds);
         sql += ";";
 
-        let mut executable = sqlx::query_as(&sql);
+        let mut executable = sqlx::query_as(sqlx::AssertSqlSafe(sql));
         executable = Self::bind_conditions(conds, executable);
 
         let row: (i64,) = executable.fetch_one(&self.pool).await?;
@@ -140,8 +140,8 @@ LIMIT 1;
 
     fn bind_conditions<'a, O>(
         conds: &'a ResolvedEventConditions,
-        mut query: QueryAs<'a, Sqlite, O, SqliteArguments<'a>>,
-    ) -> QueryAs<'a, Sqlite, O, SqliteArguments<'a>> {
+        mut query: QueryAs<'a, Sqlite, O, SqliteArguments>,
+    ) -> QueryAs<'a, Sqlite, O, SqliteArguments> {
         if let Some(ref start_before) = conds.start_before {
             query = query.bind(format_dt(start_before));
         }
