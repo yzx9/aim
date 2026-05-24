@@ -14,7 +14,7 @@ fi
 name="$1"
 path="${name//\//__}"
 root="$(dirname "$(git rev-parse --git-common-dir)")"
-worktree="$root/.worktree/$path"
+worktree="$root/.worktrees/$path"
 
 git worktree add -b "$name" "$worktree"
 
