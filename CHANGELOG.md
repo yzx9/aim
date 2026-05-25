@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- build: Bump rand from 0.9.2 to 0.9.4 (Dependabot security alert #13)
 - core: Correct SELECT columns in `find_latest_by_summary` queries for events and todos
 
 ## [0.12.1] - 2026-04-25
