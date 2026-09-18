@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod app;
+// Board state invariants guarantee valid column/card indices at runtime.
+#[allow(clippy::indexing_slicing)]
+pub(crate) mod board;
 mod component;
 mod component_form;
 mod component_form_util;
@@ -14,13 +17,14 @@ mod event_todo_editor;
 mod todo_editor;
 mod todo_store;
 
+pub use board::{BoardAction, BoardState, card_data_from_todo};
 pub use event_todo_editor::EventOrTodoDraft;
 
 use std::{cell::RefCell, error::Error, rc::Rc};
 
 use aimcal_core::{Aim, Event, EventDraft, EventPatch, Kind, Todo, TodoDraft, TodoPatch};
 use ratatui::Terminal;
-use ratatui::crossterm::event::{self, KeyEventKind};
+use ratatui::crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::layout::Rect;
 use ratatui::prelude::Backend;
 
@@ -201,4 +205,74 @@ impl<S, C: Component<S>> App<S, C> {
             _ => None, // Ignore other kinds of events
         })
     }
+}
+
+/// Run the Kanban board TUI with a poll-based event loop.
+///
+/// Unlike the `run_editor!` macro which uses blocking `event::read()`,
+/// the board uses `event::poll()` with a 100ms timeout for:
+/// - Auto-dismissing error messages after 3 seconds
+/// - Terminal resize detection
+pub fn run_board(aim: &mut Aim, initial_state: BoardState) -> Result<BoardState, Box<dyn Error>> {
+    use board::Board;
+
+    let store = Rc::new(RefCell::new(initial_state));
+
+    let result = {
+        let mut dispatcher = Dispatcher::new();
+
+        ratatui::run(|terminal| {
+            let mut view = Board::new();
+            view.activate(&mut dispatcher, &store);
+
+            loop {
+                // Draw
+                if let Err(e) = terminal.draw(|frame| {
+                    view.render(&store, frame.area(), frame.buffer_mut());
+                }) {
+                    break Err(Box::<dyn Error>::from(e));
+                }
+
+                // Poll with 100ms timeout
+                match event::poll(std::time::Duration::from_millis(100)) {
+                    Ok(true) => {
+                        if let event::Event::Key(e) =
+                            event::read().unwrap_or_else(|_| event::Event::Key(KeyCode::Esc.into()))
+                            && e.kind == KeyEventKind::Press
+                        {
+                            let area = terminal
+                                .size()
+                                .map(|s| Rect::new(0, 0, s.width, s.height))
+                                .unwrap_or_default();
+                            if let Some(Message::Exit) =
+                                view.on_key(&mut dispatcher, &store, area, e)
+                            {
+                                break Ok(());
+                            }
+                        }
+                    }
+                    Ok(false) => {} // timeout, continue loop
+                    Err(e) => break Err(Box::<dyn Error>::from(e)),
+                }
+
+                // Auto-clear error after 3 seconds
+                {
+                    let mut state = store.borrow_mut();
+                    if let Some(ts) = state.error_timestamp
+                        && ts.elapsed() > std::time::Duration::from_secs(3)
+                    {
+                        state.error_message = None;
+                        state.error_timestamp = None;
+                    }
+                }
+            }
+        })
+    }; // release dispatcher and view here to avoid borrow conflicts
+    aim.refresh_now();
+    result?;
+
+    let owned = Rc::try_unwrap(store)
+        .map_err(|_| "Store still has references")?
+        .into_inner();
+    Ok(owned)
 }
