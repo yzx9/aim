@@ -38,17 +38,17 @@ mod tests {
     #[test]
     fn returns_start_of_day() {
         let time = start_of_day();
-        assert!(time.hour() == 0);
-        assert!(time.minute() == 0);
-        assert!(time.second() == 0);
+        assert_eq!(time.hour(), 0);
+        assert_eq!(time.minute(), 0);
+        assert_eq!(time.second(), 0);
     }
 
     #[test]
     fn returns_end_of_day() {
         let time = end_of_day();
-        assert!(time.hour() == 23);
-        assert!(time.minute() == 59);
-        assert!(time.second() == 59);
+        assert_eq!(time.hour(), 23);
+        assert_eq!(time.minute(), 59);
+        assert_eq!(time.second(), 59);
     }
 
     #[test]

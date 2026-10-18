@@ -577,38 +577,34 @@ fn parse_parameter_value<'src>(
                 None => return Err(ParameterErrorKind::UnterminatedQuote),
             }
         }
-    } else {
-        // Collect until separator (semicolon, colon, comma, equals, newline)
-        while let Some(token) = tokens.peek() {
-            match token.0 {
-                Token::Semicolon
-                | Token::Colon
-                | Token::Comma
-                | Token::Equal
-                | Token::Newline(_) => {
-                    break;
-                }
-                _ => {
-                    let token = tokens.next().unwrap();
-                    let text = token_to_text(token.0);
-                    if !text.is_empty() {
-                        segments.push((text, token.1));
-                    }
+    }
+
+    // Collect until separator (semicolon, colon, comma, equals, newline)
+    while let Some(token) = tokens.peek() {
+        match token.0 {
+            Token::Semicolon | Token::Colon | Token::Comma | Token::Equal | Token::Newline(_) => {
+                break;
+            }
+            _ => {
+                let token = tokens.next().unwrap();
+                let text = token_to_text(token.0);
+                if !text.is_empty() {
+                    segments.push((text, token.1));
                 }
             }
         }
-
-        if segments.is_empty() {
-            return Ok(None);
-        }
-
-        let end = segments.last().map_or(start, |(_, s)| s.end);
-        Ok(Some(ScannedParameterValue {
-            value: Segments::new(segments),
-            quoted: false,
-            span: Span::new(start, end),
-        }))
     }
+
+    if segments.is_empty() {
+        return Ok(None);
+    }
+
+    let end = segments.last().map_or(start, |(_, s)| s.end);
+    Ok(Some(ScannedParameterValue {
+        value: Segments::new(segments),
+        quoted: false,
+        span: Span::new(start, end),
+    }))
 }
 
 /// Parse value content (everything until newline).
