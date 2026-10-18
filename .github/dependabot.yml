@@ -12,3 +12,8 @@ updates:
     commit-message:
       prefix: "build(deps): "
       prefix-development: "build(deps-dev): "
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
