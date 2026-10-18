@@ -81,7 +81,7 @@ impl CalDavClient {
             .capabilities
             .read()
             .unwrap_or_else(PoisonError::into_inner);
-        ServerCapabilities::clone(&*guard)
+        *guard
     }
 
     /// Sets the server capabilities.
