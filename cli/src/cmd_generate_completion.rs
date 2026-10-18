@@ -82,7 +82,7 @@ mod tests {
 
         let mut output = vec![];
         parsed.generate(&mut output);
-        assert!(!output.is_empty());
+        assert_ne!(output, b"");
     }
 
     #[test]

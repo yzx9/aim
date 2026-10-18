@@ -104,11 +104,11 @@ macro_rules! run_editor {
                 let mut dispatcher = Dispatcher::new();
                 $store::register_to(store.clone(), &mut dispatcher);
 
-                ratatui::run(|mut terminal| {
-                    let mut app = App::new($view(), dispatcher, &store, &mut terminal);
+                ratatui::run(|terminal| {
+                    let mut app = App::new($view(), dispatcher, &store, &mut *terminal);
 
                     loop {
-                        if let Err(e) = app.draw(&store, &mut terminal) {
+                        if let Err(e) = app.draw(&store, &mut *terminal) {
                             break Err(e.into());
                         }
 
