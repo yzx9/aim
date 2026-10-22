@@ -148,7 +148,7 @@ fn get_color_due(todo: &impl Todo, now: &Zoned) -> Option<Color> {
     get_color_due_impl(&due, now)
 }
 
-fn get_color_due_impl(due: &LooseDateTime, now: &Zoned) -> Option<Color> {
+pub(crate) fn get_color_due_impl(due: &LooseDateTime, now: &Zoned) -> Option<Color> {
     #[rustfmt::skip]
     const COLOR_OVERDUE_LT_24H: Color = Color::TrueColor { r: 255, g: 162, b: 162 };
     #[rustfmt::skip]
