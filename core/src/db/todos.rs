@@ -205,11 +205,8 @@ impl TodoRecord {
             calendar_id: calendar_id.to_string(),
             summary: todo.summary().to_string(),
             description: todo.description().unwrap_or_default().to_string(),
-            due: todo.due().map(|a| a.format_stable()).unwrap_or_default(),
-            completed: todo
-                .completed()
-                .map(|dt| format_dt(&dt))
-                .unwrap_or_default(),
+            due: todo.due().map_or_default(|a| a.format_stable()),
+            completed: todo.completed().map_or_default(|dt| format_dt(&dt)),
             percent: todo.percent_complete(),
             priority: todo.priority().into(),
             status: todo.status().to_string(),

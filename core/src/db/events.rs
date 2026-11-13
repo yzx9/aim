@@ -175,13 +175,10 @@ impl EventRecord {
             uid: uid.to_string(),
             calendar_id: calendar_id.to_string(),
             summary: event.summary().to_string(),
-            description: event
-                .description()
-                .map(|a| a.to_string())
-                .unwrap_or_default(),
-            status: event.status().map(|s| s.to_string()).unwrap_or_default(),
-            start: event.start().map(|a| a.format_stable()).unwrap_or_default(),
-            end: event.end().map(|a| a.format_stable()).unwrap_or_default(),
+            description: event.description().map_or_default(|a| a.to_string()),
+            status: event.status().map_or_default(|s| s.to_string()),
+            start: event.start().map_or_default(|a| a.format_stable()),
+            end: event.end().map_or_default(|a| a.format_stable()),
         }
     }
 

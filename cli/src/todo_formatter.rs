@@ -229,10 +229,7 @@ fn format_summary(todo: &impl Todo) -> Cow<'_, str> {
 }
 
 fn format_short_id(todo: &impl Todo) -> Cow<'_, str> {
-    todo.short_id()
-        .map(|a| a.to_string())
-        .unwrap_or_default()
-        .into()
+    todo.short_id().map_or_default(|a| a.to_string()).into()
 }
 
 fn format_uid(todo: &impl Todo) -> Cow<'_, str> {

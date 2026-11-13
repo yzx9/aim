@@ -30,8 +30,8 @@ impl EventStore {
     pub fn from_draft(draft: EventDraft) -> Self {
         Self::new(EventData {
             description: draft.description.unwrap_or_default(),
-            end: draft.end.map(format_datetime).unwrap_or_default(),
-            start: draft.start.map(format_datetime).unwrap_or_default(),
+            end: draft.end.map_or_default(format_datetime),
+            start: draft.start.map_or_default(format_datetime),
             status: draft.status,
             summary: draft.summary,
         })
@@ -44,12 +44,12 @@ impl EventStore {
                 None => event.description().unwrap_or_default().into_owned(),
             },
             start: match patch.start {
-                Some(v) => v.map(format_datetime).unwrap_or_default(),
-                None => event.start().map(format_datetime).unwrap_or_default(),
+                Some(v) => v.map_or_default(format_datetime),
+                None => event.start().map_or_default(format_datetime),
             },
             end: match patch.end {
-                Some(v) => v.map(format_datetime).unwrap_or_default(),
-                None => event.end().map(format_datetime).unwrap_or_default(),
+                Some(v) => v.map_or_default(format_datetime),
+                None => event.end().map_or_default(format_datetime),
             },
             status: patch.status.or_else(|| event.status()).unwrap_or_default(),
             summary: patch.summary.unwrap_or_else(|| event.summary().to_string()),

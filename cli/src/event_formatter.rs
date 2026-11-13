@@ -136,11 +136,7 @@ fn format_id(event: &impl Event) -> Cow<'_, str> {
 }
 
 fn format_short_id(event: &impl Event) -> Cow<'_, str> {
-    event
-        .short_id()
-        .map(|a| a.to_string())
-        .unwrap_or_default()
-        .into()
+    event.short_id().map_or_default(|a| a.to_string()).into()
 }
 
 fn format_summary(event: &impl Event) -> Cow<'_, str> {

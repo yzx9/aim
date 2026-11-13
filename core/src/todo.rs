@@ -77,10 +77,7 @@ impl Todo for VTodo<String> {
     }
 
     fn status(&self) -> TodoStatus {
-        self.status
-            .as_ref()
-            .map(|s| s.value.into())
-            .unwrap_or_default()
+        self.status.as_ref().map_or_default(|s| s.value.into())
     }
 
     fn summary(&self) -> Cow<'_, str> {

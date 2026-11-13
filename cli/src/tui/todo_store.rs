@@ -33,7 +33,7 @@ impl TodoStore {
     pub fn from_draft(draft: TodoDraft) -> Self {
         Self::new(TodoData {
             description: draft.description.unwrap_or_default(),
-            due: draft.due.map(format_datetime).unwrap_or_default(),
+            due: draft.due.map_or_default(format_datetime),
             percent_complete: draft.percent_complete,
             priority: draft.priority.unwrap_or_default(),
             status: draft.status,
@@ -48,8 +48,8 @@ impl TodoStore {
                 None => todo.description().unwrap_or_default().into_owned(),
             },
             due: match patch.due {
-                Some(v) => v.map(format_datetime).unwrap_or_default(),
-                None => todo.due().map(format_datetime).unwrap_or_default(),
+                Some(v) => v.map_or_default(format_datetime),
+                None => todo.due().map_or_default(format_datetime),
             },
             percent_complete: patch
                 .percent_complete

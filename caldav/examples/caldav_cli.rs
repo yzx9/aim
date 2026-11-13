@@ -246,8 +246,7 @@ async fn cmd_list_events(
             let summary = event
                 .summary
                 .as_ref()
-                .map(|s| s.content.to_string())
-                .unwrap_or_default();
+                .map_or_default(|s| s.content.to_string());
             let href_short = resource
                 .href
                 .as_str()
@@ -326,8 +325,7 @@ async fn cmd_list_todos(
             let summary = todo
                 .summary
                 .as_ref()
-                .map(|s| s.content.to_string())
-                .unwrap_or_default();
+                .map_or_default(|s| s.content.to_string());
             let status_str = todo
                 .status
                 .as_ref()
