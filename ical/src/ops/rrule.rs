@@ -968,8 +968,7 @@ fn get_nth_weekday_of_month(
 
     index
         .and_then(|i| occurrences.get(i).copied())
-        .map(|date| vec![date])
-        .unwrap_or_default()
+        .map_or_default(|date| vec![date])
 }
 
 /// Get the number of days in a month.
