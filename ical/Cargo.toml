@@ -13,7 +13,7 @@ repository.workspace = true
 readme.workspace = true
 
 [dependencies]
-chumsky = "0.13.0"
+chumsky = "0.14.2"
 jiff = { version = "0.2.25", optional = true }
 lexical = "7.0.5"
 logos = "0.16.1"
