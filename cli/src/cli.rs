@@ -17,7 +17,7 @@ use crate::cmd_event::{
 };
 use crate::cmd_generate_completion::CmdGenerateCompletion;
 use crate::cmd_todo::{
-    CmdTodoCancel, CmdTodoDelay, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew,
+    CmdTodoBoard, CmdTodoCancel, CmdTodoDelay, CmdTodoDone, CmdTodoEdit, CmdTodoList, CmdTodoNew,
     CmdTodoReschedule, CmdTodoUndo,
 };
 use crate::cmd_toplevel::{CmdDashboard, CmdDelay, CmdFlush, CmdReschedule};
@@ -136,9 +136,11 @@ Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
                     .subcommand(CmdTodoCancel::command())
                     .subcommand(CmdTodoDelay::command())
                     .subcommand(CmdTodoReschedule::command())
-                    .subcommand(CmdTodoList::command()),
+                    .subcommand(CmdTodoList::command())
+                    .subcommand(CmdTodoBoard::command()),
             )
             .subcommand(CmdTodoDone::command())
+            .subcommand(CmdTodoBoard::command())
             .subcommand(CmdFlush::command())
             .subcommand(CmdGenerateCompletion::command())
     }
@@ -174,8 +176,8 @@ Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
     pub fn from(matches: &ArgMatches) -> Result<Self, Box<dyn Error>> {
         use Commands::{
             CalendarList, CalendarShow, Dashboard, Delay, Edit, EventDelay, EventEdit, EventList,
-            EventNew, EventReschedule, Flush, GenerateCompletion, New, Reschedule, TodoCancel,
-            TodoDelay, TodoDone, TodoEdit, TodoList, TodoNew, TodoReschedule, TodoUndo,
+            EventNew, EventReschedule, Flush, GenerateCompletion, New, Reschedule, TodoBoard,
+            TodoCancel, TodoDelay, TodoDone, TodoEdit, TodoList, TodoNew, TodoReschedule, TodoUndo,
         };
         let command = match matches.subcommand() {
             Some((CmdDashboard::NAME, matches)) => Dashboard(CmdDashboard::from(matches)),
@@ -214,9 +216,11 @@ Defaults to $XDG_CONFIG_HOME/aim/config.toml on Linux and MacOS, \
                     TodoReschedule(CmdTodoReschedule::from(matches))
                 }
                 Some((CmdTodoList::NAME, matches)) => TodoList(CmdTodoList::from(matches)),
+                Some((CmdTodoBoard::NAME, matches)) => TodoBoard(CmdTodoBoard::from(matches)),
                 _ => unreachable!(),
             },
             Some((CmdTodoDone::NAME, matches)) => TodoDone(CmdTodoDone::from(matches)),
+            Some((CmdTodoBoard::NAME, matches)) => TodoBoard(CmdTodoBoard::from(matches)),
             Some((CmdGenerateCompletion::NAME, matches)) => {
                 GenerateCompletion(CmdGenerateCompletion::from(matches))
             }
@@ -303,6 +307,9 @@ pub enum Commands {
     /// List todos
     TodoList(CmdTodoList),
 
+    /// Launch the Kanban board
+    TodoBoard(CmdTodoBoard),
+
     /// Generate shell completion
     GenerateCompletion(CmdGenerateCompletion),
 }
@@ -318,7 +325,7 @@ impl Commands {
         use Commands::{
             CalendarList, CalendarShow, Dashboard, Delay, Edit, EventDelay, EventEdit,
             EventList, EventNew, EventReschedule, Flush, GenerateCompletion, New, Reschedule,
-            TodoCancel, TodoDelay, TodoDone, TodoEdit, TodoList, TodoNew, TodoReschedule,
+            TodoBoard, TodoCancel, TodoDelay, TodoDone, TodoEdit, TodoList, TodoNew, TodoReschedule,
             TodoUndo,
         };
         tracing::info!(?self, "running command");
@@ -344,6 +351,7 @@ impl Commands {
             TodoDelay(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoReschedule(a)  => Self::run_with(config, |x| a.run(x).boxed()).await,
             TodoList(a)        => Self::run_with(config, |x| a.run(x).boxed()).await,
+            TodoBoard(a)       => Self::run_with(config, |x| a.run(x).boxed()).await,
             GenerateCompletion(a) => { a.run(); Ok(()) }
         }
     }
@@ -686,5 +694,19 @@ mod tests {
             Commands::GenerateCompletion(cmd) => assert_eq!(cmd.shell, Shell::Zsh),
             _ => panic!("Expected GenerateCompletion command"),
         }
+    }
+
+    #[test]
+    fn parses_todo_board_command() {
+        let args = ["test", "todo", "board"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        assert!(matches!(cli.command, Commands::TodoBoard(_)));
+    }
+
+    #[test]
+    fn parses_board_command_alias() {
+        let args = ["test", "board"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        assert!(matches!(cli.command, Commands::TodoBoard(_)));
     }
 }
